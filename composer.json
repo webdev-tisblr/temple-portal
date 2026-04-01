@@ -13,7 +13,6 @@
         "filament/filament": "^3.3",
         "filament/spatie-laravel-media-library-plugin": "^3.3",
         "intervention/image": "^4.0",
-        "kreait/laravel-firebase": "^7.1",
         "laravel/framework": "^11.31",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^2.9",
@@ -82,7 +81,9 @@
             "php-http/discovery": true
         },
         "platform": {
-            "php": "8.3.30"
+            "php": "8.3.30",
+            "ext-redis": false,
+            "ext-sodium": false
         }
     },
     "minimum-stability": "stable",

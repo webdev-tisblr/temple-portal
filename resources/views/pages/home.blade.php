@@ -33,7 +33,7 @@
             <span style="color: #c49a2a;">હનુમાનજી ધામ</span>
         </h1>
 
-        <p class="mt-6 text-xl sm:text-2xl text-amber-100/40 font-light tracking-wide">અંતરજાલ, ગાંધીધામ, કચ્છ</p>
+        <p class="mt-6 text-xl sm:text-2xl text-amber-100/40 font-light tracking-wide">અંતરજાલ, ગાંધીધામ, કચ્છ (૩૭૦૧૧૦)</p>
 
         {{-- Ornamental divider --}}
         <div class="divine-divider">

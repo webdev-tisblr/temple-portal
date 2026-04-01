@@ -1,6 +1,6 @@
 /.phpunit.cache
 /node_modules
-/public/build
+# /public/build  ← committed for Hostinger (no Node.js on server)
 /public/hot
 /public/storage
 /storage/*.key

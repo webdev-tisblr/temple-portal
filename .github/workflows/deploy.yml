@@ -25,33 +25,23 @@ jobs:
           npm ci
           npm run build
 
-      - name: Deploy via SFTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: Deploy via rsync over SSH
+        uses: burnett01/rsync-deployments@7.0.1
         with:
-          server: ${{ secrets.HOSTINGER_HOST }}
-          username: ${{ secrets.HOSTINGER_USERNAME }}
-          password: ${{ secrets.HOSTINGER_PASSWORD }}
-          port: ${{ secrets.HOSTINGER_PORT }}
-          protocol: sftp
-          local-dir: ./
-          server-dir: ./domains/patadiyahanumanji.com/public_html/
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-            **/.env
-            **/.env.production
-            **/.env.deploy
-            **/.env.server
-            **/tests/**
-            **/.github/**
+          switches: -avz --delete --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='.env.production' --exclude='.env.deploy' --exclude='.env.server' --exclude='tests' --exclude='.github' --exclude='storage/logs/*.log' --exclude='storage/framework/cache/data/*' --exclude='storage/framework/sessions/*' --exclude='storage/framework/views/*'
+          path: ./
+          remote_path: ~/domains/patadiyahanumanji.com/public_html/
+          remote_host: ${{ secrets.HOSTINGER_HOST }}
+          remote_port: ${{ secrets.HOSTINGER_PORT }}
+          remote_user: ${{ secrets.HOSTINGER_USERNAME }}
+          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Run post-deploy commands
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.HOSTINGER_HOST }}
           username: ${{ secrets.HOSTINGER_USERNAME }}
-          password: ${{ secrets.HOSTINGER_PASSWORD }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.HOSTINGER_PORT }}
           script: |
             cd ~/domains/patadiyahanumanji.com/public_html
@@ -60,4 +50,3 @@ jobs:
             php artisan route:cache
             php artisan view:cache
             php artisan storage:link 2>/dev/null || true
-            echo "Deploy complete!"

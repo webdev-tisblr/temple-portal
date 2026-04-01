@@ -19,7 +19,7 @@ echo ""
 if [ "$1" = "--first-run" ]; then
     echo "[1/8] Cloning repository..."
     if [ ! -d "$APP_DIR" ]; then
-        git clone <YOUR_REPO_URL> "$APP_DIR"
+        git clone https://github.com/webdev-tisblr/temple-portal.git "$APP_DIR"
     fi
     cd "$APP_DIR"
 

@@ -15,7 +15,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: mbstring, xml, curl, gd, zip, intl, bcmath, sodium
+          extensions: mbstring, xml, curl, gd, zip, intl, bcmath
 
       - name: Install Composer dependencies
         run: composer install --no-dev --optimize-autoloader --no-interaction
@@ -34,13 +34,15 @@ jobs:
           port: ${{ secrets.HOSTINGER_PORT }}
           protocol: sftp
           local-dir: ./
-          server-dir: ./temple-portal/
+          server-dir: ./domains/patadiyahanumanji.com/public_html/
           exclude: |
             **/.git*
             **/.git*/**
             **/node_modules/**
             **/.env
             **/.env.production
+            **/.env.deploy
+            **/.env.server
             **/tests/**
             **/.github/**
 
@@ -52,7 +54,7 @@ jobs:
           password: ${{ secrets.HOSTINGER_PASSWORD }}
           port: ${{ secrets.HOSTINGER_PORT }}
           script: |
-            cd ~/temple-portal
+            cd ~/domains/patadiyahanumanji.com/public_html
             php artisan migrate --force
             php artisan config:cache
             php artisan route:cache

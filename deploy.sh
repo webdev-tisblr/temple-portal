@@ -79,12 +79,12 @@ if [ "$1" = "--first-run" ]; then
     echo "     Interval: Every 5 minutes"
     echo ""
     echo "  2. Configure Razorpay webhook:"
-    echo "     URL: https://templeportal.in/api/v1/webhooks/razorpay"
+    echo "     URL: https://patadiyahanumanji.com/api/v1/webhooks/razorpay"
     echo "     Events: payment.captured, payment.failed, refund.created"
     echo ""
     echo "  3. Set up Cloudflare:"
     echo "     SSL: Full (strict)"
-    echo "     A record: templeportal.in -> $(hostname -I | awk '{print $1}')"
+    echo "     A record: patadiyahanumanji.com -> $(hostname -I | awk '{print $1}')"
     echo ""
     exit 0
 fi
@@ -115,4 +115,4 @@ php artisan event:cache
 
 echo ""
 echo "=== Deploy complete! ==="
-echo "Site: https://templeportal.in"
+echo "Site: https://patadiyahanumanji.com"

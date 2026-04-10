@@ -39,16 +39,15 @@ class DonationResource extends Resource
         return $infolist->schema([
             Infolists\Components\Section::make('Donation Details')->schema([
                 Infolists\Components\TextEntry::make('id')->label('Donation ID'),
+                Infolists\Components\TextEntry::make('created_at')->dateTime('d M Y, h:i A')->label('Date'),
                 Infolists\Components\TextEntry::make('devotee.name')->label('Devotee'),
                 Infolists\Components\TextEntry::make('devotee.phone')->label('Phone'),
+                Infolists\Components\TextEntry::make('devotee.email')->label('Email')->default('-'),
                 Infolists\Components\TextEntry::make('amount')->prefix('₹')->label('Amount'),
                 Infolists\Components\TextEntry::make('donation_type')->badge()->label('Type'),
-                Infolists\Components\TextEntry::make('purpose')->label('Purpose'),
+                Infolists\Components\TextEntry::make('purpose')->label('Purpose')->default('-'),
                 Infolists\Components\TextEntry::make('financial_year')->label('Financial Year'),
-                Infolists\Components\IconEntry::make('pan_verified')->boolean()->label('PAN Verified'),
-                Infolists\Components\IconEntry::make('receipt_generated')->boolean()->label('Receipt Generated'),
-                Infolists\Components\TextEntry::make('receipt.receipt_number')->label('Receipt Number'),
-                Infolists\Components\TextEntry::make('created_at')->dateTime()->label('Date'),
+                Infolists\Components\TextEntry::make('receipt.receipt_number')->label('Receipt No.')->default('Not generated'),
             ])->columns(2),
         ]);
     }
@@ -69,8 +68,6 @@ class DonationResource extends Resource
                     default => 'gray',
                 }),
                 Tables\Columns\TextColumn::make('financial_year')->sortable(),
-                Tables\Columns\IconColumn::make('pan_verified')->boolean(),
-                Tables\Columns\IconColumn::make('receipt_generated')->boolean(),
                 Tables\Columns\TextColumn::make('created_at')->dateTime('d M Y H:i')->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
@@ -80,11 +77,17 @@ class DonationResource extends Resource
                     'construction' => 'Construction', 'festival' => 'Festival', 'campaign' => 'Campaign',
                 ]),
                 Tables\Filters\SelectFilter::make('financial_year')->options(fn () => Donation::distinct()->pluck('financial_year', 'financial_year')->toArray()),
-                Tables\Filters\TernaryFilter::make('pan_verified'),
-                Tables\Filters\TernaryFilter::make('receipt_generated'),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
+                Tables\Actions\Action::make('view_receipt')
+                    ->label('Receipt')
+                    ->icon('heroicon-o-document-text')
+                    ->color('success')
+                    ->url(fn (Donation $record) => $record->receipt?->pdf_path
+                        ? route('filament.admin.resources.donations.view', $record)
+                        : null)
+                    ->visible(fn (Donation $record) => $record->receipt_generated),
             ]);
     }
 

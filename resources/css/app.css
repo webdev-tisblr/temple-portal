@@ -130,3 +130,133 @@
 ::-webkit-scrollbar-track { background: #0a0604; }
 ::-webkit-scrollbar-thumb { background: #c49a2a40; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #c49a2a80; }
+
+/* ═══════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+   Applied when <html> has .light-mode class
+   ═══════════════════════════════════════════ */
+.light-mode body {
+    background: #faf7f2;
+    color: #3d2b1f;
+}
+.light-mode .bg-temple {
+    background: #faf7f2;
+}
+.light-mode .bg-temple-light {
+    background: linear-gradient(180deg, #f5efe6, #faf7f2);
+}
+.light-mode .text-gold {
+    color: #8b6914;
+}
+.light-mode .text-gold-dim {
+    color: #a07d24;
+}
+.light-mode .divine-heading {
+    color: #7a5c10;
+}
+.light-mode .divine-subtext {
+    @apply text-stone-500;
+}
+
+/* Cards */
+.light-mode .card-sacred {
+    background: #ffffff;
+    border-color: #e5ddd0;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+.light-mode .card-sacred:hover {
+    border-color: #c9b896;
+    box-shadow: 0 6px 24px rgba(139, 105, 20, 0.1);
+}
+
+/* Buttons */
+.light-mode .btn-divine {
+    background: linear-gradient(135deg, #b8860b, #8b6914);
+    color: #fff;
+}
+.light-mode .btn-divine:hover {
+    background: linear-gradient(135deg, #d4a016, #b8860b);
+}
+.light-mode .btn-temple {
+    border-color: #8b6914;
+    color: #7a5c10;
+}
+.light-mode .btn-temple:hover {
+    background: #8b6914;
+    color: #fff;
+}
+
+/* Text colors */
+.light-mode .text-amber-100\/60,
+.light-mode .text-amber-100\/50,
+.light-mode .text-amber-100\/40,
+.light-mode .text-amber-100\/30,
+.light-mode .text-amber-100\/70,
+.light-mode .text-amber-100\/80 {
+    color: #5c4a38 !important;
+}
+.light-mode .text-amber-200\/60 {
+    color: #6b5a48 !important;
+}
+.light-mode .text-amber-600 {
+    color: #8b6914 !important;
+}
+.light-mode .text-amber-500 {
+    color: #a07d24 !important;
+}
+
+/* Borders */
+.light-mode .border-amber-900\/20,
+.light-mode .border-amber-900\/15,
+.light-mode .border-amber-800\/30,
+.light-mode .border-amber-800\/20 {
+    border-color: #e5ddd0 !important;
+}
+
+/* Backgrounds */
+.light-mode .bg-amber-900\/20,
+.light-mode .bg-amber-900\/30,
+.light-mode .bg-amber-900\/15,
+.light-mode .bg-amber-900\/10 {
+    background-color: #f0ebe2 !important;
+}
+
+/* Header / Nav */
+.light-mode header {
+    background: rgba(250, 247, 242, 0.95) !important;
+    backdrop-filter: blur(12px);
+    border-color: #e5ddd0 !important;
+}
+.light-mode header .text-amber-100\/60 {
+    color: #5c4a38 !important;
+}
+
+/* Forms */
+.light-mode input,
+.light-mode select,
+.light-mode textarea {
+    background: #ffffff !important;
+    border-color: #d5ccc0 !important;
+    color: #3d2b1f !important;
+}
+.light-mode input::placeholder,
+.light-mode textarea::placeholder {
+    color: #a09080 !important;
+}
+
+/* Scrollbar */
+.light-mode ::-webkit-scrollbar-track { background: #faf7f2; }
+.light-mode ::-webkit-scrollbar-thumb { background: #c9b89660; }
+.light-mode ::-webkit-scrollbar-thumb:hover { background: #c9b896; }
+
+/* Inner glow */
+.light-mode .inner-glow {
+    box-shadow: inset 0 0 60px rgba(139, 105, 20, 0.03);
+}
+
+/* Prose (rich content) */
+.light-mode .prose-invert {
+    --tw-prose-body: #4a3a2e;
+    --tw-prose-headings: #7a5c10;
+    --tw-prose-links: #8b6914;
+}

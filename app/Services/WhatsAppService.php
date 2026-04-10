@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\SystemSetting;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -15,9 +16,9 @@ class WhatsAppService
 
     public function __construct()
     {
-        $this->apiUrl = config('whatsapp.api_url');
-        $this->phoneNumberId = config('whatsapp.phone_number_id', '');
-        $this->accessToken = config('whatsapp.access_token', '');
+        $this->apiUrl = SystemSetting::getValue('whatsapp_api_url', config('whatsapp.api_url', 'https://graph.facebook.com/v21.0'));
+        $this->phoneNumberId = SystemSetting::getValue('whatsapp_phone_number_id', config('whatsapp.phone_number_id', ''));
+        $this->accessToken = SystemSetting::getValue('whatsapp_access_token', config('whatsapp.access_token', ''));
     }
 
     public function sendTemplateMessage(string $phone, string $templateName, string $languageCode, array $components = []): bool

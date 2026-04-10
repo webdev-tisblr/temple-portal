@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\Donation;
+use App\Models\Order;
 use App\Models\Receipt80G;
 use App\Models\SevaBooking;
 use App\Services\PanValidationService;
@@ -60,6 +61,17 @@ class DashboardController extends Controller
         SEOMeta::setTitle('મારી બુકિંગ');
 
         return view('pages.dashboard.bookings', compact('bookings'));
+    }
+
+    public function orders(): View
+    {
+        $devotee = Auth::guard('devotee')->user();
+        $orders = Order::where('devotee_id', $devotee->id)
+            ->with('items')->orderByDesc('created_at')->paginate(20);
+
+        SEOMeta::setTitle('મારા ઓર્ડર');
+
+        return view('pages.dashboard.orders', compact('orders'));
     }
 
     public function receipts(): View
@@ -135,5 +147,49 @@ class DashboardController extends Controller
         $devotee->update($updateData);
 
         return back()->with('success', 'પ્રોફાઇલ અપડેટ થઈ.');
+    }
+
+    public function showCompleteProfile(): View|RedirectResponse
+    {
+        $devotee = Auth::guard('devotee')->user();
+
+        // Already complete — send to dashboard
+        if (! empty($devotee->name)) {
+            return redirect()->route('dashboard.index');
+        }
+
+        SEOMeta::setTitle('પ્રોફાઇલ પૂર્ણ કરો');
+
+        return view('pages.dashboard.complete-profile', compact('devotee'));
+    }
+
+    public function saveCompleteProfile(Request $request): RedirectResponse
+    {
+        $devotee = Auth::guard('devotee')->user();
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'address' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:100',
+            'pincode' => 'nullable|string|max:10',
+            'pan_number' => 'nullable|string|size:10',
+        ]);
+
+        $updateData = collect($validated)->except(['pan_number'])->filter()->toArray();
+
+        if (! empty($validated['pan_number'])) {
+            $panService = app(PanValidationService::class);
+            if (! $panService->validate($validated['pan_number'])) {
+                return back()->withErrors(['pan_number' => 'અમાન્ય PAN ફોર્મેટ. (ABCDE1234F)']);
+            }
+            $updateData['pan_encrypted'] = Crypt::encryptString($validated['pan_number']);
+            $updateData['pan_last_four'] = substr($validated['pan_number'], -4);
+        }
+
+        $devotee->update($updateData);
+
+        return redirect()->route('dashboard.index')->with('success', 'પ્રોફાઇલ સફળતાપૂર્વક બનાવવામાં આવી!');
     }
 }

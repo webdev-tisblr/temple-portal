@@ -11,6 +11,30 @@
         <h1 class="text-2xl font-bold text-emerald-300 mb-2">આભાર! દાન સફળ થયું.</h1>
         <p class="text-amber-100/50 mb-4">તમારું દાન સફળતાપૂર્વક પ્રાપ્ત થયું છે.</p>
 
+        {{-- Greeting Card Display --}}
+        @if($donation->greeting_card_path)
+            @php
+                $cardConfig = $donation->donationType?->greeting_card_config ?? [];
+                $showOnThankyou = $cardConfig['show_on_thankyou'] ?? true;
+            @endphp
+            @if($showOnThankyou)
+                <div class="my-6">
+                    <div class="card-sacred overflow-hidden inline-block">
+                        <img src="{{ route('donation.greeting-card', $donation->id) }}"
+                             alt="Greeting Card"
+                             class="max-w-full h-auto rounded-lg">
+                    </div>
+                    <div class="mt-3">
+                        <a href="{{ route('donation.greeting-card', $donation->id) }}" download="greeting-card.png"
+                           class="inline-flex items-center gap-2 px-4 py-2 bg-amber-900/30 text-amber-100/70 text-sm font-medium rounded-lg hover:bg-amber-900/50 border border-amber-800/30 transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            ડાઉનલોડ ગ્રીટિંગ કાર્ડ
+                        </a>
+                    </div>
+                </div>
+            @endif
+        @endif
+
         <div class="bg-amber-900/20 border border-amber-800/30 rounded-xl p-4 text-left mt-6 text-sm">
             <div class="flex justify-between py-2 border-b border-amber-900/20">
                 <span class="text-amber-100/40">રકમ</span>
@@ -18,13 +42,13 @@
             </div>
             <div class="flex justify-between py-2 border-b border-amber-900/20">
                 <span class="text-amber-100/40">પ્રકાર</span>
-                <span class="font-medium text-amber-100/60">{{ ucfirst($donation->donation_type->value) }}</span>
+                <span class="font-medium text-amber-100/60">{{ $donation->donationType?->name ?? ucfirst($donation->donation_type->value) }}</span>
             </div>
             <div class="flex justify-between py-2">
                 <span class="text-amber-100/40">80G રસીદ</span>
                 <span class="font-medium">
                     @if($donation->receipt_generated && $donation->receipt)
-                        <a href="#" class="text-amber-500 hover:text-gold underline transition">ડાઉનલોડ</a>
+                        <a href="{{ route('dashboard.receipts.download', $donation->receipt) }}" class="text-amber-500 hover:text-gold underline transition">ડાઉનલોડ</a>
                     @else
                         <span class="text-amber-100/30">ટૂંક સમયમાં ઉપલબ્ધ</span>
                     @endif

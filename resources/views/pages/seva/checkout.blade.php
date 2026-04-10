@@ -31,11 +31,11 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         theme: { color: "#e8c36a" },
         handler: function(response) {
-            window.location.href = "{{ route('seva.booking.success') }}?payment_id=" + response.razorpay_payment_id + "&order_id=" + response.razorpay_order_id + "&signature=" + response.razorpay_signature;
+            window.location.href = "{{ $successUrl ?? route('seva.booking.success') }}?payment_id=" + response.razorpay_payment_id + "&order_id=" + response.razorpay_order_id + "&signature=" + response.razorpay_signature;
         },
         modal: {
             ondismiss: function() {
-                window.location.href = "{{ route('seva.booking.failure') }}";
+                window.location.href = "{{ $failureUrl ?? route('seva.booking.failure') }}";
             }
         }
     };

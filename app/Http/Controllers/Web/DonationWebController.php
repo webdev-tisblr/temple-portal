@@ -6,8 +6,10 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateDonationRequest;
+use App\Jobs\Generate80GReceipt;
 use App\Models\Donation;
 use App\Models\DonationCampaign;
+use App\Models\DonationType;
 use App\Models\Payment;
 use App\Services\RazorpayService;
 use Artesaos\SEOTools\Facades\SEOMeta;
@@ -29,13 +31,25 @@ class DonationWebController extends Controller
             })
             ->get();
 
+        $donationTypes = DonationType::where('is_active', true)->orderBy('sort_order')->get();
+
+        // Pre-build JS-ready data (avoid arrow functions in Blade @json)
+        $donationTypesJs = $donationTypes->map(function ($t) {
+            return [
+                'id' => $t->id,
+                'slug' => $t->slug,
+                'name' => $t->name,
+                'extra_fields' => $t->extra_fields ?? [],
+            ];
+        })->values()->toArray();
+
         SEOMeta::setTitle('દાન કરો — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ');
         SEOMeta::setDescription('શ્રી પાતળિયા હનુમાનજી મંદિર માટે ઓનલાઈન દાન કરો.');
 
-        return view('pages.donation.index', compact('campaigns'));
+        return view('pages.donation.index', compact('campaigns', 'donationTypes', 'donationTypesJs'));
     }
 
-    public function create(CreateDonationRequest $request): View
+    public function create(CreateDonationRequest $request): View|\Illuminate\Http\RedirectResponse
     {
         $validated = $request->validated();
         $devotee = Auth::guard('devotee')->user();
@@ -45,8 +59,22 @@ class DonationWebController extends Controller
             ? now()->year . '-' . substr((string) (now()->year + 1), -2)
             : (now()->year - 1) . '-' . substr((string) now()->year, -2);
 
+        // Process extra_data — handle image uploads
+        $extraData = $validated['extra_data'] ?? null;
+        if ($extraData && !empty($validated['donation_type_id'])) {
+            $donationType = DonationType::find($validated['donation_type_id']);
+            if ($donationType && is_array($donationType->extra_fields)) {
+                foreach ($donationType->extra_fields as $field) {
+                    $key = $field['key'] ?? null;
+                    if ($key && ($field['type'] ?? '') === 'image' && $request->hasFile("extra_data.{$key}")) {
+                        $extraData[$key] = $request->file("extra_data.{$key}")->store('donation-extras', 'public');
+                    }
+                }
+            }
+        }
+
         try {
-            $result = DB::transaction(function () use ($validated, $devotee, $amount, $fy) {
+            $result = DB::transaction(function () use ($validated, $devotee, $amount, $fy, $extraData) {
                 $paymentId = (string) Str::uuid();
                 $receipt = 'DON-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
 
@@ -73,8 +101,10 @@ class DonationWebController extends Controller
                     'payment_id' => $payment->id,
                     'amount' => $amount,
                     'donation_type' => $validated['donation_type'],
+                    'donation_type_id' => $validated['donation_type_id'] ?? null,
                     'purpose' => $validated['purpose'] ?? null,
                     'campaign_id' => $validated['campaign_id'] ?? null,
+                    'extra_data' => $extraData,
                     'is_80g_eligible' => true,
                     'pan_verified' => !empty($devotee->pan_encrypted),
                     'pan_number_encrypted' => $devotee->pan_encrypted,
@@ -90,9 +120,7 @@ class DonationWebController extends Controller
             });
 
             return view('pages.seva.checkout', [
-                'seva' => null,
-                'booking' => null,
-                'razorpayKeyId' => config('razorpay.key_id'),
+                'razorpayKeyId' => \App\Models\SystemSetting::getValue('razorpay_key_id', config('razorpay.key_id')),
                 'orderId' => $result['razorpay_order']->id,
                 'amount' => (int) round($amount * 100),
                 'currency' => 'INR',
@@ -100,6 +128,8 @@ class DonationWebController extends Controller
                 'devoteeName' => $devotee->name,
                 'devoteePhone' => $devotee->phone,
                 'devoteeEmail' => $devotee->email ?? '',
+                'successUrl' => route('donate.thanks'),
+                'failureUrl' => route('home'),
             ]);
 
         } catch (\Exception $e) {
@@ -124,11 +154,37 @@ class DonationWebController extends Controller
             if ($verified) {
                 $payment = Payment::where('razorpay_order_id', $orderId)->first();
                 if ($payment) {
-                    $donation = Donation::where('payment_id', $payment->id)->with('receipt')->first();
+                    $payment->update([
+                        'status' => 'captured',
+                        'razorpay_payment_id' => $paymentId,
+                        'paid_at' => $payment->paid_at ?? now(),
+                    ]);
+
+                    $donation = Donation::where('payment_id', $payment->id)->with('receipt', 'donationType')->first();
+
+                    // Auto-generate 80G receipt
+                    if ($donation && ! $donation->receipt_generated) {
+                        Generate80GReceipt::dispatchSync($donation);
+                        $donation->refresh();
+                    }
                 }
             }
         }
 
         return view('pages.donation.thank-you', compact('verified', 'donation'));
+    }
+
+    public function greetingCard(string $donationId): \Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\RedirectResponse
+    {
+        $donation = Donation::findOrFail($donationId);
+
+        if (empty($donation->greeting_card_path) || ! \Illuminate\Support\Facades\Storage::disk('local')->exists($donation->greeting_card_path)) {
+            abort(404);
+        }
+
+        return response()->file(
+            \Illuminate\Support\Facades\Storage::disk('local')->path($donation->greeting_card_path),
+            ['Content-Type' => 'image/png']
+        );
     }
 }

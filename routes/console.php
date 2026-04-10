@@ -49,6 +49,11 @@ Schedule::call(function () {
     }
 })->everyFiveMinutes()->name('dispatch-scheduled-notifications')->withoutOverlapping();
 
+// Cancel stale pending bookings every 5 minutes
+Schedule::command('bookings:clean-stale')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();
+
 // Prune expired OTP codes daily
 Schedule::command('model:prune', ['--model' => [OtpCode::class]])
     ->daily();

@@ -6,7 +6,7 @@
             <img src="{{ asset('storage/' . $seva->image_path) }}" alt="{{ $seva->name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-80 group-hover:opacity-100">
         @else
             <div class="text-center">
-                <img src="{{ asset('images/hanumanji-icon.png') }}" alt="Hanumanji" class="w-20 h-20 rounded-full mx-auto diya-glow opacity-60" style="box-shadow: 0 0 30px rgba(196,154,42,0.2);">
+                <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="શ્રી પાતળિયા હનુમાનજી" class="w-20 h-20 rounded-full mx-auto diya-glow opacity-60" style="box-shadow: 0 0 30px rgba(196,154,42,0.2);">
             </div>
         @endif
         <span class="absolute top-3 left-3 px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest rounded-full bg-black/50 backdrop-blur-sm text-amber-300 border border-amber-800/30">

@@ -33,3 +33,6 @@ storage/app/gallery/*
 # OS files
 .DS_Store
 Thumbs.db
+.env.deploy
+.env.server
+database.sqlite

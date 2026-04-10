@@ -29,16 +29,24 @@ class ReceiptService
         $receiptNumber = "{$prefix}/{$fy}/{$serial}";
 
         $devotee = $donation->devotee;
-        $panNumber = $devotee->pan_encrypted
-            ? decrypt($devotee->pan_encrypted)
-            : 'N/A';
+        $panNumber = 'N/A';
+        if (! empty($devotee->pan_encrypted)) {
+            try {
+                $panNumber = decrypt($devotee->pan_encrypted);
+            } catch (\Exception) {
+                $panNumber = $devotee->pan_last_four ? '******' . $devotee->pan_last_four : 'N/A';
+            }
+        }
 
         $receipt = Receipt80G::create([
             'donation_id' => $donation->id,
             'receipt_number' => $receiptNumber,
             'financial_year' => $fy,
             'devotee_name' => $devotee->name ?: 'Devotee',
-            'devotee_address' => $devotee->address,
+            'devotee_address' => collect([$devotee->address, $devotee->city, $devotee->state, $devotee->pincode])
+                ->filter()->implode(', '),
+            'devotee_phone' => $devotee->phone,
+            'devotee_email' => $devotee->email,
             'pan_number' => $panNumber,
             'amount' => $donation->amount,
             'amount_in_words' => NumberToWords::convert((float) $donation->amount),

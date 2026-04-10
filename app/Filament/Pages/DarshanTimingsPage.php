@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Models\DarshanTiming;
+use App\Models\SystemSetting;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -26,6 +27,7 @@ class DarshanTimingsPage extends Page implements HasForms
 
     public ?array $regular = [];
     public ?array $sunday = [];
+    public ?string $temple_rules = '';
 
     public function mount(): void
     {
@@ -35,6 +37,7 @@ class DarshanTimingsPage extends Page implements HasForms
         $this->form->fill([
             'regular' => $regularTiming ? $regularTiming->toArray() : [],
             'sunday' => $sundayTiming ? $sundayTiming->toArray() : [],
+            'temple_rules' => SystemSetting::getValue('temple_rules', ''),
         ]);
     }
 
@@ -56,6 +59,21 @@ class DarshanTimingsPage extends Page implements HasForms
             Forms\Components\Section::make('Sunday Timings')
                 ->schema($timingFields('sunday'))
                 ->columns(3),
+            Forms\Components\Section::make('Temple Rules & Regulations')
+                ->icon('heroicon-o-document-text')
+                ->description('This content will be displayed on the Darshan page under temple timings.')
+                ->schema([
+                    Forms\Components\RichEditor::make('temple_rules')
+                        ->label('')
+                        ->placeholder('Enter temple rules, guidelines, dress code, photography policy, etc.')
+                        ->toolbarButtons([
+                            'bold', 'italic', 'underline', 'strike',
+                            'h2', 'h3',
+                            'bulletList', 'orderedList',
+                            'link', 'blockquote',
+                            'undo', 'redo',
+                        ]),
+                ]),
         ]);
     }
 
@@ -72,8 +90,14 @@ class DarshanTimingsPage extends Page implements HasForms
             }
         }
 
+        // Save temple rules
+        SystemSetting::updateOrCreate(
+            ['key' => 'temple_rules'],
+            ['value' => $data['temple_rules'] ?? '', 'group' => 'general', 'updated_at' => now()]
+        );
+
         Cache::forget('darshan_timings');
 
-        Notification::make()->title('Darshan timings updated')->success()->send();
+        Notification::make()->title('Darshan timings & rules updated')->success()->send();
     }
 }

@@ -38,6 +38,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->navigationGroups([
                 NavigationGroup::make('Temple Management'),
+                NavigationGroup::make('Temple Store'),
                 NavigationGroup::make('Donations & Finance'),
                 NavigationGroup::make('Content'),
                 NavigationGroup::make('Communication'),

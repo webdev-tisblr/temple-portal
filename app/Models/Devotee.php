@@ -63,4 +63,9 @@ class Devotee extends Authenticatable
     {
         return $this->hasMany(HallBooking::class, 'devotee_id');
     }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class, 'devotee_id');
+    }
 }

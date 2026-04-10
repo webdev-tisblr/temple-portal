@@ -1,8 +1,10 @@
 <x-filament-panels::page>
     <form wire:submit.prevent="">
         {{ $this->filterForm }}
-        <div class="mt-4 flex gap-2">
+        <div class="mt-4 flex flex-wrap gap-2">
             <x-filament::button wire:click="applyFilters" icon="heroicon-m-funnel">Apply Filters</x-filament::button>
+            <x-filament::button wire:click="exportCsv" color="success" icon="heroicon-m-table-cells">Export CSV</x-filament::button>
+            <x-filament::button wire:click="exportPdf" color="warning" icon="heroicon-m-document-arrow-down">Export PDF</x-filament::button>
         </div>
     </form>
 

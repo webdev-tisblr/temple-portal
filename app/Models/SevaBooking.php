@@ -27,6 +27,7 @@ class SevaBooking extends Model
         'devotee_name_for_seva',
         'gotra',
         'sankalp',
+        'selected_product_id',
         'notes',
         'cancelled_at',
         'cancellation_reason',
@@ -53,5 +54,10 @@ class SevaBooking extends Model
     public function payment(): BelongsTo
     {
         return $this->belongsTo(Payment::class, 'payment_id');
+    }
+
+    public function selectedProduct(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'selected_product_id');
     }
 }

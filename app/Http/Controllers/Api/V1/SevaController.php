@@ -10,7 +10,7 @@ use App\Http\Resources\SevaResource;
 use App\Models\Payment;
 use App\Models\Seva;
 use App\Models\SevaBooking;
-use App\Services\RazorpayService;
+use App\Services\SevaSlotService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -20,6 +20,10 @@ use Illuminate\Support\Str;
 
 class SevaController extends BaseApiController
 {
+    public function __construct(
+        private readonly SevaSlotService $slotService,
+    ) {}
+
     public function index(Request $request): SevaCollection
     {
         $category = $request->query('category');
@@ -51,32 +55,26 @@ class SevaController extends BaseApiController
         ]);
 
         $date = $request->query('date');
-        $slotConfig = $seva->slot_config;
+        $availability = $this->slotService->getSlotAvailability($seva, $date);
 
-        if (!$slotConfig || empty($slotConfig['time_slots'])) {
-            return $this->success([
-                'date' => $date,
-                'slots' => [],
-                'booked' => [],
-            ]);
+        $response = [
+            'date' => $date,
+            'slots' => $availability['available'],
+            'booked' => $availability['booked'],
+            'slot_duration_minutes' => $seva->getSlotDurationMinutes(),
+            'max_bookings_per_slot' => $seva->getMaxBookingsPerSlot(),
+        ];
+
+        if ($availability['blackout']) {
+            $response['blackout'] = true;
+            $response['blackout_reason'] = $availability['blackout_reason'];
         }
 
-        $allSlots = $slotConfig['time_slots'];
+        if ($availability['message']) {
+            $response['message'] = $availability['message'];
+        }
 
-        $bookedSlots = SevaBooking::where('seva_id', $seva->id)
-            ->where('booking_date', $date)
-            ->whereNotIn('status', ['cancelled', 'refunded'])
-            ->pluck('slot_time')
-            ->map(fn ($time) => substr((string) $time, 0, 5))
-            ->toArray();
-
-        $availableSlots = array_values(array_diff($allSlots, $bookedSlots));
-
-        return $this->success([
-            'date' => $date,
-            'slots' => $availableSlots,
-            'booked' => array_values($bookedSlots),
-        ]);
+        return $this->success($response);
     }
 
     public function book(BookSevaRequest $request, Seva $seva): JsonResponse
@@ -86,16 +84,10 @@ class SevaController extends BaseApiController
         $quantity = $validated['quantity'] ?? 1;
         $totalAmount = (float) $seva->price * $quantity;
 
-        if ($seva->requires_booking && !empty($validated['slot_time'])) {
-            $slotTaken = SevaBooking::where('seva_id', $seva->id)
-                ->where('booking_date', $validated['booking_date'])
-                ->where('slot_time', $validated['slot_time'])
-                ->whereNotIn('status', ['cancelled', 'refunded'])
-                ->exists();
-
-            if ($slotTaken) {
-                return $this->error('This slot is already booked. Please choose another.', 409);
-            }
+        // Validate slot via service
+        $error = $this->slotService->validateBooking($seva, $validated['booking_date'], $validated['slot_time'] ?? null);
+        if ($error) {
+            return $this->error($error, 409);
         }
 
         try {

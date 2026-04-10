@@ -73,12 +73,26 @@
                             લોડ થઈ રહ્યું છે...
                         </div>
 
-                        <div x-show="!loading && slots.length === 0 && booked.length === 0" class="text-amber-100/40 text-sm py-4">
+                        {{-- Blackout message --}}
+                        <div x-show="!loading && blackout" class="text-sm py-4 px-4 bg-red-900/20 rounded-lg border border-red-800/30">
+                            <span class="text-red-400 font-semibold">આ તારીખે સેવા ઉપલબ્ધ નથી</span>
+                            <span x-show="blackoutReason" class="block text-red-300/60 mt-1 text-xs" x-text="blackoutReason"></span>
+                        </div>
+
+                        {{-- Unavailable message (outside acceptance period) --}}
+                        <div x-show="!loading && !blackout && unavailableMessage" class="text-amber-100/40 text-sm py-4">
+                            <span x-text="unavailableMessage"></span>
+                        </div>
+
+                        <div x-show="!loading && !blackout && !unavailableMessage && slots.length === 0 && booked.length === 0" class="text-amber-100/40 text-sm py-4">
                             આ સેવા માટે કોઈ સમય સ્લોટ કોન્ફિગર નથી.
                         </div>
 
-                        <div x-show="!loading && (slots.length > 0 || booked.length > 0)">
-                            <p class="text-sm text-amber-100/50 mb-2">ઉપલબ્ધ સમય:</p>
+                        <div x-show="!loading && !blackout && (slots.length > 0 || booked.length > 0)">
+                            <p class="text-sm text-amber-100/50 mb-2">
+                                ઉપલબ્ધ સમય
+                                <span x-show="slotDuration" class="text-amber-100/30" x-text="'(' + slotDuration + ' મિનિટ)'"></span>
+                            </p>
                             <div class="flex flex-wrap gap-2">
                                 <template x-for="slot in slots" :key="slot">
                                     <button @click="selectedSlot = slot"
@@ -94,6 +108,34 @@
                             </div>
                         </div>
                     </div>
+
+                    {{-- Product Selection --}}
+                    @if($linkedProducts->isNotEmpty())
+                        <div class="mt-6 mb-4" x-show="selectedDate">
+                            <label class="block text-sm font-medium text-amber-600 mb-3">{{ $seva->getProductSelectionLabel() }}</label>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                @foreach($linkedProducts as $lp)
+                                    <button type="button"
+                                        @click="selectedProductId = {{ $lp->id }}"
+                                        :class="selectedProductId === {{ $lp->id }} ? 'ring-2 ring-amber-500 border-amber-500' : 'border-amber-800/30 hover:border-amber-600'"
+                                        class="border rounded-xl overflow-hidden transition text-left bg-amber-900/10">
+                                        <div class="aspect-square bg-amber-900/20 overflow-hidden">
+                                            @if($lp->image_path)
+                                                <img src="{{ asset('storage/' . $lp->image_path) }}" alt="{{ $lp->name }}" class="w-full h-full object-cover">
+                                            @else
+                                                <div class="w-full h-full flex items-center justify-center">
+                                                    <svg class="w-10 h-10 text-amber-800/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                                </div>
+                                            @endif
+                                        </div>
+                                        <div class="p-2">
+                                            <p class="text-xs text-amber-100/70 font-medium line-clamp-2">{{ $lp->name }}</p>
+                                        </div>
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
 
                     {{-- Additional Fields --}}
                     <div x-show="selectedDate" class="mt-4 space-y-3">
@@ -125,6 +167,7 @@
                                 <input type="hidden" name="devotee_name_for_seva" :value="devoteeName">
                                 <input type="hidden" name="gotra" :value="gotra">
                                 <input type="hidden" name="sankalp" :value="sankalp">
+                                <input type="hidden" name="selected_product_id" :value="selectedProductId">
                                 <button type="submit"
                                     :disabled="!selectedDate"
                                     class="w-full sm:w-auto px-8 py-3 btn-divine disabled:opacity-40 disabled:cursor-not-allowed">
@@ -153,8 +196,23 @@
 <script>
 function slotPicker(sevaId) {
     const today = new Date();
-    const maxDay = new Date();
-    maxDay.setDate(today.getDate() + 30);
+    const defaultMax = new Date();
+    defaultMax.setDate(today.getDate() + 30);
+
+    const config = @json($seva->getResolvedSlotConfig());
+    const acceptance = config.acceptance_period || {};
+
+    let computedMin = today.toISOString().split('T')[0];
+    let computedMax = defaultMax.toISOString().split('T')[0];
+
+    if (acceptance.type === 'range') {
+        if (acceptance.start_date && acceptance.start_date > computedMin) {
+            computedMin = acceptance.start_date;
+        }
+        if (acceptance.end_date) {
+            computedMax = acceptance.end_date;
+        }
+    }
 
     return {
         sevaId: sevaId,
@@ -163,21 +221,33 @@ function slotPicker(sevaId) {
         slots: [],
         booked: [],
         loading: false,
+        blackout: false,
+        blackoutReason: '',
+        unavailableMessage: '',
+        slotDuration: config.slot_duration_minutes || 0,
+        selectedProductId: null,
         devoteeName: '',
         gotra: '',
         sankalp: '',
-        minDate: today.toISOString().split('T')[0],
-        maxDate: maxDay.toISOString().split('T')[0],
+        minDate: computedMin,
+        maxDate: computedMax,
 
         async fetchSlots() {
             if (!this.selectedDate) return;
             this.loading = true;
             this.selectedSlot = '';
+            this.blackout = false;
+            this.blackoutReason = '';
+            this.unavailableMessage = '';
             try {
                 const res = await fetch(`/api/v1/sevas/${this.sevaId}/slots?date=${this.selectedDate}`);
                 const json = await res.json();
                 this.slots = json.data?.slots || [];
                 this.booked = json.data?.booked || [];
+                this.blackout = json.data?.blackout || false;
+                this.blackoutReason = json.data?.blackout_reason || '';
+                this.unavailableMessage = json.data?.message || '';
+                this.slotDuration = json.data?.slot_duration_minutes || config.slot_duration_minutes || 0;
             } catch (e) {
                 this.slots = [];
                 this.booked = [];

@@ -25,7 +25,9 @@ class OtpService
             ->whereNull('verified_at')
             ->delete();
 
-        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $code = app()->environment('local')
+            ? '123456'
+            : str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
         OtpCode::create([
             'phone' => $phone,
@@ -38,19 +40,21 @@ class OtpService
 
         Log::info("OTP for {$phone}: {$code}");
 
-        // Send OTP via WhatsApp
-        SendWhatsAppMessage::dispatch($phone, 'template', [
-            'template_name' => 'otp_verification',
-            'language_code' => 'en',
-            'components' => [
-                [
-                    'type' => 'body',
-                    'parameters' => [
-                        ['type' => 'text', 'text' => $code],
+        // Send OTP via WhatsApp (skip in local — API onboarding in progress)
+        if (! app()->environment('local')) {
+            SendWhatsAppMessage::dispatch($phone, 'template', [
+                'template_name' => 'otp_verification',
+                'language_code' => 'en',
+                'components' => [
+                    [
+                        'type' => 'body',
+                        'parameters' => [
+                            ['type' => 'text', 'text' => $code],
+                        ],
                     ],
                 ],
-            ],
-        ]);
+            ]);
+        }
 
         return $code;
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Models\Donation;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -101,5 +102,64 @@ class FinancialReports extends Page implements HasForms, HasTable
             'count' => $query->count(),
             'average' => $query->count() > 0 ? number_format((float) $query->avg('amount'), 2) : '0.00',
         ];
+    }
+
+    public function exportCsv()
+    {
+        $donations = $this->getFilteredDonations();
+        $from = $this->date_from ?? now()->startOfMonth()->toDateString();
+        $to = $this->date_to ?? now()->toDateString();
+        $filename = "donations_{$from}_to_{$to}.csv";
+
+        return response()->streamDownload(function () use ($donations) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['Date', 'Receipt No.', 'Devotee', 'Phone', 'Amount (₹)', 'Type', 'Purpose', 'FY', 'Status']);
+
+            foreach ($donations as $d) {
+                fputcsv($handle, [
+                    $d->created_at->format('d/m/Y'),
+                    $d->receipt?->receipt_number ?? '-',
+                    $d->devotee?->name ?? 'Anonymous',
+                    $d->devotee?->phone ?? '-',
+                    number_format((float) $d->amount, 2),
+                    ucfirst($d->getRawOriginal('donation_type')),
+                    $d->purpose ?? '-',
+                    $d->financial_year,
+                    $d->payment?->status?->value ?? '-',
+                ]);
+            }
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    public function exportPdf()
+    {
+        $donations = $this->getFilteredDonations();
+        $from = $this->date_from ?? now()->startOfMonth()->toDateString();
+        $to = $this->date_to ?? now()->toDateString();
+        $total = $donations->sum('amount');
+        $filename = "donations_{$from}_to_{$to}.pdf";
+
+        $pdf = Pdf::loadView('exports.donations-pdf', [
+            'donations' => $donations,
+            'dateFrom' => $from,
+            'dateTo' => $to,
+            'total' => $total,
+        ])->setPaper('a4', 'landscape');
+
+        $output = $pdf->output();
+
+        return response()->streamDownload(fn () => print($output), $filename, ['Content-Type' => 'application/pdf']);
+    }
+
+    private function getFilteredDonations(): \Illuminate\Support\Collection
+    {
+        return Donation::with('devotee', 'receipt', 'payment')
+            ->when($this->date_from, fn (Builder $q) => $q->whereDate('created_at', '>=', $this->date_from))
+            ->when($this->date_to, fn (Builder $q) => $q->whereDate('created_at', '<=', $this->date_to))
+            ->when($this->donation_type, fn (Builder $q) => $q->where('donation_type', $this->donation_type))
+            ->when($this->financial_year, fn (Builder $q) => $q->where('financial_year', $this->financial_year))
+            ->orderBy('created_at', 'desc')
+            ->get();
     }
 }

@@ -16,12 +16,13 @@ class BookSevaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'booking_date' => ['required', 'date', 'after:today'],
-            'slot_time' => ['nullable', 'string'],
+            'booking_date' => ['required', 'date', 'after_or_equal:today'],
+            'slot_time' => ['nullable', 'string', 'date_format:H:i'],
             'quantity' => ['integer', 'min:1', 'max:5'],
             'devotee_name_for_seva' => ['nullable', 'string', 'max:255'],
             'gotra' => ['nullable', 'string', 'max:255'],
             'sankalp' => ['nullable', 'string', 'max:1000'],
+            'selected_product_id' => ['nullable', 'integer', 'exists:temple_products,id'],
         ];
     }
 }

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\DonationType;
+use App\Enums\DonationType as DonationTypeEnum;
+use App\Models\DonationType as DonationTypeModel;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,6 +22,7 @@ class Donation extends Model
         'payment_id',
         'amount',
         'donation_type',
+        'donation_type_id',
         'purpose',
         'campaign_id',
         'seva_booking_id',
@@ -31,16 +33,19 @@ class Donation extends Model
         'receipt_generated',
         'anonymous',
         'notes',
+        'extra_data',
+        'greeting_card_path',
         'financial_year',
     ];
 
     protected $casts = [
-        'donation_type' => DonationType::class,
+        'donation_type' => DonationTypeEnum::class,
         'amount' => 'decimal:2',
         'is_80g_eligible' => 'boolean',
         'pan_verified' => 'boolean',
         'receipt_generated' => 'boolean',
         'anonymous' => 'boolean',
+        'extra_data' => 'array',
     ];
 
     public function devotee(): BelongsTo
@@ -66,5 +71,10 @@ class Donation extends Model
     public function receipt(): HasOne
     {
         return $this->hasOne(Receipt80G::class, 'donation_id');
+    }
+
+    public function donationType(): BelongsTo
+    {
+        return $this->belongsTo(DonationTypeModel::class, 'donation_type_id');
     }
 }

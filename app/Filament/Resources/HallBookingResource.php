@@ -30,6 +30,9 @@ class HallBookingResource extends Resource
             Forms\Components\Section::make('Booking Details')->schema([
                 Forms\Components\TextInput::make('contact_name')->disabled(),
                 Forms\Components\TextInput::make('contact_phone')->disabled(),
+                Forms\Components\TextInput::make('contact_email')->disabled(),
+                Forms\Components\TextInput::make('aadhaar_number')->disabled(),
+                Forms\Components\Textarea::make('contact_address')->disabled()->rows(2),
                 Forms\Components\TextInput::make('purpose')->disabled(),
                 Forms\Components\DatePicker::make('booking_date')->disabled(),
                 Forms\Components\TextInput::make('booking_type')->disabled(),

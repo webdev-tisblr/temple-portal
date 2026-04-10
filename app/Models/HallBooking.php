@@ -20,10 +20,14 @@ class HallBooking extends Model
         'expected_guests',
         'contact_name',
         'contact_phone',
+        'contact_email',
+        'aadhaar_number',
+        'contact_address',
         'total_amount',
         'status',
         'payment_id',
         'admin_notes',
+        'invoice_path',
     ];
 
     protected $casts = [

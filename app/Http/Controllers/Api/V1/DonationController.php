@@ -81,7 +81,7 @@ class DonationController extends BaseApiController
                 'donation_id' => $result['donation']->id,
                 'payment_id' => $result['payment']->id,
                 'razorpay_order_id' => $result['razorpay_order']->id,
-                'razorpay_key_id' => config('razorpay.key_id'),
+                'razorpay_key_id' => \App\Models\SystemSetting::getValue('razorpay_key_id', config('razorpay.key_id')),
                 'amount' => (int) round($amount * 100),
                 'currency' => 'INR',
                 'devotee_name' => $devotee->name,

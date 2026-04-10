@@ -24,8 +24,8 @@
             @foreach($upcoming as $event)
                 <div class="card-sacred overflow-hidden flex flex-col">
 
-                    @if($event->image)
-                        <img src="{{ Storage::url($event->image) }}" alt="{{ $event->title }}" class="w-full h-44 object-cover">
+                    @if($event->image_path)
+                        <img src="{{ asset('storage/' . $event->image_path) }}" alt="{{ $event->title }}" class="w-full h-44 object-cover">
                     @else
                         <div class="w-full h-44 bg-amber-900/20 flex items-center justify-center">
                             <svg class="w-12 h-12 text-amber-800/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">

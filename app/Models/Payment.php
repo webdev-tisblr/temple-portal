@@ -49,4 +49,9 @@ class Payment extends Model
     {
         return $this->hasOne(SevaBooking::class, 'payment_id');
     }
+
+    public function order(): HasOne
+    {
+        return $this->hasOne(Order::class, 'payment_id');
+    }
 }

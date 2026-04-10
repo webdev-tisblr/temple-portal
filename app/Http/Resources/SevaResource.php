@@ -27,7 +27,8 @@ class SevaResource extends JsonResource
             'is_variable_price' => $this->is_variable_price,
             'image_url' => $this->image_path ? asset('storage/' . $this->image_path) : null,
             'requires_booking' => $this->requires_booking,
-            'slot_config' => $this->slot_config,
+            'slot_config' => $this->getResolvedSlotConfig(),
+            'slot_duration_minutes' => $this->getSlotDurationMinutes(),
         ];
     }
 }

@@ -22,9 +22,9 @@
                 <article class="card-sacred overflow-hidden flex flex-col">
 
                     {{-- Featured Image --}}
-                    @if($post->featured_image)
+                    @if($post->featured_image_path)
                         <a href="{{ route('blog.show', $post->slug ?? $post) }}" class="block overflow-hidden">
-                            <img src="{{ Storage::url($post->featured_image) }}"
+                            <img src="{{ asset('storage/' . $post->featured_image_path) }}"
                                  alt="{{ $post->title }}"
                                  class="w-full h-48 object-cover hover:scale-105 transition duration-300">
                         </a>

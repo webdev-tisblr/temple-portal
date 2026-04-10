@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -41,4 +42,9 @@ class AdminUser extends Authenticatable implements FilamentUser
     }
 
     protected string $guard_name = 'admin';
+
+    public function assignedSevas(): HasMany
+    {
+        return $this->hasMany(Seva::class, 'assignee_id');
+    }
 }

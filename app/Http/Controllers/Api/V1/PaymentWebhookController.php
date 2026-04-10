@@ -104,19 +104,17 @@ class PaymentWebhookController extends Controller
             ]);
         }
 
-        // Trigger 80G receipt generation
-        if ($donation && $donation->is_80g_eligible && (float) $donation->amount >= 2000) {
+        // Auto-generate 80G receipt for every successful donation
+        if ($donation) {
             $devotee = $donation->devotee;
             if ($devotee && $devotee->pan_encrypted) {
                 $donation->update([
                     'pan_verified' => true,
                     'pan_number_encrypted' => $devotee->pan_encrypted,
                 ]);
-                Generate80GReceipt::dispatch($donation);
-                Log::info("80G receipt job dispatched for donation {$donation->id}");
-            } else {
-                Log::info("80G receipt skipped — PAN not on file for donation {$donation->id}");
             }
+            Generate80GReceipt::dispatch($donation);
+            Log::info("80G receipt job dispatched for donation {$donation->id}");
         }
 
         Log::info("Payment {$razorpayOrderId} captured successfully", [

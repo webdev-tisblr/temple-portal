@@ -17,9 +17,9 @@
 <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
     {{-- Featured Image --}}
-    @if($post->featured_image)
+    @if($post->featured_image_path)
         <div class="rounded-2xl overflow-hidden mb-8 border border-amber-900/20">
-            <img src="{{ Storage::url($post->featured_image) }}"
+            <img src="{{ asset('storage/' . $post->featured_image_path) }}"
                  alt="{{ $post->title }}"
                  class="w-full h-72 sm:h-96 object-cover">
         </div>

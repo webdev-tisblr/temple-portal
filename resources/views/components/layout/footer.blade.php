@@ -9,7 +9,7 @@
 
             <div>
                 <div class="flex items-center gap-3 mb-5">
-                    <img src="{{ asset('images/hanumanji-icon.png') }}" alt="Hanumanji" class="w-10 h-10 rounded-full border border-amber-800/30 diya-glow" style="box-shadow: 0 0 12px rgba(196,154,42,0.2);">
+                    <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="શ્રી પાતળિયા હનુમાનજી" class="w-10 h-10 rounded-full border border-amber-800/30 diya-glow" style="box-shadow: 0 0 12px rgba(196,154,42,0.2);">
                     <h3 class="text-base font-bold text-gold">શ્રી પાતળિયા હનુમાનજી</h3>
                 </div>
                 <p class="text-amber-100/30 text-sm">સેવા ટ્રસ્ટ</p>

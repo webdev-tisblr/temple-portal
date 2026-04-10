@@ -80,6 +80,11 @@ class AuthWebController extends Controller
 
         $request->session()->regenerate();
 
+        // New user or incomplete profile → force profile completion
+        if (empty($devotee->name)) {
+            return redirect()->route('profile.complete');
+        }
+
         return redirect()->route('dashboard.index');
     }
 

@@ -45,16 +45,18 @@
             </div>
         </div>
 
-        {{-- Donation Type --}}
+        {{-- Donation Type (Dynamic) --}}
         <div class="mb-6">
             <label class="block text-sm font-medium text-amber-600 mb-1">દાનનો પ્રકાર</label>
-            <select x-model="donationType" class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 focus:border-amber-600 focus:ring-amber-600/20">
-                <option value="general" class="bg-stone-900">સામાન્ય દાન</option>
-                <option value="annadan" class="bg-stone-900">અન્નદાન</option>
-                <option value="construction" class="bg-stone-900">નિર્માણ / જીર્ણોદ્ધાર</option>
-                <option value="festival" class="bg-stone-900">ઉત્સવ / તહેવાર</option>
+            <select x-model="selectedTypeId" @change="onTypeChange()" class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 focus:border-amber-600 focus:ring-amber-600/20">
+                <option value="" class="bg-stone-900">-- પ્રકાર પસંદ કરો --</option>
+                @foreach($donationTypes as $type)
+                    <option value="{{ $type->id }}" class="bg-stone-900">{{ $type->name_gu }}</option>
+                @endforeach
             </select>
         </div>
+
+        {{-- Dynamic Extra Fields placeholder — actual fields rendered inside the form below --}}
 
         {{-- Purpose --}}
         <div class="mb-6">
@@ -73,12 +75,46 @@
 
         {{-- Submit --}}
         @auth('devotee')
-            <form method="POST" action="{{ route('donate.create') }}">
+            <form method="POST" action="{{ route('donate.create') }}" enctype="multipart/form-data" x-ref="donationForm">
                 @csrf
                 <input type="hidden" name="amount" :value="amount">
                 <input type="hidden" name="donation_type" :value="donationType">
+                <input type="hidden" name="donation_type_id" :value="selectedTypeId || ''">
                 <input type="hidden" name="purpose" :value="purpose">
                 <input type="hidden" name="anonymous" :value="anonymous ? 1 : 0">
+
+                {{-- Dynamic Extra Fields (inside form so they submit properly) --}}
+                <template x-if="currentExtraFields.length > 0">
+                    <div class="mb-6 space-y-4 p-4 border border-amber-800/20 rounded-lg bg-amber-900/10">
+                        <p class="text-xs text-amber-500 font-medium uppercase tracking-wide">વધારાની માહિતી</p>
+                        <template x-for="(field, index) in currentExtraFields" :key="field.key">
+                            <div>
+                                <label class="block text-sm font-medium text-amber-600 mb-1" x-text="field.label_gu || field.label_en"></label>
+                                <input x-show="field.type === 'text'" type="text"
+                                    :name="field.type === 'text' ? 'extra_data[' + field.key + ']' : ''"
+                                    :required="field.type === 'text' && field.required"
+                                    class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
+                                <input x-show="field.type === 'number'" type="number"
+                                    :name="field.type === 'number' ? 'extra_data[' + field.key + ']' : ''"
+                                    :required="field.type === 'number' && field.required"
+                                    class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
+                                <input x-show="field.type === 'date'" type="date"
+                                    :name="field.type === 'date' ? 'extra_data[' + field.key + ']' : ''"
+                                    :required="field.type === 'date' && field.required"
+                                    class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 focus:border-amber-600 focus:ring-amber-600/20">
+                                <input x-show="field.type === 'image'" type="file"
+                                    :name="field.type === 'image' ? 'extra_data[' + field.key + ']' : ''"
+                                    :required="field.type === 'image' && field.required"
+                                    accept="image/*"
+                                    class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-amber-900/40 file:text-amber-400">
+                                <textarea x-show="field.type === 'textarea'"
+                                    :name="field.type === 'textarea' ? 'extra_data[' + field.key + ']' : ''"
+                                    :required="field.type === 'textarea' && field.required" rows="3"
+                                    class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20"></textarea>
+                            </div>
+                        </template>
+                    </div>
+                </template>
 
                 <button type="submit"
                     :disabled="!amount || amount < 1"
@@ -125,9 +161,27 @@ function donationForm() {
     return {
         amount: 1100,
         customAmount: '',
+        selectedTypeId: '',
         donationType: 'general',
         purpose: '',
         anonymous: false,
+        currentExtraFields: [],
+
+        // Donation types data from server
+        donationTypesData: @json($donationTypesJs),
+
+        onTypeChange() {
+            const selected = this.donationTypesData.find(t => t.id == this.selectedTypeId);
+            if (selected) {
+                this.donationType = selected.slug;
+                this.currentExtraFields = Array.isArray(selected.extra_fields) ? selected.extra_fields : [];
+            } else {
+                this.donationType = 'general';
+                this.currentExtraFields = [];
+            }
+        },
+
+        // submitForm no longer needed — extra fields are now inside the form
     };
 }
 </script>

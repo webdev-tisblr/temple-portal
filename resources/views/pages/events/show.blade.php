@@ -17,9 +17,9 @@
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
     {{-- Featured Image --}}
-    @if($event->image)
+    @if($event->image_path)
         <div class="rounded-2xl overflow-hidden mb-8 border border-amber-900/20">
-            <img src="{{ Storage::url($event->image) }}" alt="{{ $event->title }}" class="w-full h-72 sm:h-96 object-cover">
+            <img src="{{ asset('storage/' . $event->image_path) }}" alt="{{ $event->title }}" class="w-full h-72 sm:h-96 object-cover">
         </div>
     @endif
 

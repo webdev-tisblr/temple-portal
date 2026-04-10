@@ -19,7 +19,7 @@
         activeCategory: 'all',
         lightboxOpen: false,
         currentIndex: 0,
-        images: @js($images->map(fn($img) => ['src' => Storage::url($img->image_path), 'title' => $img->title, 'category' => $img->category])->values()),
+        images: @js($images->map(fn($img) => ['src' => asset('storage/' . $img->image_path), 'title' => $img->title, 'category' => $img->category])->values()),
         get filtered() {
             if (this.activeCategory === 'all') return this.images;
             return this.images.filter(i => i.category === this.activeCategory);

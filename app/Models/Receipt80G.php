@@ -17,6 +17,8 @@ class Receipt80G extends Model
         'financial_year',
         'devotee_name',
         'devotee_address',
+        'devotee_phone',
+        'devotee_email',
         'pan_number',
         'amount',
         'amount_in_words',

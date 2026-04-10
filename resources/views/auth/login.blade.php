@@ -11,7 +11,7 @@
 <div class="w-full max-w-md" x-data="loginForm()">
     {{-- Header --}}
     <div class="text-center mb-8">
-        <img src="{{ asset('images/hanumanji-icon.png') }}" alt="Hanumanji" class="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-amber-600/40 diya-glow" style="box-shadow: 0 0 25px rgba(196,154,42,0.3);">
+        <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="શ્રી પાતળિયા હનુમાનજી" class="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-amber-600/40 diya-glow" style="box-shadow: 0 0 25px rgba(196,154,42,0.3);">
         <h1 class="text-2xl font-black text-gold tracking-wide">શ્રી પાતળિયા હનુમાનજી</h1>
         <p class="text-amber-200/60 mt-1 text-sm">સેવા ટ્રસ્ટ ડિજિટલ પોર્ટલ</p>
     </div>

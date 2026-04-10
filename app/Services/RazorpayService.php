@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\SystemSetting;
 use Razorpay\Api\Api;
 use Razorpay\Api\Errors\SignatureVerificationError;
 
@@ -13,10 +14,10 @@ class RazorpayService
 
     public function __construct()
     {
-        $this->api = new Api(
-            config('razorpay.key_id'),
-            config('razorpay.key_secret')
-        );
+        $keyId = SystemSetting::getValue('razorpay_key_id', config('razorpay.key_id'));
+        $keySecret = SystemSetting::getValue('razorpay_key_secret', config('razorpay.key_secret'));
+
+        $this->api = new Api($keyId, $keySecret);
     }
 
     public function createOrder(int $amountInPaise, string $receipt, array $notes = []): object
@@ -35,7 +36,7 @@ class RazorpayService
             Api::verifyWebhookSignature(
                 $payload,
                 $signature,
-                config('razorpay.webhook_secret')
+                SystemSetting::getValue('razorpay_webhook_secret', config('razorpay.webhook_secret'))
             );
             return true;
         } catch (SignatureVerificationError) {

@@ -19,11 +19,12 @@ class TempleController extends Controller
             DarshanTiming::where('is_active', true)->get()
         );
         $youtubeUrl = SystemSetting::getValue('youtube_live_url');
+        $templeRules = SystemSetting::getValue('temple_rules');
 
         SEOMeta::setTitle('દર્શન સમય — શ્રી પાતળિયા હનુમાનજી');
         SEOMeta::setDescription('મંદિરના દૈનિક દર્શન સમય અને લાઇવ દર્શન.');
 
-        return view('pages.darshan', compact('timings', 'youtubeUrl'));
+        return view('pages.darshan', compact('timings', 'youtubeUrl', 'templeRules'));
     }
 
     public function trustees(): View

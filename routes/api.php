@@ -15,6 +15,7 @@ Route::prefix('v1')->group(function () {
     // Content (public)
     Route::get('/content/announcements', [ContentController::class, 'announcements']);
     Route::get('/content/live-darshan', [ContentController::class, 'liveDarshan']);
+    Route::get('/content/darshan-timings', [ContentController::class, 'darshanTimings']);
     Route::get('/campaigns', [ContentController::class, 'campaigns']);
     Route::get('/campaigns/{campaign}', [ContentController::class, 'campaignDetail']);
 
@@ -22,6 +23,10 @@ Route::prefix('v1')->group(function () {
     Route::get('/sevas', [SevaController::class, 'index']);
     Route::get('/sevas/{seva}', [SevaController::class, 'show']);
     Route::get('/sevas/{seva}/slots', [SevaController::class, 'availableSlots']);
+
+    // Public: Gallery & Events
+    Route::get('/gallery', [ContentController::class, 'gallery']);
+    Route::get('/events', [ContentController::class, 'events']);
 
     // Webhooks (no auth)
     Route::post('/webhooks/razorpay', [PaymentWebhookController::class, 'handle']);
@@ -55,6 +60,7 @@ Route::prefix('v1')->group(function () {
 
         // Seva booking (requires auth)
         Route::post('/sevas/{seva}/book', [SevaController::class, 'book']);
+        Route::get('/bookings', [SevaController::class, 'bookings']);
 
         // Donations
         Route::post('/donations', [DonationController::class, 'create']);

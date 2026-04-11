@@ -77,6 +77,41 @@ class SevaController extends BaseApiController
         return $this->success($response);
     }
 
+    public function bookings(Request $request): JsonResponse
+    {
+        $bookings = SevaBooking::with('seva')
+            ->where('devotee_id', $request->user()->id)
+            ->orderByDesc('created_at')
+            ->paginate(20);
+
+        $data = $bookings->getCollection()->map(fn (SevaBooking $booking) => [
+            'id' => $booking->id,
+            'seva_name' => $booking->seva?->name,
+            'seva_name_gu' => $booking->seva?->name_gu,
+            'seva_name_hi' => $booking->seva?->name_hi,
+            'seva_name_en' => $booking->seva?->name_en,
+            'seva_image_url' => $booking->seva?->image_path ? asset('storage/' . $booking->seva->image_path) : null,
+            'booking_date' => $booking->booking_date->toDateString(),
+            'slot_time' => $booking->slot_time,
+            'quantity' => $booking->quantity,
+            'total_amount' => (float) $booking->total_amount,
+            'status' => $booking->status->value,
+            'devotee_name_for_seva' => $booking->devotee_name_for_seva,
+            'gotra' => $booking->gotra,
+            'sankalp' => $booking->sankalp,
+            'created_at' => $booking->created_at?->toISOString(),
+        ]);
+
+        return $this->success([
+            'bookings' => $data,
+            'meta' => [
+                'current_page' => $bookings->currentPage(),
+                'last_page' => $bookings->lastPage(),
+                'total' => $bookings->total(),
+            ],
+        ]);
+    }
+
     public function book(BookSevaRequest $request, Seva $seva): JsonResponse
     {
         $validated = $request->validated();

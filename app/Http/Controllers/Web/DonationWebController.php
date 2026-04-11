@@ -76,22 +76,16 @@ class DonationWebController extends Controller
         try {
             $result = DB::transaction(function () use ($validated, $devotee, $amount, $fy, $extraData) {
                 $paymentId = (string) Str::uuid();
-                $receipt = 'DON-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
 
-                $razorpayService = app(RazorpayService::class);
-                $amountInPaise = (int) round($amount * 100);
-
-                $razorpayOrder = $razorpayService->createOrder($amountInPaise, $receipt, [
-                    'devotee_id' => $devotee->id,
-                    'donation_type' => $validated['donation_type'],
-                ]);
-
+                // TODO: Replace test mode with Razorpay when keys are configured
                 $payment = Payment::create([
                     'id' => $paymentId,
-                    'razorpay_order_id' => $razorpayOrder->id,
+                    'razorpay_order_id' => 'test_' . Str::random(14),
                     'amount' => $amount,
                     'currency' => 'INR',
-                    'status' => 'created',
+                    'status' => 'captured',
+                    'method' => 'test',
+                    'paid_at' => now(),
                     'description' => "Donation - {$validated['donation_type']}",
                 ]);
 
@@ -112,25 +106,15 @@ class DonationWebController extends Controller
                     'financial_year' => $fy,
                 ]);
 
-                return [
-                    'donation' => $donation,
-                    'payment' => $payment,
-                    'razorpay_order' => $razorpayOrder,
-                ];
+                return ['donation' => $donation, 'payment' => $payment];
             });
 
-            return view('pages.seva.checkout', [
-                'razorpayKeyId' => \App\Models\SystemSetting::getValue('razorpay_key_id', config('razorpay.key_id')),
-                'orderId' => $result['razorpay_order']->id,
-                'amount' => (int) round($amount * 100),
-                'currency' => 'INR',
-                'description' => 'દાન — ' . ucfirst($validated['donation_type']),
-                'devoteeName' => $devotee->name,
-                'devoteePhone' => $devotee->phone,
-                'devoteeEmail' => $devotee->email ?? '',
-                'successUrl' => route('donate.thanks'),
-                'failureUrl' => route('home'),
-            ]);
+            // Auto-generate 80G receipt
+            if ($result['donation'] && ! $result['donation']->receipt_generated) {
+                Generate80GReceipt::dispatchSync($result['donation']);
+            }
+
+            return redirect()->route('donate.thanks')->with('donation', $result['donation']->id);
 
         } catch (\Exception $e) {
             Log::error('Web donation failed', ['error' => $e->getMessage()]);

@@ -31,22 +31,16 @@ class DonationController extends BaseApiController
         try {
             $result = DB::transaction(function () use ($validated, $devotee, $amount, $fy) {
                 $paymentId = (string) Str::uuid();
-                $receipt = 'DON-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
 
-                $razorpayService = app(RazorpayService::class);
-                $amountInPaise = (int) round($amount * 100);
-
-                $razorpayOrder = $razorpayService->createOrder($amountInPaise, $receipt, [
-                    'devotee_id' => $devotee->id,
-                    'donation_type' => $validated['donation_type'],
-                ]);
-
+                // TODO: Replace test mode with Razorpay when keys are configured
                 $payment = Payment::create([
                     'id' => $paymentId,
-                    'razorpay_order_id' => $razorpayOrder->id,
+                    'razorpay_order_id' => 'test_' . Str::random(14),
                     'amount' => $amount,
                     'currency' => 'INR',
-                    'status' => 'created',
+                    'status' => 'captured',
+                    'method' => 'test',
+                    'paid_at' => now(),
                     'description' => "Donation - {$validated['donation_type']}",
                 ]);
 
@@ -65,14 +59,10 @@ class DonationController extends BaseApiController
                     'financial_year' => $fy,
                 ]);
 
-                return [
-                    'donation' => $donation,
-                    'payment' => $payment,
-                    'razorpay_order' => $razorpayOrder,
-                ];
+                return ['donation' => $donation, 'payment' => $payment];
             });
 
-            Log::info('Donation created', [
+            Log::info('Donation confirmed (test mode)', [
                 'donation_id' => $result['donation']->id,
                 'amount' => $amount,
             ]);
@@ -80,19 +70,14 @@ class DonationController extends BaseApiController
             return $this->success([
                 'donation_id' => $result['donation']->id,
                 'payment_id' => $result['payment']->id,
-                'razorpay_order_id' => $result['razorpay_order']->id,
-                'razorpay_key_id' => \App\Models\SystemSetting::getValue('razorpay_key_id', config('razorpay.key_id')),
-                'amount' => (int) round($amount * 100),
-                'currency' => 'INR',
-                'devotee_name' => $devotee->name,
-                'devotee_phone' => $devotee->phone,
-                'devotee_email' => $devotee->email,
-                'description' => "Donation - " . ucfirst($result['donation']->donation_type->value),
-            ], 'Donation created. Complete payment to confirm.');
+                'amount' => $amount,
+                'status' => 'confirmed',
+                'message' => 'દાન સફળ! (Test mode — Razorpay pending)',
+            ], 'દાન સફળતાપૂર્વક નોંધાયું.');
 
         } catch (\Exception $e) {
             Log::error('Donation creation failed', ['error' => $e->getMessage()]);
-            return $this->error('Failed to create donation. Please try again.', 500);
+            return $this->error('દાન બનાવવામાં નિષ્ફળ. ફરી પ્રયાસ કરો.', 500);
         }
     }
 

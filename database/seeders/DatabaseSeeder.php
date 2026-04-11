@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
             DarshanTimingSeeder::class,
             SampleSevaSeeder::class,
             PageSeeder::class,
+            StoreProductSeeder::class,
             TestDataSeeder::class,
         ]);
     }

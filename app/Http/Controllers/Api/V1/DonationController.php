@@ -31,16 +31,22 @@ class DonationController extends BaseApiController
         try {
             $result = DB::transaction(function () use ($validated, $devotee, $amount, $fy) {
                 $paymentId = (string) Str::uuid();
+                $receipt = 'DON-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
 
-                // TODO: Replace test mode with Razorpay when keys are configured
+                $razorpayService = app(RazorpayService::class);
+                $amountInPaise = (int) round($amount * 100);
+
+                $razorpayOrder = $razorpayService->createOrder($amountInPaise, $receipt, [
+                    'devotee_id' => $devotee->id,
+                    'donation_type' => $validated['donation_type'],
+                ]);
+
                 $payment = Payment::create([
                     'id' => $paymentId,
-                    'razorpay_order_id' => 'test_' . Str::random(14),
+                    'razorpay_order_id' => $razorpayOrder->id,
                     'amount' => $amount,
                     'currency' => 'INR',
-                    'status' => 'captured',
-                    'method' => 'test',
-                    'paid_at' => now(),
+                    'status' => 'created',
                     'description' => "Donation - {$validated['donation_type']}",
                 ]);
 
@@ -50,30 +56,42 @@ class DonationController extends BaseApiController
                     'payment_id' => $payment->id,
                     'amount' => $amount,
                     'donation_type' => $validated['donation_type'],
+                    'donation_type_id' => $validated['donation_type_id'] ?? null,
                     'purpose' => $validated['purpose'] ?? null,
                     'campaign_id' => $validated['campaign_id'] ?? null,
                     'is_80g_eligible' => true,
                     'pan_verified' => !empty($devotee->pan_encrypted),
                     'pan_number_encrypted' => $devotee->pan_encrypted,
                     'anonymous' => $validated['anonymous'] ?? false,
+                    'extra_data' => $validated['extra_data'] ?? null,
                     'financial_year' => $fy,
                 ]);
 
-                return ['donation' => $donation, 'payment' => $payment];
+                return [
+                    'donation' => $donation,
+                    'payment' => $payment,
+                    'razorpay_order' => $razorpayOrder,
+                ];
             });
 
-            Log::info('Donation confirmed (test mode)', [
+            Log::info('Donation created, awaiting payment', [
                 'donation_id' => $result['donation']->id,
+                'razorpay_order_id' => $result['razorpay_order']->id,
                 'amount' => $amount,
             ]);
 
             return $this->success([
                 'donation_id' => $result['donation']->id,
                 'payment_id' => $result['payment']->id,
-                'amount' => $amount,
-                'status' => 'confirmed',
-                'message' => 'દાન સફળ! (Test mode — Razorpay pending)',
-            ], 'દાન સફળતાપૂર્વક નોંધાયું.');
+                'razorpay_order_id' => $result['razorpay_order']->id,
+                'razorpay_key_id' => \App\Models\SystemSetting::getValue('razorpay_key_id', config('razorpay.key_id')),
+                'amount' => (int) round($amount * 100),
+                'currency' => 'INR',
+                'devotee_name' => $devotee->name,
+                'devotee_phone' => $devotee->phone,
+                'devotee_email' => $devotee->email,
+                'description' => 'દાન — ' . ucfirst($validated['donation_type']),
+            ], 'Donation created. Complete payment.');
 
         } catch (\Exception $e) {
             Log::error('Donation creation failed', ['error' => $e->getMessage()]);

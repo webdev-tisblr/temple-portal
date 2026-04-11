@@ -128,16 +128,22 @@ class SevaController extends BaseApiController
         try {
             $result = DB::transaction(function () use ($seva, $validated, $devotee, $quantity, $totalAmount) {
                 $paymentId = (string) Str::uuid();
+                $receipt = 'SEVA-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
 
-                // Test mode: skip Razorpay, directly confirm
+                $razorpayService = app(\App\Services\RazorpayService::class);
+                $amountInPaise = (int) round($totalAmount * 100);
+
+                $razorpayOrder = $razorpayService->createOrder($amountInPaise, $receipt, [
+                    'devotee_id' => $devotee->id,
+                    'seva_id' => $seva->id,
+                ]);
+
                 $payment = Payment::create([
                     'id' => $paymentId,
-                    'razorpay_order_id' => 'test_' . Str::random(14),
+                    'razorpay_order_id' => $razorpayOrder->id,
                     'amount' => $totalAmount,
                     'currency' => 'INR',
-                    'status' => 'captured',
-                    'method' => 'test',
-                    'paid_at' => now(),
+                    'status' => 'created',
                     'description' => "{$seva->name_en} - {$validated['booking_date']}",
                 ]);
 
@@ -149,18 +155,19 @@ class SevaController extends BaseApiController
                     'slot_time' => $validated['slot_time'] ?? null,
                     'quantity' => $quantity,
                     'total_amount' => $totalAmount,
-                    'status' => 'confirmed',
+                    'status' => 'pending',
                     'payment_id' => $payment->id,
                     'devotee_name_for_seva' => $validated['devotee_name_for_seva'] ?? $devotee->name,
                     'gotra' => $validated['gotra'] ?? null,
                     'sankalp' => $validated['sankalp'] ?? null,
                 ]);
 
-                return ['booking' => $booking, 'payment' => $payment];
+                return ['booking' => $booking, 'payment' => $payment, 'razorpay_order' => $razorpayOrder];
             });
 
-            Log::info('Seva booking confirmed (test mode)', [
+            Log::info('Seva booking created, awaiting payment', [
                 'booking_id' => $result['booking']->id,
+                'razorpay_order_id' => $result['razorpay_order']->id,
                 'amount' => $totalAmount,
             ]);
 
@@ -170,9 +177,13 @@ class SevaController extends BaseApiController
                 'booking_date' => $result['booking']->booking_date->format('d M Y'),
                 'slot_time' => $result['booking']->slot_time,
                 'amount' => $totalAmount,
-                'status' => 'confirmed',
-                'message' => 'સેવા બુકિંગ સફળ! (Test mode — Razorpay pending)',
-            ], 'સેવા સફળતાપૂર્વક બુક થઈ.');
+                'status' => 'pending',
+                'razorpay_order_id' => $result['razorpay_order']->id,
+                'razorpay_key_id' => \App\Models\SystemSetting::getValue('razorpay_key_id', config('razorpay.key_id')),
+                'amount_paise' => (int) round($totalAmount * 100),
+                'devotee_name' => $devotee->name,
+                'devotee_phone' => $devotee->phone,
+            ], 'સેવા બુકિંગ બનાવ્યું. પેમેન્ટ પૂર્ણ કરો.');
 
         } catch (\Exception $e) {
             Log::error('Seva booking failed', ['error' => $e->getMessage()]);

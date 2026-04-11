@@ -54,9 +54,16 @@ class ContentController extends BaseApiController
      */
     public function liveDarshan(): JsonResponse
     {
-        $streamUrl = SystemSetting::getValue('live_darshan_stream_url', '');
+        $streamUrl = SystemSetting::getValue('live_darshan_stream_url', '')
+            ?: SystemSetting::getValue('youtube_live_url', '');
         $isLive = SystemSetting::getValue('live_darshan_is_live', '0');
-        $channelId = SystemSetting::getValue('live_darshan_channel_id', '');
+        $channelId = SystemSetting::getValue('live_darshan_channel_id', '')
+            ?: SystemSetting::getValue('youtube_channel_id', '');
+
+        // If stream URL exists, consider it live
+        if (empty($isLive) || $isLive === '0') {
+            $isLive = !empty($streamUrl) ? '1' : '0';
+        }
 
         return $this->success([
             'stream_url' => $streamUrl,

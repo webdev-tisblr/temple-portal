@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Models\Announcement;
+use App\Models\BlogPost;
 use App\Models\DarshanTiming;
 use App\Models\DonationCampaign;
+use App\Models\DonationType;
 use App\Models\Event;
 use App\Models\GalleryImage;
 use App\Models\SystemSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\RateLimiter;
 
 class ContentController extends BaseApiController
 {
@@ -198,6 +201,120 @@ class ContentController extends BaseApiController
         ]);
 
         return $this->success($events);
+    }
+
+    /**
+     * Return published blog posts.
+     */
+    public function blog(Request $request): JsonResponse
+    {
+        $query = BlogPost::where('status', 'published')
+            ->orderByDesc('published_at');
+
+        if ($request->query('category')) {
+            $query->where('category', $request->query('category'));
+        }
+
+        $posts = $query->paginate(20);
+
+        $data = $posts->getCollection()->map(fn (BlogPost $post) => [
+            'id' => $post->id,
+            'slug' => $post->slug,
+            'title' => $post->title,
+            'title_gu' => $post->title_gu,
+            'title_hi' => $post->title_hi,
+            'title_en' => $post->title_en,
+            'excerpt' => $post->excerpt_gu,
+            'featured_image_url' => $post->featured_image_path ? asset('storage/' . $post->featured_image_path) : null,
+            'category' => $post->category,
+            'published_at' => $post->published_at?->toISOString(),
+        ]);
+
+        return $this->success([
+            'posts' => $data,
+            'meta' => [
+                'current_page' => $posts->currentPage(),
+                'last_page' => $posts->lastPage(),
+                'total' => $posts->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Return a single blog post by slug.
+     */
+    public function blogDetail(string $slug): JsonResponse
+    {
+        $post = BlogPost::where('slug', $slug)->where('status', 'published')->first();
+
+        if (! $post) {
+            return $this->error('Post not found', 404);
+        }
+
+        return $this->success([
+            'id' => $post->id,
+            'slug' => $post->slug,
+            'title' => $post->title,
+            'title_gu' => $post->title_gu,
+            'title_hi' => $post->title_hi,
+            'title_en' => $post->title_en,
+            'body' => $post->body,
+            'body_gu' => $post->body_gu,
+            'body_hi' => $post->body_hi,
+            'body_en' => $post->body_en,
+            'featured_image_url' => $post->featured_image_path ? asset('storage/' . $post->featured_image_path) : null,
+            'category' => $post->category,
+            'published_at' => $post->published_at?->toISOString(),
+        ]);
+    }
+
+    /**
+     * Handle contact form submission.
+     */
+    public function submitContact(Request $request): JsonResponse
+    {
+        $key = 'contact:' . ($request->ip() ?? 'unknown');
+        if (RateLimiter::tooManyAttempts($key, 3)) {
+            return $this->error('ઘણા બધા પ્રયાસો. કૃપા કરી થોડા સમય પછી ફરી પ્રયાસ કરો.', 429);
+        }
+        RateLimiter::hit($key, 3600);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:15',
+            'email' => 'nullable|email|max:255',
+            'subject' => 'required|string|max:255',
+            'message' => 'required|string|max:2000',
+        ]);
+
+        // Store in system log or send notification
+        \Illuminate\Support\Facades\Log::info('Contact form submission', $validated);
+
+        return $this->success(null, 'તમારો સંદેશ સફળતાપૂર્વક મોકલાયો.');
+    }
+
+    /**
+     * Return active donation types.
+     */
+    public function donationTypes(): JsonResponse
+    {
+        $types = Cache::remember('donation_types.active', 1800, function () {
+            return DonationType::where('is_active', true)
+                ->orderBy('sort_order')
+                ->get()
+                ->map(fn (DonationType $t) => [
+                    'id' => $t->id,
+                    'name' => $t->name,
+                    'name_gu' => $t->name_gu,
+                    'name_hi' => $t->name_hi,
+                    'name_en' => $t->name_en,
+                    'slug' => $t->slug,
+                    'description' => $t->description,
+                    'extra_fields' => $t->extra_fields,
+                ]);
+        });
+
+        return $this->success($types);
     }
 
     /**

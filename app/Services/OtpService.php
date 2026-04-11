@@ -25,9 +25,8 @@ class OtpService
             ->whereNull('verified_at')
             ->delete();
 
-        $code = app()->environment('local')
-            ? '123456'
-            : str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        // TODO: Remove hardcoded OTP before Play Store / App Store release
+        $code = '123456';
 
         OtpCode::create([
             'phone' => $phone,

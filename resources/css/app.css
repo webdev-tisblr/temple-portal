@@ -210,48 +210,141 @@
     color: #FFFCF5;
 }
 
-/* Text colors — neutralise dark-only Tailwind opacity utilities */
+/* Text colors — neutralise dark-only Tailwind opacity utilities.
+   Cream-on-dark `text-amber-100/X` classes become deep-ink stone in light mode. */
+.light-mode .text-amber-100,
+.light-mode .text-amber-100\/90,
+.light-mode .text-amber-100\/80,
+.light-mode .text-amber-100\/70,
 .light-mode .text-amber-100\/60,
 .light-mode .text-amber-100\/50,
 .light-mode .text-amber-100\/40,
 .light-mode .text-amber-100\/30,
-.light-mode .text-amber-100\/70,
-.light-mode .text-amber-100\/80,
+.light-mode .text-amber-100\/20,
+.light-mode .text-amber-100\/10,
+.light-mode .text-amber-200,
+.light-mode .text-amber-200\/80,
+.light-mode .text-amber-200\/70,
+.light-mode .text-amber-200\/60,
 .light-mode .text-gray-300,
-.light-mode .text-gray-400 {
-    color: #5E4F3D !important;
+.light-mode .text-gray-400,
+.light-mode .text-stone-300,
+.light-mode .text-stone-400 {
+    color: #2A1810 !important;       /* stone-700 — primary ink */
 }
-.light-mode .text-amber-200\/60 {
-    color: #5E4F3D !important;
+.light-mode .text-amber-100\/40,
+.light-mode .text-amber-100\/30,
+.light-mode .text-amber-100\/20,
+.light-mode .text-stone-500 {
+    color: #5E4F3D !important;       /* stone-500 — secondary */
 }
-.light-mode .text-amber-600 {
-    color: #C45F12 !important;
-}
+.light-mode .text-amber-600,
 .light-mode .text-amber-500 {
-    color: #E8751A !important;
+    color: #E8751A !important;       /* saffron-400 primary */
 }
-.light-mode .text-amber-400 {
-    color: #E8751A !important;
-}
+.light-mode .text-amber-400,
 .light-mode .text-amber-300 {
-    color: #ECA557 !important;
+    color: #C45F12 !important;       /* saffron-500 deeper */
+}
+.light-mode .text-amber-700,
+.light-mode .text-amber-800 {
+    color: #7A1E1E !important;       /* maroon-500 sacred */
+}
+.light-mode .text-amber-600\/60 {
+    color: rgba(196, 95, 18, 0.85) !important;
 }
 
-/* Borders */
+/* Hover states for amber-100/X — keep readable */
+.light-mode .hover\:text-amber-100:hover,
+.light-mode .hover\:text-amber-100\/80:hover,
+.light-mode .hover\:text-gold:hover {
+    color: #7A1E1E !important;
+}
+
+/* Placeholders */
+.light-mode .placeholder\:text-amber-100\/20::placeholder,
+.light-mode .placeholder\:text-amber-100\/30::placeholder,
+.light-mode .placeholder\:text-amber-100\/40::placeholder {
+    color: #8A7860 !important;
+}
+
+/* Borders — amber dark borders become tinted maroon hairlines */
+.light-mode .border-amber-900,
+.light-mode .border-amber-900\/40,
+.light-mode .border-amber-900\/30,
 .light-mode .border-amber-900\/20,
 .light-mode .border-amber-900\/15,
+.light-mode .border-amber-900\/10,
+.light-mode .border-amber-800,
+.light-mode .border-amber-800\/40,
 .light-mode .border-amber-800\/30,
-.light-mode .border-amber-800\/20 {
+.light-mode .border-amber-800\/20,
+.light-mode .border-amber-700,
+.light-mode .border-amber-700\/40,
+.light-mode .border-amber-700\/30 {
     border-color: rgba(122, 30, 30, 0.15) !important;
 }
 
-/* Backgrounds */
-.light-mode .bg-amber-900\/20,
-.light-mode .bg-amber-900\/30,
-.light-mode .bg-amber-900\/15,
-.light-mode .bg-amber-900\/10 {
-    background-color: #F4EAD5 !important;
+/* Borders for accents (focus/hover) */
+.light-mode .focus\:border-amber-600:focus,
+.light-mode .focus\:border-amber-500:focus,
+.light-mode .focus\:ring-amber-600\/20:focus,
+.light-mode .focus\:ring-amber-500\/20:focus {
+    border-color: #E8751A !important;
 }
+
+/* Backgrounds — dark amber tinted bgs become parch tones */
+.light-mode .bg-amber-900,
+.light-mode .bg-amber-900\/50,
+.light-mode .bg-amber-900\/40,
+.light-mode .bg-amber-900\/30,
+.light-mode .bg-amber-900\/20,
+.light-mode .bg-amber-900\/15,
+.light-mode .bg-amber-900\/10,
+.light-mode .bg-amber-800,
+.light-mode .bg-amber-800\/30,
+.light-mode .bg-amber-800\/20,
+.light-mode .bg-amber-800\/10 {
+    background-color: rgba(232, 117, 26, 0.10) !important;  /* saffron-tinted parchment */
+}
+.light-mode .hover\:bg-amber-900\/30:hover,
+.light-mode .hover\:bg-amber-900\/15:hover,
+.light-mode .hover\:bg-amber-900\/10:hover {
+    background-color: rgba(232, 117, 26, 0.18) !important;
+}
+
+/* Solid amber backgrounds (vivid) */
+.light-mode .bg-amber-600 { background-color: #E8751A !important; color: #FFFCF5 !important; }
+.light-mode .bg-amber-500 { background-color: #E8751A !important; color: #FFFCF5 !important; }
+.light-mode .bg-amber-400 { background-color: #ECA557 !important; }
+.light-mode .bg-amber-700 { background-color: #C45F12 !important; color: #FFFCF5 !important; }
+
+/* Gradient utilities — neutralise common from-/to- amber dark gradients */
+.light-mode .from-amber-900,
+.light-mode .from-amber-900\/40,
+.light-mode .from-amber-900\/30,
+.light-mode .from-amber-900\/20 {
+    --tw-gradient-from: rgba(232, 117, 26, 0.12) !important;
+    --tw-gradient-to: rgba(232, 117, 26, 0) !important;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+.light-mode .to-amber-900,
+.light-mode .to-amber-900\/40,
+.light-mode .to-amber-900\/30,
+.light-mode .to-amber-900\/20 {
+    --tw-gradient-to: rgba(232, 117, 26, 0.06) !important;
+}
+.light-mode .via-amber-900,
+.light-mode .via-amber-900\/40,
+.light-mode .via-amber-900\/30,
+.light-mode .via-amber-900\/20 {
+    --tw-gradient-stops: var(--tw-gradient-from), rgba(232, 117, 26, 0.10), var(--tw-gradient-to) !important;
+}
+
+/* Generic text colors that assume dark bg */
+.light-mode .text-white { color: #2A1810 !important; }
+.light-mode .text-stone-200,
+.light-mode .text-stone-100 { color: #2A1810 !important; }
 
 /* Header / Nav */
 .light-mode header {

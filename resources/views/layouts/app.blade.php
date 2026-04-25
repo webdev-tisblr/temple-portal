@@ -4,8 +4,23 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="theme-color" content="#0a0604">
+    <meta name="theme-color" content="#FBF5EA">
 
+    {{-- Apply theme class BEFORE first paint to prevent flash of dark.
+         Default is 'light' to match the mobile app. --}}
+    <script>
+    (function(){
+        try {
+            var t = localStorage.getItem('theme') || 'light';
+            var dark = t === 'system'
+                ? window.matchMedia('(prefers-color-scheme:dark)').matches
+                : t === 'dark';
+            document.documentElement.classList.toggle('light-mode', !dark);
+        } catch (e) {
+            document.documentElement.classList.add('light-mode');
+        }
+    })();
+    </script>
 
     {!! SEOMeta::generate() !!}
 
@@ -19,7 +34,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('head')
 </head>
-<body class="bg-temple text-gray-300 font-sans antialiased">
+<body class="font-sans antialiased">
     <x-layout.header />
 
     <main>
@@ -28,11 +43,11 @@
 
     <x-layout.footer />
 
-    {{-- Theme Toggle --}}
+    {{-- Theme Toggle (cycle: light → dark → system; default light to match app) --}}
     <div id="theme-toggle" style="position:fixed;bottom:24px;right:24px;z-index:9999;">
         <button id="theme-btn" onclick="(function(){
-            var modes=['dark','light','system'];
-            var cur=localStorage.getItem('theme')||'system';
+            var modes=['light','dark','system'];
+            var cur=localStorage.getItem('theme')||'light';
             var i=modes.indexOf(cur);
             var next=modes[(i+1)%3];
             localStorage.setItem('theme',next);
@@ -42,16 +57,15 @@
             document.getElementById('theme-icon').textContent=icons[next];
             document.getElementById('theme-label').textContent=next==='system'?'Auto':next.charAt(0).toUpperCase()+next.slice(1);
         })()"
-        style="width:48px;height:48px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:2px solid rgba(180,83,9,0.6);background:rgba(28,25,23,0.95);box-shadow:0 4px 20px rgba(0,0,0,0.5);color:#e8c36a;font-size:18px;line-height:1;">
-            <span id="theme-icon">💻</span>
-            <span id="theme-label" style="font-size:7px;font-weight:bold;letter-spacing:0.5px;opacity:0.7;margin-top:1px;">Auto</span>
+        class="theme-toggle-btn"
+        style="width:48px;height:48px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:2px solid rgba(200,148,52,0.55);background:rgba(255,252,245,0.95);box-shadow:0 4px 20px rgba(122,30,30,0.10);color:#7A1E1E;font-size:18px;line-height:1;">
+            <span id="theme-icon">☀️</span>
+            <span id="theme-label" style="font-size:7px;font-weight:bold;letter-spacing:0.5px;opacity:0.7;margin-top:1px;">Light</span>
         </button>
     </div>
     <script>
     (function(){
-        var t=localStorage.getItem('theme')||'system';
-        var dark=t==='system'?window.matchMedia('(prefers-color-scheme:dark)').matches:t==='dark';
-        document.documentElement.classList.toggle('light-mode',!dark);
+        var t=localStorage.getItem('theme')||'light';
         var icons={dark:'🌙',light:'☀️',system:'💻'};
         var el=document.getElementById('theme-icon');
         if(el)el.textContent=icons[t];

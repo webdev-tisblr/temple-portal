@@ -2,11 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =============================================================
+   Brand palette (mirrors temple_app/lib/core/theme/app_colors.dart)
+   Saffron #E8751A · Maroon #7A1E1E · Gold #C89434
+   Parchment #FBF5EA / #FFFCF5 · Stone #2A1810 · Night ink #1A0F08
+   ============================================================= */
+
 @layer base {
     html { scroll-behavior: smooth; }
     body {
         -webkit-font-smoothing: antialiased;
-        background: #0a0604;
+        background: #1A0F08; /* nightInk */
+        color: #F4EAD5;      /* parch-100 */
+    }
+    h1, h2, h3, h4, h5, h6 {
+        font-family: '"Noto Serif Gujarati"', '"Noto Serif Devanagari"', serif;
+        letter-spacing: -0.01em;
     }
     [x-cloak] { display: none !important; }
 }
@@ -14,11 +25,12 @@
 @layer components {
     /* Sacred section heading with ornamental divider */
     .divine-heading {
-        @apply text-3xl sm:text-4xl lg:text-5xl font-black text-center tracking-tight;
-        color: #e8c36a;
+        @apply text-3xl sm:text-4xl lg:text-5xl font-black text-center tracking-tight font-serif;
+        color: #ECD08A; /* gold-200 */
     }
     .divine-subtext {
-        @apply mt-3 text-amber-200/60 text-base sm:text-lg text-center max-w-2xl mx-auto;
+        @apply mt-3 text-base sm:text-lg text-center max-w-2xl mx-auto;
+        color: rgba(244, 234, 213, 0.65);
     }
     .divine-divider {
         @apply flex items-center justify-center gap-3 my-6;
@@ -26,52 +38,52 @@
     .divine-divider::before, .divine-divider::after {
         content: '';
         @apply h-px w-16 sm:w-24;
-        background: linear-gradient(to right, transparent, #c49a2a, transparent);
+        background: linear-gradient(to right, transparent, #C89434, transparent);
     }
 
     /* Buttons */
     .btn-divine {
         @apply inline-flex items-center justify-center gap-2 px-8 py-3.5 font-bold rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-0.5 uppercase tracking-wider text-sm;
-        background: linear-gradient(135deg, #d4a016, #b8860b, #d4a016);
-        color: #1a0a00;
+        background: linear-gradient(135deg, #E8751A, #C45F12, #E8751A);
+        color: #FFFCF5;
     }
     .btn-divine:hover {
-        background: linear-gradient(135deg, #e8c36a, #d4a016, #e8c36a);
+        background: linear-gradient(135deg, #ECA557, #E8751A, #ECA557);
     }
     .btn-temple {
         @apply inline-flex items-center justify-center gap-2 px-8 py-3.5 font-bold rounded-full transition-all duration-300 border-2 uppercase tracking-wider text-sm;
-        border-color: #c49a2a;
-        color: #e8c36a;
+        border-color: #C89434;
+        color: #ECD08A;
     }
     .btn-temple:hover {
-        background: #c49a2a;
-        color: #1a0a00;
+        background: #C89434;
+        color: #2A1810;
     }
 
     /* Cards with warm glow */
     .card-sacred {
         @apply rounded-2xl overflow-hidden transition-all duration-500;
-        background: linear-gradient(145deg, #1a0f08, #140b05);
-        border: 1px solid rgba(196, 154, 42, 0.15);
+        background: linear-gradient(145deg, #1A0F08, #120902);
+        border: 1px solid rgba(200, 148, 52, 0.15);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
     .card-sacred:hover {
-        border-color: rgba(196, 154, 42, 0.35);
-        box-shadow: 0 8px 40px rgba(196, 154, 42, 0.1), 0 4px 20px rgba(0, 0, 0, 0.4);
+        border-color: rgba(200, 148, 52, 0.35);
+        box-shadow: 0 8px 40px rgba(200, 148, 52, 0.10), 0 4px 20px rgba(0, 0, 0, 0.40);
         transform: translateY(-4px);
     }
 }
 
-/* Diya glow animation — subtle shadow pulse, no opacity flicker */
+/* Diya glow animation */
 @keyframes diya-glow-pulse {
-    0%, 100% { box-shadow: 0 0 12px rgba(196, 154, 42, 0.15); }
-    50% { box-shadow: 0 0 20px rgba(196, 154, 42, 0.3); }
+    0%, 100% { box-shadow: 0 0 12px rgba(200, 148, 52, 0.18); }
+    50% { box-shadow: 0 0 20px rgba(200, 148, 52, 0.32); }
 }
 .diya-glow {
     animation: diya-glow-pulse 4s ease-in-out infinite;
 }
 
-/* Floating particles (like incense smoke) */
+/* Floating particles (incense smoke) */
 @keyframes float-up {
     0% { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
     20% { opacity: 0.6; }
@@ -83,7 +95,7 @@
     width: 3px;
     height: 3px;
     border-radius: 50%;
-    background: radial-gradient(circle, #c49a2a, transparent);
+    background: radial-gradient(circle, #C89434, transparent);
     animation: float-up linear infinite;
     pointer-events: none;
 }
@@ -91,118 +103,138 @@
 /* Sacred pattern overlay */
 .sacred-pattern {
     background-image:
-        radial-gradient(circle at 25% 25%, rgba(196, 154, 42, 0.03) 0%, transparent 50%),
-        radial-gradient(circle at 75% 75%, rgba(196, 154, 42, 0.03) 0%, transparent 50%);
+        radial-gradient(circle at 25% 25%, rgba(200, 148, 52, 0.04) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(200, 148, 52, 0.04) 0%, transparent 50%);
 }
 
 /* Warm inner glow */
 .inner-glow {
-    box-shadow: inset 0 0 80px rgba(196, 154, 42, 0.05);
+    box-shadow: inset 0 0 80px rgba(200, 148, 52, 0.05);
 }
 
 /* Gold text */
 .text-gold {
-    color: #e8c36a;
+    color: #ECD08A;
 }
 .text-gold-dim {
-    color: #c49a2a;
+    color: #C89434;
 }
 
 /* Temple dark backgrounds */
 .bg-temple {
-    background: #0a0604;
+    background: #1A0F08; /* nightInk */
 }
 .bg-temple-light {
-    background: linear-gradient(180deg, #140b05, #1a0f08);
+    background: linear-gradient(180deg, #120902, #1A0F08);
 }
 .bg-temple-card {
-    background: linear-gradient(145deg, #1a0f08, #140b05);
+    background: linear-gradient(145deg, #1A0F08, #120902);
 }
 
 /* Mandala decorative */
 .mandala-bg {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='80' fill='none' stroke='%23c49a2a' stroke-width='0.3' opacity='0.08'/%3E%3Ccircle cx='100' cy='100' r='60' fill='none' stroke='%23c49a2a' stroke-width='0.3' opacity='0.06'/%3E%3Ccircle cx='100' cy='100' r='40' fill='none' stroke='%23c49a2a' stroke-width='0.3' opacity='0.04'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='80' fill='none' stroke='%23C89434' stroke-width='0.3' opacity='0.08'/%3E%3Ccircle cx='100' cy='100' r='60' fill='none' stroke='%23C89434' stroke-width='0.3' opacity='0.06'/%3E%3Ccircle cx='100' cy='100' r='40' fill='none' stroke='%23C89434' stroke-width='0.3' opacity='0.04'/%3E%3C/svg%3E");
     background-size: 200px 200px;
 }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #0a0604; }
-::-webkit-scrollbar-thumb { background: #c49a2a40; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #c49a2a80; }
+::-webkit-scrollbar-track { background: #1A0F08; }
+::-webkit-scrollbar-thumb { background: rgba(200, 148, 52, 0.30); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(200, 148, 52, 0.55); }
 
 /* ═══════════════════════════════════════════
-   LIGHT MODE OVERRIDES
-   Applied when <html> has .light-mode class
+   LIGHT MODE OVERRIDES — matches AppColors light theme
+   parch-50  #FBF5EA  surface
+   parch-0   #FFFCF5  card
+   stone-700 #2A1810  ink
+   saffron-400 #E8751A primary
+   maroon-500  #7A1E1E sacred
+   gold-400    #C89434 accent
    ═══════════════════════════════════════════ */
 .light-mode body {
-    background: #faf7f2;
-    color: #3d2b1f;
+    background: #FBF5EA;
+    color: #2A1810;
 }
 .light-mode .bg-temple {
-    background: #faf7f2;
+    background: #FBF5EA;
 }
 .light-mode .bg-temple-light {
-    background: linear-gradient(180deg, #f5efe6, #faf7f2);
+    background: linear-gradient(180deg, #F4EAD5, #FBF5EA);
+}
+.light-mode .bg-temple-card {
+    background: linear-gradient(145deg, #FFFCF5, #FBF5EA);
 }
 .light-mode .text-gold {
-    color: #8b6914;
+    color: #7A1E1E; /* maroon ink for headings on light bg */
 }
 .light-mode .text-gold-dim {
-    color: #a07d24;
+    color: #A67622; /* gold-500 */
 }
 .light-mode .divine-heading {
-    color: #7a5c10;
+    color: #7A1E1E;
 }
 .light-mode .divine-subtext {
-    @apply text-stone-500;
+    color: #5E4F3D;
+}
+.light-mode .divine-divider::before,
+.light-mode .divine-divider::after {
+    background: linear-gradient(to right, transparent, #C89434, transparent);
 }
 
-/* Cards */
+/* Cards on light bg */
 .light-mode .card-sacred {
-    background: #ffffff;
-    border-color: #e5ddd0;
+    background: #FFFCF5;
+    border-color: rgba(122, 30, 30, 0.12);
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 .light-mode .card-sacred:hover {
-    border-color: #c9b896;
-    box-shadow: 0 6px 24px rgba(139, 105, 20, 0.1);
+    border-color: rgba(122, 30, 30, 0.30);
+    box-shadow: 0 6px 24px rgba(122, 30, 30, 0.10);
 }
 
-/* Buttons */
+/* Buttons on light bg */
 .light-mode .btn-divine {
-    background: linear-gradient(135deg, #b8860b, #8b6914);
-    color: #fff;
+    background: linear-gradient(135deg, #E8751A, #C45F12);
+    color: #FFFCF5;
 }
 .light-mode .btn-divine:hover {
-    background: linear-gradient(135deg, #d4a016, #b8860b);
+    background: linear-gradient(135deg, #ECA557, #E8751A);
 }
 .light-mode .btn-temple {
-    border-color: #8b6914;
-    color: #7a5c10;
+    border-color: #C89434;
+    color: #7A1E1E;
 }
 .light-mode .btn-temple:hover {
-    background: #8b6914;
-    color: #fff;
+    background: #C89434;
+    color: #FFFCF5;
 }
 
-/* Text colors */
+/* Text colors — neutralise dark-only Tailwind opacity utilities */
 .light-mode .text-amber-100\/60,
 .light-mode .text-amber-100\/50,
 .light-mode .text-amber-100\/40,
 .light-mode .text-amber-100\/30,
 .light-mode .text-amber-100\/70,
-.light-mode .text-amber-100\/80 {
-    color: #5c4a38 !important;
+.light-mode .text-amber-100\/80,
+.light-mode .text-gray-300,
+.light-mode .text-gray-400 {
+    color: #5E4F3D !important;
 }
 .light-mode .text-amber-200\/60 {
-    color: #6b5a48 !important;
+    color: #5E4F3D !important;
 }
 .light-mode .text-amber-600 {
-    color: #8b6914 !important;
+    color: #C45F12 !important;
 }
 .light-mode .text-amber-500 {
-    color: #a07d24 !important;
+    color: #E8751A !important;
+}
+.light-mode .text-amber-400 {
+    color: #E8751A !important;
+}
+.light-mode .text-amber-300 {
+    color: #ECA557 !important;
 }
 
 /* Borders */
@@ -210,7 +242,7 @@
 .light-mode .border-amber-900\/15,
 .light-mode .border-amber-800\/30,
 .light-mode .border-amber-800\/20 {
-    border-color: #e5ddd0 !important;
+    border-color: rgba(122, 30, 30, 0.15) !important;
 }
 
 /* Backgrounds */
@@ -218,45 +250,54 @@
 .light-mode .bg-amber-900\/30,
 .light-mode .bg-amber-900\/15,
 .light-mode .bg-amber-900\/10 {
-    background-color: #f0ebe2 !important;
+    background-color: #F4EAD5 !important;
 }
 
 /* Header / Nav */
 .light-mode header {
-    background: rgba(250, 247, 242, 0.95) !important;
+    background: rgba(251, 245, 234, 0.95) !important;
     backdrop-filter: blur(12px);
-    border-color: #e5ddd0 !important;
+    border-color: rgba(122, 30, 30, 0.12) !important;
 }
 .light-mode header .text-amber-100\/60 {
-    color: #5c4a38 !important;
+    color: #5E4F3D !important;
 }
 
 /* Forms */
 .light-mode input,
 .light-mode select,
 .light-mode textarea {
-    background: #ffffff !important;
-    border-color: #d5ccc0 !important;
-    color: #3d2b1f !important;
+    background: #FFFCF5 !important;
+    border-color: rgba(122, 30, 30, 0.20) !important;
+    color: #2A1810 !important;
 }
 .light-mode input::placeholder,
 .light-mode textarea::placeholder {
-    color: #a09080 !important;
+    color: #8A7860 !important;
+}
+.light-mode input:focus,
+.light-mode select:focus,
+.light-mode textarea:focus {
+    border-color: #E8751A !important;
+    outline: 2px solid rgba(232, 117, 26, 0.20);
+    outline-offset: 0;
 }
 
 /* Scrollbar */
-.light-mode ::-webkit-scrollbar-track { background: #faf7f2; }
-.light-mode ::-webkit-scrollbar-thumb { background: #c9b89660; }
-.light-mode ::-webkit-scrollbar-thumb:hover { background: #c9b896; }
+.light-mode ::-webkit-scrollbar-track { background: #FBF5EA; }
+.light-mode ::-webkit-scrollbar-thumb { background: rgba(200, 148, 52, 0.40); }
+.light-mode ::-webkit-scrollbar-thumb:hover { background: #C89434; }
 
 /* Inner glow */
 .light-mode .inner-glow {
-    box-shadow: inset 0 0 60px rgba(139, 105, 20, 0.03);
+    box-shadow: inset 0 0 60px rgba(200, 148, 52, 0.04);
 }
 
 /* Prose (rich content) */
 .light-mode .prose-invert {
-    --tw-prose-body: #4a3a2e;
-    --tw-prose-headings: #7a5c10;
-    --tw-prose-links: #8b6914;
+    --tw-prose-body: #3E3226;
+    --tw-prose-headings: #7A1E1E;
+    --tw-prose-links: #E8751A;
+    --tw-prose-bold: #2A1810;
+    --tw-prose-quotes: #5E4F3D;
 }

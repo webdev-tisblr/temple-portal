@@ -8,18 +8,74 @@ export default {
   theme: {
     extend: {
       colors: {
+        // ── Saffron / Kesari (primary) — matches AppColors ──────────────
         saffron: {
-          50: '#FFF7ED', 100: '#FFEDD5', 200: '#FED7AA', 300: '#FDBA74',
-          400: '#FB923C', 500: '#F97316', 600: '#EA580C', 700: '#C2410C',
-          800: '#9A3412', 900: '#7C2D12',
+          50:  '#FDF3E8',
+          100: '#FAE1C3',
+          200: '#F4C994',
+          300: '#ECA557',
+          400: '#E8751A', // primary
+          500: '#C45F12',
+          600: '#9C480B',
+          700: '#7C3608',
+          800: '#5D2906',
+          900: '#3F1B04',
         },
+        // ── Maroon / Sindoor (sacred ink) ────────────────────────────────
         maroon: {
-          50: '#FDF2F8', 100: '#FCE7F3', 200: '#FBCFE8',
-          500: '#881337', 700: '#5B0F2A', 900: '#3B0718',
+          50:  '#FBE6E6',
+          100: '#F4C2C2',
+          200: '#E59292',
+          300: '#C75959',
+          400: '#A83232',
+          500: '#7A1E1E', // sacred
+          600: '#5A1414',
+          700: '#3E0C0C',
+          900: '#1F0606',
+        },
+        // ── Gold / Haldi (accent) ────────────────────────────────────────
+        gold: {
+          50:  '#FBF1D7',
+          100: '#F5E2A8',
+          200: '#ECD08A',
+          300: '#D8B45E',
+          400: '#C89434', // accent
+          500: '#A67622',
+          600: '#7E5816',
+          700: '#5A3E0F',
+        },
+        // ── Parchment (warm light surfaces) ──────────────────────────────
+        parch: {
+          0:   '#FFFCF5',
+          50:  '#FBF5EA',
+          100: '#F4EAD5',
+          200: '#E8D9B8',
+          300: '#D4BF91',
+        },
+        // ── Stone (neutrals / ink) ───────────────────────────────────────
+        stone: {
+          400: '#8A7860',
+          500: '#5E4F3D',
+          600: '#3E3226',
+          700: '#2A1810',
+        },
+        // ── Dark theme surfaces ──────────────────────────────────────────
+        nightInk: {
+          DEFAULT: '#1A0F08',
+          deeper:  '#120902',
+          elev:    '#241710',
         },
       },
       fontFamily: {
-        sans: ['"Noto Sans Gujarati"', '"Noto Sans Devanagari"', '"Noto Sans"', 'sans-serif'],
+        sans: ['"Hind Vadodara"', '"Noto Sans Gujarati"', '"Noto Sans Devanagari"', '"Noto Sans"', 'sans-serif'],
+        serif: ['"Noto Serif Gujarati"', '"Noto Serif Devanagari"', 'serif'],
+        display: ['"Noto Serif Gujarati"', 'serif'],
+      },
+      boxShadow: {
+        'sacred': '0 4px 20px rgba(0, 0, 0, 0.3)',
+        'sacred-hover': '0 8px 40px rgba(196, 154, 42, 0.10), 0 4px 20px rgba(0, 0, 0, 0.40)',
+        'parch': '0 2px 12px rgba(0, 0, 0, 0.06)',
+        'parch-hover': '0 6px 24px rgba(122, 30, 30, 0.10)',
       },
     },
   },

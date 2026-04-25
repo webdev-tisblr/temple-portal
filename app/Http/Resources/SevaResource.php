@@ -21,7 +21,9 @@ class SevaResource extends JsonResource
             'description_gu' => $this->description_gu,
             'description_hi' => $this->description_hi,
             'description_en' => $this->description_en,
-            'category' => $this->category,
+            'category' => is_object($this->category) && method_exists($this->category, 'value')
+                ? $this->category->value
+                : ($this->category !== null ? (string) $this->category : null),
             'price' => (float) $this->price,
             'min_price' => $this->min_price ? (float) $this->min_price : null,
             'is_variable_price' => $this->is_variable_price,

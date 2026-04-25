@@ -9,10 +9,13 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Models\SystemSetting;
+use App\Services\RazorpayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class StoreController extends BaseApiController
@@ -99,19 +102,24 @@ class StoreController extends BaseApiController
             'notes' => 'nullable|string|max:500',
         ]);
 
+        $devotee = $request->user();
+
         try {
-            $result = DB::transaction(function () use ($validated, $request) {
+            $result = DB::transaction(function () use ($validated, $devotee) {
                 $subtotal = 0;
                 $orderItems = [];
 
                 foreach ($validated['items'] as $item) {
                     $product = Product::findOrFail($item['product_id']);
-                    $unitPrice = $product->price;
+                    if (! $product->is_active) {
+                        throw new \RuntimeException("Product '{$product->name}' is no longer available.");
+                    }
+                    $unitPrice = (float) $product->price;
 
                     if (! empty($item['variant_label']) && $product->has_variants) {
                         $variantPrice = $product->getVariantPrice($item['variant_label']);
                         if ($variantPrice !== null) {
-                            $unitPrice = $variantPrice;
+                            $unitPrice = (float) $variantPrice;
                         }
                     }
 
@@ -128,25 +136,32 @@ class StoreController extends BaseApiController
                     ];
                 }
 
+                $receipt = 'ORDER-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
+                $razorpayService = app(RazorpayService::class);
+                $amountInPaise = (int) round($subtotal * 100);
+
+                $razorpayOrder = $razorpayService->createOrder($amountInPaise, $receipt, [
+                    'devotee_id' => $devotee->id,
+                    'type' => 'store_order',
+                ]);
+
                 $payment = Payment::create([
                     'id' => (string) Str::uuid(),
-                    'razorpay_order_id' => 'test_' . Str::random(14),
+                    'razorpay_order_id' => $razorpayOrder->id,
                     'amount' => $subtotal,
                     'currency' => 'INR',
-                    'status' => 'captured',
-                    'method' => 'test',
-                    'paid_at' => now(),
+                    'status' => 'created',
                     'description' => 'Store order',
                 ]);
 
                 $order = Order::create([
                     'id' => (string) Str::uuid(),
-                    'devotee_id' => $request->user()->id,
+                    'devotee_id' => $devotee->id,
                     'payment_id' => $payment->id,
                     'subtotal' => $subtotal,
                     'shipping_charge' => 0,
                     'total_amount' => $subtotal,
-                    'status' => 'confirmed',
+                    'status' => 'pending',
                     'shipping_name' => $validated['shipping_name'],
                     'shipping_phone' => $validated['shipping_phone'],
                     'shipping_address' => $validated['shipping_address'],
@@ -160,17 +175,37 @@ class StoreController extends BaseApiController
                     OrderItem::create(array_merge($oi, ['order_id' => $order->id]));
                 }
 
-                return $order;
+                return [
+                    'order' => $order,
+                    'payment' => $payment,
+                    'razorpay_order' => $razorpayOrder,
+                    'subtotal' => $subtotal,
+                ];
             });
 
-            return $this->success([
-                'order_id' => $result->id,
-                'order_number' => $result->order_number,
-                'total_amount' => (float) $result->total_amount,
-                'status' => 'confirmed',
-            ], 'ઓર્ડર સફળ!');
+            Log::info('Store order created, awaiting payment', [
+                'order_id' => $result['order']->id,
+                'razorpay_order_id' => $result['razorpay_order']->id,
+                'amount' => $result['subtotal'],
+            ]);
 
+            return $this->success([
+                'order_id' => $result['order']->id,
+                'order_number' => $result['order']->order_number,
+                'total_amount' => (float) $result['order']->total_amount,
+                'amount_paise' => (int) round($result['subtotal'] * 100),
+                'status' => 'pending',
+                'razorpay_order_id' => $result['razorpay_order']->id,
+                'razorpay_key_id' => SystemSetting::getValue('razorpay_key_id', config('razorpay.key_id')),
+                'devotee_name' => $devotee->name,
+                'devotee_phone' => $devotee->phone,
+                'devotee_email' => $devotee->email,
+            ], 'ઓર્ડર બનાવ્યો. પેમેન્ટ પૂર્ણ કરો.');
+
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), 422);
         } catch (\Exception $e) {
+            Log::error('Store order failed', ['error' => $e->getMessage()]);
             return $this->error('ઓર્ડર નિષ્ફળ. ફરી પ્રયાસ કરો.', 500);
         }
     }

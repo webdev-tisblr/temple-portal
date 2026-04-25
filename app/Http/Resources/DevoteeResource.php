@@ -16,16 +16,25 @@ class DevoteeResource extends JsonResource
             'name' => $this->name,
             'phone' => $this->phone,
             'email' => $this->email,
+            'address' => $this->address,
             'city' => $this->city,
             'state' => $this->state,
+            'pincode' => $this->pincode,
+            'country' => $this->country,
             'date_of_birth' => $this->date_of_birth?->toDateString(),
-            'language' => $this->language,
+            'language' => $this->language?->value ?? 'gu',
             'has_pan' => !empty($this->pan_encrypted),
             'pan_last_four' => $this->pan_last_four,
             'phone_verified' => !is_null($this->phone_verified_at),
             'profile_photo_url' => $this->profile_photo_path
                 ? asset('storage/' . $this->profile_photo_path)
                 : null,
+            'donations_count' => $this->donations()->count(),
+            'total_donated' => (int) $this->donations()
+                ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
+                ->sum('amount'),
+            'bookings_count' => $this->sevaBookings()->count() + $this->hallBookings()->count(),
+            'orders_count' => $this->orders()->count(),
             'created_at' => $this->created_at?->toISOString(),
         ];
     }

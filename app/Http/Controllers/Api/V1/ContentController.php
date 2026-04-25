@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Models\Announcement;
 use App\Models\BlogPost;
+use App\Models\ContactSubmission;
 use App\Models\DarshanTiming;
 use App\Models\DonationCampaign;
 use App\Models\DonationType;
@@ -25,7 +26,7 @@ class ContentController extends BaseApiController
      */
     public function announcements(): JsonResponse
     {
-        $announcements = Cache::remember('announcements.active', 900, function () {
+        $announcements = Cache::remember('announcements.active.v2', 900, function () {
             return Announcement::query()
                 ->where('is_active', true)
                 ->where(function ($q) {
@@ -39,7 +40,9 @@ class ContentController extends BaseApiController
                     'id' => $announcement->id,
                     'title' => $announcement->title,
                     'body' => $announcement->body,
-                    'image_path' => $announcement->image_path,
+                    'image_url' => $announcement->image_path
+                        ? asset('storage/' . $announcement->image_path)
+                        : null,
                     'is_urgent' => $announcement->is_urgent,
                     'published_at' => $announcement->published_at?->toISOString(),
                     'expires_at' => $announcement->expires_at?->toISOString(),
@@ -179,9 +182,22 @@ class ContentController extends BaseApiController
     {
         $type = $request->query('type');
 
+        // Hide events that ended more than 1 day ago; order upcoming first.
+        $cutoff = now()->subDay()->toDateString();
+
         $query = Event::query()
             ->where('status', 'published')
-            ->orderByDesc('start_date');
+            ->where(function ($q) use ($cutoff) {
+                // Event has no end_date AND starts today or later
+                $q->where(function ($qq) use ($cutoff) {
+                    $qq->whereNull('end_date')
+                        ->where('start_date', '>=', $cutoff);
+                })
+                // OR event has an end_date still today or later
+                ->orWhere('end_date', '>=', $cutoff);
+            })
+            ->orderByDesc('is_featured')
+            ->orderBy('start_date');
 
         if ($type) {
             $query->where('event_type', $type);
@@ -265,14 +281,48 @@ class ContentController extends BaseApiController
             'title_gu' => $post->title_gu,
             'title_hi' => $post->title_hi,
             'title_en' => $post->title_en,
-            'body' => $post->body,
-            'body_gu' => $post->body_gu,
-            'body_hi' => $post->body_hi,
-            'body_en' => $post->body_en,
+            // HTML-stripped plain text for mobile; preserves paragraph/line breaks.
+            'body' => $this->htmlToPlainText($post->body),
+            'body_gu' => $this->htmlToPlainText($post->body_gu),
+            'body_hi' => $this->htmlToPlainText($post->body_hi),
+            'body_en' => $this->htmlToPlainText($post->body_en),
+            // Raw HTML fields for web/clients that render rich text.
+            'body_html' => $post->body,
+            'body_html_gu' => $post->body_gu,
+            'body_html_hi' => $post->body_hi,
+            'body_html_en' => $post->body_en,
             'featured_image_url' => $post->featured_image_path ? asset('storage/' . $post->featured_image_path) : null,
             'category' => $post->category,
             'published_at' => $post->published_at?->toISOString(),
         ]);
+    }
+
+    /**
+     * Convert RichEditor HTML to readable plain text, preserving paragraph breaks.
+     */
+    private function htmlToPlainText(?string $html): ?string
+    {
+        if ($html === null || $html === '') {
+            return $html;
+        }
+
+        // Convert block-level closings and <br> to newlines so paragraphs stay separated.
+        $normalised = preg_replace(
+            ['#</(p|div|h[1-6]|li|blockquote)>#i', '#<br\s*/?>#i'],
+            ["\n\n", "\n"],
+            $html
+        );
+
+        // Strip remaining tags.
+        $plain = strip_tags($normalised);
+
+        // Decode entities (&nbsp;, &amp;, Gujarati numeric entities, etc.).
+        $plain = html_entity_decode($plain, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // Collapse excess blank lines and trim.
+        $plain = preg_replace("/\n{3,}/", "\n\n", $plain);
+
+        return trim($plain);
     }
 
     /**
@@ -294,10 +344,37 @@ class ContentController extends BaseApiController
             'message' => 'required|string|max:2000',
         ]);
 
-        // Store in system log or send notification
-        \Illuminate\Support\Facades\Log::info('Contact form submission', $validated);
+        ContactSubmission::create(array_merge($validated, [
+            'ip_address' => $request->ip(),
+            'is_read' => false,
+        ]));
 
         return $this->success(null, 'તમારો સંદેશ સફળતાપૂર્વક મોકલાયો.');
+    }
+
+    /**
+     * Return temple info (name, contact, address, about, rules, nearby).
+     * Draws from SystemSetting so admin can edit without a code change.
+     */
+    public function templeInfo(): JsonResponse
+    {
+        $info = Cache::remember('content.temple_info.v1', 1800, function () {
+            return [
+                'name' => SystemSetting::getValue('trust_name', 'શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ'),
+                'phone' => SystemSetting::getValue('trust_phone'),
+                'email' => SystemSetting::getValue('trust_email'),
+                'address' => SystemSetting::getValue('trust_address'),
+                'about' => SystemSetting::getValue('trust_about'),
+                'rules' => SystemSetting::getValue('trust_rules'),
+                'nearby' => SystemSetting::getValue('trust_nearby'),
+                'facilities' => SystemSetting::getValue('trust_facilities'),
+                'map_url' => SystemSetting::getValue('trust_map_url'),
+                'youtube_channel_url' => SystemSetting::getValue('youtube_channel_url'),
+                'whatsapp_number' => SystemSetting::getValue('trust_whatsapp'),
+            ];
+        });
+
+        return $this->success($info);
     }
 
     /**
@@ -333,14 +410,19 @@ class ContentController extends BaseApiController
     {
         return [
             'id' => $campaign->id,
+            'slug' => $campaign->slug,
             'title' => $campaign->title,
             'description' => $campaign->description,
+            'writeup' => $campaign->writeup,
             'goal_amount' => (float) $campaign->goal_amount,
             'raised_amount' => (float) $campaign->raised_amount,
             'donor_count' => $campaign->donor_count,
-            'image_path' => $campaign->image_path,
+            'image_url' => $campaign->image_path
+                ? asset('storage/' . $campaign->image_path)
+                : null,
             'start_date' => $campaign->start_date?->toDateString(),
             'end_date' => $campaign->end_date?->toDateString(),
+            'is_featured' => (bool) $campaign->is_featured,
             'progress_percent' => $campaign->goal_amount > 0
                 ? round(((float) $campaign->raised_amount / (float) $campaign->goal_amount) * 100, 2)
                 : 0,

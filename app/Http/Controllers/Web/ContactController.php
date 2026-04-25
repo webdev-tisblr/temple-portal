@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\ContactSubmission;
 use App\Models\SystemSetting;
 use Artesaos\SEOTools\Facades\SEOMeta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\View\View;
 
@@ -42,7 +42,11 @@ class ContactController extends Controller
             'message' => 'required|string|max:2000',
         ]);
 
-        Log::info('Contact form submission', $validated);
+        ContactSubmission::create(array_merge($validated, [
+            'subject' => $validated['subject'] ?? 'General inquiry',
+            'ip_address' => $request->ip(),
+            'is_read' => false,
+        ]));
 
         return back()->with('success', 'તમારો સંદેશ મોકલવામાં આવ્યો છે. અમે ટૂંક સમયમાં સંપર્ક કરીશું.');
     }

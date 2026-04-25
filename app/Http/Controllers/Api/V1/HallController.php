@@ -7,10 +7,13 @@ namespace App\Http\Controllers\Api\V1;
 use App\Models\Hall;
 use App\Models\HallBooking;
 use App\Models\Payment;
+use App\Models\SystemSetting;
+use App\Services\RazorpayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class HallController extends BaseApiController
@@ -71,24 +74,52 @@ class HallController extends BaseApiController
         ]);
 
         $amount = $validated['booking_type'] === 'full_day'
-            ? $hall->price_per_day
-            : $hall->price_per_half_day;
+            ? (float) $hall->price_per_day
+            : (float) $hall->price_per_half_day;
+
+        // Refuse overlapping bookings — same day, overlapping slot type,
+        // pending or confirmed on another booking.
+        $conflict = HallBooking::where('hall_id', $hall->id)
+            ->where('booking_date', $validated['booking_date'])
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->where(function ($q) use ($validated) {
+                $q->where('booking_type', 'full_day');
+                if ($validated['booking_type'] === 'full_day') {
+                    return;
+                }
+                $q->orWhere('booking_type', $validated['booking_type']);
+            })
+            ->exists();
+
+        if ($conflict) {
+            return $this->error('આ તારીખ અને સમય પર હોલ પહેલેથી બુક છે.', 409);
+        }
+
+        $devotee = $request->user();
 
         try {
-            $result = DB::transaction(function () use ($hall, $validated, $request, $amount) {
+            $result = DB::transaction(function () use ($hall, $validated, $devotee, $amount) {
+                $receipt = 'HALL-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
+                $razorpayService = app(RazorpayService::class);
+                $amountInPaise = (int) round($amount * 100);
+
+                $razorpayOrder = $razorpayService->createOrder($amountInPaise, $receipt, [
+                    'devotee_id' => $devotee->id,
+                    'hall_id' => $hall->id,
+                    'booking_type' => $validated['booking_type'],
+                ]);
+
                 $payment = Payment::create([
                     'id' => (string) Str::uuid(),
-                    'razorpay_order_id' => 'test_' . Str::random(14),
+                    'razorpay_order_id' => $razorpayOrder->id,
                     'amount' => $amount,
                     'currency' => 'INR',
-                    'status' => 'captured',
-                    'method' => 'test',
-                    'paid_at' => now(),
+                    'status' => 'created',
                     'description' => "Hall booking - {$hall->name}",
                 ]);
 
-                return HallBooking::create([
-                    'devotee_id' => $request->user()->id,
+                $booking = HallBooking::create([
+                    'devotee_id' => $devotee->id,
                     'hall_id' => $hall->id,
                     'booking_date' => $validated['booking_date'],
                     'booking_type' => $validated['booking_type'],
@@ -97,20 +128,39 @@ class HallController extends BaseApiController
                     'contact_name' => $validated['contact_name'],
                     'contact_phone' => $validated['contact_phone'],
                     'total_amount' => $amount,
-                    'status' => 'confirmed',
+                    'status' => 'pending',
                     'payment_id' => $payment->id,
                 ]);
+
+                return [
+                    'booking' => $booking,
+                    'payment' => $payment,
+                    'razorpay_order' => $razorpayOrder,
+                ];
             });
 
+            Log::info('Hall booking created, awaiting payment', [
+                'booking_id' => $result['booking']->id,
+                'razorpay_order_id' => $result['razorpay_order']->id,
+                'amount' => $amount,
+            ]);
+
             return $this->success([
-                'booking_id' => $result->id,
+                'booking_id' => $result['booking']->id,
                 'hall_name' => $hall->name,
-                'booking_date' => $result->booking_date->format('d M Y'),
-                'booking_type' => $result->booking_type,
-                'amount' => (float) $amount,
-                'status' => 'confirmed',
-            ], 'હોલ બુકિંગ સફળ!');
+                'booking_date' => $result['booking']->booking_date->format('d M Y'),
+                'booking_type' => $result['booking']->booking_type,
+                'amount' => $amount,
+                'amount_paise' => (int) round($amount * 100),
+                'status' => 'pending',
+                'razorpay_order_id' => $result['razorpay_order']->id,
+                'razorpay_key_id' => SystemSetting::getValue('razorpay_key_id', config('razorpay.key_id')),
+                'devotee_name' => $devotee->name,
+                'devotee_phone' => $devotee->phone,
+                'devotee_email' => $devotee->email,
+            ], 'હોલ બુકિંગ બનાવ્યું. પેમેન્ટ પૂર્ણ કરો.');
         } catch (\Exception $e) {
+            Log::error('Hall booking failed', ['error' => $e->getMessage()]);
             return $this->error('હોલ બુકિંગ નિષ્ફળ. ફરી પ્રયાસ કરો.', 500);
         }
     }

@@ -10,7 +10,9 @@ use App\Http\Controllers\Api\V1\PaymentWebhookController;
 use App\Http\Controllers\Api\V1\SevaController;
 use App\Http\Controllers\Api\V1\StoreController;
 use App\Http\Resources\DevoteeResource;
+use App\Services\PanValidationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -18,6 +20,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/content/announcements', [ContentController::class, 'announcements']);
     Route::get('/content/live-darshan', [ContentController::class, 'liveDarshan']);
     Route::get('/content/darshan-timings', [ContentController::class, 'darshanTimings']);
+    Route::get('/content/temple-info', [ContentController::class, 'templeInfo']);
     Route::get('/campaigns', [ContentController::class, 'campaigns']);
     Route::get('/campaigns/{campaign}', [ContentController::class, 'campaignDetail']);
 
@@ -67,13 +70,43 @@ Route::prefix('v1')->group(function () {
             $validated = $request->validate([
                 'name' => 'sometimes|string|max:255',
                 'email' => 'sometimes|nullable|email|max:255',
+                'address' => 'sometimes|nullable|string|max:500',
                 'city' => 'sometimes|nullable|string|max:100',
                 'state' => 'sometimes|nullable|string|max:100',
                 'pincode' => 'sometimes|nullable|string|max:10',
+                'country' => 'sometimes|nullable|string|max:100',
                 'date_of_birth' => 'sometimes|nullable|date',
                 'language' => 'sometimes|in:gu,hi,en',
+                'pan_number' => 'sometimes|nullable|string|size:10',
             ]);
-            $request->user()->update($validated);
+
+            $updateData = collect($validated)->except(['pan_number'])->toArray();
+
+            if (!empty($validated['pan_number'])) {
+                $panService = app(PanValidationService::class);
+                if (!$panService->validate($validated['pan_number'])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Invalid PAN format. Use format ABCDE1234F.',
+                        'errors' => ['pan_number' => ['Invalid PAN format.']],
+                    ], 422);
+                }
+                $updateData['pan_encrypted'] = Crypt::encryptString($validated['pan_number']);
+                $updateData['pan_last_four'] = substr($validated['pan_number'], -4);
+            }
+
+            $request->user()->update($updateData);
+            return new DevoteeResource($request->user()->fresh());
+        });
+
+        Route::post('/me/photo', function (Request $request) {
+            $request->validate([
+                'photo' => 'required|image|mimes:jpg,jpeg,png,webp|max:4096',
+            ]);
+
+            $path = $request->file('photo')->store('profile-photos', 'public');
+            $request->user()->update(['profile_photo_path' => $path]);
+
             return new DevoteeResource($request->user()->fresh());
         });
 

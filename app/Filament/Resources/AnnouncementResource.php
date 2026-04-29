@@ -15,9 +15,12 @@ use Filament\Tables\Table;
 class AnnouncementResource extends Resource
 {
     protected static ?string $model = Announcement::class;
-    protected static ?string $navigationIcon = 'heroicon-o-speaker-wave';
+    protected static ?string $navigationIcon = 'heroicon-o-megaphone';
     protected static ?string $navigationGroup = 'Content';
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 3;
+    protected static ?string $navigationLabel = 'Mandir News (સમાચાર)';
+    protected static ?string $modelLabel = 'Mandir News';
+    protected static ?string $pluralModelLabel = 'Mandir News';
 
     public static function form(Form $form): Form
     {

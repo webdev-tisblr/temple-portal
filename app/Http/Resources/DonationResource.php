@@ -14,9 +14,9 @@ class DonationResource extends JsonResource
         return [
             'id' => $this->id,
             'amount' => (float) $this->amount,
-            'donation_type' => is_object($this->donation_type) && method_exists($this->donation_type, 'value')
+            'donation_type' => $this->donation_type instanceof \BackedEnum
                 ? $this->donation_type->value
-                : (string) $this->donation_type,
+                : ($this->donation_type !== null ? (string) $this->donation_type : null),
             'purpose' => $this->purpose,
             'financial_year' => $this->financial_year,
             'is_80g_eligible' => (bool) $this->is_80g_eligible,

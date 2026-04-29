@@ -21,7 +21,7 @@ class SevaResource extends JsonResource
             'description_gu' => $this->description_gu,
             'description_hi' => $this->description_hi,
             'description_en' => $this->description_en,
-            'category' => is_object($this->category) && method_exists($this->category, 'value')
+            'category' => $this->category instanceof \BackedEnum
                 ? $this->category->value
                 : ($this->category !== null ? (string) $this->category : null),
             'price' => (float) $this->price,

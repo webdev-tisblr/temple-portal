@@ -20,6 +20,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/content/announcements', [ContentController::class, 'announcements']);
     Route::get('/content/live-darshan', [ContentController::class, 'liveDarshan']);
     Route::get('/content/darshan-timings', [ContentController::class, 'darshanTimings']);
+    Route::get('/content/daily-darshan-photo', [ContentController::class, 'dailyDarshanPhoto']);
     Route::get('/content/temple-info', [ContentController::class, 'templeInfo']);
     Route::get('/campaigns', [ContentController::class, 'campaigns']);
     Route::get('/campaigns/{campaign}', [ContentController::class, 'campaignDetail']);

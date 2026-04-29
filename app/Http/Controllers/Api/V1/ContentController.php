@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Models\Announcement;
 use App\Models\BlogPost;
 use App\Models\ContactSubmission;
+use App\Models\DailyDarshanPhoto;
 use App\Models\DarshanTiming;
 use App\Models\DonationCampaign;
 use App\Models\DonationType;
@@ -50,6 +51,34 @@ class ContentController extends BaseApiController
         });
 
         return $this->success($announcements);
+    }
+
+    /**
+     * Return the latest active daily darshan photo for sharing in the app.
+     */
+    public function dailyDarshanPhoto(): JsonResponse
+    {
+        $photo = DailyDarshanPhoto::query()
+            ->where('is_active', true)
+            ->orderByDesc('captured_on')
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$photo) {
+            return $this->success(null);
+        }
+
+        return $this->success([
+            'id' => $photo->id,
+            'image_url' => $photo->image_path
+                ? asset('storage/' . $photo->image_path)
+                : null,
+            'caption' => $photo->caption,
+            'caption_gu' => $photo->caption_gu,
+            'caption_hi' => $photo->caption_hi,
+            'caption_en' => $photo->caption_en,
+            'captured_on' => $photo->captured_on?->toDateString(),
+        ]);
     }
 
     /**

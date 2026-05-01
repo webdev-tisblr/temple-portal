@@ -29,12 +29,21 @@ class DevoteeResource extends JsonResource
             'profile_photo_url' => $this->profile_photo_path
                 ? asset('storage/' . $this->profile_photo_path)
                 : null,
-            'donations_count' => $this->donations()->count(),
+            'donations_count' => $this->donations()
+                ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
+                ->count(),
             'total_donated' => (int) $this->donations()
                 ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
                 ->sum('amount'),
-            'bookings_count' => $this->sevaBookings()->count() + $this->hallBookings()->count(),
-            'orders_count' => $this->orders()->count(),
+            'bookings_count' => $this->sevaBookings()
+                    ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
+                    ->count()
+                + $this->hallBookings()
+                    ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
+                    ->count(),
+            'orders_count' => $this->orders()
+                ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
+                ->count(),
             'created_at' => $this->created_at?->toISOString(),
         ];
     }

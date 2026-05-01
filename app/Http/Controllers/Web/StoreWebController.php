@@ -31,7 +31,8 @@ class StoreWebController extends Controller
     {
         $categories = Cache::remember('store_categories_with_counts', 600, function () {
             return ProductCategory::where('is_active', true)
-                ->withCount(['products' => fn ($q) => $q->active()])
+                ->where('is_seva_only', false)
+                ->withCount(['products' => fn ($q) => $q->active()->forStore()])
                 ->orderBy('sort_order')
                 ->get();
         });
@@ -54,7 +55,10 @@ class StoreWebController extends Controller
 
     public function category(string $slug): View
     {
-        $category = ProductCategory::where('slug', $slug)->where('is_active', true)->firstOrFail();
+        $category = ProductCategory::where('slug', $slug)
+            ->where('is_active', true)
+            ->where('is_seva_only', false)
+            ->firstOrFail();
 
         $query = Product::where('category_id', $category->id)->active()->forStore();
 
@@ -97,7 +101,9 @@ class StoreWebController extends Controller
             ->with(['images', 'category'])
             ->firstOrFail();
 
-        if (! $product->is_active) {
+        if (! $product->is_active
+            || $product->is_seva_only
+            || ($product->category && $product->category->is_seva_only)) {
             abort(404);
         }
 
@@ -115,7 +121,7 @@ class StoreWebController extends Controller
             'variant_label' => ['nullable', 'string', 'max:100'],
         ]);
 
-        $product = Product::where('id', $request->product_id)->active()->firstOrFail();
+        $product = Product::where('id', $request->product_id)->active()->forStore()->firstOrFail();
 
         // Validate variant exists if product has variants
         if ($product->has_variants) {

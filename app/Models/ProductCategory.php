@@ -17,7 +17,11 @@ class ProductCategory extends Model
 
     protected static function booted(): void
     {
-        $bust = static fn () => Cache::forget('store.categories');
+        $bust = static function () {
+            Cache::forget('store.categories');
+            Cache::forget('store_categories_with_counts');
+            Cache::forget('store_featured_products');
+        };
         static::saved($bust);
         static::deleted($bust);
         static::restored($bust);

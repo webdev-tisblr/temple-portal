@@ -64,7 +64,11 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/refresh', [AuthController::class, 'refreshToken']);
 
         Route::get('/me', function (Request $request) {
-            return new DevoteeResource($request->user());
+            return response()->json([
+                'success' => true,
+                'message' => 'Success',
+                'data' => (new DevoteeResource($request->user()))->toArray($request),
+            ]);
         });
 
         Route::put('/me', function (Request $request) {
@@ -97,7 +101,12 @@ Route::prefix('v1')->group(function () {
             }
 
             $request->user()->update($updateData);
-            return new DevoteeResource($request->user()->fresh());
+            $fresh = $request->user()->fresh();
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile updated',
+                'data' => (new DevoteeResource($fresh))->toArray($request),
+            ]);
         });
 
         Route::post('/me/photo', function (Request $request) {
@@ -107,8 +116,13 @@ Route::prefix('v1')->group(function () {
 
             $path = $request->file('photo')->store('profile-photos', 'public');
             $request->user()->update(['profile_photo_path' => $path]);
+            $fresh = $request->user()->fresh();
 
-            return new DevoteeResource($request->user()->fresh());
+            return response()->json([
+                'success' => true,
+                'message' => 'Photo updated',
+                'data' => (new DevoteeResource($fresh))->toArray($request),
+            ]);
         });
 
         // Seva booking (requires auth)

@@ -102,13 +102,19 @@ class DonationController extends BaseApiController
     public function history(Request $request): JsonResponse
     {
         $donations = Donation::where('devotee_id', $request->user()->id)
-            ->with('receipt')
+            ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
+            ->with(['receipt', 'payment'])
             ->orderByDesc('created_at')
             ->paginate(20);
 
+        $data = $donations->getCollection()
+            ->map(fn (Donation $d) => (new DonationResource($d))->toArray($request))
+            ->values()
+            ->all();
+
         return response()->json([
             'success' => true,
-            'data' => DonationResource::collection($donations),
+            'data' => $data,
             'meta' => [
                 'current_page' => $donations->currentPage(),
                 'last_page' => $donations->lastPage(),

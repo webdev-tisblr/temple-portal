@@ -81,6 +81,7 @@ class SevaController extends BaseApiController
     {
         $bookings = SevaBooking::with('seva')
             ->where('devotee_id', $request->user()->id)
+            ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
             ->orderByDesc('created_at')
             ->paginate(20);
 

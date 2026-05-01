@@ -45,4 +45,9 @@ class HallBooking extends Model
     {
         return $this->belongsTo(Hall::class, 'hall_id');
     }
+
+    public function payment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class, 'payment_id');
+    }
 }

@@ -8,6 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Jobs\Generate80GReceipt;
 use App\Jobs\SendSevaBookingConfirmation;
 use App\Models\Donation;
+use App\Models\HallBooking;
+use App\Models\Order;
 use App\Models\Payment;
 use App\Models\SevaBooking;
 use App\Services\RazorpayService;
@@ -82,6 +84,20 @@ class PaymentWebhookController extends Controller
             Log::info("Seva booking {$booking->id} confirmed via webhook");
         }
 
+        // Update associated store order
+        $order = Order::where('payment_id', $payment->id)->first();
+        if ($order) {
+            $order->update(['status' => 'confirmed']);
+            Log::info("Store order {$order->id} confirmed via webhook");
+        }
+
+        // Update associated hall booking
+        $hallBooking = HallBooking::where('payment_id', $payment->id)->first();
+        if ($hallBooking) {
+            $hallBooking->update(['status' => 'confirmed']);
+            Log::info("Hall booking {$hallBooking->id} confirmed via webhook");
+        }
+
         // Handle donation record
         $donation = Donation::where('payment_id', $payment->id)->first();
 
@@ -153,6 +169,16 @@ class PaymentWebhookController extends Controller
                 'cancelled_at' => now(),
                 'cancellation_reason' => 'Payment failed',
             ]);
+        }
+
+        $order = Order::where('payment_id', $payment->id)->first();
+        if ($order) {
+            $order->update(['status' => 'cancelled']);
+        }
+
+        $hallBooking = HallBooking::where('payment_id', $payment->id)->first();
+        if ($hallBooking) {
+            $hallBooking->update(['status' => 'cancelled']);
         }
 
         $donation = Donation::where('payment_id', $payment->id)->first();

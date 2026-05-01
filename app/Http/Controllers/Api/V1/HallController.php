@@ -169,6 +169,7 @@ class HallController extends BaseApiController
     {
         $bookings = HallBooking::with('hall')
             ->where('devotee_id', $request->user()->id)
+            ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
             ->orderByDesc('created_at')
             ->get()
             ->map(fn (HallBooking $b) => [

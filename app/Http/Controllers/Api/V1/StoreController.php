@@ -214,6 +214,7 @@ class StoreController extends BaseApiController
     {
         $orders = Order::with('items')
             ->where('devotee_id', $request->user()->id)
+            ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
             ->orderByDesc('created_at')
             ->paginate(20);
 

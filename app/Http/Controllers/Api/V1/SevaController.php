@@ -79,7 +79,7 @@ class SevaController extends BaseApiController
 
     public function bookings(Request $request): JsonResponse
     {
-        $bookings = SevaBooking::with('seva')
+        $bookings = SevaBooking::with(['seva', 'selectedProduct'])
             ->where('devotee_id', $request->user()->id)
             ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
             ->orderByDesc('created_at')
@@ -100,6 +100,14 @@ class SevaController extends BaseApiController
             'devotee_name_for_seva' => $booking->devotee_name_for_seva,
             'gotra' => $booking->gotra,
             'sankalp' => $booking->sankalp,
+            'selected_product' => $booking->selectedProduct ? [
+                'id' => $booking->selectedProduct->id,
+                'name' => $booking->selectedProduct->name,
+                'name_gu' => $booking->selectedProduct->name_gu,
+                'image_url' => $booking->selectedProduct->image_path
+                    ? asset('storage/' . $booking->selectedProduct->image_path)
+                    : null,
+            ] : null,
             'created_at' => $booking->created_at?->toISOString(),
         ]);
 
@@ -119,6 +127,19 @@ class SevaController extends BaseApiController
         $devotee = $request->user();
         $quantity = $validated['quantity'] ?? 1;
         $totalAmount = (float) $seva->price * $quantity;
+
+        // If the seva is configured for product selection, the selection is required
+        // and must be one of the linked products.
+        if ($seva->hasProductSelection()) {
+            $allowedIds = $seva->getLinkedProductsList()->pluck('id')->all();
+            $selectedId = $validated['selected_product_id'] ?? null;
+            if (empty($selectedId)) {
+                return $this->error('કૃપા કરી સેવા સાથેનું ઉત્પાદન પસંદ કરો.', 422);
+            }
+            if (! in_array((int) $selectedId, $allowedIds, true)) {
+                return $this->error('પસંદ કરેલું ઉત્પાદન આ સેવા માટે ઉપલબ્ધ નથી.', 422);
+            }
+        }
 
         // Validate slot via service
         $error = $this->slotService->validateBooking($seva, $validated['booking_date'], $validated['slot_time'] ?? null);
@@ -161,6 +182,7 @@ class SevaController extends BaseApiController
                     'devotee_name_for_seva' => $validated['devotee_name_for_seva'] ?? $devotee->name,
                     'gotra' => $validated['gotra'] ?? null,
                     'sankalp' => $validated['sankalp'] ?? null,
+                    'selected_product_id' => $validated['selected_product_id'] ?? null,
                 ]);
 
                 return ['booking' => $booking, 'payment' => $payment, 'razorpay_order' => $razorpayOrder];

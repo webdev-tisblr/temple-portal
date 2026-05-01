@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -31,6 +32,40 @@ class SevaResource extends JsonResource
             'requires_booking' => $this->requires_booking,
             'slot_config' => $this->getResolvedSlotConfig(),
             'slot_duration_minutes' => $this->getSlotDurationMinutes(),
+            'product_selection' => $this->buildProductSelection(),
+        ];
+    }
+
+    private function buildProductSelection(): ?array
+    {
+        if (! $this->resource->hasProductSelection()) {
+            return null;
+        }
+
+        $config = $this->linked_products ?? [];
+        $products = $this->resource->getLinkedProductsList()
+            ->map(fn (Product $p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'name_gu' => $p->name_gu,
+                'name_hi' => $p->name_hi,
+                'name_en' => $p->name_en,
+                'price' => (float) $p->price,
+                'image_url' => $p->image_path ? asset('storage/' . $p->image_path) : null,
+                'in_stock' => $p->inStock(),
+            ])
+            ->values()
+            ->all();
+
+        if (empty($products)) {
+            return null;
+        }
+
+        return [
+            'label_gu' => $config['label_gu'] ?? null,
+            'label_hi' => $config['label_hi'] ?? null,
+            'label_en' => $config['label_en'] ?? null,
+            'products' => $products,
         ];
     }
 }

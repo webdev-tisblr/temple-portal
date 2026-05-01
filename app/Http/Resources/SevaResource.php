@@ -12,6 +12,21 @@ class SevaResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $selection = $this->buildProductSelection();
+        // When a seva has product selection, its price is driven by whichever
+        // product the user chooses, so for display we surface a "starts from"
+        // = the cheapest in-stock linked product.
+        $startsFrom = null;
+        if ($selection !== null) {
+            $inStock = collect($selection['products'])->where('in_stock', true);
+            $pool = $inStock->isNotEmpty()
+                ? $inStock
+                : collect($selection['products']);
+            if ($pool->isNotEmpty()) {
+                $startsFrom = (float) $pool->min('price');
+            }
+        }
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -32,7 +47,8 @@ class SevaResource extends JsonResource
             'requires_booking' => $this->requires_booking,
             'slot_config' => $this->getResolvedSlotConfig(),
             'slot_duration_minutes' => $this->getSlotDurationMinutes(),
-            'product_selection' => $this->buildProductSelection(),
+            'product_selection' => $selection,
+            'starts_from' => $startsFrom,
         ];
     }
 

@@ -126,20 +126,23 @@ class SevaController extends BaseApiController
         $validated = $request->validated();
         $devotee = $request->user();
         $quantity = $validated['quantity'] ?? 1;
-        $totalAmount = (float) $seva->price * $quantity;
 
-        // If the seva is configured for product selection, the selection is required
-        // and must be one of the linked products.
+        // If the seva is configured for product selection, the selection is required,
+        // must be one of the linked products, and the seva price = product price.
+        $unitPrice = (float) $seva->price;
         if ($seva->hasProductSelection()) {
-            $allowedIds = $seva->getLinkedProductsList()->pluck('id')->all();
+            $linked = $seva->getLinkedProductsList();
             $selectedId = $validated['selected_product_id'] ?? null;
             if (empty($selectedId)) {
                 return $this->error('કૃપા કરી સેવા સાથેનું ઉત્પાદન પસંદ કરો.', 422);
             }
-            if (! in_array((int) $selectedId, $allowedIds, true)) {
+            $selectedProduct = $linked->firstWhere('id', (int) $selectedId);
+            if (! $selectedProduct) {
                 return $this->error('પસંદ કરેલું ઉત્પાદન આ સેવા માટે ઉપલબ્ધ નથી.', 422);
             }
+            $unitPrice = (float) $selectedProduct->price;
         }
+        $totalAmount = $unitPrice * $quantity;
 
         // Validate slot via service
         $error = $this->slotService->validateBooking($seva, $validated['booking_date'], $validated['slot_time'] ?? null);

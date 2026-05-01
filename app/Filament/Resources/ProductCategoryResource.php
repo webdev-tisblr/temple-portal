@@ -37,6 +37,11 @@ class ProductCategoryResource extends Resource
                 Forms\Components\FileUpload::make('image_path')->label('Image')->image()->directory('product-categories')->maxSize(2048),
                 Forms\Components\TextInput::make('sort_order')->numeric()->default(0),
                 Forms\Components\Toggle::make('is_active')->label('Active')->default(true),
+                Forms\Components\Toggle::make('is_seva_only')
+                    ->label('Seva Only (Hidden from Store)')
+                    ->helperText('Hides the category and all its products from the public store. Use this for offering items linked to sevas (e.g. vastra, prasad ingredients).')
+                    ->default(false)
+                    ->columnSpan(2),
             ])->columns(3),
         ]);
     }
@@ -50,11 +55,16 @@ class ProductCategoryResource extends Resource
                 Tables\Columns\TextColumn::make('slug'),
                 Tables\Columns\TextColumn::make('products_count')->counts('products')->label('Products'),
                 Tables\Columns\ToggleColumn::make('is_active')->label('Active'),
+                Tables\Columns\IconColumn::make('is_seva_only')
+                    ->label('Seva Only')
+                    ->boolean()
+                    ->trueColor('warning'),
                 Tables\Columns\TextColumn::make('sort_order')->sortable(),
             ])
             ->defaultSort('sort_order')
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_active')->label('Active'),
+                Tables\Filters\TernaryFilter::make('is_seva_only')->label('Seva Only'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

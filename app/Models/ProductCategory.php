@@ -7,12 +7,21 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 
 class ProductCategory extends Model
 {
     use SoftDeletes;
 
     protected $table = 'temple_product_categories';
+
+    protected static function booted(): void
+    {
+        $bust = static fn () => Cache::forget('store.categories');
+        static::saved($bust);
+        static::deleted($bust);
+        static::restored($bust);
+    }
 
     protected $fillable = [
         'name_gu',
@@ -23,10 +32,12 @@ class ProductCategory extends Model
         'image_path',
         'sort_order',
         'is_active',
+        'is_seva_only',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_seva_only' => 'boolean',
         'sort_order' => 'integer',
     ];
 

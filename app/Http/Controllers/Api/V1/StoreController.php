@@ -24,6 +24,7 @@ class StoreController extends BaseApiController
     {
         $categories = Cache::remember('store.categories', 900, function () {
             return ProductCategory::where('is_active', true)
+                ->where('is_seva_only', false)
                 ->orderBy('sort_order')
                 ->get()
                 ->map(fn (ProductCategory $c) => [
@@ -42,8 +43,9 @@ class StoreController extends BaseApiController
 
     public function products(Request $request): JsonResponse
     {
-        $query = Product::where('is_active', true)
-            ->where('is_seva_only', false)
+        $query = Product::query()
+            ->active()
+            ->forStore()
             ->orderBy('sort_order');
 
         if ($request->query('category_id')) {
@@ -79,7 +81,8 @@ class StoreController extends BaseApiController
 
     public function productDetail(Product $product): JsonResponse
     {
-        if (! $product->is_active) {
+        if (! $product->is_active || $product->is_seva_only
+            || ($product->category && $product->category->is_seva_only)) {
             return $this->error('Product not found', 404);
         }
 

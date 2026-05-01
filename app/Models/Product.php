@@ -118,6 +118,10 @@ class Product extends Model
 
     public function scopeForStore(Builder $q): Builder
     {
-        return $q->where('is_seva_only', false);
+        return $q->where('is_seva_only', false)
+            ->where(function (Builder $inner) {
+                $inner->whereNull('category_id')
+                    ->orWhereHas('category', fn (Builder $c) => $c->where('is_seva_only', false));
+            });
     }
 }

@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Models\Seva;
 use App\Models\SystemSetting;
 use App\Observers\SevaObserver;
+use Filament\Forms\Components\FileUpload;
+use Filament\Tables\Columns\ImageColumn;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 
@@ -24,6 +26,13 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Seva::observe(SevaObserver::class);
+
+        // FILESYSTEM_DISK=local in env means Filament's FileUpload defaults
+        // to the private disk and uploaded images land in storage/app/private,
+        // invisible to the web. Pin every FileUpload + ImageColumn to the
+        // public disk so admin uploads serve through the storage:// symlink.
+        FileUpload::configureUsing(fn (FileUpload $c) => $c->disk('public'));
+        ImageColumn::configureUsing(fn (ImageColumn $c) => $c->disk('public'));
 
         $this->configureMailFromDatabase();
     }

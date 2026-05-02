@@ -5,7 +5,7 @@
     <div class="aspect-[4/3] flex items-center justify-center relative overflow-hidden"
          style="background: radial-gradient(ellipse at bottom, #2a1508, #0f0804);">
         @if($product->image_path)
-            <img src="{{ asset('storage/' . $product->image_path) }}"
+            <img src="{{ asset('file/' . $product->image_path) }}"
                  alt="{{ $product->name }}"
                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-80 group-hover:opacity-100">
         @else

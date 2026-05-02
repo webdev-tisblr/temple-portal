@@ -41,7 +41,9 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
+            // /storage is blocked at the host level on Hostinger; routes/web.php
+            // serves the same files at /file/* via a Laravel route.
+            'url' => env('APP_URL').'/file',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

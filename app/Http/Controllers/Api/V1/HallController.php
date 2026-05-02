@@ -32,7 +32,7 @@ class HallController extends BaseApiController
                     'price_per_half_day' => (float) $h->price_per_half_day,
                     'amenities' => $h->amenities ?? [],
                     'rules' => $h->rules,
-                    'image_url' => $h->image_path ? asset('storage/' . $h->image_path) : null,
+                    'image_url' => $h->image_path ? asset('file/' . $h->image_path) : null,
                 ]);
         });
 

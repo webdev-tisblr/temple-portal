@@ -199,8 +199,8 @@
 @push('scripts')
 <script>
 function productPage() {
-    const primaryImage = @json($product->image_path ? asset('storage/' . $product->image_path) : null);
-    const galleryImages = @json($product->images->sortBy('sort_order')->pluck('image_path')->map(fn($p) => asset('storage/' . $p))->values());
+    const primaryImage = @json($product->image_path ? asset('file/' . $product->image_path) : null);
+    const galleryImages = @json($product->images->sortBy('sort_order')->pluck('image_path')->map(fn($p) => asset('file/' . $p))->values());
 
     let allImages = [];
     if (primaryImage) {

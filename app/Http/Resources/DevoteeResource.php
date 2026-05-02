@@ -27,7 +27,7 @@ class DevoteeResource extends JsonResource
             'pan_last_four' => $this->pan_last_four,
             'phone_verified' => !is_null($this->phone_verified_at),
             'profile_photo_url' => $this->profile_photo_path
-                ? asset('storage/' . $this->profile_photo_path)
+                ? asset('file/' . $this->profile_photo_path)
                 : null,
             'donations_count' => $this->donations()
                 ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))

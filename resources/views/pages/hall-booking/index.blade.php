@@ -22,7 +22,7 @@
     <div class="mb-10" x-data="hallGallery()">
         <div class="relative aspect-video rounded-2xl overflow-hidden bg-amber-900/20">
             @if($hall->image_path)
-                <img src="{{ asset('storage/' . $hall->image_path) }}" alt="{{ $hall->name }}" class="w-full h-full object-cover">
+                <img src="{{ asset('file/' . $hall->image_path) }}" alt="{{ $hall->name }}" class="w-full h-full object-cover">
             @else
                 <template x-for="(img, idx) in images" :key="idx">
                     <div x-show="current === idx"

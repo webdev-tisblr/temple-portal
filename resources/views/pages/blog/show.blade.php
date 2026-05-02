@@ -19,7 +19,7 @@
     {{-- Featured Image --}}
     @if($post->featured_image_path)
         <div class="rounded-2xl overflow-hidden mb-8 border border-amber-900/20">
-            <img src="{{ asset('storage/' . $post->featured_image_path) }}"
+            <img src="{{ asset('file/' . $post->featured_image_path) }}"
                  alt="{{ $post->title }}"
                  class="w-full h-72 sm:h-96 object-cover">
         </div>

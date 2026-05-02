@@ -120,13 +120,11 @@ Route::get('/projects', [ProjectController::class, 'index'])->name('projects.ind
 Route::get('/projects/{slug}', [ProjectController::class, 'show'])->name('projects.show');
 Route::get('/projects/{slug}/donors', [ProjectController::class, 'donors'])->name('projects.donors');
 
-// Hostinger blocks PHP exec() and symlink(), so we can't create the usual
-// public/storage symlink. This route serves uploaded files directly from
-// storage/app/public — slower than a symlink but works on locked-down hosts.
-// Apache will short-circuit this route once an actual symlink/file exists at
-// public/storage (mod_rewrite only forwards to index.php when the file is
-// missing on disk), so it's safe to leave in even after a symlink is created.
-Route::get('/storage/{path}', function (string $path) {
+// Hostinger blocks /storage URLs at the server level (probably hardened
+// because Laravel apps commonly leak storage/), so we serve uploaded files
+// from /file/{path}. Both URLs route to the same handler in case Hostinger
+// ever stops blocking /storage.
+$serveStorageFile = function (string $path) {
     $base = storage_path('app/public');
     $full = realpath($base . DIRECTORY_SEPARATOR . $path);
 
@@ -138,7 +136,9 @@ Route::get('/storage/{path}', function (string $path) {
     return response()->file($full, [
         'Cache-Control' => 'public, max-age=31536000, immutable',
     ]);
-})->where('path', '.+')->name('storage.serve');
+};
+Route::get('/file/{path}', $serveStorageFile)->where('path', '.+')->name('storage.serve');
+Route::get('/storage/{path}', $serveStorageFile)->where('path', '.+');
 
 // Admin-only one-shot storage repair: run from a browser when SSH isn't an
 // option. Hostinger disables exec(), so artisan storage:link fails.

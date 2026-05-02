@@ -34,7 +34,7 @@
                     <div class="aspect-[16/9] relative overflow-hidden"
                          style="background: radial-gradient(ellipse at bottom, #2a1508, #0f0804);">
                         @if($project->image_path)
-                            <img src="{{ asset('storage/' . $project->image_path) }}"
+                            <img src="{{ asset('file/' . $project->image_path) }}"
                                  alt="{{ $project->title }}"
                                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-80 group-hover:opacity-100">
                         @else

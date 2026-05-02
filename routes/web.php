@@ -120,33 +120,11 @@ Route::get('/projects', [ProjectController::class, 'index'])->name('projects.ind
 Route::get('/projects/{slug}', [ProjectController::class, 'show'])->name('projects.show');
 Route::get('/projects/{slug}/donors', [ProjectController::class, 'donors'])->name('projects.donors');
 
-// Hostinger blocks /storage URLs at the server level, so we serve uploaded
-// files from /file/{path}. /storage/{path} is also routed in case Hostinger
-// ever stops blocking it. DEBUG MODE: returns JSON dump for now, will revert
-// to file streaming once we confirm the route is matching.
-Route::get('/file/{path}', function (string $path) {
-    $base = storage_path('app/public');
-    $full = $base . DIRECTORY_SEPARATOR . $path;
-    if (request()->query('debug') === '1') {
-        return response()->json([
-            'reached' => true,
-            'path' => $path,
-            'full' => $full,
-            'realpath' => realpath($full),
-            'is_file' => is_file($full),
-            'is_readable' => is_readable($full),
-        ]);
-    }
-    $real = realpath($full);
-    if (! $real || strpos($real, $base . DIRECTORY_SEPARATOR) !== 0 || ! is_file($real)) {
-        abort(404);
-    }
-    return response()->file($real, [
-        'Cache-Control' => 'public, max-age=31536000, immutable',
-    ]);
-})->where('path', '.+')->name('storage.serve');
-
-Route::get('/storage/{path}', function (string $path) {
+// Hostinger blocks /storage at the server level (probably hardened to stop
+// accidental Laravel storage/ exposure on shared hosts), so we serve every
+// uploaded file from /file/{path} via Laravel. /storage/{path} is registered
+// too in case Hostinger ever lifts the block.
+$serveStorageFile = function (string $path) {
     $base = storage_path('app/public');
     $real = realpath($base . DIRECTORY_SEPARATOR . $path);
     if (! $real || strpos($real, $base . DIRECTORY_SEPARATOR) !== 0 || ! is_file($real)) {
@@ -155,7 +133,9 @@ Route::get('/storage/{path}', function (string $path) {
     return response()->file($real, [
         'Cache-Control' => 'public, max-age=31536000, immutable',
     ]);
-})->where('path', '.+');
+};
+Route::get('/file/{path}', $serveStorageFile)->where('path', '.+')->name('storage.serve');
+Route::get('/storage/{path}', $serveStorageFile)->where('path', '.+');
 
 // Admin-only one-shot storage repair: run from a browser when SSH isn't an
 // option. Hostinger disables exec(), so artisan storage:link fails.

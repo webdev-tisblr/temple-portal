@@ -121,59 +121,94 @@ Route::get('/projects/{slug}', [ProjectController::class, 'show'])->name('projec
 Route::get('/projects/{slug}/donors', [ProjectController::class, 'donors'])->name('projects.donors');
 
 // Admin-only one-shot storage repair: run from a browser when SSH isn't an
-// option. Re-creates public/storage symlink and rescues legacy uploads from
-// the private disk.
+// option. Hostinger disables exec(), so artisan storage:link fails.
+// We bypass it by calling PHP's symlink() directly.
 Route::get('/admin-tools/storage-repair', function () {
     if (! auth('admin')->check()) {
         abort(403, 'Admin login required.');
     }
 
-    $output = [];
-    $output[] = '<pre style="font-family:monospace;padding:16px;background:#111;color:#0f0;border-radius:8px">';
-    $output[] = '=== Storage Repair ===';
+    $log = [];
+    $log[] = '<pre style="font-family:monospace;padding:16px;background:#111;color:#0f0;border-radius:8px;white-space:pre-wrap">';
+    $log[] = '=== Storage Repair ===';
 
-    try {
-        $linkPath = public_path('storage');
-        if (is_link($linkPath)) {
-            $target = readlink($linkPath);
-            if (! is_dir($target)) {
-                $output[] = "[!] symlink exists but points to a missing directory: {$target}";
-                @unlink($linkPath);
-            } else {
-                $output[] = "[ok] storage symlink already in place → {$target}";
-            }
-        } elseif (file_exists($linkPath)) {
-            $output[] = "[!] {$linkPath} exists and is not a symlink — skipping (manual cleanup needed)";
-        }
+    $linkPath = public_path('storage');
+    $target = storage_path('app/public');
 
-        if (! is_link($linkPath)) {
-            \Illuminate\Support\Facades\Artisan::call('storage:link');
-            $output[] = '[ok] ran php artisan storage:link';
-            $output[] = '     → ' . trim(\Illuminate\Support\Facades\Artisan::output());
-        }
-    } catch (\Throwable $e) {
-        $output[] = '[err] storage:link failed: ' . $e->getMessage();
+    // Ensure storage/app/public exists.
+    if (! is_dir($target)) {
+        @mkdir($target, 0775, true);
+        $log[] = "[ok] created target directory: {$target}";
     }
 
+    // Pre-create the upload directories so the symlink resolves to real folders.
+    $publicDirs = [
+        'announcements', 'blog', 'campaigns', 'daily-darshan', 'daily-darshan-photos',
+        'donation-extras', 'events', 'gallery', 'greeting-templates', 'halls',
+        'pages', 'product-categories', 'product-images', 'products',
+        'profile-photos', 'sevas',
+    ];
+    foreach ($publicDirs as $d) {
+        $p = $target . '/' . $d;
+        if (! is_dir($p)) {
+            @mkdir($p, 0775, true);
+        }
+    }
+
+    // Clean up any existing entry at the link path so we can recreate it.
+    if (is_link($linkPath)) {
+        $existing = readlink($linkPath);
+        if ($existing === $target && is_dir($existing)) {
+            $log[] = "[ok] symlink already correct → {$existing}";
+        } else {
+            @unlink($linkPath);
+            $log[] = "[ok] removed stale symlink (was → {$existing})";
+        }
+    } elseif (is_dir($linkPath) && ! is_link($linkPath)) {
+        $log[] = "[!] {$linkPath} is a real directory, not a symlink — leaving it alone";
+        $log[] = "    Move its contents into storage/app/public manually, then delete it.";
+    } elseif (file_exists($linkPath)) {
+        @unlink($linkPath);
+        $log[] = "[ok] removed stray file at {$linkPath}";
+    }
+
+    // Create the symlink directly (no exec, no artisan).
+    if (! is_link($linkPath) && ! is_dir($linkPath)) {
+        try {
+            $ok = @symlink($target, $linkPath);
+            if ($ok) {
+                $log[] = "[ok] symlink({$target}, {$linkPath}) succeeded";
+            } else {
+                $err = error_get_last();
+                $log[] = '[err] symlink() returned false: ' . ($err['message'] ?? 'unknown');
+            }
+        } catch (\Throwable $e) {
+            $log[] = '[err] symlink() threw: ' . $e->getMessage();
+        }
+    }
+
+    // Move any legacy uploads sitting in private/* into public/*.
     try {
         \Illuminate\Support\Facades\Artisan::call('storage:migrate-uploads-to-public');
-        $output[] = '[ok] ran storage:migrate-uploads-to-public';
-        $output[] = trim(\Illuminate\Support\Facades\Artisan::output());
+        $log[] = '[ok] storage:migrate-uploads-to-public:';
+        $log[] = trim(\Illuminate\Support\Facades\Artisan::output());
     } catch (\Throwable $e) {
-        $output[] = '[err] migrate uploads failed: ' . $e->getMessage();
+        $log[] = '[err] migrate uploads failed: ' . $e->getMessage();
     }
 
-    $output[] = '';
-    $output[] = '=== Quick checks ===';
-    $output[] = 'public/storage is_link: ' . (is_link(public_path('storage')) ? 'yes' : 'no');
-    $output[] = 'public/storage exists: ' . (file_exists(public_path('storage')) ? 'yes' : 'no');
-    $output[] = 'storage/app/public/products exists: ' . (is_dir(storage_path('app/public/products')) ? 'yes' : 'no');
-    $output[] = 'storage/app/private/products exists: ' . (is_dir(storage_path('app/private/products')) ? 'yes' : 'no');
-    $output[] = '';
-    $output[] = 'Try a known image now: <a style="color:#0ff" href="/storage/products/" target="_blank">/storage/products/</a>';
-    $output[] = '</pre>';
+    $log[] = '';
+    $log[] = '=== Quick checks ===';
+    $log[] = 'public/storage is_link:        ' . (is_link($linkPath) ? 'yes → ' . readlink($linkPath) : 'no');
+    $log[] = 'public/storage exists:         ' . (file_exists($linkPath) ? 'yes' : 'no');
+    $log[] = 'storage/app/public/products:   ' . (is_dir(storage_path('app/public/products')) ? 'yes' : 'no');
+    $log[] = 'storage/app/private/products:  ' . (is_dir(storage_path('app/private/products')) ? 'yes' : 'no');
+    $log[] = 'symlink() function disabled:   ' . (function_exists('symlink') ? 'no' : 'YES — link cannot be created');
+    $log[] = '';
+    $log[] = 'After this completes, re-upload any product/seva image once from admin.';
+    $log[] = 'Direct test: <a style="color:#0ff" href="/storage/products/" target="_blank">/storage/products/</a>';
+    $log[] = '</pre>';
 
-    return implode("\n", $output);
+    return implode("\n", $log);
 })->name('admin.storage-repair');
 
 // CMS Pages (catch-all — MUST BE LAST)

@@ -120,5 +120,61 @@ Route::get('/projects', [ProjectController::class, 'index'])->name('projects.ind
 Route::get('/projects/{slug}', [ProjectController::class, 'show'])->name('projects.show');
 Route::get('/projects/{slug}/donors', [ProjectController::class, 'donors'])->name('projects.donors');
 
+// Admin-only one-shot storage repair: run from a browser when SSH isn't an
+// option. Re-creates public/storage symlink and rescues legacy uploads from
+// the private disk.
+Route::get('/admin-tools/storage-repair', function () {
+    if (! auth('admin')->check()) {
+        abort(403, 'Admin login required.');
+    }
+
+    $output = [];
+    $output[] = '<pre style="font-family:monospace;padding:16px;background:#111;color:#0f0;border-radius:8px">';
+    $output[] = '=== Storage Repair ===';
+
+    try {
+        $linkPath = public_path('storage');
+        if (is_link($linkPath)) {
+            $target = readlink($linkPath);
+            if (! is_dir($target)) {
+                $output[] = "[!] symlink exists but points to a missing directory: {$target}";
+                @unlink($linkPath);
+            } else {
+                $output[] = "[ok] storage symlink already in place → {$target}";
+            }
+        } elseif (file_exists($linkPath)) {
+            $output[] = "[!] {$linkPath} exists and is not a symlink — skipping (manual cleanup needed)";
+        }
+
+        if (! is_link($linkPath)) {
+            \Illuminate\Support\Facades\Artisan::call('storage:link');
+            $output[] = '[ok] ran php artisan storage:link';
+            $output[] = '     → ' . trim(\Illuminate\Support\Facades\Artisan::output());
+        }
+    } catch (\Throwable $e) {
+        $output[] = '[err] storage:link failed: ' . $e->getMessage();
+    }
+
+    try {
+        \Illuminate\Support\Facades\Artisan::call('storage:migrate-uploads-to-public');
+        $output[] = '[ok] ran storage:migrate-uploads-to-public';
+        $output[] = trim(\Illuminate\Support\Facades\Artisan::output());
+    } catch (\Throwable $e) {
+        $output[] = '[err] migrate uploads failed: ' . $e->getMessage();
+    }
+
+    $output[] = '';
+    $output[] = '=== Quick checks ===';
+    $output[] = 'public/storage is_link: ' . (is_link(public_path('storage')) ? 'yes' : 'no');
+    $output[] = 'public/storage exists: ' . (file_exists(public_path('storage')) ? 'yes' : 'no');
+    $output[] = 'storage/app/public/products exists: ' . (is_dir(storage_path('app/public/products')) ? 'yes' : 'no');
+    $output[] = 'storage/app/private/products exists: ' . (is_dir(storage_path('app/private/products')) ? 'yes' : 'no');
+    $output[] = '';
+    $output[] = 'Try a known image now: <a style="color:#0ff" href="/storage/products/" target="_blank">/storage/products/</a>';
+    $output[] = '</pre>';
+
+    return implode("\n", $output);
+})->name('admin.storage-repair');
+
 // CMS Pages (catch-all — MUST BE LAST)
 Route::get('/{slug}', [PageController::class, 'show'])->name('page.show');

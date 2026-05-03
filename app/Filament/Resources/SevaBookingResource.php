@@ -143,12 +143,16 @@ class SevaBookingResource extends Resource
                 Tables\Columns\TextColumn::make('payment.status')
                     ->label('Payment')
                     ->badge()
-                    ->color(fn (?string $state) => match ($state) {
-                        'captured' => 'success',
-                        'created', 'authorized' => 'warning',
-                        'failed' => 'danger',
-                        'refunded' => 'gray',
-                        default => 'gray',
+                    ->formatStateUsing(fn ($state) => $state instanceof \BackedEnum ? $state->value : $state)
+                    ->color(function ($state) {
+                        $value = $state instanceof \BackedEnum ? $state->value : (string) $state;
+                        return match ($value) {
+                            'captured' => 'success',
+                            'created', 'authorized' => 'warning',
+                            'failed' => 'danger',
+                            'refunded' => 'gray',
+                            default => 'gray',
+                        };
                     }),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()

@@ -177,7 +177,18 @@ class SevaBookingResource extends Resource
                 ]),
                 Tables\Filters\SelectFilter::make('payment_status')
                     ->label('Payment')
-                    ->relationship('payment', 'status'),
+                    ->options([
+                        'created' => 'Created',
+                        'authorized' => 'Authorized',
+                        'captured' => 'Captured',
+                        'failed' => 'Failed',
+                        'refunded' => 'Refunded',
+                    ])
+                    ->query(function ($query, array $data) {
+                        if (! empty($data['value'])) {
+                            $query->whereHas('payment', fn ($q) => $q->where('status', $data['value']));
+                        }
+                    }),
                 Tables\Filters\Filter::make('upcoming')
                     ->label('Upcoming only')
                     ->query(fn ($q) => $q->where('booking_date', '>=', now()->toDateString())),

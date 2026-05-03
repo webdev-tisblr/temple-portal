@@ -20,13 +20,14 @@ class EditSevaBooking extends EditRecord
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('warning')
                 ->visible(function () {
-                    $donation = $this->record->donations()->latest()->first()
-                        ?? \App\Models\Donation::where('seva_booking_id', $this->record->id)->latest()->first();
+                    $donation = \App\Models\Donation::where('seva_booking_id', $this->record->id)
+                        ->latest()->first();
                     return $donation && $donation->receipt_generated;
                 })
                 ->action(function () {
-                    $donation = \App\Models\Donation::where('seva_booking_id', $this->record->id)->latest()->first();
-                    if (! $donation || ! $donation->receipt) {
+                    $donation = \App\Models\Donation::where('seva_booking_id', $this->record->id)
+                        ->with('receipt')->latest()->first();
+                    if (! $donation || ! $donation->receipt || ! $donation->receipt->pdf_path) {
                         return;
                     }
                     $path = storage_path('app/private/' . $donation->receipt->pdf_path);

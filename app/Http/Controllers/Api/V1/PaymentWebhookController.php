@@ -129,8 +129,14 @@ class PaymentWebhookController extends Controller
                     'pan_number_encrypted' => $devotee->pan_encrypted,
                 ]);
             }
-            Generate80GReceipt::dispatch($donation);
-            Log::info("80G receipt job dispatched for donation {$donation->id}");
+            // dispatchSync because Hostinger has no queue worker; otherwise
+            // jobs pile up in the database queue forever.
+            try {
+                Generate80GReceipt::dispatchSync($donation);
+                Log::info("80G receipt generated inline for donation {$donation->id}");
+            } catch (\Throwable $e) {
+                Log::error("80G receipt generation failed for donation {$donation->id}", ['error' => $e->getMessage()]);
+            }
         }
 
         Log::info("Payment {$razorpayOrderId} captured successfully", [

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Jobs\GenerateStoreInvoice;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Payment;
@@ -16,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class StoreController extends BaseApiController
@@ -247,6 +249,38 @@ class StoreController extends BaseApiController
                 'total' => $orders->total(),
             ],
         ]);
+    }
+
+    public function downloadInvoice(Request $request, Order $order)
+    {
+        if ($order->devotee_id !== $request->user()->id) {
+            return $this->error('Unauthorized', 403);
+        }
+        if ($order->status?->value !== 'confirmed' && $order->status?->value !== 'shipped'
+            && $order->status?->value !== 'delivered') {
+            return $this->error('Invoice is generated only after the order is confirmed.', 404);
+        }
+
+        if (! $order->invoice_path || ! Storage::disk('local')->exists($order->invoice_path)) {
+            try {
+                GenerateStoreInvoice::dispatchSync($order);
+                $order->refresh();
+            } catch (\Throwable $e) {
+                Log::error('On-demand invoice regen failed (api)', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            if (! $order->invoice_path || ! Storage::disk('local')->exists($order->invoice_path)) {
+                return $this->error('Invoice could not be generated. Try again shortly.', 500);
+            }
+        }
+
+        return Storage::disk('local')->download(
+            $order->invoice_path,
+            "Invoice_{$order->order_number}.pdf",
+            ['Content-Type' => 'application/pdf']
+        );
     }
 
     private function mapProduct(Product $p): array

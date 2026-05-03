@@ -100,6 +100,7 @@ Route::middleware('auth:devotee')->group(function () {
         Route::delete('/store/cart/remove', [StoreWebController::class, 'removeFromCart'])->name('store.cart.remove');
         Route::post('/store/checkout', [StoreWebController::class, 'checkout'])->name('store.checkout');
         Route::get('/store/order/{order}/invoice', [StoreWebController::class, 'downloadInvoice'])->name('store.order.invoice');
+        Route::get('/hall-booking/{booking}/invoice', [HallBookingController::class, 'downloadInvoice'])->name('hall.booking.invoice');
 
         // Dashboard
         Route::prefix('dashboard')->name('dashboard.')->group(function () {

@@ -186,4 +186,36 @@ class HallController extends BaseApiController
 
         return $this->success($bookings);
     }
+
+    public function downloadInvoice(Request $request, HallBooking $booking)
+    {
+        if ($booking->devotee_id !== $request->user()->id) {
+            return $this->error('Unauthorized', 403);
+        }
+        if ($booking->status !== 'confirmed') {
+            return $this->error('Invoice is generated only after booking is confirmed.', 404);
+        }
+
+        if (! $booking->invoice_path || ! \Illuminate\Support\Facades\Storage::disk('local')->exists($booking->invoice_path)) {
+            // The web controller has the inline generator; call it as a service-like action.
+            try {
+                app(\App\Http\Controllers\Web\HallBookingController::class)->generateHallInvoice($booking);
+                $booking->refresh();
+            } catch (\Throwable $e) {
+                Log::error('On-demand hall invoice regen failed (api)', [
+                    'booking_id' => $booking->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            if (! $booking->invoice_path || ! \Illuminate\Support\Facades\Storage::disk('local')->exists($booking->invoice_path)) {
+                return $this->error('Invoice could not be generated. Try again shortly.', 500);
+            }
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('local')->download(
+            $booking->invoice_path,
+            "Hall_Booking_{$booking->id}.pdf",
+            ['Content-Type' => 'application/pdf']
+        );
+    }
 }

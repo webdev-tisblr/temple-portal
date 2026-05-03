@@ -140,19 +140,52 @@ class DonationController extends BaseApiController
             return $this->error('Unauthorized', 403);
         }
 
-        if (!$donation->receipt_generated) {
-            return $this->error('Receipt not yet generated', 404);
+        // Only donations whose payment was captured can have a receipt.
+        $paymentStatus = $donation->payment?->status?->value ?? null;
+        if ($paymentStatus !== 'captured') {
+            return $this->error('Receipt is generated only after the payment is confirmed.', 404);
+        }
+
+        // Self-heal: if the receipt was never generated (queue didn't run, etc),
+        // generate it now synchronously so the user gets the PDF on this click.
+        if (! $donation->receipt_generated || ! $donation->receipt) {
+            try {
+                \App\Jobs\Generate80GReceipt::dispatchSync($donation->fresh());
+                $donation->refresh();
+            } catch (\Throwable $e) {
+                Log::error("On-demand 80G receipt generation failed", [
+                    'donation_id' => $donation->id,
+                    'error' => $e->getMessage(),
+                ]);
+                return $this->error('Receipt generation failed. Please try again or contact support.', 500);
+            }
         }
 
         $receipt = $donation->receipt;
-        if (!$receipt || !$receipt->pdf_path) {
+        if (! $receipt || ! $receipt->pdf_path) {
             return $this->error('Receipt PDF not available', 404);
         }
 
         $fullPath = Storage::disk('local')->path($receipt->pdf_path);
 
-        if (!file_exists($fullPath)) {
-            return $this->error('Receipt file not found', 404);
+        if (! file_exists($fullPath)) {
+            // PDF path in DB but file gone — regenerate.
+            try {
+                \App\Jobs\Generate80GReceipt::dispatchSync($donation->fresh());
+                $donation->refresh();
+                $receipt = $donation->receipt;
+                $fullPath = $receipt && $receipt->pdf_path
+                    ? Storage::disk('local')->path($receipt->pdf_path)
+                    : null;
+            } catch (\Throwable $e) {
+                Log::error("Receipt regeneration failed", [
+                    'donation_id' => $donation->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            if (! $fullPath || ! file_exists($fullPath)) {
+                return $this->error('Receipt file could not be regenerated.', 500);
+            }
         }
 
         return response()->download($fullPath, "receipt-{$receipt->receipt_number}.pdf", [

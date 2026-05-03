@@ -268,7 +268,39 @@ class HallBookingController extends Controller
         return view('pages.hall-booking.failure');
     }
 
-    private function generateHallInvoice(HallBooking $booking): void
+    public function downloadInvoice(HallBooking $booking)
+    {
+        $devotee = \Illuminate\Support\Facades\Auth::guard('devotee')->user();
+        if (! $devotee || $booking->devotee_id !== $devotee->id) {
+            abort(403);
+        }
+        if ($booking->status !== 'confirmed') {
+            abort(404, 'ઇનવૉઇસ બુકિંગ કન્ફર્મ થયા પછી જ ઉપલબ્ધ થશે.');
+        }
+
+        if (! $booking->invoice_path || ! Storage::disk('local')->exists($booking->invoice_path)) {
+            try {
+                $this->generateHallInvoice($booking);
+                $booking->refresh();
+            } catch (\Throwable $e) {
+                Log::error('On-demand hall invoice regen failed', [
+                    'booking_id' => $booking->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            if (! $booking->invoice_path || ! Storage::disk('local')->exists($booking->invoice_path)) {
+                abort(404, 'ઇનવૉઇસ બનાવી શકાયો નથી. કૃપા કરી થોડી વાર પછી પ્રયાસ કરો.');
+            }
+        }
+
+        return Storage::disk('local')->download(
+            $booking->invoice_path,
+            "Hall_Booking_{$booking->id}.pdf",
+            ['Content-Type' => 'application/pdf']
+        );
+    }
+
+    public function generateHallInvoice(HallBooking $booking): void
     {
         try {
             $booking->loadMissing('hall', 'devotee');

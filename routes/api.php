@@ -138,9 +138,11 @@ Route::prefix('v1')->group(function () {
         // Store (auth)
         Route::post('/store/orders', [StoreController::class, 'createOrder']);
         Route::get('/store/orders', [StoreController::class, 'orders']);
+        Route::get('/store/orders/{order}/invoice', [StoreController::class, 'downloadInvoice']);
 
         // Halls (auth)
         Route::post('/halls/{hall}/book', [HallController::class, 'book']);
         Route::get('/hall-bookings', [HallController::class, 'myBookings']);
+        Route::get('/hall-bookings/{booking}/invoice', [HallController::class, 'downloadInvoice']);
     });
 });

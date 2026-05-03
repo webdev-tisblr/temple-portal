@@ -95,8 +95,21 @@ class DashboardController extends Controller
             abort(403);
         }
 
+        // Self-heal: regenerate the PDF if it's missing on disk.
         if (!$receipt->pdf_path || !Storage::disk('local')->exists($receipt->pdf_path)) {
-            return back()->withErrors(['receipt' => 'રસીદ PDF ઉપલબ્ધ નથી.']);
+            try {
+                \App\Jobs\Generate80GReceipt::dispatchSync($donation);
+                $donation->refresh();
+                $receipt = $donation->receipt ?? $receipt->fresh();
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("Receipt regen failed", [
+                    'donation_id' => $donation->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            if (!$receipt || !$receipt->pdf_path || !Storage::disk('local')->exists($receipt->pdf_path)) {
+                return back()->withErrors(['receipt' => 'રસીદ PDF ઉપલબ્ધ નથી. કૃપા કરી થોડી વારે ફરી પ્રયાસ કરો.']);
+            }
         }
 
         return response()->download(

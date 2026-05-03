@@ -555,8 +555,21 @@ class StoreWebController extends Controller
             abort(403);
         }
 
+        // Self-heal: only confirmed orders should ever produce an invoice,
+        // and if the file is gone, regenerate it inline before serving.
         if (! $order->invoice_path || ! Storage::disk('local')->exists($order->invoice_path)) {
-            abort(404, 'ઇનવૉઇસ ઉપલબ્ધ નથી.');
+            try {
+                GenerateStoreInvoice::dispatchSync($order);
+                $order->refresh();
+            } catch (\Throwable $e) {
+                Log::error("On-demand invoice regen failed", [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            if (! $order->invoice_path || ! Storage::disk('local')->exists($order->invoice_path)) {
+                abort(404, 'ઇનવૉઇસ બનાવી શકાયો નથી. કૃપા કરી થોડી વાર પછી પ્રયાસ કરો.');
+            }
         }
 
         return Storage::disk('local')->download(

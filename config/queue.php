@@ -13,7 +13,12 @@ return [
     |
     */
 
-    'default' => env('QUEUE_CONNECTION', 'database'),
+    // Hardcoded to 'sync' on purpose: this app runs on Hostinger shared
+    // hosting where no long-running queue worker exists, so anything we
+    // dispatch async (PDF generation, mail, WhatsApp) would queue up forever.
+    // Running jobs inline keeps the user-visible flows working. The env value
+    // is intentionally ignored.
+    'default' => 'sync',
 
     /*
     |--------------------------------------------------------------------------

@@ -5,22 +5,16 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\Generate80GReceipt;
-use App\Jobs\SendSevaBookingConfirmation;
-use App\Models\Donation;
-use App\Models\HallBooking;
-use App\Models\Order;
 use App\Models\Payment;
-use App\Models\SevaBooking;
+use App\Services\PaymentCaptureService;
 use App\Services\RazorpayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 class PaymentWebhookController extends Controller
 {
-    public function handle(Request $request): JsonResponse
+    public function handle(Request $request, PaymentCaptureService $captureService): JsonResponse
     {
         $payload = $request->getContent();
         $signature = $request->header('X-Razorpay-Signature', '');
@@ -38,13 +32,13 @@ class PaymentWebhookController extends Controller
         Log::info("Razorpay webhook received: {$event}");
 
         return match ($event) {
-            'payment.captured' => $this->handlePaymentCaptured($data),
-            'payment.failed' => $this->handlePaymentFailed($data),
+            'payment.captured' => $this->handlePaymentCaptured($data, $captureService),
+            'payment.failed' => $this->handlePaymentFailed($data, $captureService),
             default => response()->json(['status' => 'ignored']),
         };
     }
 
-    private function handlePaymentCaptured(array $data): JsonResponse
+    private function handlePaymentCaptured(array $data, PaymentCaptureService $captureService): JsonResponse
     {
         $paymentEntity = $data['payload']['payment']['entity'] ?? [];
         $razorpayPaymentId = $paymentEntity['id'] ?? null;
@@ -62,93 +56,22 @@ class PaymentWebhookController extends Controller
             return response()->json(['status' => 'payment_not_found'], 404);
         }
 
-        // Idempotency check
         if ($payment->status->value === 'captured') {
-            Log::info("Razorpay webhook: payment {$razorpayOrderId} already captured");
+            Log::info("Razorpay webhook: payment {$razorpayOrderId} already captured (likely client-verified)");
             return response()->json(['status' => 'already_processed']);
         }
 
-        $payment->update([
-            'status' => 'captured',
-            'razorpay_payment_id' => $razorpayPaymentId,
-            'paid_at' => now(),
-            'method' => $paymentEntity['method'] ?? null,
-            'webhook_payload' => $data,
-        ]);
-
-        // Update associated seva booking
-        $booking = SevaBooking::where('payment_id', $payment->id)->first();
-        if ($booking) {
-            $booking->update(['status' => 'confirmed']);
-            SendSevaBookingConfirmation::dispatch($booking);
-            Log::info("Seva booking {$booking->id} confirmed via webhook");
-        }
-
-        // Update associated store order
-        $order = Order::where('payment_id', $payment->id)->first();
-        if ($order) {
-            $order->update(['status' => 'confirmed']);
-            Log::info("Store order {$order->id} confirmed via webhook");
-        }
-
-        // Update associated hall booking
-        $hallBooking = HallBooking::where('payment_id', $payment->id)->first();
-        if ($hallBooking) {
-            $hallBooking->update(['status' => 'confirmed']);
-            Log::info("Hall booking {$hallBooking->id} confirmed via webhook");
-        }
-
-        // Handle donation record
-        $donation = Donation::where('payment_id', $payment->id)->first();
-
-        if (!$donation && $booking) {
-            // Seva booking payment — create donation record
-            $fy = now()->month >= 4
-                ? now()->year . '-' . substr((string) (now()->year + 1), -2)
-                : (now()->year - 1) . '-' . substr((string) now()->year, -2);
-
-            $donation = Donation::create([
-                'id' => (string) Str::uuid(),
-                'devotee_id' => $booking->devotee_id,
-                'payment_id' => $payment->id,
-                'amount' => $payment->amount,
-                'donation_type' => 'seva',
-                'purpose' => 'Seva: ' . ($booking->seva->name_en ?? 'Seva Booking'),
-                'seva_booking_id' => $booking->id,
-                'is_80g_eligible' => true,
-                'financial_year' => $fy,
-            ]);
-        }
-
-        // Auto-generate 80G receipt for every successful donation
-        if ($donation) {
-            $devotee = $donation->devotee;
-            if ($devotee && $devotee->pan_encrypted) {
-                $donation->update([
-                    'pan_verified' => true,
-                    'pan_number_encrypted' => $devotee->pan_encrypted,
-                ]);
-            }
-            // dispatchSync because Hostinger has no queue worker; otherwise
-            // jobs pile up in the database queue forever.
-            try {
-                Generate80GReceipt::dispatchSync($donation);
-                Log::info("80G receipt generated inline for donation {$donation->id}");
-            } catch (\Throwable $e) {
-                Log::error("80G receipt generation failed for donation {$donation->id}", ['error' => $e->getMessage()]);
-            }
-        }
-
-        Log::info("Payment {$razorpayOrderId} captured successfully", [
-            'payment_id' => $payment->id,
-            'razorpay_payment_id' => $razorpayPaymentId,
-            'amount' => $payment->amount,
-        ]);
+        $captureService->markCaptured(
+            $payment,
+            $razorpayPaymentId,
+            $paymentEntity['method'] ?? null,
+            $data,
+        );
 
         return response()->json(['status' => 'captured']);
     }
 
-    private function handlePaymentFailed(array $data): JsonResponse
+    private function handlePaymentFailed(array $data, PaymentCaptureService $captureService): JsonResponse
     {
         $paymentEntity = $data['payload']['payment']['entity'] ?? [];
         $razorpayOrderId = $paymentEntity['order_id'] ?? null;
@@ -163,34 +86,7 @@ class PaymentWebhookController extends Controller
             return response()->json(['status' => 'payment_not_found'], 404);
         }
 
-        $payment->update([
-            'status' => 'failed',
-            'webhook_payload' => $data,
-        ]);
-
-        $booking = SevaBooking::where('payment_id', $payment->id)->first();
-        if ($booking) {
-            $booking->update([
-                'status' => 'cancelled',
-                'cancelled_at' => now(),
-                'cancellation_reason' => 'Payment failed',
-            ]);
-        }
-
-        $order = Order::where('payment_id', $payment->id)->first();
-        if ($order) {
-            $order->update(['status' => 'cancelled']);
-        }
-
-        $hallBooking = HallBooking::where('payment_id', $payment->id)->first();
-        if ($hallBooking) {
-            $hallBooking->update(['status' => 'cancelled']);
-        }
-
-        $donation = Donation::where('payment_id', $payment->id)->first();
-        if ($donation) {
-            Log::info("Donation {$donation->id} payment failed");
-        }
+        $captureService->markFailed($payment, $data);
 
         Log::info("Payment {$razorpayOrderId} failed", ['payment_id' => $payment->id]);
 

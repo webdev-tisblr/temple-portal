@@ -41,7 +41,11 @@ jobs:
       - name: Deploy only changed files via rsync
         uses: burnett01/rsync-deployments@7.0.1
         with:
-          switches: -rlczv --checksum --delete --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='.env.production' --exclude='.env.deploy' --exclude='.env.server' --exclude='tests' --exclude='.github' --exclude='storage/logs/*.log' --exclude='storage/framework/cache/data/*' --exclude='storage/framework/sessions/*' --exclude='storage/framework/views/*'
+          # NOTE: storage/app/public/ and storage/app/private/ are excluded so
+          # rsync --delete does NOT wipe admin-uploaded images, generated 80G
+          # receipts, or hall invoices that only exist on the server.
+          # database.sqlite is excluded for the same reason.
+          switches: -rlczv --checksum --delete --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='.env.production' --exclude='.env.deploy' --exclude='.env.server' --exclude='tests' --exclude='.github' --exclude='storage/app/public/' --exclude='storage/app/private/' --exclude='storage/logs/*.log' --exclude='storage/framework/cache/data/*' --exclude='storage/framework/sessions/*' --exclude='storage/framework/views/*' --exclude='database.sqlite'
           path: ./
           remote_path: ~/domains/patadiyahanumanji.com/public_html/
           remote_host: ${{ secrets.HOSTINGER_HOST }}

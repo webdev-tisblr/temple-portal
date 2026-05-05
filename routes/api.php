@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ContentController;
 use App\Http\Controllers\Api\V1\DonationController;
 use App\Http\Controllers\Api\V1\HallController;
+use App\Http\Controllers\Api\V1\PaymentVerificationController;
 use App\Http\Controllers\Api\V1\PaymentWebhookController;
 use App\Http\Controllers\Api\V1\SevaController;
 use App\Http\Controllers\Api\V1\StoreController;
@@ -128,6 +129,10 @@ Route::prefix('v1')->group(function () {
         // Seva booking (requires auth)
         Route::post('/sevas/{seva}/book', [SevaController::class, 'book']);
         Route::get('/bookings', [SevaController::class, 'bookings']);
+
+        // Payment verification — called by app right after Razorpay success.
+        // Confirms the payment server-side without waiting for the webhook.
+        Route::post('/payments/verify', [PaymentVerificationController::class, 'verify']);
 
         // Donations
         Route::post('/donations', [DonationController::class, 'create']);

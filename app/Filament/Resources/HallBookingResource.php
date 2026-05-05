@@ -27,6 +27,14 @@ class HallBookingResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
+            Forms\Components\Section::make('Hall')->schema([
+                Forms\Components\Placeholder::make('hall_label')
+                    ->label('Hall')
+                    ->content(fn ($record) => $record?->hall?->name ?? '—'),
+                Forms\Components\Placeholder::make('devotee_label')
+                    ->label('Booked By')
+                    ->content(fn ($record) => $record?->devotee?->name ?? '—'),
+            ])->columns(2),
             Forms\Components\Section::make('Booking Details')->schema([
                 Forms\Components\TextInput::make('contact_name')->disabled(),
                 Forms\Components\TextInput::make('contact_phone')->disabled(),
@@ -39,6 +47,28 @@ class HallBookingResource extends Resource
                 Forms\Components\TextInput::make('expected_guests')->disabled(),
                 Forms\Components\TextInput::make('total_amount')->prefix('₹')->disabled(),
             ])->columns(2),
+            Forms\Components\Section::make('Payment')->schema([
+                Forms\Components\Placeholder::make('razorpay_payment_id_label')
+                    ->label('Razorpay Payment ID')
+                    ->content(fn ($record) => $record?->payment?->razorpay_payment_id ?? '—'),
+                Forms\Components\Placeholder::make('razorpay_order_id_label')
+                    ->label('Razorpay Order ID')
+                    ->content(fn ($record) => $record?->payment?->razorpay_order_id ?? '—'),
+                Forms\Components\Placeholder::make('payment_status_label')
+                    ->label('Payment Status')
+                    ->content(fn ($record) => $record?->payment?->status?->value ?? '—'),
+                Forms\Components\Placeholder::make('payment_method_label')
+                    ->label('Method')
+                    ->content(fn ($record) => $record?->payment?->method ?? '—'),
+                Forms\Components\Placeholder::make('payment_amount_label')
+                    ->label('Paid Amount')
+                    ->content(fn ($record) => $record?->payment?->amount !== null
+                        ? '₹' . number_format((float) $record->payment->amount, 2)
+                        : '—'),
+                Forms\Components\Placeholder::make('paid_at_label')
+                    ->label('Paid At')
+                    ->content(fn ($record) => $record?->payment?->paid_at?->format('d M Y, H:i') ?? '—'),
+            ])->columns(3),
             Forms\Components\Section::make('Admin')->schema([
                 Forms\Components\Select::make('status')->options([
                     'pending' => 'Pending', 'confirmed' => 'Confirmed',
@@ -71,6 +101,11 @@ class HallBookingResource extends Resource
                 ]),
             ])
             ->actions([Tables\Actions\EditAction::make()]);
+    }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()->with(['hall', 'devotee', 'payment']);
     }
 
     public static function getPages(): array

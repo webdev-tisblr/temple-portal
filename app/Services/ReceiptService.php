@@ -17,6 +17,11 @@ class ReceiptService
     {
         $existing = Receipt80G::where('donation_id', $donation->id)->first();
         if ($existing) {
+            // Regenerate the PDF if the file went missing — uploads can be
+            // wiped by deploys or the public_html backup rotation.
+            if (! $existing->pdf_path || ! Storage::disk('local')->exists($existing->pdf_path)) {
+                $existing->update(['pdf_path' => $this->generatePdf($existing)]);
+            }
             return $existing;
         }
 

@@ -34,59 +34,74 @@ class SevaBookingResource extends Resource
 
     public static function form(Form $form): Form
     {
+        // Filament's EditRecord::fillForm() only fills with $record->attributesToArray(),
+        // which excludes relations — so dot-notation TextInputs (e.g. `seva.name_en`)
+        // render blank. Use Placeholder::content() with a closure to read the
+        // relation off the loaded model directly.
         return $form->schema([
             Forms\Components\Section::make('Booking')->schema([
-                Forms\Components\TextInput::make('seva.name_en')
+                Forms\Components\Placeholder::make('seva_label')
                     ->label('Seva')
-                    ->disabled()
-                    ->dehydrated(false),
-                Forms\Components\TextInput::make('devotee.name')
+                    ->content(fn ($record) => $record?->seva?->name_en ?? '—'),
+                Forms\Components\Placeholder::make('devotee_label')
                     ->label('Devotee')
-                    ->disabled()
-                    ->dehydrated(false),
-                Forms\Components\TextInput::make('devotee.phone')
+                    ->content(fn ($record) => $record?->devotee?->name ?? '—'),
+                Forms\Components\Placeholder::make('devotee_phone_label')
                     ->label('Phone')
-                    ->disabled()
-                    ->dehydrated(false),
-                Forms\Components\DatePicker::make('booking_date')
-                    ->disabled(),
-                Forms\Components\TextInput::make('slot_time')
-                    ->disabled(),
-                Forms\Components\TextInput::make('quantity')
-                    ->disabled(),
-                Forms\Components\TextInput::make('total_amount')
-                    ->prefix('₹')
-                    ->disabled(),
-                Forms\Components\TextInput::make('selectedProduct.name_en')
+                    ->content(fn ($record) => $record?->devotee?->phone ?? '—'),
+                Forms\Components\Placeholder::make('booking_date_label')
+                    ->label('Booking Date')
+                    ->content(fn ($record) => $record?->booking_date?->format('d M Y') ?? '—'),
+                Forms\Components\Placeholder::make('slot_time_label')
+                    ->label('Slot Time')
+                    ->content(fn ($record) => $record?->slot_time ?? '—'),
+                Forms\Components\Placeholder::make('quantity_label')
+                    ->label('Quantity')
+                    ->content(fn ($record) => (string) ($record?->quantity ?? '—')),
+                Forms\Components\Placeholder::make('total_amount_label')
+                    ->label('Total Amount')
+                    ->content(fn ($record) => $record?->total_amount !== null
+                        ? '₹' . number_format((float) $record->total_amount, 2)
+                        : '—'),
+                Forms\Components\Placeholder::make('selected_product_label')
                     ->label('Selected Product')
-                    ->disabled()
-                    ->dehydrated(false),
+                    ->content(fn ($record) => $record?->selectedProduct?->name_en ?? '—'),
             ])->columns(2),
 
             Forms\Components\Section::make('Devotee Details')->schema([
-                Forms\Components\TextInput::make('devotee_name_for_seva')
+                Forms\Components\Placeholder::make('devotee_name_for_seva_label')
                     ->label('Name for Seva')
-                    ->disabled(),
-                Forms\Components\TextInput::make('gotra')->disabled(),
-                Forms\Components\Textarea::make('sankalp')
-                    ->disabled()
-                    ->rows(3)
+                    ->content(fn ($record) => $record?->devotee_name_for_seva ?? '—'),
+                Forms\Components\Placeholder::make('gotra_label')
+                    ->label('Gotra')
+                    ->content(fn ($record) => $record?->gotra ?? '—'),
+                Forms\Components\Placeholder::make('sankalp_label')
+                    ->label('Sankalp')
+                    ->content(fn ($record) => $record?->sankalp ?? '—')
                     ->columnSpanFull(),
             ])->columns(2),
 
             Forms\Components\Section::make('Payment')->schema([
-                Forms\Components\TextInput::make('payment.razorpay_payment_id')
+                Forms\Components\Placeholder::make('razorpay_payment_id_label')
                     ->label('Razorpay Payment ID')
-                    ->disabled()
-                    ->dehydrated(false),
-                Forms\Components\TextInput::make('payment.status')
+                    ->content(fn ($record) => $record?->payment?->razorpay_payment_id ?? '—'),
+                Forms\Components\Placeholder::make('razorpay_order_id_label')
+                    ->label('Razorpay Order ID')
+                    ->content(fn ($record) => $record?->payment?->razorpay_order_id ?? '—'),
+                Forms\Components\Placeholder::make('payment_status_label')
                     ->label('Payment Status')
-                    ->disabled()
-                    ->dehydrated(false),
-                Forms\Components\DateTimePicker::make('payment.paid_at')
+                    ->content(fn ($record) => $record?->payment?->status?->value ?? '—'),
+                Forms\Components\Placeholder::make('payment_method_label')
+                    ->label('Method')
+                    ->content(fn ($record) => $record?->payment?->method ?? '—'),
+                Forms\Components\Placeholder::make('payment_amount_label')
+                    ->label('Paid Amount')
+                    ->content(fn ($record) => $record?->payment?->amount !== null
+                        ? '₹' . number_format((float) $record->payment->amount, 2)
+                        : '—'),
+                Forms\Components\Placeholder::make('paid_at_label')
                     ->label('Paid At')
-                    ->disabled()
-                    ->dehydrated(false),
+                    ->content(fn ($record) => $record?->payment?->paid_at?->format('d M Y, H:i') ?? '—'),
             ])->columns(3),
 
             Forms\Components\Section::make('Admin')->schema([

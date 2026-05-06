@@ -99,3 +99,14 @@ jobs:
             php artisan view:cache
             # storage:link removed — uploads now live in Cloudflare R2,
             # not storage/app/public, so the public/storage symlink is unused.
+
+            # Wipe orphaned upload files left over from the pre-R2 era.
+            # Everything in storage/app/{public,private} is now unused;
+            # uploads + generated PDFs live in Cloudflare R2. The
+            # .gitignore in each dir is preserved so the directory itself
+            # stays in place (Laravel still expects it to exist).
+            # Idempotent: subsequent runs are no-ops.
+            find storage/app/public -mindepth 1 -not -name '.gitignore' -delete 2>/dev/null || true
+            find storage/app/private -mindepth 1 -not -name '.gitignore' -delete 2>/dev/null || true
+            # Remove the now-broken public/storage symlink (if present).
+            rm -f public/storage 2>/dev/null || true

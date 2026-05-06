@@ -121,22 +121,11 @@ Route::get('/projects', [ProjectController::class, 'index'])->name('projects.ind
 Route::get('/projects/{slug}', [ProjectController::class, 'show'])->name('projects.show');
 Route::get('/projects/{slug}/donors', [ProjectController::class, 'donors'])->name('projects.donors');
 
-// Hostinger blocks /storage at the server level (probably hardened to stop
-// accidental Laravel storage/ exposure on shared hosts), so we serve every
-// uploaded file from /file/{path} via Laravel. /storage/{path} is registered
-// too in case Hostinger ever lifts the block.
-$serveStorageFile = function (string $path) {
-    $base = storage_path('app/public');
-    $real = realpath($base . DIRECTORY_SEPARATOR . $path);
-    if (! $real || strpos($real, $base . DIRECTORY_SEPARATOR) !== 0 || ! is_file($real)) {
-        abort(404);
-    }
-    return response()->file($real, [
-        'Cache-Control' => 'public, max-age=31536000, immutable',
-    ]);
-};
-Route::get('/file/{path}', $serveStorageFile)->where('path', '.+')->name('storage.serve');
-Route::get('/storage/{path}', $serveStorageFile)->where('path', '.+');
+// /file/{path} and /storage/{path} routes used to proxy uploaded files
+// from storage/app/public on Hostinger (which blocks /storage at the
+// server level). All uploads now live in Cloudflare R2 and are served
+// through cdn.patadiyahanumanji.com via the image_url() helper, so the
+// proxy is no longer reachable by any code path. Removed Phase 5.
 
 // Admin-only one-shot storage repair: run from a browser when SSH isn't an
 // option. Hostinger disables exec(), so artisan storage:link fails.
@@ -205,14 +194,9 @@ Route::get('/admin-tools/storage-repair', function () {
         }
     }
 
-    // Move any legacy uploads sitting in private/* into public/*.
-    try {
-        \Illuminate\Support\Facades\Artisan::call('storage:migrate-uploads-to-public');
-        $log[] = '[ok] storage:migrate-uploads-to-public:';
-        $log[] = trim(\Illuminate\Support\Facades\Artisan::output());
-    } catch (\Throwable $e) {
-        $log[] = '[err] migrate uploads failed: ' . $e->getMessage();
-    }
+    // (Removed in Phase 5: the storage:migrate-uploads-to-public call.
+    // Uploads no longer live on the local disk, so the legacy migration
+    // step is a no-op.)
 
     $log[] = '';
     $log[] = '=== Quick checks ===';

@@ -111,12 +111,6 @@ else
     echo "    storage symlink OK"
 fi
 
-# One-shot rescue: legacy uploads that landed in storage/app/private (because
-# Filament was using FILESYSTEM_DISK=local before defaultFilesystemDisk was
-# pinned to 'public') get moved into storage/app/public so the symlink can
-# serve them. Idempotent: re-runs are no-ops once everything's migrated.
-php artisan storage:migrate-uploads-to-public || true
-
 echo "[5/6] Building frontend..."
 if command -v node &> /dev/null; then
     npm install

@@ -48,13 +48,34 @@ jobs:
       - name: Build frontend assets
         run: npm run build
 
-      - name: Deploy only changed files via rsync
+      # Hostinger SSH has timed out at the rsync step a couple of times — the
+      # first attempt is allowed to fail and we retry once after a short wait.
+      # If the second attempt fails too, the job fails as normal.
+      - name: Deploy via rsync (attempt 1)
+        id: rsync_attempt1
         uses: burnett01/rsync-deployments@7.0.1
+        continue-on-error: true
         with:
           # NOTE: storage/app/public/ and storage/app/private/ are excluded so
           # rsync --delete does NOT wipe admin-uploaded images, generated 80G
           # receipts, or hall invoices that only exist on the server.
           # database.sqlite is excluded for the same reason.
+          switches: -rlczv --checksum --delete --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='.env.production' --exclude='.env.deploy' --exclude='.env.server' --exclude='tests' --exclude='.github' --exclude='storage/app/public/' --exclude='storage/app/private/' --exclude='storage/logs/*.log' --exclude='storage/framework/cache/data/*' --exclude='storage/framework/sessions/*' --exclude='storage/framework/views/*' --exclude='database.sqlite'
+          path: ./
+          remote_path: ~/domains/patadiyahanumanji.com/public_html/
+          remote_host: ${{ secrets.HOSTINGER_HOST }}
+          remote_port: ${{ secrets.HOSTINGER_PORT }}
+          remote_user: ${{ secrets.HOSTINGER_USERNAME }}
+          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Wait before retry
+        if: steps.rsync_attempt1.outcome == 'failure'
+        run: sleep 30
+
+      - name: Deploy via rsync (attempt 2)
+        if: steps.rsync_attempt1.outcome == 'failure'
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
           switches: -rlczv --checksum --delete --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='.env.production' --exclude='.env.deploy' --exclude='.env.server' --exclude='tests' --exclude='.github' --exclude='storage/app/public/' --exclude='storage/app/private/' --exclude='storage/logs/*.log' --exclude='storage/framework/cache/data/*' --exclude='storage/framework/sessions/*' --exclude='storage/framework/views/*' --exclude='database.sqlite'
           path: ./
           remote_path: ~/domains/patadiyahanumanji.com/public_html/

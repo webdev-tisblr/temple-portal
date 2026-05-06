@@ -58,7 +58,7 @@
                         <span class="text-amber-100/40">પસંદ કરેલ</span>
                         <div class="flex items-center gap-2">
                             @if($booking->selectedProduct->image_path)
-                                <img src="{{ asset('file/' . $booking->selectedProduct->image_path) }}" alt="" class="w-8 h-8 rounded object-cover">
+                                <img src="{{ image_url($booking->selectedProduct->image_path) }}" alt="" class="w-8 h-8 rounded object-cover">
                             @endif
                             <span class="font-medium text-amber-100/70">{{ $booking->selectedProduct->name }}</span>
                         </div>

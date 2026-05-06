@@ -106,7 +106,7 @@
                 {{-- Single Image --}}
                 <div class="card-sacred overflow-hidden">
                     <div class="aspect-video bg-black/40">
-                        <img src="{{ asset('file/' . $project->image_path) }}"
+                        <img src="{{ image_url($project->image_path) }}"
                              alt="{{ $project->title }}"
                              class="w-full h-full object-contain">
                     </div>

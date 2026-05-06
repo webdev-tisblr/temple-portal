@@ -144,7 +144,7 @@ class DashboardController extends Controller
         $updateData = collect($validated)->except(['pan_number', 'profile_photo'])->filter()->toArray();
 
         if ($request->hasFile('profile_photo')) {
-            $path = $request->file('profile_photo')->store('profile-photos', 'public');
+            $path = $request->file('profile_photo')->store('profile-photos', 'r2');
             $updateData['profile_photo_path'] = $path;
         }
 

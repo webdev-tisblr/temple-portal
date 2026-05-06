@@ -91,7 +91,7 @@ class SevaController extends BaseApiController
             'seva_name_gu' => $booking->seva?->name_gu,
             'seva_name_hi' => $booking->seva?->name_hi,
             'seva_name_en' => $booking->seva?->name_en,
-            'seva_image_url' => $booking->seva?->image_path ? asset('file/' . $booking->seva->image_path) : null,
+            'seva_image_url' => $booking->seva?->image_path ? image_url($booking->seva->image_path) : null,
             'booking_date' => $booking->booking_date->toDateString(),
             'slot_time' => $booking->slot_time,
             'quantity' => $booking->quantity,
@@ -105,7 +105,7 @@ class SevaController extends BaseApiController
                 'name' => $booking->selectedProduct->name,
                 'name_gu' => $booking->selectedProduct->name_gu,
                 'image_url' => $booking->selectedProduct->image_path
-                    ? asset('file/' . $booking->selectedProduct->image_path)
+                    ? image_url($booking->selectedProduct->image_path)
                     : null,
             ] : null,
             'created_at' => $booking->created_at?->toISOString(),

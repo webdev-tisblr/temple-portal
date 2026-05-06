@@ -42,7 +42,7 @@ class ContentController extends BaseApiController
                     'title' => $announcement->title,
                     'body' => $announcement->body,
                     'image_url' => $announcement->image_path
-                        ? asset('file/' . $announcement->image_path)
+                        ? image_url($announcement->image_path)
                         : null,
                     'is_urgent' => $announcement->is_urgent,
                     'published_at' => $announcement->published_at?->toISOString(),
@@ -71,7 +71,7 @@ class ContentController extends BaseApiController
         return $this->success([
             'id' => $photo->id,
             'image_url' => $photo->image_path
-                ? asset('file/' . $photo->image_path)
+                ? image_url($photo->image_path)
                 : null,
             'caption' => $photo->caption,
             'caption_gu' => $photo->caption_gu,
@@ -193,9 +193,9 @@ class ContentController extends BaseApiController
                 'id' => $image->id,
                 'title' => $image->title,
                 'description' => $image->description,
-                'image_url' => $image->image_path ? asset('file/' . $image->image_path) : null,
-                'thumbnail_url' => $image->thumbnail_path ? asset('file/' . $image->thumbnail_path) : null,
-                'medium_url' => $image->medium_path ? asset('file/' . $image->medium_path) : null,
+                'image_url' => $image->image_path ? image_url($image->image_path) : null,
+                'thumbnail_url' => $image->thumbnail_path ? image_url($image->thumbnail_path) : null,
+                'medium_url' => $image->medium_path ? image_url($image->medium_path) : null,
                 'category' => $image->category,
                 'is_wallpaper' => $image->is_wallpaper,
             ]);
@@ -247,7 +247,7 @@ class ContentController extends BaseApiController
             'start_time' => $event->start_time,
             'end_time' => $event->end_time,
             'location' => $event->location,
-            'image_url' => $event->image_path ? asset('file/' . $event->image_path) : null,
+            'image_url' => $event->image_path ? image_url($event->image_path) : null,
             'is_featured' => $event->is_featured,
             'event_type' => $event->event_type?->value,
         ]);
@@ -277,7 +277,7 @@ class ContentController extends BaseApiController
             'title_hi' => $post->title_hi,
             'title_en' => $post->title_en,
             'excerpt' => $post->excerpt_gu,
-            'featured_image_url' => $post->featured_image_path ? asset('file/' . $post->featured_image_path) : null,
+            'featured_image_url' => $post->featured_image_path ? image_url($post->featured_image_path) : null,
             'category' => $post->category,
             'published_at' => $post->published_at?->toISOString(),
         ]);
@@ -320,7 +320,7 @@ class ContentController extends BaseApiController
             'body_html_gu' => $post->body_gu,
             'body_html_hi' => $post->body_hi,
             'body_html_en' => $post->body_en,
-            'featured_image_url' => $post->featured_image_path ? asset('file/' . $post->featured_image_path) : null,
+            'featured_image_url' => $post->featured_image_path ? image_url($post->featured_image_path) : null,
             'category' => $post->category,
             'published_at' => $post->published_at?->toISOString(),
         ]);
@@ -447,7 +447,7 @@ class ContentController extends BaseApiController
             'raised_amount' => (float) $campaign->raised_amount,
             'donor_count' => $campaign->donor_count,
             'image_url' => $campaign->image_path
-                ? asset('file/' . $campaign->image_path)
+                ? image_url($campaign->image_path)
                 : null,
             'start_date' => $campaign->start_date?->toDateString(),
             'end_date' => $campaign->end_date?->toDateString(),

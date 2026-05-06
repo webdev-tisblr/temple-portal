@@ -27,12 +27,14 @@ class AppServiceProvider extends ServiceProvider
     {
         Seva::observe(SevaObserver::class);
 
-        // FILESYSTEM_DISK=local in env means Filament's FileUpload defaults
-        // to the private disk and uploaded images land in storage/app/private,
-        // invisible to the web. Pin every FileUpload + ImageColumn to the
-        // public disk so admin uploads serve through the storage:// symlink.
-        FileUpload::configureUsing(fn (FileUpload $c) => $c->disk('public'));
-        ImageColumn::configureUsing(fn (ImageColumn $c) => $c->disk('public'));
+        // All Filament image uploads land in Cloudflare R2 (the 'r2' disk
+        // pins to the public bucket, served via cdn.patadiyahanumanji.com).
+        // ImageColumn uses the same disk so list/edit thumbnails resolve to
+        // the R2 CDN URL. Pre-existing image_path values point at keys that
+        // already lived in storage/app/public/<dir>/<file> — those keys are
+        // identical in R2, so no DB migration needed.
+        FileUpload::configureUsing(fn (FileUpload $c) => $c->disk('r2'));
+        ImageColumn::configureUsing(fn (ImageColumn $c) => $c->disk('r2'));
 
         $this->configureMailFromDatabase();
     }

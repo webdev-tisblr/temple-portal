@@ -26,7 +26,7 @@
         </nav>
 
         @if($page->featured_image_path)
-            <img src="{{ asset('file/' . $page->featured_image_path) }}" alt="{{ $page->title }}" class="w-full rounded-2xl mb-8 shadow-lg border border-amber-900/20">
+            <img src="{{ image_url($page->featured_image_path) }}" alt="{{ $page->title }}" class="w-full rounded-2xl mb-8 shadow-lg border border-amber-900/20">
         @endif
 
         <h1 class="divine-heading text-3xl sm:text-4xl mb-6">{{ $page->title }}</h1>

@@ -18,7 +18,7 @@
             @if($category->image_path)
                 <div class="md:w-1/3 aspect-video md:aspect-auto flex-shrink-0 overflow-hidden"
                      style="background: radial-gradient(ellipse at bottom, #2a1508, #0f0804);">
-                    <img src="{{ asset('file/' . $category->image_path) }}"
+                    <img src="{{ image_url($category->image_path) }}"
                          alt="{{ $category->name }}"
                          class="w-full h-full object-cover opacity-80">
                 </div>

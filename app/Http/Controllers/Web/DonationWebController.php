@@ -67,7 +67,7 @@ class DonationWebController extends Controller
                 foreach ($donationType->extra_fields as $field) {
                     $key = $field['key'] ?? null;
                     if ($key && ($field['type'] ?? '') === 'image' && $request->hasFile("extra_data.{$key}")) {
-                        $extraData[$key] = $request->file("extra_data.{$key}")->store('donation-extras', 'public');
+                        $extraData[$key] = $request->file("extra_data.{$key}")->store('donation-extras', 'r2');
                     }
                 }
             }

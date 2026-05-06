@@ -36,7 +36,7 @@ class StoreController extends BaseApiController
                     'name_hi' => $c->name_hi,
                     'name_en' => $c->name_en,
                     'slug' => $c->slug,
-                    'image_url' => $c->image_path ? asset('file/' . $c->image_path) : null,
+                    'image_url' => $c->image_path ? image_url($c->image_path) : null,
                 ]);
         });
 
@@ -297,7 +297,7 @@ class StoreController extends BaseApiController
             'price' => (float) $p->price,
             'stock_quantity' => $p->stock_quantity,
             'in_stock' => $p->inStock(),
-            'image_url' => $p->image_path ? asset('file/' . $p->image_path) : null,
+            'image_url' => $p->image_path ? image_url($p->image_path) : null,
             'is_featured' => $p->is_featured,
             'has_variants' => $p->has_variants,
             'variants' => $p->variants,

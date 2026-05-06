@@ -27,7 +27,7 @@
                         <div class="aspect-[16/9] flex items-center justify-center relative overflow-hidden"
                              style="background: radial-gradient(ellipse at bottom, #2a1508, #0f0804);">
                             @if($category->image_path)
-                                <img src="{{ asset('file/' . $category->image_path) }}"
+                                <img src="{{ image_url($category->image_path) }}"
                                      alt="{{ $category->name }}"
                                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-80 group-hover:opacity-100">
                             @else

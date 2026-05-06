@@ -208,7 +208,7 @@ class StoreWebController extends Controller
                 'name' => $name,
                 'variant_label' => $item['variant_label'],
                 'url' => route('store.product', $item['product']->slug),
-                'image' => $item['product']->image_path ? asset('file/' . $item['product']->image_path) : null,
+                'image' => $item['product']->image_path ? image_url($item['product']->image_path) : null,
                 'unit_price' => $item['unit_price'],
                 'quantity' => $item['quantity'],
                 'subtotal' => $item['subtotal'],

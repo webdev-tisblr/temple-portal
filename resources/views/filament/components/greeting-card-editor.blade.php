@@ -4,7 +4,7 @@
     $config = $record?->greeting_card_config ?? [];
     $overlays = $config['overlays'] ?? [];
     $templatePath = $record?->greeting_card_template;
-    $templateUrl = $templatePath ? asset('file/' . $templatePath) : null;
+    $templateUrl = $templatePath ? image_url($templatePath) : null;
     $statePath = $statePath ?? 'data.greeting_card_config';
 
     $availableVars = [

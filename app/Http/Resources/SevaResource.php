@@ -43,7 +43,7 @@ class SevaResource extends JsonResource
             'price' => (float) $this->price,
             'min_price' => $this->min_price ? (float) $this->min_price : null,
             'is_variable_price' => $this->is_variable_price,
-            'image_url' => $this->image_path ? asset('file/' . $this->image_path) : null,
+            'image_url' => $this->image_path ? image_url($this->image_path) : null,
             'requires_booking' => $this->requires_booking,
             'slot_config' => $this->getResolvedSlotConfig(),
             'slot_duration_minutes' => $this->getSlotDurationMinutes(),
@@ -67,7 +67,7 @@ class SevaResource extends JsonResource
                 'name_hi' => $p->name_hi,
                 'name_en' => $p->name_en,
                 'price' => (float) $p->price,
-                'image_url' => $p->image_path ? asset('file/' . $p->image_path) : null,
+                'image_url' => $p->image_path ? image_url($p->image_path) : null,
                 'in_stock' => $p->inStock(),
             ])
             ->values()

@@ -197,9 +197,12 @@ class HallController extends BaseApiController
         }
 
         if (! $booking->invoice_path || ! \Illuminate\Support\Facades\Storage::disk('r2_private')->exists($booking->invoice_path)) {
-            // The web controller has the inline generator; call it as a service-like action.
+            // The web controller has the inline generator; call it as a
+            // service-like action. sendEmail=false so we don't re-email the
+            // customer every time they redownload from the mobile app.
             try {
-                app(\App\Http\Controllers\Web\HallBookingController::class)->generateHallInvoice($booking);
+                app(\App\Http\Controllers\Web\HallBookingController::class)
+                    ->generateHallInvoice($booking, sendEmail: false);
                 $booking->refresh();
             } catch (\Throwable $e) {
                 Log::error('On-demand hall invoice regen failed (api)', [
@@ -212,10 +215,13 @@ class HallController extends BaseApiController
             }
         }
 
-        return \Illuminate\Support\Facades\Storage::disk('r2_private')->download(
-            $booking->invoice_path,
-            "Hall_Booking_{$booking->id}.pdf",
-            ['Content-Type' => 'application/pdf']
-        );
+        $pdfBytes = \Illuminate\Support\Facades\Storage::disk('r2_private')->get($booking->invoice_path);
+        $filename = "Hall_Booking_{$booking->id}.pdf";
+
+        return response($pdfBytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Length' => (string) strlen($pdfBytes),
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 }

@@ -261,9 +261,11 @@ class StoreController extends BaseApiController
             return $this->error('Invoice is generated only after the order is confirmed.', 404);
         }
 
+        // Use InvoiceService directly (not the GenerateStoreInvoice job)
+        // so the customer doesn't get re-emailed on every download.
         if (! $order->invoice_path || ! Storage::disk('r2_private')->exists($order->invoice_path)) {
             try {
-                GenerateStoreInvoice::dispatchSync($order);
+                app(\App\Services\InvoiceService::class)->generateInvoice($order);
                 $order->refresh();
             } catch (\Throwable $e) {
                 Log::error('On-demand invoice regen failed (api)', [
@@ -276,11 +278,14 @@ class StoreController extends BaseApiController
             }
         }
 
-        return Storage::disk('r2_private')->download(
-            $order->invoice_path,
-            "Invoice_{$order->order_number}.pdf",
-            ['Content-Type' => 'application/pdf']
-        );
+        $pdfBytes = Storage::disk('r2_private')->get($order->invoice_path);
+        $filename = "Invoice_{$order->order_number}.pdf";
+
+        return response($pdfBytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Length' => (string) strlen($pdfBytes),
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 
     private function mapProduct(Product $p): array

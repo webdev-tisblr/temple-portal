@@ -280,7 +280,8 @@ class HallBookingController extends Controller
 
         if (! $booking->invoice_path || ! Storage::disk('r2_private')->exists($booking->invoice_path)) {
             try {
-                $this->generateHallInvoice($booking);
+                // false = self-heal regen, don't re-email the customer.
+                $this->generateHallInvoice($booking, sendEmail: false);
                 $booking->refresh();
             } catch (\Throwable $e) {
                 Log::error('On-demand hall invoice regen failed', [
@@ -293,14 +294,24 @@ class HallBookingController extends Controller
             }
         }
 
-        return Storage::disk('r2_private')->download(
-            $booking->invoice_path,
-            "Hall_Booking_{$booking->id}.pdf",
-            ['Content-Type' => 'application/pdf']
-        );
+        $pdfBytes = Storage::disk('r2_private')->get($booking->invoice_path);
+        $filename = "Hall_Booking_{$booking->id}.pdf";
+
+        return response($pdfBytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Length' => (string) strlen($pdfBytes),
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 
-    public function generateHallInvoice(HallBooking $booking): void
+    /**
+     * Generate the hall booking invoice PDF + persist to R2.
+     *
+     * $sendEmail = true on initial confirmation flow (emails the customer
+     *   their PDF). false when called from a self-heal download path so
+     *   we don't email the customer every time they redownload the PDF.
+     */
+    public function generateHallInvoice(HallBooking $booking, bool $sendEmail = true): void
     {
         try {
             $booking->loadMissing('hall', 'devotee');
@@ -327,8 +338,10 @@ class HallBookingController extends Controller
 
             $booking->update(['invoice_path' => $path]);
 
-            // Email invoice if contact_email is present
-            if ($booking->contact_email) {
+            // Email invoice only on the initial confirmation path. Self-heal
+            // regeneration calls this with $sendEmail=false to avoid emailing
+            // the customer every time they redownload the PDF.
+            if ($sendEmail && $booking->contact_email) {
                 $this->emailHallInvoice($booking, $path);
             }
 

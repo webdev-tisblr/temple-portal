@@ -134,7 +134,7 @@ class DonationController extends BaseApiController
         return $this->success(new DonationResource($donation));
     }
 
-    public function downloadReceipt(Request $request, Donation $donation): JsonResponse|\Symfony\Component\HttpFoundation\StreamedResponse
+    public function downloadReceipt(Request $request, Donation $donation): JsonResponse|\Symfony\Component\HttpFoundation\Response
     {
         if ($donation->devotee_id !== $request->user()->id) {
             return $this->error('Unauthorized', 403);
@@ -146,14 +146,23 @@ class DonationController extends BaseApiController
             return $this->error('Receipt is generated only after the payment is confirmed.', 404);
         }
 
-        // Self-heal: if the receipt was never generated (queue didn't run, etc),
-        // generate it now synchronously so the user gets the PDF on this click.
-        if (! $donation->receipt_generated || ! $donation->receipt) {
+        // Self-heal: if the receipt was never generated OR the PDF on R2 is
+        // gone, regenerate JUST the PDF via the service. Do NOT dispatch the
+        // Generate80GReceipt job here — that path also emails + WhatsApps the
+        // donor, which should only happen once on initial confirmation.
+        $needsRegen = ! $donation->receipt_generated
+            || ! $donation->receipt
+            || ! $donation->receipt->pdf_path
+            || ! Storage::disk('r2_private')->exists($donation->receipt->pdf_path);
+
+        if ($needsRegen) {
             try {
-                \App\Jobs\Generate80GReceipt::dispatchSync($donation->fresh());
-                $donation->refresh();
+                app(\App\Services\ReceiptService::class)->generateReceipt($donation->fresh());
+                // refresh() reloads attributes; load() forces the receipt
+                // relation to re-query so we see the just-created row.
+                $donation->refresh()->load('receipt');
             } catch (\Throwable $e) {
-                Log::error("On-demand 80G receipt generation failed", [
+                Log::error('On-demand 80G receipt regeneration failed', [
                     'donation_id' => $donation->id,
                     'error' => $e->getMessage(),
                 ]);
@@ -162,31 +171,21 @@ class DonationController extends BaseApiController
         }
 
         $receipt = $donation->receipt;
-        if (! $receipt || ! $receipt->pdf_path) {
-            return $this->error('Receipt PDF not available', 404);
+        if (! $receipt || ! $receipt->pdf_path || ! Storage::disk('r2_private')->exists($receipt->pdf_path)) {
+            return $this->error('Receipt file could not be regenerated.', 500);
         }
 
-        if (! Storage::disk('r2_private')->exists($receipt->pdf_path)) {
-            // PDF path in DB but R2 object is gone — regenerate.
-            try {
-                \App\Jobs\Generate80GReceipt::dispatchSync($donation->fresh());
-                $donation->refresh();
-                $receipt = $donation->receipt;
-            } catch (\Throwable $e) {
-                Log::error("Receipt regeneration failed", [
-                    'donation_id' => $donation->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-            if (! $receipt || ! $receipt->pdf_path || ! Storage::disk('r2_private')->exists($receipt->pdf_path)) {
-                return $this->error('Receipt file could not be regenerated.', 500);
-            }
-        }
+        // Pull bytes into memory and return with an explicit Content-Length
+        // header. Streaming via Storage::download() yields chunked transfer
+        // encoding which some mobile HTTP clients struggle with — receipts
+        // are tiny so the memory cost is negligible.
+        $pdfBytes = Storage::disk('r2_private')->get($receipt->pdf_path);
+        $filename = 'receipt-' . str_replace('/', '-', $receipt->receipt_number) . '.pdf';
 
-        return Storage::disk('r2_private')->download(
-            $receipt->pdf_path,
-            "receipt-{$receipt->receipt_number}.pdf",
-            ['Content-Type' => 'application/pdf'],
-        );
+        return response($pdfBytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Length' => (string) strlen($pdfBytes),
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 }

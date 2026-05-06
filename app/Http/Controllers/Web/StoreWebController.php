@@ -557,9 +557,11 @@ class StoreWebController extends Controller
 
         // Self-heal: only confirmed orders should ever produce an invoice,
         // and if the R2 object is gone, regenerate it inline before serving.
+        // Use InvoiceService directly (not the GenerateStoreInvoice job)
+        // so we don't re-email the customer every download.
         if (! $order->invoice_path || ! Storage::disk('r2_private')->exists($order->invoice_path)) {
             try {
-                GenerateStoreInvoice::dispatchSync($order);
+                app(\App\Services\InvoiceService::class)->generateInvoice($order);
                 $order->refresh();
             } catch (\Throwable $e) {
                 Log::error("On-demand invoice regen failed", [
@@ -572,10 +574,13 @@ class StoreWebController extends Controller
             }
         }
 
-        return Storage::disk('r2_private')->download(
-            $order->invoice_path,
-            "Invoice_{$order->order_number}.pdf",
-            ['Content-Type' => 'application/pdf']
-        );
+        $pdfBytes = Storage::disk('r2_private')->get($order->invoice_path);
+        $filename = "Invoice_{$order->order_number}.pdf";
+
+        return response($pdfBytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Length' => (string) strlen($pdfBytes),
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 }

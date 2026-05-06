@@ -100,7 +100,7 @@ class DashboardController extends Controller
         return view('pages.dashboard.receipts', compact('receipts'));
     }
 
-    public function downloadReceipt(Receipt80G $receipt): \Symfony\Component\HttpFoundation\StreamedResponse|RedirectResponse
+    public function downloadReceipt(Receipt80G $receipt): \Symfony\Component\HttpFoundation\Response|RedirectResponse
     {
         $devotee = Auth::guard('devotee')->user();
         $donation = Donation::find($receipt->donation_id);
@@ -109,12 +109,14 @@ class DashboardController extends Controller
             abort(403);
         }
 
-        // Self-heal: regenerate the PDF if the R2 object is missing.
+        // Self-heal: regenerate JUST the PDF via the service if the R2
+        // object is missing. Don't dispatch the Generate80GReceipt job —
+        // that path also emails + WhatsApps the donor, which should only
+        // happen once on initial payment confirmation, not every download.
         if (!$receipt->pdf_path || !Storage::disk('r2_private')->exists($receipt->pdf_path)) {
             try {
-                \App\Jobs\Generate80GReceipt::dispatchSync($donation);
-                $donation->refresh();
-                $receipt = $donation->receipt ?? $receipt->fresh();
+                app(\App\Services\ReceiptService::class)->generateReceipt($donation);
+                $receipt = $receipt->fresh();
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::error("Receipt regen failed", [
                     'donation_id' => $donation->id,
@@ -126,10 +128,16 @@ class DashboardController extends Controller
             }
         }
 
-        return Storage::disk('r2_private')->download(
-            $receipt->pdf_path,
-            "receipt-" . str_replace('/', '-', $receipt->receipt_number) . ".pdf"
-        );
+        // In-memory response with explicit Content-Length — more compatible
+        // with older HTTP clients than a chunked streamed download.
+        $pdfBytes = Storage::disk('r2_private')->get($receipt->pdf_path);
+        $filename = 'receipt-' . str_replace('/', '-', $receipt->receipt_number) . '.pdf';
+
+        return response($pdfBytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Length' => (string) strlen($pdfBytes),
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 
     public function profile(): View

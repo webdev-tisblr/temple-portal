@@ -115,7 +115,7 @@ Route::prefix('v1')->group(function () {
                 'photo' => 'required|image|mimes:jpg,jpeg,png,webp|max:4096',
             ]);
 
-            $path = $request->file('photo')->store('profile-photos', 'public');
+            $path = $request->file('photo')->store('profile-photos', 'r2');
             $request->user()->update(['profile_photo_path' => $path]);
             $fresh = $request->user()->fresh();
 

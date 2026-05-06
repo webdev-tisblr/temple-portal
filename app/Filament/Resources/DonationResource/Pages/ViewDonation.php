@@ -40,9 +40,13 @@ class ViewDonation extends ViewRecord
                 ->color('warning')
                 ->visible(fn () => $this->record->receipt_generated && $this->record->receipt?->pdf_path)
                 ->action(function () {
-                    return response()->download(
-                        storage_path('app/private/' . $this->record->receipt->pdf_path)
-                    );
+                    $receipt = $this->record->receipt;
+                    $bytes = \Illuminate\Support\Facades\Storage::disk('r2_private')->get($receipt->pdf_path);
+                    return response($bytes, 200, [
+                        'Content-Type' => 'application/pdf',
+                        'Content-Length' => (string) strlen($bytes),
+                        'Content-Disposition' => 'attachment; filename="receipt-' . str_replace('/', '-', $receipt->receipt_number) . '.pdf"',
+                    ]);
                 }),
         ];
     }

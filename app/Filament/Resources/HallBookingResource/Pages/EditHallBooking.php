@@ -21,9 +21,12 @@ class EditHallBooking extends EditRecord
                 ->color('warning')
                 ->visible(fn () => ! empty($this->record->invoice_path))
                 ->action(function () {
-                    return response()->download(
-                        storage_path('app/private/' . $this->record->invoice_path)
-                    );
+                    $bytes = \Illuminate\Support\Facades\Storage::disk('r2_private')->get($this->record->invoice_path);
+                    return response($bytes, 200, [
+                        'Content-Type' => 'application/pdf',
+                        'Content-Length' => (string) strlen($bytes),
+                        'Content-Disposition' => 'attachment; filename="Hall_Booking_' . $this->record->id . '.pdf"',
+                    ]);
                 }),
             Actions\DeleteAction::make(),
         ];

@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <style>
+        @include('pdf._fonts')
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'DejaVu Sans', sans-serif; font-size: 9px; color: #333; padding: 10px; }
+        body { font-family: 'Noto Sans Gujarati', 'DejaVu Sans', sans-serif; font-size: 9px; color: #333; padding: 10px; }
         .slip { border: 2px solid #333; padding: 10px; height: 100%; }
         .header { text-align: center; border-bottom: 2px dashed #333; padding-bottom: 8px; margin-bottom: 8px; }
         .header h1 { font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }

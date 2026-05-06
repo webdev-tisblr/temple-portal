@@ -134,7 +134,7 @@ class DonationController extends BaseApiController
         return $this->success(new DonationResource($donation));
     }
 
-    public function downloadReceipt(Request $request, Donation $donation): JsonResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function downloadReceipt(Request $request, Donation $donation): JsonResponse|\Symfony\Component\HttpFoundation\StreamedResponse
     {
         if ($donation->devotee_id !== $request->user()->id) {
             return $this->error('Unauthorized', 403);

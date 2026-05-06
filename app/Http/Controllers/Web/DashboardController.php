@@ -44,8 +44,14 @@ class DashboardController extends Controller
     public function donations(): View
     {
         $devotee = Auth::guard('devotee')->user();
+        // Only show donations whose payment was captured. Pending/failed
+        // entries clutter the list and have no download button anyway.
+        // Mirrors the mobile API DonationController::history filter.
         $donations = Donation::where('devotee_id', $devotee->id)
-            ->with('receipt')->orderByDesc('created_at')->paginate(20);
+            ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
+            ->with(['receipt', 'payment'])
+            ->orderByDesc('created_at')
+            ->paginate(20);
 
         SEOMeta::setTitle('મારા દાન');
 

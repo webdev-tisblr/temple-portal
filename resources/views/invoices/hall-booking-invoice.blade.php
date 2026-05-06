@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <style>
+        @include('pdf._fonts')
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'DejaVu Sans', sans-serif; font-size: 11px; color: #333; padding: 30px; }
+        body { font-family: 'Noto Sans Gujarati', 'DejaVu Sans', sans-serif; font-size: 11px; color: #333; padding: 30px; }
         .container { border: 2px solid #881337; padding: 25px 30px; position: relative; }
         .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.04; font-size: 60px; font-weight: bold; color: #881337; white-space: nowrap; pointer-events: none; }
 

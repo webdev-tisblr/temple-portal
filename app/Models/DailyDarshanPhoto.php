@@ -4,11 +4,19 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Model;
 
 class DailyDarshanPhoto extends Model
 {
+    use HasManagedImages;
+
     protected $table = 'temple_daily_darshan_photos';
+
+    protected function managedImages(): array
+    {
+        return ['image_path' => 'r2'];
+    }
 
     protected $fillable = [
         'image_path',

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -11,9 +12,14 @@ use Illuminate\Support\Facades\Cache;
 
 class ProductCategory extends Model
 {
-    use SoftDeletes;
+    use HasManagedImages, SoftDeletes;
 
     protected $table = 'temple_product_categories';
+
+    protected function managedImages(): array
+    {
+        return ['image_path' => 'r2'];
+    }
 
     protected static function booted(): void
     {

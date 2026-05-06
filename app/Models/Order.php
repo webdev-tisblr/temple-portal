@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\OrderStatus;
+use App\Models\Concerns\HasManagedImages;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,9 +15,14 @@ use Illuminate\Support\Str;
 
 class Order extends Model
 {
-    use HasUuid, SoftDeletes;
+    use HasManagedImages, HasUuid, SoftDeletes;
 
     protected $table = 'temple_orders';
+
+    protected function managedImages(): array
+    {
+        return ['invoice_path' => 'r2_private'];
+    }
 
     protected $fillable = [
         'order_number',

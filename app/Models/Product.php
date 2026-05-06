@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,9 +13,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
 {
-    use SoftDeletes;
+    use HasManagedImages, SoftDeletes;
 
     protected $table = 'temple_products';
+
+    protected function managedImages(): array
+    {
+        return ['image_path' => 'r2'];
+    }
 
     protected $fillable = [
         'category_id',

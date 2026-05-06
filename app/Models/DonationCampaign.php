@@ -4,15 +4,21 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DonationCampaign extends Model
 {
-    use SoftDeletes;
+    use HasManagedImages, SoftDeletes;
 
     protected $table = 'temple_donation_campaigns';
+
+    protected function managedImages(): array
+    {
+        return ['image_path' => 'r2'];
+    }
 
     protected $fillable = [
         'title_gu',

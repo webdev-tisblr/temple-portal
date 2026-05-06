@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,9 +12,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DonationType extends Model
 {
-    use SoftDeletes;
+    use HasManagedImages, SoftDeletes;
 
     protected $table = 'temple_donation_types';
+
+    protected function managedImages(): array
+    {
+        return ['greeting_card_template' => 'r2'];
+    }
 
     protected $fillable = [
         'name_gu',

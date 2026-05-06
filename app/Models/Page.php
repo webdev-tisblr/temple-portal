@@ -5,14 +5,20 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\PageStatus;
+use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Page extends Model
 {
-    use SoftDeletes;
+    use HasManagedImages, SoftDeletes;
 
     protected $table = 'temple_pages';
+
+    protected function managedImages(): array
+    {
+        return ['featured_image_path' => 'r2'];
+    }
 
     protected $fillable = [
         'slug',

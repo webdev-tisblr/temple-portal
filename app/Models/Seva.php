@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\SevaCategory;
+use App\Models\Concerns\HasManagedImages;
 use App\Services\SevaSlotService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,9 +14,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Seva extends Model
 {
-    use SoftDeletes;
+    use HasManagedImages, SoftDeletes;
 
     protected $table = 'temple_sevas';
+
+    protected function managedImages(): array
+    {
+        return ['image_path' => 'r2'];
+    }
 
     protected $fillable = [
         'name_gu',

@@ -4,12 +4,20 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class HallBooking extends Model
 {
+    use HasManagedImages;
+
     protected $table = 'temple_hall_bookings';
+
+    protected function managedImages(): array
+    {
+        return ['invoice_path' => 'r2_private'];
+    }
 
     protected $fillable = [
         'devotee_id',

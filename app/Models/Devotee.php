@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\Language;
+use App\Models\Concerns\HasManagedImages;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -13,9 +14,14 @@ use Laravel\Sanctum\HasApiTokens;
 
 class Devotee extends Authenticatable
 {
-    use HasApiTokens, HasUuid, SoftDeletes;
+    use HasApiTokens, HasManagedImages, HasUuid, SoftDeletes;
 
     protected $table = 'temple_devotees';
+
+    protected function managedImages(): array
+    {
+        return ['profile_photo_path' => 'r2'];
+    }
 
     protected $fillable = [
         'name',

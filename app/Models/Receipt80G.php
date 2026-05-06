@@ -4,12 +4,20 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Receipt80G extends Model
 {
+    use HasManagedImages;
+
     protected $table = 'temple_receipts_80g';
+
+    protected function managedImages(): array
+    {
+        return ['pdf_path' => 'r2_private'];
+    }
 
     protected $fillable = [
         'donation_id',

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\DonationType as DonationTypeEnum;
+use App\Models\Concerns\HasManagedImages;
 use App\Models\DonationType as DonationTypeModel;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
@@ -13,9 +14,14 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Donation extends Model
 {
-    use HasUuid;
+    use HasManagedImages, HasUuid;
 
     protected $table = 'temple_donations';
+
+    protected function managedImages(): array
+    {
+        return ['greeting_card_path' => 'r2_private'];
+    }
 
     protected $fillable = [
         'devotee_id',

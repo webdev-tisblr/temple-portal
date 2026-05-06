@@ -556,8 +556,8 @@ class StoreWebController extends Controller
         }
 
         // Self-heal: only confirmed orders should ever produce an invoice,
-        // and if the file is gone, regenerate it inline before serving.
-        if (! $order->invoice_path || ! Storage::disk('local')->exists($order->invoice_path)) {
+        // and if the R2 object is gone, regenerate it inline before serving.
+        if (! $order->invoice_path || ! Storage::disk('r2_private')->exists($order->invoice_path)) {
             try {
                 GenerateStoreInvoice::dispatchSync($order);
                 $order->refresh();
@@ -567,12 +567,12 @@ class StoreWebController extends Controller
                     'error' => $e->getMessage(),
                 ]);
             }
-            if (! $order->invoice_path || ! Storage::disk('local')->exists($order->invoice_path)) {
+            if (! $order->invoice_path || ! Storage::disk('r2_private')->exists($order->invoice_path)) {
                 abort(404, 'ઇનવૉઇસ બનાવી શકાયો નથી. કૃપા કરી થોડી વાર પછી પ્રયાસ કરો.');
             }
         }
 
-        return Storage::disk('local')->download(
+        return Storage::disk('r2_private')->download(
             $order->invoice_path,
             "Invoice_{$order->order_number}.pdf",
             ['Content-Type' => 'application/pdf']

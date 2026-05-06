@@ -174,17 +174,20 @@ class DonationWebController extends Controller
         return view('pages.donation.thank-you', compact('verified', 'donation'));
     }
 
-    public function greetingCard(string $donationId): \Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\RedirectResponse
+    public function greetingCard(string $donationId): \Symfony\Component\HttpFoundation\StreamedResponse|\Illuminate\Http\RedirectResponse
     {
         $donation = Donation::findOrFail($donationId);
 
-        if (empty($donation->greeting_card_path) || ! \Illuminate\Support\Facades\Storage::disk('local')->exists($donation->greeting_card_path)) {
+        if (empty($donation->greeting_card_path) || ! \Illuminate\Support\Facades\Storage::disk('r2_private')->exists($donation->greeting_card_path)) {
             abort(404);
         }
 
-        return response()->file(
-            \Illuminate\Support\Facades\Storage::disk('local')->path($donation->greeting_card_path),
-            ['Content-Type' => 'image/png']
+        // Stream the PNG from R2 inline (Content-Disposition: inline) so it
+        // renders in-browser when shared via WhatsApp etc.
+        return \Illuminate\Support\Facades\Storage::disk('r2_private')->response(
+            $donation->greeting_card_path,
+            null,
+            ['Content-Type' => 'image/png'],
         );
     }
 }

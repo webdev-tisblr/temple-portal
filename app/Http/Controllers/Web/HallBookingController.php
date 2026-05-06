@@ -278,7 +278,7 @@ class HallBookingController extends Controller
             abort(404, 'ઇનવૉઇસ બુકિંગ કન્ફર્મ થયા પછી જ ઉપલબ્ધ થશે.');
         }
 
-        if (! $booking->invoice_path || ! Storage::disk('local')->exists($booking->invoice_path)) {
+        if (! $booking->invoice_path || ! Storage::disk('r2_private')->exists($booking->invoice_path)) {
             try {
                 $this->generateHallInvoice($booking);
                 $booking->refresh();
@@ -288,12 +288,12 @@ class HallBookingController extends Controller
                     'error' => $e->getMessage(),
                 ]);
             }
-            if (! $booking->invoice_path || ! Storage::disk('local')->exists($booking->invoice_path)) {
+            if (! $booking->invoice_path || ! Storage::disk('r2_private')->exists($booking->invoice_path)) {
                 abort(404, 'ઇનવૉઇસ બનાવી શકાયો નથી. કૃપા કરી થોડી વાર પછી પ્રયાસ કરો.');
             }
         }
 
-        return Storage::disk('local')->download(
+        return Storage::disk('r2_private')->download(
             $booking->invoice_path,
             "Hall_Booking_{$booking->id}.pdf",
             ['Content-Type' => 'application/pdf']
@@ -323,8 +323,7 @@ class HallBookingController extends Controller
             $filename = "{$bookingNumber}.pdf";
             $path = "{$directory}/{$filename}";
 
-            Storage::disk('local')->makeDirectory($directory);
-            Storage::disk('local')->put($path, $pdf->output());
+            Storage::disk('r2_private')->put($path, $pdf->output());
 
             $booking->update(['invoice_path' => $path]);
 
@@ -344,17 +343,16 @@ class HallBookingController extends Controller
     private function emailHallInvoice(HallBooking $booking, string $path): void
     {
         try {
-            $pdfPath = Storage::disk('local')->path($path);
+            $pdfBytes = Storage::disk('r2_private')->get($path);
             $bookingNumber = 'HALL-' . $booking->id . '-' . $booking->created_at->format('Ymd');
             $subject = "Hall Booking Confirmation — {$bookingNumber}";
 
             $html = $this->buildHallInvoiceEmailHtml($booking, $bookingNumber);
 
-            Mail::html($html, function ($message) use ($booking, $pdfPath, $bookingNumber, $subject) {
+            Mail::html($html, function ($message) use ($booking, $pdfBytes, $bookingNumber, $subject) {
                 $message->to($booking->contact_email, $booking->contact_name)
                     ->subject($subject)
-                    ->attach($pdfPath, [
-                        'as' => "HallBooking_{$bookingNumber}.pdf",
+                    ->attachData($pdfBytes, "HallBooking_{$bookingNumber}.pdf", [
                         'mime' => 'application/pdf',
                     ]);
             });

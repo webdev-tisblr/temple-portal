@@ -49,17 +49,30 @@ class GreetingCardService
             return null;
         }
 
-        // Load the template image from public storage
-        $templatePath = Storage::disk('public')->path($donationType->greeting_card_template);
-        if (! file_exists($templatePath)) {
-            Log::warning('Greeting card template file not found', ['path' => $templatePath]);
+        // Load the template image bytes from R2 public bucket.
+        try {
+            $templateBytes = Storage::disk('r2')->get($donationType->greeting_card_template);
+        } catch (\Throwable $e) {
+            Log::warning('Greeting card template fetch failed', [
+                'path' => $donationType->greeting_card_template,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+        if (! $templateBytes) {
+            Log::warning('Greeting card template not found on R2', [
+                'path' => $donationType->greeting_card_template,
+            ]);
 
             return null;
         }
 
-        $image = $this->loadImage($templatePath);
+        $image = imagecreatefromstring($templateBytes);
         if (! $image) {
-            Log::warning('Failed to create GD image from template', ['path' => $templatePath]);
+            Log::warning('Failed to decode template bytes into GD image', [
+                'path' => $donationType->greeting_card_template,
+            ]);
 
             return null;
         }
@@ -71,18 +84,15 @@ class GreetingCardService
             $this->applyOverlay($image, $overlay, $donation, $fontPath);
         }
 
-        // Save the final image
-        $outputDir = 'greeting-cards';
-        $outputPath = $outputDir . '/' . $donation->id . '.png';
+        // Capture the rendered PNG into a byte string and write to R2 private.
+        $outputPath = 'greeting-cards/' . $donation->id . '.png';
 
-        $absoluteDir = Storage::disk('local')->path($outputDir);
-        if (! is_dir($absoluteDir)) {
-            mkdir($absoluteDir, 0755, true);
-        }
-
-        $absolutePath = Storage::disk('local')->path($outputPath);
-        imagepng($image, $absolutePath);
+        ob_start();
+        imagepng($image);
+        $pngBytes = (string) ob_get_clean();
         imagedestroy($image);
+
+        Storage::disk('r2_private')->put($outputPath, $pngBytes);
 
         // Update the donation record
         $donation->update(['greeting_card_path' => $outputPath]);
@@ -91,20 +101,12 @@ class GreetingCardService
     }
 
     /**
-     * Load a GD image resource from a file path (supports PNG and JPG).
+     * Load a GD image resource from raw bytes. imagecreatefromstring auto-
+     * detects PNG/JPG/GIF/WEBP/BMP so we no longer need per-extension dispatch.
      */
-    private function loadImage(string $path): \GdImage|false
+    private function loadImageFromBytes(string $bytes): \GdImage|false
     {
-        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-
-        return match ($extension) {
-            'png' => imagecreatefrompng($path),
-            'jpg', 'jpeg' => imagecreatefromjpeg($path),
-            'webp' => function_exists('imagecreatefromwebp') ? imagecreatefromwebp($path) : false,
-            'gif' => imagecreatefromgif($path),
-            'bmp' => function_exists('imagecreatefrombmp') ? imagecreatefrombmp($path) : false,
-            default => false,
-        };
+        return imagecreatefromstring($bytes);
     }
 
     /**
@@ -206,18 +208,28 @@ class GreetingCardService
     }
 
     /**
-     * Place an image overlay (e.g. a photo from extra_data).
+     * Place an image overlay (e.g. a photo from extra_data uploaded via the
+     * donation form — those land in R2 public bucket since Phase 3a).
      */
     private function applyImageOverlay(\GdImage $image, array $overlay, string $storagePath): void
     {
-        $absolutePath = Storage::disk('public')->path($storagePath);
-        if (! file_exists($absolutePath)) {
-            Log::warning('Greeting card overlay image not found', ['path' => $absolutePath]);
+        try {
+            $bytes = Storage::disk('r2')->get($storagePath);
+        } catch (\Throwable $e) {
+            Log::warning('Greeting card overlay image fetch failed', [
+                'path' => $storagePath,
+                'error' => $e->getMessage(),
+            ]);
+
+            return;
+        }
+        if (! $bytes) {
+            Log::warning('Greeting card overlay image not found on R2', ['path' => $storagePath]);
 
             return;
         }
 
-        $overlayImage = $this->loadImage($absolutePath);
+        $overlayImage = $this->loadImageFromBytes($bytes);
         if (! $overlayImage) {
             return;
         }

@@ -166,30 +166,27 @@ class DonationController extends BaseApiController
             return $this->error('Receipt PDF not available', 404);
         }
 
-        $fullPath = Storage::disk('local')->path($receipt->pdf_path);
-
-        if (! file_exists($fullPath)) {
-            // PDF path in DB but file gone — regenerate.
+        if (! Storage::disk('r2_private')->exists($receipt->pdf_path)) {
+            // PDF path in DB but R2 object is gone — regenerate.
             try {
                 \App\Jobs\Generate80GReceipt::dispatchSync($donation->fresh());
                 $donation->refresh();
                 $receipt = $donation->receipt;
-                $fullPath = $receipt && $receipt->pdf_path
-                    ? Storage::disk('local')->path($receipt->pdf_path)
-                    : null;
             } catch (\Throwable $e) {
                 Log::error("Receipt regeneration failed", [
                     'donation_id' => $donation->id,
                     'error' => $e->getMessage(),
                 ]);
             }
-            if (! $fullPath || ! file_exists($fullPath)) {
+            if (! $receipt || ! $receipt->pdf_path || ! Storage::disk('r2_private')->exists($receipt->pdf_path)) {
                 return $this->error('Receipt file could not be regenerated.', 500);
             }
         }
 
-        return response()->download($fullPath, "receipt-{$receipt->receipt_number}.pdf", [
-            'Content-Type' => 'application/pdf',
-        ]);
+        return Storage::disk('r2_private')->download(
+            $receipt->pdf_path,
+            "receipt-{$receipt->receipt_number}.pdf",
+            ['Content-Type' => 'application/pdf'],
+        );
     }
 }

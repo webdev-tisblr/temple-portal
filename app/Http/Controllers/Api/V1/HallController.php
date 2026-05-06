@@ -196,7 +196,7 @@ class HallController extends BaseApiController
             return $this->error('Invoice is generated only after booking is confirmed.', 404);
         }
 
-        if (! $booking->invoice_path || ! \Illuminate\Support\Facades\Storage::disk('local')->exists($booking->invoice_path)) {
+        if (! $booking->invoice_path || ! \Illuminate\Support\Facades\Storage::disk('r2_private')->exists($booking->invoice_path)) {
             // The web controller has the inline generator; call it as a service-like action.
             try {
                 app(\App\Http\Controllers\Web\HallBookingController::class)->generateHallInvoice($booking);
@@ -207,12 +207,12 @@ class HallController extends BaseApiController
                     'error' => $e->getMessage(),
                 ]);
             }
-            if (! $booking->invoice_path || ! \Illuminate\Support\Facades\Storage::disk('local')->exists($booking->invoice_path)) {
+            if (! $booking->invoice_path || ! \Illuminate\Support\Facades\Storage::disk('r2_private')->exists($booking->invoice_path)) {
                 return $this->error('Invoice could not be generated. Try again shortly.', 500);
             }
         }
 
-        return \Illuminate\Support\Facades\Storage::disk('local')->download(
+        return \Illuminate\Support\Facades\Storage::disk('r2_private')->download(
             $booking->invoice_path,
             "Hall_Booking_{$booking->id}.pdf",
             ['Content-Type' => 'application/pdf']

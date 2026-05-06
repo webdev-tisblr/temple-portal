@@ -28,8 +28,7 @@ class InvoiceService
         $filename = "{$order->order_number}.pdf";
         $path = "{$directory}/{$filename}";
 
-        Storage::disk('local')->makeDirectory($directory);
-        Storage::disk('local')->put($path, $pdf->output());
+        Storage::disk('r2_private')->put($path, $pdf->output());
 
         $order->update(['invoice_path' => $path]);
 

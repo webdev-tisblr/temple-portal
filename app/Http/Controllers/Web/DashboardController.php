@@ -86,7 +86,7 @@ class DashboardController extends Controller
         return view('pages.dashboard.receipts', compact('receipts'));
     }
 
-    public function downloadReceipt(Receipt80G $receipt): \Symfony\Component\HttpFoundation\BinaryFileResponse|RedirectResponse
+    public function downloadReceipt(Receipt80G $receipt): \Symfony\Component\HttpFoundation\StreamedResponse|RedirectResponse
     {
         $devotee = Auth::guard('devotee')->user();
         $donation = Donation::find($receipt->donation_id);
@@ -95,8 +95,8 @@ class DashboardController extends Controller
             abort(403);
         }
 
-        // Self-heal: regenerate the PDF if it's missing on disk.
-        if (!$receipt->pdf_path || !Storage::disk('local')->exists($receipt->pdf_path)) {
+        // Self-heal: regenerate the PDF if the R2 object is missing.
+        if (!$receipt->pdf_path || !Storage::disk('r2_private')->exists($receipt->pdf_path)) {
             try {
                 \App\Jobs\Generate80GReceipt::dispatchSync($donation);
                 $donation->refresh();
@@ -107,13 +107,13 @@ class DashboardController extends Controller
                     'error' => $e->getMessage(),
                 ]);
             }
-            if (!$receipt || !$receipt->pdf_path || !Storage::disk('local')->exists($receipt->pdf_path)) {
+            if (!$receipt || !$receipt->pdf_path || !Storage::disk('r2_private')->exists($receipt->pdf_path)) {
                 return back()->withErrors(['receipt' => 'રસીદ PDF ઉપલબ્ધ નથી. કૃપા કરી થોડી વારે ફરી પ્રયાસ કરો.']);
             }
         }
 
-        return response()->download(
-            Storage::disk('local')->path($receipt->pdf_path),
+        return Storage::disk('r2_private')->download(
+            $receipt->pdf_path,
             "receipt-" . str_replace('/', '-', $receipt->receipt_number) . ".pdf"
         );
     }

@@ -63,18 +63,38 @@ class Generate80GReceipt implements ShouldQueue
 
         // Send receipt via WhatsApp
         if ($devotee->phone && $receipt->pdf_path) {
-            $pdfUrl = url(Storage::url($receipt->pdf_path));
-            $filename = str_replace('/', '-', "80G_Receipt_{$receipt->receipt_number}.pdf");
+            // WhatsApp's media-by-URL flow needs a publicly-fetchable URL.
+            // Generate a signed temporary URL on the private R2 bucket
+            // (max 7 days per R2/S3 presigner). Long enough for reliable
+            // delivery; users keep the PDF attachment in their chat anyway.
+            try {
+                $pdfUrl = Storage::disk('r2_private')->temporaryUrl(
+                    $receipt->pdf_path,
+                    now()->addDays(7),
+                );
+            } catch (\Throwable $e) {
+                Log::error('Failed to generate WhatsApp PDF URL', [
+                    'donation_id' => $this->donation->id,
+                    'error' => $e->getMessage(),
+                ]);
+                $pdfUrl = null;
+            }
 
-            SendWhatsAppMessage::dispatch($devotee->phone, 'document', [
-                'url' => $pdfUrl,
-                'filename' => $filename,
-                'caption' => "Thank you for your donation of ₹" . number_format((float) $this->donation->amount) . ". Here is your 80G receipt.",
-            ]);
+            if ($pdfUrl) {
+                $filename = str_replace('/', '-', "80G_Receipt_{$receipt->receipt_number}.pdf");
 
-            $receipt->update(['whatsapp_sent_at' => now()]);
+                SendWhatsAppMessage::dispatch($devotee->phone, 'document', [
+                    'url' => $pdfUrl,
+                    'filename' => $filename,
+                    'caption' => "Thank you for your donation of ₹" . number_format((float) $this->donation->amount) . ". Here is your 80G receipt.",
+                ]);
 
-            // Send greeting card via WhatsApp if configured
+                $receipt->update(['whatsapp_sent_at' => now()]);
+            }
+
+            // Send greeting card via WhatsApp if configured. The card download
+            // route (/donate/greeting-card/{id}) is permanent and unauth, so
+            // unlike the PDF we don't need a presigned URL here.
             $cardConfig = $this->donation->donationType?->greeting_card_config ?? [];
             if (($cardConfig['send_via_whatsapp'] ?? true) && $this->donation->greeting_card_path) {
                 $cardUrl = url('/donate/greeting-card/' . $this->donation->id);
@@ -90,7 +110,8 @@ class Generate80GReceipt implements ShouldQueue
     private function sendReceiptEmail($devotee, $receipt): void
     {
         try {
-            $pdfPath = Storage::disk('local')->path($receipt->pdf_path);
+            // Pull PDF bytes from R2 — no local filesystem path available.
+            $pdfBytes = Storage::disk('r2_private')->get($receipt->pdf_path);
             $amount = number_format((float) $this->donation->amount, 2);
             $receiptNumber = $receipt->receipt_number;
 
@@ -103,23 +124,27 @@ class Generate80GReceipt implements ShouldQueue
 
             $html = $this->buildReceiptEmailHtml($devotee, $receipt, $booking, $amount);
 
-            Mail::html($html, function ($message) use ($devotee, $pdfPath, $receiptNumber, $subject) {
+            // Optional greeting-card attachment also lives on r2_private.
+            $cardBytes = null;
+            if ($this->donation->greeting_card_path) {
+                try {
+                    $cardBytes = Storage::disk('r2_private')->get($this->donation->greeting_card_path);
+                } catch (\Throwable $e) {
+                    $cardBytes = null;
+                }
+            }
+
+            Mail::html($html, function ($message) use ($devotee, $pdfBytes, $cardBytes, $receiptNumber, $subject) {
                 $message->to($devotee->email, $devotee->name)
                     ->subject($subject)
-                    ->attach($pdfPath, [
-                        'as' => str_replace('/', '-', "80G_Receipt_{$receiptNumber}.pdf"),
+                    ->attachData($pdfBytes, str_replace('/', '-', "80G_Receipt_{$receiptNumber}.pdf"), [
                         'mime' => 'application/pdf',
                     ]);
 
-                // Attach greeting card if generated
-                if ($this->donation->greeting_card_path) {
-                    $cardPath = Storage::disk('local')->path($this->donation->greeting_card_path);
-                    if (file_exists($cardPath)) {
-                        $message->attach($cardPath, [
-                            'as' => 'Greeting_Card.png',
-                            'mime' => 'image/png',
-                        ]);
-                    }
+                if ($cardBytes) {
+                    $message->attachData($cardBytes, 'Greeting_Card.png', [
+                        'mime' => 'image/png',
+                    ]);
                 }
             });
 

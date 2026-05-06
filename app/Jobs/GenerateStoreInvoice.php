@@ -49,18 +49,19 @@ class GenerateStoreInvoice implements ShouldQueue
     private function sendInvoiceEmail($devotee, string $path): void
     {
         try {
-            $pdfPath = Storage::disk('local')->path($path);
+            // R2 has no local filesystem path — pull the PDF bytes and
+            // attach as data so Symfony Mailer sends it inline.
+            $pdfBytes = Storage::disk('r2_private')->get($path);
             $order = $this->order;
             $orderNumber = $order->order_number;
             $subject = "Order Confirmation & Invoice — {$orderNumber}";
 
             $html = $this->buildEmailHtml($order);
 
-            Mail::html($html, function ($message) use ($devotee, $pdfPath, $orderNumber, $subject) {
+            Mail::html($html, function ($message) use ($devotee, $pdfBytes, $orderNumber, $subject) {
                 $message->to($devotee->email, $devotee->name)
                     ->subject($subject)
-                    ->attach($pdfPath, [
-                        'as' => "Invoice_{$orderNumber}.pdf",
+                    ->attachData($pdfBytes, "Invoice_{$orderNumber}.pdf", [
                         'mime' => 'application/pdf',
                     ]);
             });

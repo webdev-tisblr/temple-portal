@@ -261,7 +261,7 @@ class StoreController extends BaseApiController
             return $this->error('Invoice is generated only after the order is confirmed.', 404);
         }
 
-        if (! $order->invoice_path || ! Storage::disk('local')->exists($order->invoice_path)) {
+        if (! $order->invoice_path || ! Storage::disk('r2_private')->exists($order->invoice_path)) {
             try {
                 GenerateStoreInvoice::dispatchSync($order);
                 $order->refresh();
@@ -271,12 +271,12 @@ class StoreController extends BaseApiController
                     'error' => $e->getMessage(),
                 ]);
             }
-            if (! $order->invoice_path || ! Storage::disk('local')->exists($order->invoice_path)) {
+            if (! $order->invoice_path || ! Storage::disk('r2_private')->exists($order->invoice_path)) {
                 return $this->error('Invoice could not be generated. Try again shortly.', 500);
             }
         }
 
-        return Storage::disk('local')->download(
+        return Storage::disk('r2_private')->download(
             $order->invoice_path,
             "Invoice_{$order->order_number}.pdf",
             ['Content-Type' => 'application/pdf']

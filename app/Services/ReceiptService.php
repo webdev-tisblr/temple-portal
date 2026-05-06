@@ -17,9 +17,8 @@ class ReceiptService
     {
         $existing = Receipt80G::where('donation_id', $donation->id)->first();
         if ($existing) {
-            // Regenerate the PDF if the file went missing — uploads can be
-            // wiped by deploys or the public_html backup rotation.
-            if (! $existing->pdf_path || ! Storage::disk('local')->exists($existing->pdf_path)) {
+            // Regenerate the PDF if the file went missing.
+            if (! $existing->pdf_path || ! Storage::disk('r2_private')->exists($existing->pdf_path)) {
                 $existing->update(['pdf_path' => $this->generatePdf($existing)]);
             }
             return $existing;
@@ -80,8 +79,8 @@ class ReceiptService
         $filename = str_replace('/', '-', $receipt->receipt_number) . '.pdf';
         $path = "{$directory}/{$filename}";
 
-        Storage::disk('local')->makeDirectory($directory);
-        Storage::disk('local')->put($path, $pdf->output());
+        // R2 has no concept of directories — put() writes the key directly.
+        Storage::disk('r2_private')->put($path, $pdf->output());
 
         return $path;
     }

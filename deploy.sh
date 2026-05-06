@@ -45,10 +45,9 @@ if [ "$1" = "--first-run" ]; then
     php artisan migrate --force
     php artisan db:seed --force
 
-    echo "[5/8] Setting up storage & permissions..."
-    php artisan storage:link
+    echo "[5/8] Setting up storage permissions..."
+    # storage:link no longer needed — uploads go to Cloudflare R2.
     chmod -R 775 storage bootstrap/cache
-    mkdir -p storage/app/receipts storage/app/exports storage/app/gallery
 
     echo "[6/8] Linking public_html..."
     if [ -d "$PUBLIC_HTML" ] && [ ! -L "$PUBLIC_HTML" ]; then
@@ -98,26 +97,16 @@ git pull origin main
 echo "[2/6] Installing dependencies..."
 composer install --no-dev --optimize-autoloader
 
-echo "[3/6] Running migrations..."
+echo "[3/5] Running migrations..."
 php artisan migrate --force
 
-echo "[4/6] Ensuring storage symlink (uploaded images need this)..."
-# Idempotent — recreates the public/storage → storage/app/public symlink if
-# it's missing or broken. Without this, all uploaded images 404 in browsers.
-if [ ! -L "$APP_DIR/public/storage" ] || [ ! -e "$APP_DIR/public/storage" ]; then
-    rm -f "$APP_DIR/public/storage"
-    php artisan storage:link
-else
-    echo "    storage symlink OK"
-fi
-
-echo "[5/6] Building frontend..."
+echo "[4/5] Building frontend..."
 if command -v node &> /dev/null; then
     npm install
     npm run build
 fi
 
-echo "[6/6] Clearing & rebuilding cache..."
+echo "[5/5] Clearing & rebuilding cache..."
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache

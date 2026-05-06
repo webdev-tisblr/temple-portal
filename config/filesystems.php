@@ -96,19 +96,8 @@ return [
 
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Symbolic Links
-    |--------------------------------------------------------------------------
-    |
-    | Here you may configure the symbolic links that will be created when the
-    | `storage:link` Artisan command is executed. The array keys should be
-    | the locations of the links and the values should be their targets.
-    |
-    */
-
-    'links' => [
-        public_path('storage') => storage_path('app/public'),
-    ],
+    // 'links' was removed once uploads moved to Cloudflare R2. The
+    // public/storage → storage/app/public symlink served local files
+    // through /storage/{path} and /file/{path}, both of which are gone.
 
 ];

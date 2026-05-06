@@ -24,14 +24,22 @@ class DashboardController extends Controller
     {
         $devotee = Auth::guard('devotee')->user();
 
+        // Only count donations whose payment captured. Pending/failed entries
+        // shouldn't inflate "total donated" or surface on the dashboard.
+        $capturedDonations = Donation::where('devotee_id', $devotee->id)
+            ->whereHas('payment', fn ($q) => $q->where('status', 'captured'));
+
         $stats = [
-            'total_donations' => Donation::where('devotee_id', $devotee->id)->sum('amount'),
+            'total_donations' => (clone $capturedDonations)->sum('amount'),
             'total_bookings' => SevaBooking::where('devotee_id', $devotee->id)->count(),
             'pending_bookings' => SevaBooking::where('devotee_id', $devotee->id)->where('status', 'pending')->count(),
         ];
 
-        $recentDonations = Donation::where('devotee_id', $devotee->id)
-            ->with('receipt')->orderByDesc('created_at')->take(5)->get();
+        $recentDonations = (clone $capturedDonations)
+            ->with(['receipt', 'payment'])
+            ->orderByDesc('created_at')
+            ->take(5)
+            ->get();
 
         $recentBookings = SevaBooking::where('devotee_id', $devotee->id)
             ->with('seva')->orderByDesc('created_at')->take(5)->get();

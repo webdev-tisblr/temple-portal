@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Models\SystemSetting;
+use App\Services\WhatsAppService;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -148,6 +149,20 @@ class SystemSettings extends Page implements HasForms
                                     ->password()->revealable()
                                     ->placeholder('Enter a custom verify token')
                                     ->helperText('Token you set when configuring webhooks in Meta.'),
+
+                                // Action buttons span both columns.
+                                Forms\Components\Actions::make([
+                                    Forms\Components\Actions\Action::make('test_whatsapp')
+                                        ->label('Test Connection')
+                                        ->icon('heroicon-o-wifi')
+                                        ->color('primary')
+                                        ->action(fn () => $this->testWhatsAppConnection()),
+                                    Forms\Components\Actions\Action::make('sync_whatsapp_templates')
+                                        ->label('Sync Approved Templates')
+                                        ->icon('heroicon-o-arrow-path')
+                                        ->color('success')
+                                        ->action(fn () => $this->syncWhatsAppTemplates()),
+                                ])->columnSpanFull(),
                             ])->columns(2)->collapsible(),
 
                     ]),
@@ -235,6 +250,83 @@ class SystemSettings extends Page implements HasForms
                 ->title('SMTP test failed')
                 ->body($e->getMessage())
                 ->danger()->send();
+        }
+    }
+
+    /**
+     * Verify the WhatsApp Cloud API credentials currently entered in
+     * the form (works even before the admin clicks "Save"). Surfaces
+     * the *actual* Meta error when something is wrong instead of a
+     * generic green/red tick.
+     */
+    public function testWhatsAppConnection(): void
+    {
+        $this->persistFormState();
+
+        $result = app(WhatsAppService::class)->testConnection();
+
+        if ($result['ok']) {
+            Notification::make()
+                ->title('WhatsApp connected')
+                ->body($result['message'])
+                ->success()
+                ->send();
+            return;
+        }
+
+        Notification::make()
+            ->title('WhatsApp connection failed')
+            ->body($result['message'])
+            ->danger()
+            ->persistent()
+            ->send();
+    }
+
+    /**
+     * Pull APPROVED templates from the configured WABA and refresh
+     * the local cache that powers the template-name dropdown when
+     * editing a notification_template row.
+     */
+    public function syncWhatsAppTemplates(): void
+    {
+        $this->persistFormState();
+
+        $result = app(WhatsAppService::class)->fetchTemplates();
+
+        if ($result['ok']) {
+            Notification::make()
+                ->title('WhatsApp templates synced')
+                ->body($result['message'])
+                ->success()
+                ->send();
+            return;
+        }
+
+        Notification::make()
+            ->title('Template sync failed')
+            ->body($result['message'])
+            ->danger()
+            ->persistent()
+            ->send();
+    }
+
+    /**
+     * Persist the form state into temple_system_settings so the
+     * service we're about to call sees the same values the admin
+     * just typed in. Without this, "Test connection" before "Save"
+     * would always test the previously-saved credentials.
+     */
+    private function persistFormState(): void
+    {
+        $data = $this->form->getState();
+        foreach ($data as $key => $value) {
+            // Only the WhatsApp keys are needed for these actions; we
+            // avoid mutating unrelated rows for safety.
+            if (! str_starts_with($key, 'whatsapp_')) continue;
+            SystemSetting::updateOrCreate(
+                ['key' => $key],
+                ['value' => $value ?? '', 'group' => 'whatsapp', 'updated_at' => now()]
+            );
         }
     }
 }

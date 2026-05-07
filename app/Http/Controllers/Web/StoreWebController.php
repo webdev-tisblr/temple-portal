@@ -159,7 +159,7 @@ class StoreWebController extends Controller
         ]);
     }
 
-    public function cart(): View
+    public function cart()
     {
         $cart = session('cart', []);
         $items = [];
@@ -217,7 +217,14 @@ class StoreWebController extends Controller
 
         SEOMeta::setTitle('કાર્ટ — મંદિર સ્ટોર — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ');
 
-        return view('pages.store.cart', compact('items', 'total', 'cartItemsJs'));
+        // Force-uncacheable. Anything between us and the user (browser
+        // back/forward cache, Cloudflare's "respect existing headers"
+        // mode, mobile data-saver proxies) will otherwise serve a
+        // stale cart even after the session-side cart has changed.
+        return response()
+            ->view('pages.store.cart', compact('items', 'total', 'cartItemsJs'))
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache');
     }
 
     public function updateCart(Request $request): JsonResponse

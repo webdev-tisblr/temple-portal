@@ -3,7 +3,7 @@
 <a href="{{ route('seva.show', $seva) }}" class="card-sacred group block">
     <div class="aspect-[4/3] flex items-center justify-center relative overflow-hidden" style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
         @if($seva->image_path)
-            <img src="{{ image_url($seva->image_path) }}" alt="{{ $seva->name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-80 group-hover:opacity-100">
+            <img src="{{ image_url($seva->image_path) }}" alt="{{ $seva->name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
         @else
             <div class="text-center">
                 <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="શ્રી પાતળિયા હનુમાનજી" class="w-20 h-20 rounded-full mx-auto diya-glow opacity-60" style="box-shadow: 0 0 30px rgba(196,154,42,0.2);">

@@ -102,8 +102,11 @@ Route::middleware('auth:devotee')->group(function () {
         // Store (authenticated)
         Route::get('/store/cart', [StoreWebController::class, 'cart'])->name('store.cart');
         Route::post('/store/cart/add', [StoreWebController::class, 'addToCart'])->name('store.cart.add');
-        Route::patch('/store/cart/update', [StoreWebController::class, 'updateCart'])->name('store.cart.update');
-        Route::delete('/store/cart/remove', [StoreWebController::class, 'removeFromCart'])->name('store.cart.remove');
+        // POST instead of PATCH/DELETE — some CDN/WAF rules silently drop
+        // non-standard verbs from XHR, leaving the cart session out of sync
+        // with the on-page Alpine state.
+        Route::post('/store/cart/update', [StoreWebController::class, 'updateCart'])->name('store.cart.update');
+        Route::post('/store/cart/remove', [StoreWebController::class, 'removeFromCart'])->name('store.cart.remove');
         Route::post('/store/checkout', [StoreWebController::class, 'checkout'])->name('store.checkout');
         Route::get('/store/order/{order}/invoice', [StoreWebController::class, 'downloadInvoice'])->name('store.order.invoice');
         Route::get('/hall-booking/{booking}/invoice', [HallBookingController::class, 'downloadInvoice'])->name('hall.booking.invoice');

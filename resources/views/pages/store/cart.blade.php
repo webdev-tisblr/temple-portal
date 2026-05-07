@@ -110,8 +110,18 @@
                 </div>
             </div>
 
+            {{-- Live error banner — surfaces fetch failures during +/- /
+                 remove operations so the user knows their changes never
+                 reached the server. --}}
+            <div x-show="errorMessage" x-cloak
+                 class="mb-6 px-5 py-4 bg-red-950/30 border border-red-800/30 rounded-xl flex items-start gap-3"
+                 role="alert">
+                <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0L3.16 16.25A2 2 0 005 19z"/></svg>
+                <p class="text-sm text-red-300" x-text="errorMessage"></p>
+            </div>
+
             {{-- Shipping & Checkout Form --}}
-            <form method="POST" action="{{ route('store.checkout') }}" id="checkoutForm">
+            <form method="POST" action="{{ route('store.checkout') }}" id="checkoutForm" @submit="submitCheckout($event)">
                 @csrf
 
                 <div class="card-sacred p-4 sm:p-6 inner-glow mb-8">
@@ -193,11 +203,25 @@
                     </div>
                 </div>
 
-                {{-- Checkout Button --}}
+                {{-- Checkout Button.
+                     Disabled while there are pending sync POSTs in flight,
+                     so checkout never races a still-saving cart update. --}}
                 <div class="text-center">
-                    <button type="submit" class="btn-divine inline-flex items-center gap-2 px-10 py-3.5 text-base font-bold" :disabled="cartItems.length === 0">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                        પેમેન્ટ કરો — ₹<span x-text="parseFloat(cartTotal).toLocaleString('en-IN', {minimumFractionDigits: 2})"></span>
+                    <button type="submit"
+                            class="btn-divine inline-flex items-center gap-2 px-10 py-3.5 text-base font-bold"
+                            :disabled="cartItems.length === 0 || pendingUpdates > 0"
+                            :class="(cartItems.length === 0 || pendingUpdates > 0) ? 'opacity-60 cursor-not-allowed' : ''">
+                        <template x-if="pendingUpdates > 0">
+                            <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                            </svg>
+                        </template>
+                        <template x-if="pendingUpdates === 0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                        </template>
+                        <span x-show="pendingUpdates === 0">પેમેન્ટ કરો — ₹<span x-text="parseFloat(cartTotal).toLocaleString('en-IN', {minimumFractionDigits: 2})"></span></span>
+                        <span x-show="pendingUpdates > 0" x-cloak>કાર્ટ સેવ થઈ રહી છે...</span>
                     </button>
                 </div>
             </form>
@@ -214,7 +238,16 @@ function cartManager() {
     return {
         cartItems: @json($cartItemsJs ?? []),
         cartTotal: {{ (float) ($total ?? 0) }},
-        updating: false,
+
+        // Counter of in-flight POSTs to /store/cart/update or /store/cart/remove.
+        // The checkout button stays disabled while > 0, and the form submit
+        // handler waits for it to drop to 0 before letting the form fire —
+        // otherwise the user can race the server and check out with a stale
+        // session-side cart.
+        pendingUpdates: 0,
+
+        // Sticky banner copy when something fails to persist.
+        errorMessage: '',
 
         recalcTotals() {
             this.cartTotal = this.cartItems.reduce((sum, item) => {
@@ -223,26 +256,49 @@ function cartManager() {
             }, 0);
         },
 
+        async postJson(url, payload) {
+            const res = await fetch(url, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    // Defeat any layer-7 caching that may key on Accept alone.
+                    'Cache-Control': 'no-cache',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) {
+                throw new Error('HTTP ' + res.status);
+            }
+
+            const data = await res.json().catch(() => null);
+            if (!data || data.success !== true) {
+                throw new Error('server rejected update');
+            }
+            return data;
+        },
+
         async syncCart(cartKey, quantity) {
-            this.updating = true;
+            this.pendingUpdates++;
+            this.errorMessage = '';
             try {
-                const res = await fetch('{{ route("store.cart.update") }}', {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify({ cart_key: cartKey, quantity: quantity }),
+                const data = await this.postJson('{{ route("store.cart.update") }}', {
+                    cart_key: cartKey,
+                    quantity: quantity,
                 });
-                const data = await res.json();
-                if (!data.success) {
-                    console.error('Cart update failed');
+                // Trust the server's authoritative total — guards against
+                // any client/server price-recalculation drift.
+                if (typeof data.cart_total === 'number') {
+                    this.cartTotal = data.cart_total;
                 }
             } catch (e) {
                 console.error('Cart sync error', e);
+                this.errorMessage = 'કાર્ટ અપડેટ સાચવાઈ નહીં. પેજ રિફ્રેશ કરી ફરી પ્રયાસ કરો.';
             } finally {
-                this.updating = false;
+                this.pendingUpdates--;
             }
         },
 
@@ -274,28 +330,44 @@ function cartManager() {
             this.cartItems.splice(index, 1);
             this.recalcTotals();
 
+            this.pendingUpdates++;
+            this.errorMessage = '';
             try {
-                const res = await fetch('{{ route("store.cart.remove") }}', {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify({ cart_key: item.cart_key }),
-                });
-                const data = await res.json();
-                if (!data.success) {
-                    console.error('Remove failed');
-                }
+                await this.postJson('{{ route("store.cart.remove") }}', { cart_key: item.cart_key });
             } catch (e) {
                 console.error('Remove error', e);
+                this.errorMessage = 'આઇટમ દૂર થઈ શકી નહીં. પેજ રિફ્રેશ કરી ફરી પ્રયાસ કરો.';
+            } finally {
+                this.pendingUpdates--;
             }
 
-            // If cart becomes empty, reload to show empty state
             if (this.cartItems.length === 0) {
                 window.location.reload();
             }
+        },
+
+        // Form submit handler — blocks the checkout POST until any in-flight
+        // cart updates settle, otherwise the server reads its session before
+        // those PATCH-equivalent POSTs finish.
+        async submitCheckout(evt) {
+            if (this.pendingUpdates === 0 && !this.errorMessage) return; // let it through
+            evt.preventDefault();
+
+            // Wait up to 5s for outstanding updates to flush.
+            let waited = 0;
+            while (this.pendingUpdates > 0 && waited < 5000) {
+                await new Promise(r => setTimeout(r, 100));
+                waited += 100;
+            }
+
+            if (this.pendingUpdates > 0 || this.errorMessage) {
+                alert(this.errorMessage ||
+                    'કાર્ટ સેવ થઈ રહી છે, કૃપા કરી થોડી વાર પછી ફરી પ્રયાસ કરો.');
+                return;
+            }
+
+            // All clear — fire the form for real.
+            evt.target.submit();
         },
     };
 }

@@ -29,7 +29,7 @@
                         @if($project->image_path)
                             <img src="{{ image_url($project->image_path) }}"
                                  alt="{{ $project->title }}"
-                                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-80 group-hover:opacity-100">
+                                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
                         @else
                             <div class="w-full h-full flex items-center justify-center">
                                 <svg class="w-14 h-14 text-amber-800/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">

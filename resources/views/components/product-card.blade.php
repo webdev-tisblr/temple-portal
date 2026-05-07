@@ -7,7 +7,7 @@
         @if($product->image_path)
             <img src="{{ image_url($product->image_path) }}"
                  alt="{{ $product->name }}"
-                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-80 group-hover:opacity-100">
+                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
         @else
             <div class="text-center">
                 <svg class="w-16 h-16 text-amber-800/40 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -2,18 +2,12 @@
 
 @section('content')
 
-<section class="bg-temple-light border-b border-amber-900/20">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <nav class="flex items-center gap-2 text-sm text-amber-100/30 mb-4">
-            <a href="{{ route('home') }}" class="hover:text-gold transition">મુખ્ય પૃષ્ઠ</a>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            <a href="{{ route('store.index') }}" class="hover:text-gold transition">સ્ટોર</a>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            <span class="text-gold font-medium">કાર્ટ</span>
-        </nav>
-        <h1 class="divine-heading text-3xl sm:text-4xl">કાર્ટ</h1>
-    </div>
-</section>
+<x-page-header
+    :breadcrumb="[
+        ['label' => 'સ્ટોર', 'url' => route('store.index')],
+        ['label' => 'કાર્ટ'],
+    ]"
+    title="કાર્ટ" />
 
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-temple">
 

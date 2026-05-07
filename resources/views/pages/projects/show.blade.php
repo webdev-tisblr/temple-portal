@@ -15,14 +15,12 @@
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-temple">
 
-    {{-- Breadcrumb --}}
-    <nav class="text-sm text-amber-100/30 mb-6">
-        <a href="{{ route('home') }}" class="hover:text-gold transition">મુખ્ય પૃષ્ઠ</a>
-        <span class="mx-2">/</span>
-        <a href="{{ route('projects.index') }}" class="hover:text-gold transition">સેવા પ્રોજેક્ટ્સ</a>
-        <span class="mx-2">/</span>
-        <span class="text-gold">{{ $project->title }}</span>
-    </nav>
+    <x-breadcrumb
+        :items="[
+            ['label' => 'સેવા પ્રોજેક્ટ્સ', 'url' => route('projects.index')],
+            ['label' => $project->title],
+        ]"
+        class="mb-6" />
 
     {{-- Title (mobile) --}}
     <h1 class="divine-heading text-2xl sm:text-3xl mb-6 lg:hidden">{{ $project->title }}</h1>

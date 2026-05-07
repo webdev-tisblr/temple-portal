@@ -2,19 +2,13 @@
 
 @section('content')
 
-<section class="bg-temple-light border-b border-amber-900/20">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <nav class="flex items-center gap-2 text-sm text-amber-100/30 mb-4">
-            <a href="{{ route('home') }}" class="hover:text-gold transition">હોમ</a>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            <span class="text-amber-100/30">Suvidha</span>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            <span class="text-gold font-medium">આસપાસના સ્થળો</span>
-        </nav>
-        <h1 class="divine-heading text-3xl sm:text-4xl">આસપાસના સ્થળો</h1>
-        <p class="mt-2 divine-subtext">Mandir aaspaas na prasiddha sthaano</p>
-    </div>
-</section>
+<x-page-header
+    :breadcrumb="[
+        ['label' => 'સુવિધાઓ'],
+        ['label' => 'આસપાસના સ્થળો'],
+    ]"
+    title="આસપાસના સ્થળો"
+    subtitle="મંદિર આસપાસના પ્રસિદ્ધ સ્થાનો" />
 
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 

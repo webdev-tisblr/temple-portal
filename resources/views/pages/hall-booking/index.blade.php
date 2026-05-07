@@ -1,22 +1,13 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-temple">
 
-    {{-- Breadcrumb --}}
-    <nav class="text-sm text-amber-100/30 mb-6">
-        <a href="{{ route('home') }}" class="hover:text-gold transition">મુખ્ય પૃષ્ઠ</a>
-        <span class="mx-2">/</span>
-        <span class="text-gold">હોલ બુકિંગ</span>
-    </nav>
+<x-page-header
+    :breadcrumb="[['label' => 'હોલ બુકિંગ']]"
+    title="હોલ બુકિંગ"
+    subtitle="શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ દ્વારા ભક્તો માટે લગ્ન, સત્સંગ, ધાર્મિક કાર્યક્રમો તથા સામાજિક ઉત્સવો માટે વિશાળ હોલ ઉપલબ્ધ છે." />
 
-    {{-- Hero Section --}}
-    <div class="text-center mb-10">
-        <h1 class="divine-heading text-3xl sm:text-4xl">હોલ બુકિંગ</h1>
-        <p class="mt-3 text-amber-100/50 max-w-2xl mx-auto leading-relaxed">
-            શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ દ્વારા ભક્તો માટે લગ્ન, સત્સંગ, ધાર્મિક કાર્યક્રમો તથા સામાજિક ઉત્સવો માટે વિશાળ હોલ ઉપલબ્ધ છે.
-        </p>
-    </div>
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
     {{-- Image Gallery Slideshow --}}
     <div class="mb-10" x-data="hallGallery()">

@@ -2,17 +2,10 @@
 
 @section('content')
 
-<section class="bg-temple-light border-b border-amber-900/20">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <nav class="flex items-center gap-2 text-sm text-amber-100/30 mb-4">
-            <a href="{{ route('home') }}" class="hover:text-gold transition">હોમ</a>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            <span class="text-gold font-medium">સ‌ymparak</span>
-        </nav>
-        <h1 class="divine-heading text-3xl sm:text-4xl">સ‌ymparak કરો</h1>
-        <p class="mt-2 divine-subtext">Tamara prashnao ane messages mate samparak karo</p>
-    </div>
-</section>
+<x-page-header
+    :breadcrumb="[['label' => 'સંપર્ક']]"
+    title="સંપર્ક કરો"
+    subtitle="તમારા પ્રશ્નો અને સંદેશા માટે અમારો સંપર્ક કરો" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
@@ -26,7 +19,7 @@
 
     @if($errors->any())
         <div class="mb-6 px-5 py-4 bg-red-950/30 border border-red-800/30 rounded-xl">
-            <p class="text-sm font-semibold text-red-300 mb-2">Krupaa karI form sudharo:</p>
+            <p class="text-sm font-semibold text-red-300 mb-2">કૃપા કરી ફોર્મ સુધારો:</p>
             <ul class="text-sm text-red-300/80 space-y-1 list-disc list-inside">
                 @foreach($errors->all() as $error)
                     <li>{{ $error }}</li>
@@ -40,7 +33,7 @@
         {{-- Contact Form (Left) --}}
         <div class="lg:col-span-3">
             <div class="card-sacred p-6 sm:p-8">
-                <h2 class="text-xl font-bold text-gold mb-6">Message moklo</h2>
+                <h2 class="text-xl font-bold text-gold mb-6">સંદેશ મોકલો</h2>
 
                 <form method="POST" action="{{ route('contact.submit') }}" class="space-y-5">
                     @csrf
@@ -52,7 +45,7 @@
                             </label>
                             <input type="text" name="name" id="name"
                                    value="{{ old('name') }}"
-                                   placeholder="Tamaru naam"
+                                   placeholder="તમારું નામ"
                                    class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20 @error('name') border-red-700/50 @enderror">
                             @error('name')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                         </div>
@@ -82,7 +75,7 @@
                         </label>
                         <input type="text" name="subject" id="subject"
                                value="{{ old('subject') }}"
-                               placeholder="Tamaro prashno shaa baabat chhe?"
+                               placeholder="તમારો પ્રશ્ન શા વિશે છે?"
                                class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20 @error('subject') border-red-700/50 @enderror">
                         @error('subject')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                     </div>
@@ -92,7 +85,7 @@
                             સંદેશ <span class="text-red-400">*</span>
                         </label>
                         <textarea name="message" id="message" rows="5"
-                                  placeholder="Tamaro prashno / message yahaa lakho..."
+                                  placeholder="તમારો પ્રશ્ન / સંદેશ અહીં લખો..."
                                   class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20 resize-none @error('message') border-red-700/50 @enderror">{{ old('message') }}</textarea>
                         @error('message')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                     </div>
@@ -100,7 +93,7 @@
                     <button type="submit"
                             class="btn-divine w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-                        Message moklo
+                        સંદેશ મોકલો
                     </button>
 
                 </form>
@@ -111,7 +104,7 @@
         <div class="lg:col-span-2 space-y-5">
 
             <div class="card-sacred p-6">
-                <h2 class="text-lg font-bold text-gold mb-4">Samparak Mahiti</h2>
+                <h2 class="text-lg font-bold text-gold mb-4">સંપર્ક માહિતી</h2>
                 <div class="space-y-4">
 
                     @if(isset($trustAddress))

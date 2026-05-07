@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-temple" x-data="{ activeCategory: 'all' }">
 
-    {{-- Page Header --}}
-    <div class="text-center mb-8">
-        <h1 class="divine-heading text-3xl">સેવા અને પૂજા</h1>
-        <p class="divine-subtext mt-2">શ્રી પાતળિયા હનુમાનજી મંદિરમાં ઓનલાઈન સેવા બુક કરો</p>
-    </div>
+<x-page-header
+    :breadcrumb="[['label' => 'સેવા અને પૂજા']]"
+    title="સેવા અને પૂજા"
+    subtitle="શ્રી પાતળિયા હનુમાનજી મંદિરમાં ઓનલાઈન સેવા બુક કરો" />
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple" x-data="{ activeCategory: 'all' }">
 
     {{-- Category Filter Tabs --}}
     <div class="flex flex-wrap justify-center gap-2 mb-8">

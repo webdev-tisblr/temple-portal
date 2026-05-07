@@ -3,14 +3,12 @@
 @section('content')
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-temple">
 
-    {{-- Breadcrumb --}}
-    <nav class="text-sm text-amber-100/30 mb-6">
-        <a href="{{ route('home') }}" class="hover:text-gold transition">મુખ્ય પૃષ્ઠ</a>
-        <span class="mx-2">/</span>
-        <a href="{{ route('seva.index') }}" class="hover:text-gold transition">સેવા</a>
-        <span class="mx-2">/</span>
-        <span class="text-gold">{{ $seva->name }}</span>
-    </nav>
+    <x-breadcrumb
+        :items="[
+            ['label' => 'સેવા અને પૂજા', 'url' => route('seva.index')],
+            ['label' => $seva->name],
+        ]"
+        class="mb-6" />
 
     <div class="card-sacred overflow-hidden">
         {{-- Image --}}

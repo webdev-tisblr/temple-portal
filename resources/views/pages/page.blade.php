@@ -1,14 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
-<section class="bg-temple py-12">
+<section class="bg-temple py-8">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <nav class="text-sm text-amber-100/30 mb-6 flex items-center justify-between">
-            <div>
-                <a href="{{ route('home') }}" class="hover:text-gold transition">મુખ્ય પૃષ્ઠ</a>
-                <span class="mx-2">/</span>
-                <span class="text-gold">{{ $page->title }}</span>
-            </div>
+        <div class="mb-6 flex items-center justify-between gap-4 flex-wrap">
+            <x-breadcrumb :items="[['label' => $page->title]]" />
 
             {{-- Language switcher — only shown on CMS pages with multilingual content --}}
             @if($page->title_hi || $page->title_en)
@@ -23,7 +19,7 @@
                     @endif
                 </div>
             @endif
-        </nav>
+        </div>
 
         @if($page->featured_image_path)
             <img src="{{ image_url($page->featured_image_path) }}" alt="{{ $page->title }}" class="w-full rounded-2xl mb-8 shadow-lg border border-amber-900/20">

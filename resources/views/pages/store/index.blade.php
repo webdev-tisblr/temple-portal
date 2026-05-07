@@ -1,20 +1,13 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-temple">
 
-    {{-- Breadcrumb --}}
-    <nav class="text-sm text-amber-100/30 mb-6">
-        <a href="{{ route('home') }}" class="hover:text-gold transition">મુખ્ય પૃષ્ઠ</a>
-        <span class="mx-2">/</span>
-        <span class="text-gold">મંદિર સ્ટોર</span>
-    </nav>
+<x-page-header
+    :breadcrumb="[['label' => 'મંદિર સ્ટોર']]"
+    title="મંદિર સ્ટોર"
+    subtitle="મંદિરની પવિત્ર વસ્તુઓ અને પૂજા સામગ્રી" />
 
-    {{-- Page Header --}}
-    <div class="text-center mb-10">
-        <h1 class="divine-heading text-3xl">મંદિર સ્ટોર</h1>
-        <p class="divine-subtext mt-2">મંદિરની પવિત્ર વસ્તુઓ અને પૂજા સામગ્રી</p>
-    </div>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
     {{-- Categories Section --}}
     @if($categories->isNotEmpty())

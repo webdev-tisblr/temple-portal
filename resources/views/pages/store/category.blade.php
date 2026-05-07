@@ -1,16 +1,15 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-temple">
 
-    {{-- Breadcrumb --}}
-    <nav class="text-sm text-amber-100/30 mb-6">
-        <a href="{{ route('home') }}" class="hover:text-gold transition">મુખ્ય પૃષ્ઠ</a>
-        <span class="mx-2">/</span>
-        <a href="{{ route('store.index') }}" class="hover:text-gold transition">મંદિર સ્ટોર</a>
-        <span class="mx-2">/</span>
-        <span class="text-gold">{{ $category->name }}</span>
-    </nav>
+<x-page-header
+    :breadcrumb="[
+        ['label' => 'મંદિર સ્ટોર', 'url' => route('store.index')],
+        ['label' => $category->name],
+    ]"
+    :title="$category->name" />
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-temple">
 
     {{-- Category Header --}}
     <div class="card-sacred overflow-hidden mb-8">

@@ -1,20 +1,13 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-temple">
 
-    {{-- Breadcrumb --}}
-    <nav class="text-sm text-amber-100/30 mb-6">
-        <a href="{{ route('home') }}" class="hover:text-gold transition">મુખ્ય પૃષ્ઠ</a>
-        <span class="mx-2">/</span>
-        <span class="text-gold">સેવા પ્રોજેક્ટ્સ</span>
-    </nav>
+<x-page-header
+    :breadcrumb="[['label' => 'સેવા પ્રોજેક્ટ્સ']]"
+    title="સેવા પ્રોજેક્ટ્સ"
+    subtitle="શ્રી પાતળિયા હનુમાનજી મંદિરના ચાલુ પ્રોજેક્ટ્સ અને અભિયાનો — દાન કરીને સહયોગ આપો" />
 
-    {{-- Page Header --}}
-    <div class="text-center mb-10">
-        <h1 class="divine-heading text-3xl">સેવા પ્રોજેક્ટ્સ</h1>
-        <p class="divine-subtext mt-2">શ્રી પાતળિયા હનુમાનજી મંદિરના ચાલુ પ્રોજેક્ટ્સ અને અભિયાનો — દાન કરીને સહયોગ આપો</p>
-    </div>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
     {{-- Projects Grid --}}
     @if($projects->isNotEmpty())

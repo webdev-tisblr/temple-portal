@@ -2,19 +2,13 @@
 
 @section('content')
 
-<section class="bg-temple-light border-b border-amber-900/20">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <nav class="flex items-center gap-2 text-sm text-amber-100/30 mb-4">
-            <a href="{{ route('home') }}" class="hover:text-gold transition">હોમ</a>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            <a href="{{ route('dashboard.index') }}" class="hover:text-gold transition">ડેશબોર્ડ</a>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            <span class="text-gold font-medium">મારા દાન</span>
-        </nav>
-        <h1 class="divine-heading text-3xl sm:text-4xl">મારા દાન</h1>
-        <p class="mt-2 divine-subtext">તમારા બધા દાનની યાદી</p>
-    </div>
-</section>
+<x-page-header
+    :breadcrumb="[
+        ['label' => 'ડેશબોર્ડ', 'url' => route('dashboard.index')],
+        ['label' => 'મારા દાન'],
+    ]"
+    title="મારા દાન"
+    subtitle="તમારા બધા દાનની યાદી" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-temple">
 

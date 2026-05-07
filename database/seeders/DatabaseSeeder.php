@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             PageSeeder::class,
             StoreProductSeeder::class,
             TestDataSeeder::class,
+            NotificationTemplatesSeeder::class,
         ]);
     }
 }

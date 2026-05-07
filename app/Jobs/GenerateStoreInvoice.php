@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\Order;
+use App\Models\SystemSetting;
 use App\Services\InvoiceService;
+use App\Services\Notifications\NotificationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class GenerateStoreInvoice implements ShouldQueue
@@ -53,25 +54,33 @@ class GenerateStoreInvoice implements ShouldQueue
             // attach as data so Symfony Mailer sends it inline.
             $pdfBytes = Storage::disk('r2_private')->get($path);
             $order = $this->order;
-            $orderNumber = $order->order_number;
-            $subject = "Order Confirmation & Invoice — {$orderNumber}";
 
-            $html = $this->buildEmailHtml($order);
-
-            Mail::html($html, function ($message) use ($devotee, $pdfBytes, $orderNumber, $subject) {
-                $message->to($devotee->email, $devotee->name)
-                    ->subject($subject)
-                    ->attachData($pdfBytes, "Invoice_{$orderNumber}.pdf", [
+            // Single dispatch — every enabled NotificationTemplate for
+            // 'store.order.confirmed' fires (email today; WhatsApp /
+            // push when the admin enables them).
+            app(NotificationService::class)->dispatch(
+                'store.order.confirmed',
+                [
+                    'devotee' => $devotee,
+                    'order' => array_merge($order->toArray(), [
+                        'total_amount_formatted' => number_format((float) $order->total_amount, 2),
+                        'items_count' => $order->items->count(),
+                    ]),
+                    'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+                    '_attachments' => [[
+                        'data' => $pdfBytes,
+                        'name' => "Invoice_{$order->order_number}.pdf",
                         'mime' => 'application/pdf',
-                    ]);
-            });
+                    ]],
+                ],
+            );
 
-            Log::info('Store invoice emailed', [
+            Log::info('Store invoice dispatched via NotificationService', [
                 'order_id' => $this->order->id,
                 'email' => $devotee->email,
             ]);
         } catch (\Exception $e) {
-            Log::error('Store invoice email failed', [
+            Log::error('Store invoice dispatch failed', [
                 'order_id' => $this->order->id,
                 'email' => $devotee->email ?? 'unknown',
                 'error' => $e->getMessage(),
@@ -79,7 +88,8 @@ class GenerateStoreInvoice implements ShouldQueue
         }
     }
 
-    private function buildEmailHtml(Order $order): string
+    /** @deprecated body now lives in notification_templates; kept inert. */
+    private function buildEmailHtmlUnused(Order $order): string
     {
         $orderNumber = e($order->order_number);
         $orderDate = $order->created_at->format('d M Y, h:i A');

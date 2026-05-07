@@ -18,7 +18,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -375,24 +374,46 @@ class HallBookingController extends Controller
         try {
             $pdfBytes = Storage::disk('r2_private')->get($path);
             $bookingNumber = 'HALL-' . $booking->id . '-' . $booking->created_at->format('Ymd');
-            $subject = "Hall Booking Confirmation — {$bookingNumber}";
 
-            $html = $this->buildHallInvoiceEmailHtml($booking, $bookingNumber);
+            $bookingTypeLabel = match ($booking->booking_type) {
+                'full_day' => 'Full Day',
+                'half_day_morning' => 'Half Day (Morning)',
+                'half_day_evening' => 'Half Day (Evening)',
+                default => ucfirst($booking->booking_type),
+            };
 
-            Mail::html($html, function ($message) use ($booking, $pdfBytes, $bookingNumber, $subject) {
-                $message->to($booking->contact_email, $booking->contact_name)
-                    ->subject($subject)
-                    ->attachData($pdfBytes, "HallBooking_{$bookingNumber}.pdf", [
+            // Single dispatch entry — every enabled NotificationTemplate
+            // for 'hall.booking.confirmed' (email today; WhatsApp / push
+            // when the admin enables them) fires from here.
+            app(\App\Services\Notifications\NotificationService::class)->dispatch(
+                'hall.booking.confirmed',
+                [
+                    'booking' => array_merge($booking->toArray(), [
+                        'booking_number' => $bookingNumber,
+                        'booking_type_label' => $bookingTypeLabel,
+                        'booking_date' => $booking->booking_date?->format('d M Y'),
+                        'total_amount_formatted' => number_format((float) $booking->total_amount, 2),
+                        'contact_email' => $booking->contact_email,
+                        'contact_phone' => $booking->contact_phone,
+                        'contact_name' => $booking->contact_name,
+                        'hall' => $booking->hall ? $booking->hall->toArray() : null,
+                    ]),
+                    'devotee' => $booking->devotee,
+                    'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+                    '_attachments' => [[
+                        'data' => $pdfBytes,
+                        'name' => "HallBooking_{$bookingNumber}.pdf",
                         'mime' => 'application/pdf',
-                    ]);
-            });
+                    ]],
+                ],
+            );
 
-            Log::info('Hall booking invoice emailed', [
+            Log::info('Hall booking invoice dispatched via NotificationService', [
                 'booking_id' => $booking->id,
                 'email' => $booking->contact_email,
             ]);
         } catch (\Exception $e) {
-            Log::error('Hall invoice email failed', [
+            Log::error('Hall invoice dispatch failed', [
                 'booking_id' => $booking->id,
                 'email' => $booking->contact_email ?? 'unknown',
                 'error' => $e->getMessage(),
@@ -400,67 +421,7 @@ class HallBookingController extends Controller
         }
     }
 
-    private function buildHallInvoiceEmailHtml(HallBooking $booking, string $bookingNumber): string
-    {
-        $contactName = e($booking->contact_name);
-        $hallName = e($booking->hall->name ?? 'Hall');
-        $bookingDate = $booking->booking_date->format('d M Y');
-        $bookingType = match ($booking->booking_type) {
-            'full_day' => 'Full Day',
-            'half_day_morning' => 'Half Day (Morning)',
-            'half_day_evening' => 'Half Day (Evening)',
-            default => ucfirst($booking->booking_type),
-        };
-        $purpose = e($booking->purpose);
-        $total = number_format((float) $booking->total_amount, 2);
-
-        return <<<HTML
-        <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
-            <div style="background:#881337;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
-                <h1 style="color:#e8c36a;margin:0;font-size:20px;">Hall Booking Confirmed!</h1>
-                <p style="color:#ddd;margin:6px 0 0;font-size:13px;">Shree Pataliya Hanumanji Seva Trust</p>
-            </div>
-
-            <div style="padding:24px;background:#fff;border:1px solid #eee;border-top:none;">
-                <p style="margin:0 0 16px;">Dear <strong>{$contactName}</strong>,</p>
-                <p style="margin:0 0 20px;color:#555;">Your hall booking has been confirmed. Here are the details:</p>
-
-                <table style="width:100%;border-collapse:collapse;margin-bottom:16px;background:#f9f5ef;border-radius:6px;overflow:hidden;">
-                    <tr>
-                        <td style="padding:10px 14px;color:#888;font-size:12px;">Booking No.</td>
-                        <td style="padding:10px 14px;font-weight:700;color:#881337;">{$bookingNumber}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:10px 14px;color:#888;font-size:12px;">Hall</td>
-                        <td style="padding:10px 14px;font-weight:600;">{$hallName}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:10px 14px;color:#888;font-size:12px;">Date</td>
-                        <td style="padding:10px 14px;font-weight:600;">{$bookingDate}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:10px 14px;color:#888;font-size:12px;">Type</td>
-                        <td style="padding:10px 14px;font-weight:600;">{$bookingType}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:10px 14px;color:#888;font-size:12px;">Purpose</td>
-                        <td style="padding:10px 14px;font-weight:600;">{$purpose}</td>
-                    </tr>
-                    <tr style="background:#f0e8d8;">
-                        <td style="padding:12px 14px;font-weight:700;font-size:14px;color:#881337;">Total</td>
-                        <td style="padding:12px 14px;font-weight:700;font-size:14px;color:#881337;">₹{$total}</td>
-                    </tr>
-                </table>
-
-                <p style="margin:20px 0 0;color:#555;font-size:13px;">Your invoice is attached to this email as a PDF.</p>
-                <p style="margin:16px 0 0;color:#881337;font-weight:600;">May Shree Hanumanji bless you and your family.</p>
-            </div>
-
-            <div style="padding:16px;text-align:center;background:#f5f0ea;border-radius:0 0 8px 8px;border:1px solid #eee;border-top:none;">
-                <p style="margin:0;font-size:11px;color:#999;">Shree Pataliya Hanumanji Seva Trust</p>
-                <p style="margin:2px 0 0;font-size:11px;color:#bbb;">Antarjal, Gandhidham, Kutch - Gujarat</p>
-            </div>
-        </div>
-        HTML;
-    }
+    // The hall-booking confirmation email body now lives in the
+    // notification_templates table (see NotificationTemplatesSeeder
+    // for the seeded default). Removed: buildHallInvoiceEmailHtml().
 }

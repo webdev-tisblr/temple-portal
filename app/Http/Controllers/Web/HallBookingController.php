@@ -25,12 +25,29 @@ use Illuminate\View\View;
 
 class HallBookingController extends Controller
 {
-    public function index(): View
+    /**
+     * Halls listing page. Lists every active hall and links to its
+     * per-hall booking page. The menu's "હોલ બુકિંગ" entry points here.
+     */
+    public function hallsList(): View
     {
-        $hall = Hall::where('is_active', true)->first();
+        $halls = Hall::where('is_active', true)->orderBy('name')->get();
 
         SEOMeta::setTitle('હૉલ બુકિંગ — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ');
-        SEOMeta::setDescription('શ્રી પાતળિયા હનુમાનજી મંદિર હૉલ ઓનલાઈન બુક કરો.');
+        SEOMeta::setDescription('શ્રી પાતળિયા હનુમાનજી મંદિરના વિશાળ હોલ ઓનલાઈન બુક કરો.');
+
+        return view('pages.hall-booking.list', compact('halls'));
+    }
+
+    /**
+     * Per-hall page — gallery, amenities, pricing and the booking form.
+     */
+    public function hallShow(Hall $hall): View
+    {
+        abort_unless($hall->is_active, 404);
+
+        SEOMeta::setTitle("{$hall->name} — હૉલ બુકિંગ — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ");
+        SEOMeta::setDescription("શ્રી પાતળિયા હનુમાનજી મંદિર {$hall->name} ઓનલાઈન બુક કરો.");
 
         return view('pages.hall-booking.index', compact('hall'));
     }

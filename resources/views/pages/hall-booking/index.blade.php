@@ -3,9 +3,12 @@
 @section('content')
 
 <x-page-header
-    :breadcrumb="[['label' => 'હોલ બુકિંગ']]"
-    title="હોલ બુકિંગ"
-    subtitle="શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ દ્વારા ભક્તો માટે લગ્ન, સત્સંગ, ધાર્મિક કાર્યક્રમો તથા સામાજિક ઉત્સવો માટે વિશાળ હોલ ઉપલબ્ધ છે." />
+    :breadcrumb="[
+        ['label' => 'હોલ બુકિંગ', 'url' => route('halls.index')],
+        ['label' => $hall->name],
+    ]"
+    :title="$hall->name"
+    subtitle="લગ્ન, સત્સંગ, ધાર્મિક કાર્યક્રમો તથા સામાજિક ઉત્સવો માટે ઉપલબ્ધ" />
 
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 

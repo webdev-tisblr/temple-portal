@@ -64,7 +64,13 @@ Route::get('/store/category/{slug}', [StoreWebController::class, 'category'])->n
 Route::get('/store/product/{slug}', [StoreWebController::class, 'show'])->name('store.product');
 
 // Hall Booking (public)
-Route::get('/hall-booking', [HallBookingController::class, 'index'])->name('hall.booking');
+// Halls listing — entry point shown in the menu.
+Route::get('/halls', [HallBookingController::class, 'hallsList'])->name('halls.index');
+// Per-hall booking page (gallery, details, form).
+Route::get('/halls/{hall}', [HallBookingController::class, 'hallShow'])->name('halls.show');
+// Legacy /hall-booking → halls listing (preserved as `hall.booking` so old
+// URLs and existing route('hall.booking') call-sites stay valid).
+Route::get('/hall-booking', fn () => redirect()->route('halls.index'))->name('hall.booking');
 Route::get('/hall-booking/check', [HallBookingController::class, 'checkAvailability'])->name('hall.booking.check');
 
 // Auth

@@ -35,7 +35,7 @@
                 <a href="{{ route('projects.index') }}" class="px-3 py-2 text-sm text-amber-100/60 hover:text-gold transition-colors">પ્રોજેક્ટ્સ</a>
                 <a href="{{ route('gallery') }}" class="px-3 py-2 text-sm text-amber-100/60 hover:text-gold transition-colors">ગેલેરી</a>
                 <a href="{{ route('store.index') }}" class="px-3 py-2 text-sm text-amber-100/60 hover:text-gold transition-colors">સ્ટોર</a>
-                <a href="{{ route('hall.booking') }}" class="px-3 py-2 text-sm text-amber-100/60 hover:text-gold transition-colors">હોલ બુકિંગ</a>
+                <a href="{{ route('halls.index') }}" class="px-3 py-2 text-sm text-amber-100/60 hover:text-gold transition-colors">હોલ બુકિંગ</a>
                 @auth('devotee')
                     <a href="{{ route('store.cart') }}" class="relative px-2 py-2 text-amber-100/60 hover:text-gold transition-colors" title="કાર્ટ">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
@@ -90,7 +90,7 @@
                         @endif
                     @endauth
                 </a>
-                <a href="{{ route('hall.booking') }}" class="block px-4 py-3 text-amber-100/70 hover:text-gold hover:bg-amber-900/15 rounded-xl transition">હોલ બુકિંગ</a>
+                <a href="{{ route('halls.index') }}" class="block px-4 py-3 text-amber-100/70 hover:text-gold hover:bg-amber-900/15 rounded-xl transition">હોલ બુકિંગ</a>
                 <a href="{{ route('contact') }}" class="block px-4 py-3 text-amber-100/70 hover:text-gold hover:bg-amber-900/15 rounded-xl transition">સંપર્ક</a>
                 <div class="pt-4 mt-2 border-t border-amber-900/20 space-y-2">
                     <a href="{{ route('donate') }}" class="block w-full text-center btn-divine py-3">દાન કરો</a>

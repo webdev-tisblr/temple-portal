@@ -7,29 +7,10 @@
         ['label' => 'મંદિર સ્ટોર', 'url' => route('store.index')],
         ['label' => $category->name],
     ]"
-    :title="$category->name" />
+    :title="$category->name"
+    :subtitle="$category->description ?: null" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-temple">
-
-    {{-- Category Header --}}
-    <div class="card-sacred overflow-hidden mb-8">
-        <div class="flex flex-col md:flex-row">
-            @if($category->image_path)
-                <div class="md:w-1/3 aspect-video md:aspect-auto flex-shrink-0 overflow-hidden"
-                     style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
-                    <img src="{{ image_url($category->image_path) }}"
-                         alt="{{ $category->name }}"
-                         class="w-full h-full object-cover opacity-80">
-                </div>
-            @endif
-            <div class="p-6 sm:p-8 flex flex-col justify-center">
-                <h1 class="divine-heading text-2xl sm:text-3xl">{{ $category->name }}</h1>
-                @if($category->description)
-                    <p class="text-amber-100/50 mt-2 leading-relaxed">{{ $category->description }}</p>
-                @endif
-            </div>
-        </div>
-    </div>
 
     {{-- Filter Bar --}}
     <div class="mb-8" x-data="{

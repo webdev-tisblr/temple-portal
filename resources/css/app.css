@@ -363,22 +363,44 @@
 header { color: #2A1810; }
 header .text-amber-100\/60 { color: #5E4F3D !important; }
 
-/* Forms — parchment surface, maroon hairline, saffron focus */
-input,
+/* Forms — parchment surface, maroon hairline, saffron focus.
+   Excludes checkbox/radio so @tailwindcss/forms keeps painting the
+   checkmark + indeterminate states. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
 select,
 textarea {
     background: #FFFCF5 !important;
     border-color: rgba(122, 30, 30, 0.20) !important;
     color: #2A1810 !important;
 }
-input::placeholder,
+input:not([type="checkbox"]):not([type="radio"])::placeholder,
 textarea::placeholder { color: #8A7860 !important; }
-input:focus,
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):focus,
 select:focus,
 textarea:focus {
     border-color: #E8751A !important;
     outline: 2px solid rgba(232, 117, 26, 0.20);
     outline-offset: 0;
+}
+
+/* Checkbox / radio — let @tailwindcss/forms render them, then tone the
+   accent so a checked box reads as saffron on parchment. */
+input[type="checkbox"],
+input[type="radio"] {
+    accent-color: #E8751A;
+    border-color: rgba(122, 30, 30, 0.35);
+    cursor: pointer;
+}
+input[type="checkbox"]:checked,
+input[type="radio"]:checked {
+    background-color: #E8751A;
+    border-color: #E8751A;
+    color: #FFFCF5;       /* checkmark colour for @tailwindcss/forms */
+}
+input[type="checkbox"]:focus,
+input[type="radio"]:focus {
+    outline: 2px solid rgba(232, 117, 26, 0.35);
+    outline-offset: 1px;
 }
 
 /* Prose (rich Markdown content) — keep readable on parchment */

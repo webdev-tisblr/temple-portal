@@ -5,7 +5,7 @@
 {{-- =================================================================
      HERO — Temple Identity
      ================================================================= --}}
-<section class="relative min-h-[88vh] flex items-center justify-center overflow-hidden -mt-16 lg:-mt-20"
+<section class="relative min-h-[72vh] flex items-center justify-center overflow-hidden -mt-16 lg:-mt-20"
          style="background: #FBF5EA;">
 
     {{-- Hanumanji background photo, gently faded into parchment --}}
@@ -34,7 +34,7 @@
          style="background: radial-gradient(ellipse, rgba(200,148,52,0.35), transparent 70%);"></div>
 
     {{-- Content --}}
-    <div class="relative z-10 text-center px-4 py-28 max-w-4xl mx-auto">
+    <div class="relative z-10 text-center px-4 pt-24 pb-12 sm:pt-28 sm:pb-16 max-w-4xl mx-auto">
 
         {{-- Sacred badge --}}
         <div class="inline-flex items-center gap-2 px-5 py-2 rounded-full border mb-6"
@@ -113,7 +113,7 @@
     </div>
 
     {{-- Bottom fade into surface --}}
-    <div class="absolute bottom-0 left-0 right-0 h-32"
+    <div class="absolute bottom-0 left-0 right-0 h-20"
          style="background: linear-gradient(to top, #FBF5EA, transparent);"></div>
 </section>
 
@@ -121,7 +121,7 @@
      ACTION TILES — quick-access to the most-used flows.
      Mirrors the mobile app's tile grid; horizontally scrollable on phones.
      ================================================================= --}}
-<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-2 sm:-mt-4 pt-2 pb-10 relative z-10">
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         @php
             $tiles = [

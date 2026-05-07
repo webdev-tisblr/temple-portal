@@ -30,6 +30,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/sevas', [SevaController::class, 'index']);
     Route::get('/sevas/{seva}', [SevaController::class, 'show']);
     Route::get('/sevas/{seva}/slots', [SevaController::class, 'availableSlots']);
+    Route::get('/sevas/{seva}/available-dates', [SevaController::class, 'availableDates']);
 
     // Public: Gallery & Events
     Route::get('/gallery', [ContentController::class, 'gallery']);

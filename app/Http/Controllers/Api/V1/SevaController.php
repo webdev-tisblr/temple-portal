@@ -48,6 +48,27 @@ class SevaController extends BaseApiController
         return new SevaResource($seva);
     }
 
+    /**
+     * Return the next-N-days set of dates (default 30) on which this
+     * seva can be booked. Mobile date-carousel uses this to hide
+     * non-bookable dates entirely (blackouts, fully-booked, outside
+     * acceptance window).
+     */
+    public function availableDates(Request $request, Seva $seva): JsonResponse
+    {
+        $request->validate([
+            'days' => ['nullable', 'integer', 'min:1', 'max:90'],
+        ]);
+
+        $days = (int) $request->query('days', 30);
+        $dates = $this->slotService->getAvailableDates($seva, $days);
+
+        return $this->success([
+            'days' => $days,
+            'dates' => $dates,
+        ]);
+    }
+
     public function availableSlots(Request $request, Seva $seva): JsonResponse
     {
         $request->validate([

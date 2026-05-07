@@ -154,6 +154,13 @@ class SevaSlotService
 
         // Get day's slots
         $allSlots = $this->getSlotsForDate($seva, $date);
+
+        // For *today*, drop slots whose start time has already passed
+        // (e.g. it is 12:30 PM, slot 10:00 AM should not be shown).
+        if ($this->isToday($date)) {
+            $allSlots = $this->filterPastSlots($allSlots);
+        }
+
         if (empty($allSlots)) {
             return [
                 'available' => [],
@@ -192,6 +199,113 @@ class SevaSlotService
             'blackout_reason' => null,
             'message' => null,
         ];
+    }
+
+    /**
+     * Return the dates within the next $days for which this seva has at
+     * least one open slot (respects acceptance period, blackouts and
+     * fully-booked slots).
+     *
+     * Used by the date carousel in the mobile app's seva detail screen
+     * to hide non-bookable dates entirely. One bulk booking-count query
+     * powers the whole window.
+     *
+     * @return list<string>  Dates in 'Y-m-d' format, ascending.
+     */
+    public function getAvailableDates(Seva $seva, int $days = 30): array
+    {
+        $days = max(1, min($days, 90));
+        $config = $this->normalizeConfig($seva->slot_config);
+
+        $start = now()->startOfDay();
+        $end = $start->copy()->addDays($days);
+
+        // Bulk-fetch the booking counts for the window, then index by date+slot.
+        $rows = SevaBooking::where('seva_id', $seva->id)
+            ->whereBetween('booking_date', [$start->toDateString(), $end->toDateString()])
+            ->whereIn('status', ['confirmed', 'completed'])
+            ->selectRaw("DATE(booking_date) as bdate, LEFT(slot_time, 5) as slot, COUNT(*) as cnt")
+            ->groupBy('bdate', 'slot')
+            ->get();
+
+        $counts = [];   // counts[date][slot] = n
+        foreach ($rows as $row) {
+            $counts[$row->bdate][$row->slot] = (int) $row->cnt;
+        }
+
+        $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
+        $available = [];
+
+        for ($i = 0; $i < $days; $i++) {
+            $date = $start->copy()->addDays($i)->toDateString();
+
+            if (! $this->isDateInAcceptancePeriod($config, $date)) {
+                continue;
+            }
+            if ($this->getBlackoutReason($config, $date)) {
+                continue;
+            }
+
+            $slotsForDay = $this->getSlotsForDate($seva, $date);
+
+            // For *today*, drop already-elapsed slots — a 10:00 slot
+            // shouldn't be selectable at 12:30 PM.
+            if ($this->isToday($date)) {
+                $slotsForDay = $this->filterPastSlots($slotsForDay);
+            }
+
+            // Sevas that don't require booking still have a "date" — we
+            // accept the date as long as it isn't blacked out / outside
+            // the acceptance window.
+            if (! $seva->requires_booking) {
+                $available[] = $date;
+                continue;
+            }
+
+            if (empty($slotsForDay)) {
+                continue;
+            }
+
+            $dateCounts = $counts[$date] ?? [];
+            foreach ($slotsForDay as $slot) {
+                if (($dateCounts[$slot] ?? 0) < $maxPerSlot) {
+                    $available[] = $date;
+                    break;
+                }
+            }
+        }
+
+        return $available;
+    }
+
+    /**
+     * True when the supplied 'Y-m-d' string equals today's local date.
+     */
+    private function isToday(string $date): bool
+    {
+        return $date === now()->toDateString();
+    }
+
+    /**
+     * Drop slot strings ('HH:MM') whose start time is already in the past.
+     * Used only when the date is *today*, so future dates aren't affected.
+     *
+     * @param  list<string> $slots  HH:MM
+     * @return list<string>
+     */
+    private function filterPastSlots(array $slots): array
+    {
+        $now = now();
+        $result = [];
+        foreach ($slots as $slot) {
+            if (! is_string($slot) || strlen($slot) < 4) continue;
+            [$h, $m] = array_pad(explode(':', $slot, 2), 2, '0');
+            $slotMoment = $now->copy()->setTime((int) $h, (int) $m, 0);
+            if ($slotMoment->greaterThan($now)) {
+                $result[] = $slot;
+            }
+        }
+        return $result;
     }
 
     /**

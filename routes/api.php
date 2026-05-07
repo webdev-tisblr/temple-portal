@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ContentController;
+use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\DonationController;
 use App\Http\Controllers\Api\V1\HallController;
 use App\Http\Controllers\Api\V1\PaymentVerificationController;
@@ -64,6 +65,10 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::post('/auth/refresh', [AuthController::class, 'refreshToken']);
+
+        // Device tokens — register on login + token refresh, deactivate on logout
+        Route::post('/me/device-tokens', [DeviceTokenController::class, 'register']);
+        Route::delete('/me/device-tokens', [DeviceTokenController::class, 'deactivate']);
 
         Route::get('/me', function (Request $request) {
             return response()->json([

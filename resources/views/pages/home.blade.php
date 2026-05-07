@@ -3,44 +3,44 @@
 @section('content')
 
 {{-- === HERO: Temple Entrance Experience === --}}
-<section class="relative min-h-[90vh] flex items-center justify-center overflow-hidden -mt-16 lg:-mt-20" style="background: #0a0604;">
+<section class="relative min-h-[90vh] flex items-center justify-center overflow-hidden -mt-16 lg:-mt-20" style="background: #FBF5EA;">
     {{-- Hanumanji Background Image --}}
     <div class="absolute inset-0">
-        <img src="{{ asset('images/hanumanji-hero.jpg') }}" alt="શ્રી પાતળિયા હનુમાનજી" class="w-full h-full object-cover object-center opacity-40" style="filter: brightness(0.5) saturate(0.7);">
-        {{-- Dark overlay gradient --}}
-        <div class="absolute inset-0" style="background: linear-gradient(to bottom, rgba(10,6,4,0.5) 0%, rgba(10,6,4,0.3) 30%, rgba(10,6,4,0.5) 70%, rgba(10,6,4,0.95) 100%);"></div>
-        {{-- Warm radial glow over the murti --}}
-        <div class="absolute inset-0" style="background: radial-gradient(ellipse at center 40%, rgba(196,154,42,0.12) 0%, transparent 60%);"></div>
+        <img src="{{ asset('images/hanumanji-hero.jpg') }}" alt="શ્રી પાતળિયા હનુમાનજી" class="w-full h-full object-cover object-center" style="opacity: 0.28;">
+        {{-- Parchment overlay — keeps bg readable, fades to surface at top & bottom --}}
+        <div class="absolute inset-0" style="background: linear-gradient(to bottom, rgba(251,245,234,0.55) 0%, rgba(251,245,234,0.25) 35%, rgba(251,245,234,0.55) 70%, rgba(251,245,234,0.98) 100%);"></div>
+        {{-- Warm gold/saffron radial glow over the murti --}}
+        <div class="absolute inset-0" style="background: radial-gradient(ellipse at center 40%, rgba(232,117,26,0.10) 0%, transparent 60%);"></div>
     </div>
 
     {{-- Floating divine particles --}}
     <div class="absolute inset-0 pointer-events-none" x-data="divineParticles"></div>
 
-    {{-- Warm diya glow from bottom --}}
-    <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-[350px] rounded-full opacity-25" style="background: radial-gradient(ellipse, #c49a2a, transparent 70%);"></div>
+    {{-- Soft gold halo from bottom --}}
+    <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-[350px] rounded-full opacity-30" style="background: radial-gradient(ellipse, rgba(200,148,52,0.35), transparent 70%);"></div>
 
     {{-- Content --}}
     <div class="relative z-10 text-center px-4 py-32">
         {{-- Sacred badge --}}
-        <div class="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-amber-800/30 mb-8" style="background: rgba(196,154,42,0.08);">
-            <span class="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span>
-            <span class="text-amber-400/80 text-sm tracking-[0.2em] uppercase font-medium">|| જય શ્રી રામ ||</span>
-            <span class="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span>
+        <div class="inline-flex items-center gap-2 px-5 py-2 rounded-full border mb-8" style="background: rgba(232,117,26,0.10); border-color: rgba(200,148,52,0.45);">
+            <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background: #E8751A;"></span>
+            <span class="text-sm tracking-[0.2em] uppercase font-medium" style="color: #7A1E1E;">|| જય શ્રી રામ ||</span>
+            <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background: #E8751A;"></span>
         </div>
 
         <h1 class="text-5xl sm:text-7xl lg:text-8xl font-black leading-[1.05] tracking-tight">
-            <span class="text-gold">શ્રી પાતળિયા</span><br>
-            <span style="color: #c49a2a;">હનુમાનજી ધામ</span>
+            <span style="color: #7A1E1E;">શ્રી પાતળિયા</span><br>
+            <span style="color: #C45F12;">હનુમાનજી ધામ</span>
         </h1>
 
-        <p class="mt-6 text-xl sm:text-2xl text-amber-100/40 font-light tracking-wide">અંતરજાલ, ગાંધીધામ, કચ્છ (૩૭૦૧૧૦)</p>
+        <p class="mt-6 text-xl sm:text-2xl font-light tracking-wide" style="color: #5E4F3D;">અંતરજાલ, ગાંધીધામ, કચ્છ (૩૭૦૧૧૦)</p>
 
         {{-- Ornamental divider --}}
         <div class="divine-divider">
-            <span class="text-amber-600 text-xs">✦</span>
+            <span class="text-xs" style="color: #C89434;">✦</span>
         </div>
 
-        <p class="text-amber-400/60 font-medium tracking-wider text-sm uppercase">ગુજરાતમાં હનુમાનજીનું પ્રસિદ્ધ ધામ</p>
+        <p class="font-medium tracking-wider text-sm uppercase" style="color: #C45F12;">ગુજરાતમાં હનુમાનજીનું પ્રસિદ્ધ ધામ</p>
 
         <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <a href="{{ route('donate') }}" class="w-full sm:w-auto btn-divine text-base px-10 py-4">
@@ -53,17 +53,17 @@
         </div>
     </div>
 
-    {{-- Bottom fade --}}
-    <div class="absolute bottom-0 left-0 right-0 h-32" style="background: linear-gradient(to top, #0a0604, transparent);"></div>
+    {{-- Bottom fade — into page surface --}}
+    <div class="absolute bottom-0 left-0 right-0 h-32" style="background: linear-gradient(to top, #FBF5EA, transparent);"></div>
 </section>
 
 {{-- === ANNOUNCEMENTS === --}}
 @if($announcements->isNotEmpty())
 <section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
     @foreach($announcements as $ann)
-        <div class="flex items-center gap-3 px-5 py-3.5 mb-2 rounded-xl border {{ $ann->is_urgent ? 'border-red-900/30 bg-red-950/30' : 'border-amber-900/20 bg-amber-950/20' }}">
-            <span class="text-amber-500 diya-glow">🪔</span>
-            <p class="text-sm {{ $ann->is_urgent ? 'text-red-300' : 'text-amber-200/70' }} flex-1">{{ $ann->title }}</p>
+        <div class="flex items-center gap-3 px-5 py-3.5 mb-2 rounded-xl border {{ $ann->is_urgent ? 'border-red-300 bg-red-50' : 'border-[rgba(200,148,52,0.30)] bg-[rgba(232,117,26,0.06)]' }}">
+            <span class="diya-glow" style="color: #E8751A;">🪔</span>
+            <p class="text-sm flex-1" style="color: {{ $ann->is_urgent ? '#B91C1C' : '#5E4F3D' }};">{{ $ann->title }}</p>
         </div>
     @endforeach
 </section>
@@ -131,9 +131,9 @@
             @foreach($events as $event)
                 <div class="card-sacred p-6 inner-glow">
                     <div class="flex items-start gap-4">
-                        <div class="w-16 h-16 rounded-2xl flex flex-col items-center justify-center flex-shrink-0 border border-amber-800/30" style="background: linear-gradient(145deg, #1a0f08, #0f0804);">
-                            <span class="text-gold text-xl font-black leading-none">{{ $event->start_date->format('d') }}</span>
-                            <span class="text-amber-600 text-[10px] font-bold uppercase">{{ $event->start_date->format('M') }}</span>
+                        <div class="w-16 h-16 rounded-2xl flex flex-col items-center justify-center flex-shrink-0 border" style="background: linear-gradient(145deg, #FFFCF5, #FBF5EA); border-color: rgba(200,148,52,0.35);">
+                            <span class="text-xl font-black leading-none" style="color: #7A1E1E;">{{ $event->start_date->format('d') }}</span>
+                            <span class="text-[10px] font-bold uppercase" style="color: #C45F12;">{{ $event->start_date->format('M') }}</span>
                         </div>
                         <div>
                             <h3 class="font-bold text-gold text-lg">{{ $event->title }}</h3>
@@ -169,8 +169,8 @@
                         <span class="font-bold text-gold text-lg">₹{{ number_format((float) $campaign->raised_amount) }}</span>
                         <span class="text-amber-100/30">/ ₹{{ number_format((float) $campaign->goal_amount) }}</span>
                     </div>
-                    <div class="w-full h-3 rounded-full overflow-hidden" style="background: rgba(196,154,42,0.1);">
-                        <div class="h-full rounded-full transition-all duration-1000" style="width: {{ $pct }}%; background: linear-gradient(90deg, #b8860b, #e8c36a);"></div>
+                    <div class="w-full h-3 rounded-full overflow-hidden" style="background: rgba(200,148,52,0.18);">
+                        <div class="h-full rounded-full transition-all duration-1000" style="width: {{ $pct }}%; background: linear-gradient(90deg, #E8751A, #C89434);"></div>
                     </div>
                     <p class="text-xs text-amber-100/30 mt-2">{{ $pct }}% પૂર્ણ &bull; {{ $campaign->donor_count }} ભક્તોએ યોગદાન આપ્યું</p>
                 </div>
@@ -209,9 +209,9 @@
             <h2 class="divine-heading">અમારું સ્થાન</h2>
             <p class="divine-subtext">અંતરજાલ, ગાંધીધામ, કચ્છ - 370205</p>
         </div>
-        <div class="rounded-3xl overflow-hidden border border-amber-900/20" style="box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+        <div class="rounded-3xl overflow-hidden border" style="border-color: rgba(122,30,30,0.15); box-shadow: 0 10px 40px rgba(122,30,30,0.10);">
             <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3670.0!2d70.13!3d23.08!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjPCsDA0JzQ4LjAiTiA3MMKwMDcnNDguMCJF!5e0!3m2!1sen!2sin!4v1"
-                    width="100%" height="400" style="border:0; filter: brightness(0.7) contrast(1.1) saturate(0.8);" allowfullscreen="" loading="lazy" class="w-full"></iframe>
+                    width="100%" height="400" style="border:0;" allowfullscreen="" loading="lazy" class="w-full"></iframe>
         </div>
     </div>
 </section>

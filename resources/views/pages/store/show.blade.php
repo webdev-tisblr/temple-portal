@@ -24,7 +24,7 @@
             <div class="lg:w-1/2 flex-shrink-0">
                 {{-- Main Image --}}
                 <div class="aspect-square flex items-center justify-center overflow-hidden"
-                     style="background: radial-gradient(ellipse at bottom, #2a1508, #0f0804);">
+                     style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
                     <template x-if="currentImage">
                         <img :src="currentImage" alt="{{ $product->name }}"
                              class="w-full h-full object-cover transition-opacity duration-300">

@@ -1,7 +1,7 @@
 {{-- Main Navigation --}}
 <header x-data="{ mobileMenu: false, scrolled: false }"
         @scroll.window="scrolled = (window.scrollY > 30)"
-        :class="scrolled ? 'bg-[#0a0604]/95 backdrop-blur-xl shadow-[0_4px_30px_rgba(196,154,42,0.08)]' : 'bg-transparent'"
+        :class="scrolled ? 'bg-[#FBF5EA]/95 backdrop-blur-xl shadow-[0_4px_24px_rgba(122,30,30,0.08)] border-b border-[rgba(122,30,30,0.12)]' : 'bg-transparent'"
         class="fixed top-0 left-0 right-0 z-50 transition-all duration-500">
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -21,7 +21,7 @@
                     </button>
                     <div x-show="open" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-cloak
                          class="absolute top-full left-0 pt-2 z-50">
-                        <div class="w-52 rounded-xl py-2 border border-amber-900/30" style="background: linear-gradient(145deg, #1a0f08, #0f0804); box-shadow: 0 20px 60px rgba(0,0,0,0.6);">
+                        <div class="w-52 rounded-xl py-2 border border-[rgba(122,30,30,0.12)]" style="background: #FFFCF5; box-shadow: 0 16px 40px rgba(122,30,30,0.12);">
                             <a href="/parichay" class="block px-4 py-2.5 text-sm text-amber-100/60 hover:text-gold hover:bg-amber-900/20 transition">પરિચય</a>
                             <a href="/itihas" class="block px-4 py-2.5 text-sm text-amber-100/60 hover:text-gold hover:bg-amber-900/20 transition">ઇતિહાસ</a>
                             <a href="/mahima" class="block px-4 py-2.5 text-sm text-amber-100/60 hover:text-gold hover:bg-amber-900/20 transition">મહિમા</a>
@@ -69,8 +69,8 @@
 
     {{-- Mobile Menu --}}
     <div x-show="mobileMenu" x-cloak class="fixed inset-0 z-[100] lg:hidden" @keydown.escape.window="mobileMenu = false">
-        <div x-show="mobileMenu" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="absolute inset-0 bg-black/80 backdrop-blur-md" @click="mobileMenu = false"></div>
-        <div x-show="mobileMenu" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200" class="absolute right-0 top-0 bottom-0 w-80 max-w-[85vw] overflow-y-auto border-l border-amber-900/20" style="background: linear-gradient(180deg, #0f0804, #0a0604);">
+        <div x-show="mobileMenu" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="absolute inset-0 bg-[rgba(42,24,16,0.35)] backdrop-blur-sm" @click="mobileMenu = false"></div>
+        <div x-show="mobileMenu" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200" class="absolute right-0 top-0 bottom-0 w-80 max-w-[85vw] overflow-y-auto border-l border-[rgba(122,30,30,0.12)] shadow-2xl" style="background: linear-gradient(180deg, #FFFCF5, #FBF5EA);">
             <div class="flex items-center justify-between p-5 border-b border-amber-900/20">
                 <span class="font-bold text-gold">મેનુ</span>
                 <button @click="mobileMenu = false" class="p-1.5 text-amber-100/40 hover:text-gold"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>

@@ -3,7 +3,7 @@
 <a href="{{ route('store.product', $product->slug) }}"
    class="card-sacred group block {{ $product->inStock() ? '' : 'opacity-60' }}">
     <div class="aspect-[4/3] flex items-center justify-center relative overflow-hidden"
-         style="background: radial-gradient(ellipse at bottom, #2a1508, #0f0804);">
+         style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
         @if($product->image_path)
             <img src="{{ image_url($product->image_path) }}"
                  alt="{{ $product->name }}"

@@ -32,7 +32,7 @@
 
                     {{-- Image --}}
                     <div class="aspect-[16/9] relative overflow-hidden"
-                         style="background: radial-gradient(ellipse at bottom, #2a1508, #0f0804);">
+                         style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
                         @if($project->image_path)
                             <img src="{{ image_url($project->image_path) }}"
                                  alt="{{ $project->title }}"

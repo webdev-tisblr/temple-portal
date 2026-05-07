@@ -17,7 +17,7 @@
         <div class="flex flex-col md:flex-row">
             @if($category->image_path)
                 <div class="md:w-1/3 aspect-video md:aspect-auto flex-shrink-0 overflow-hidden"
-                     style="background: radial-gradient(ellipse at bottom, #2a1508, #0f0804);">
+                     style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
                     <img src="{{ image_url($category->image_path) }}"
                          alt="{{ $category->name }}"
                          class="w-full h-full object-cover opacity-80">

@@ -25,7 +25,7 @@
                     <a href="{{ route('store.category', $category->slug) }}"
                        class="card-sacred group block overflow-hidden">
                         <div class="aspect-[16/9] flex items-center justify-center relative overflow-hidden"
-                             style="background: radial-gradient(ellipse at bottom, #2a1508, #0f0804);">
+                             style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
                             @if($category->image_path)
                                 <img src="{{ image_url($category->image_path) }}"
                                      alt="{{ $category->name }}"

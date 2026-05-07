@@ -56,13 +56,13 @@
                                 @if($devotee->profile_photo_path)
                                     <img src="{{ image_url($devotee->profile_photo_path) }}" class="w-full h-full object-cover">
                                 @else
-                                    <div class="w-full h-full flex items-center justify-center" style="background: linear-gradient(145deg, #1a0f08, #0f0804);">
-                                        <svg class="w-16 h-16 text-amber-800/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    <div class="w-full h-full flex items-center justify-center" style="background: linear-gradient(145deg, #FFFCF5, #F4EAD5);">
+                                        <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #C89434;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                     </div>
                                 @endif
                             </template>
                         </div>
-                        <label class="absolute bottom-0 right-0 w-9 h-9 rounded-full flex items-center justify-center cursor-pointer border border-amber-800/30 hover:border-amber-600 transition" style="background: linear-gradient(145deg, #1a0f08, #0f0804);">
+                        <label class="absolute bottom-0 right-0 w-9 h-9 rounded-full flex items-center justify-center cursor-pointer border hover:border-[#E8751A] transition shadow-md" style="background: #FFFCF5; border-color: rgba(200,148,52,0.45);">
                             <svg class="w-4 h-4 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                             <input type="file" name="profile_photo" accept="image/*" class="hidden" @change="preview = URL.createObjectURL($event.target.files[0])">
                         </label>

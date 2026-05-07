@@ -71,8 +71,8 @@
                                     <img :src="item.image" :alt="item.name" class="w-full h-full object-cover">
                                 </template>
                                 <template x-if="!item.image">
-                                    <div class="w-full h-full flex items-center justify-center" style="background: linear-gradient(145deg, #1a0f08, #0f0804);">
-                                        <svg class="w-8 h-8 text-amber-800/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                                    <div class="w-full h-full flex items-center justify-center" style="background: linear-gradient(145deg, #FFFCF5, #F4EAD5);">
+                                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #C89434;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                                     </div>
                                 </template>
                             </div>

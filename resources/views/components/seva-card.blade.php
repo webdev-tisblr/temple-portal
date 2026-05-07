@@ -1,7 +1,7 @@
 @props(['seva'])
 
 <a href="{{ route('seva.show', $seva) }}" class="card-sacred group block">
-    <div class="aspect-[4/3] flex items-center justify-center relative overflow-hidden" style="background: radial-gradient(ellipse at bottom, #2a1508, #0f0804);">
+    <div class="aspect-[4/3] flex items-center justify-center relative overflow-hidden" style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
         @if($seva->image_path)
             <img src="{{ image_url($seva->image_path) }}" alt="{{ $seva->name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-80 group-hover:opacity-100">
         @else

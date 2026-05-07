@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use App\Models\Announcement;
 use App\Models\DarshanTiming;
 use App\Models\DonationCampaign;
 use App\Models\Event;
@@ -32,10 +31,6 @@ class HomeController extends Controller
         $timings = Cache::remember('darshan_timings', 3600, fn () =>
             DarshanTiming::where('is_active', true)->where('day_type', 'regular')->first()
         );
-
-        $announcements = Announcement::where('is_active', true)
-            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
-            ->latest('published_at')->take(3)->get();
 
         // Featured campaign — pick the one with the highest raised amount
         // (or any active one as a fallback). The home page shows ONE; the
@@ -64,7 +59,6 @@ class HomeController extends Controller
             'sevas',
             'events',
             'timings',
-            'announcements',
             'featuredCampaign',
             'galleryPreview',
             'intro',

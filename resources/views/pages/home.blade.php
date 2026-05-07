@@ -36,14 +36,6 @@
     {{-- Content --}}
     <div class="relative z-10 text-center px-4 py-28 max-w-4xl mx-auto">
 
-        {{-- Trust logo (always visible at the top of the hero) --}}
-        <div class="flex justify-center mb-6">
-            <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}"
-                 alt="શ્રી પાતળિયા હનુમાનજી — Logo"
-                 class="w-24 h-24 sm:w-28 sm:h-28 rounded-full diya-glow object-cover"
-                 style="border: 2px solid rgba(200,148,52,0.55); box-shadow: 0 6px 24px rgba(200,148,52,0.25);">
-        </div>
-
         {{-- Sacred badge --}}
         <div class="inline-flex items-center gap-2 px-5 py-2 rounded-full border mb-6"
              style="background: rgba(232,117,26,0.10); border-color: rgba(200,148,52,0.45);">
@@ -124,22 +116,6 @@
     <div class="absolute bottom-0 left-0 right-0 h-32"
          style="background: linear-gradient(to top, #FBF5EA, transparent);"></div>
 </section>
-
-{{-- =================================================================
-     ANNOUNCEMENTS — surface near top so urgent ones aren't missed.
-     ================================================================= --}}
-@if($announcements->isNotEmpty())
-<section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 relative z-10 space-y-2 mb-2">
-    @foreach($announcements as $ann)
-        <div class="flex items-center gap-3 px-5 py-3.5 rounded-xl border shadow-sm"
-             style="background: {{ $ann->is_urgent ? 'rgba(168,50,50,0.08)' : 'rgba(232,117,26,0.08)' }};
-                    border-color: {{ $ann->is_urgent ? 'rgba(168,50,50,0.30)' : 'rgba(200,148,52,0.40)' }};">
-            <span class="diya-glow text-lg" style="color: {{ $ann->is_urgent ? '#A83232' : '#E8751A' }};">🪔</span>
-            <p class="text-sm flex-1" style="color: {{ $ann->is_urgent ? '#7A1E1E' : '#3E3226' }};">{{ $ann->title }}</p>
-        </div>
-    @endforeach
-</section>
-@endif
 
 {{-- =================================================================
      ACTION TILES — quick-access to the most-used flows.

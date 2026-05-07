@@ -9,10 +9,11 @@ use App\Models\Announcement;
 use App\Models\DarshanTiming;
 use App\Models\DonationCampaign;
 use App\Models\Event;
+use App\Models\GalleryImage;
 use App\Models\Page;
 use App\Models\Seva;
-use Artesaos\SEOTools\Facades\SEOMeta;
 use Artesaos\SEOTools\Facades\OpenGraph;
+use Artesaos\SEOTools\Facades\SEOMeta;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
@@ -36,7 +37,19 @@ class HomeController extends Controller
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->latest('published_at')->take(3)->get();
 
-        $campaigns = DonationCampaign::where('is_active', true)->get();
+        // Featured campaign — pick the one with the highest raised amount
+        // (or any active one as a fallback). The home page shows ONE; the
+        // /projects page shows the full grid.
+        $featuredCampaign = Cache::remember('homepage_featured_campaign', 600, fn () =>
+            DonationCampaign::where('is_active', true)
+                ->orderByDesc('raised_amount')
+                ->first()
+        );
+
+        // Gallery preview — last 8 images for the home strip.
+        $galleryPreview = Cache::remember('homepage_gallery_preview', 1800, fn () =>
+            GalleryImage::orderByDesc('id')->take(8)->get()
+        );
 
         $intro = Cache::remember('page_parichay', 3600, fn () =>
             Page::where('slug', 'parichay')->where('status', 'published')->first()
@@ -47,6 +60,14 @@ class HomeController extends Controller
         OpenGraph::setUrl(url('/'));
         OpenGraph::addProperty('type', 'website');
 
-        return view('pages.home', compact('sevas', 'events', 'timings', 'announcements', 'campaigns', 'intro'));
+        return view('pages.home', compact(
+            'sevas',
+            'events',
+            'timings',
+            'announcements',
+            'featuredCampaign',
+            'galleryPreview',
+            'intro',
+        ));
     }
 }

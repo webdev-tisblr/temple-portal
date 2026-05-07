@@ -13,9 +13,9 @@
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
     <p class="text-amber-100/60 leading-relaxed mb-10">
-        Shree Pataliya Hanumanji Dham Gandhidham-Kutch ma aaveloo chhe.
-        Aaaspas na aneka prasiddha dharma-sthaano, historical sites ane natural beauty na sthaano
-        chhe je yatriyo visit kari shake chhe.
+        શ્રી પાતળિયા હનુમાનજી ધામ ગાંધીધામ-કચ્છમાં આવેલું છે.
+        આસપાસ અનેક પ્રસિદ્ધ ધર્મ-સ્થાનો, ઐતિહાસિક સ્થળો અને કુદરતી સૌંદર્યથી
+        સભર સ્થાનો છે, જ્યાં યાત્રિકો અવશ્ય મુલાકાત લઈ શકે છે.
     </p>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -23,51 +23,45 @@
         @php
         $places = [
             [
-                'name'     => 'Gandhidham Railway Station',
-                'distance' => '~3 km',
-                'type'     => 'Transport',
-                'color'    => 'blue',
-                'desc'     => 'Gandhidham Junction — Kutch no sabse moto railway station. Mumbai, Ahmedabad, Delhi sathe direct trains.',
+                'name'     => 'ગાંધીધામ રેલવે સ્ટેશન',
+                'distance' => '~૩ કિ.મી.',
+                'type'     => 'પરિવહન',
+                'desc'     => 'ગાંધીધામ જંકશન — કચ્છનું સૌથી મોટું રેલવે સ્ટેશન. મુંબઈ, અમદાવાદ અને દિલ્હી સાથે સીધી ટ્રેનો.',
                 'icon'     => 'M3 10h18M3 14h18M8 6V3m8 3V3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
             ],
             [
-                'name'     => 'Kandla Port (Deendayal Port)',
-                'distance' => '~12 km',
-                'type'     => 'Historical',
-                'color'    => 'teal',
-                'desc'     => 'Bhaaratno sabse juno seaport. Industrial history ane sunrise views famous chhe.',
+                'name'     => 'કંડલા પોર્ટ (દીનદયાલ પોર્ટ)',
+                'distance' => '~૧૨ કિ.મી.',
+                'type'     => 'ઐતિહાસિક',
+                'desc'     => 'ભારતનું સૌથી જૂનું બંદર. ઔદ્યોગિક ઇતિહાસ અને સૂર્યોદય માટે પ્રખ્યાત.',
                 'icon'     => 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z',
             ],
             [
-                'name'     => 'Pingleshwar Beach',
-                'distance' => '~35 km',
-                'type'     => 'Natural',
-                'color'    => 'cyan',
-                'desc'     => 'Ekant ane sunder beach. Pristine sandy shore, sunset views. Perfect for meditation and relaxation.',
+                'name'     => 'પિંગળેશ્વર બીચ',
+                'distance' => '~૩૫ કિ.મી.',
+                'type'     => 'કુદરતી',
+                'desc'     => 'એકાંત અને સુંદર બીચ. સ્વચ્છ રેતી, સૂર્યાસ્તના નયનરમ્ય દ્રશ્યો — ધ્યાન અને વિશ્રામ માટે અનુકૂળ.',
                 'icon'     => 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9',
             ],
             [
-                'name'     => 'Mata no Madh (Ashapura Mata)',
-                'distance' => '~85 km',
-                'type'     => 'Dharmik',
-                'color'    => 'orange',
-                'desc'     => 'Kutch ni Kuldevi Ashapura Mata no famous mandir. Navraatri darimiyan lakhon bhakto darshan mate aave.',
+                'name'     => 'માતાનો મઢ (આશાપુરા માતા)',
+                'distance' => '~૮૫ કિ.મી.',
+                'type'     => 'ધાર્મિક',
+                'desc'     => 'કચ્છની કુળદેવી આશાપુરા માતાનું પ્રસિદ્ધ મંદિર. નવરાત્રિ દરમિયાન લાખો ભક્તો દર્શન માટે પધારે છે.',
                 'icon'     => 'M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707',
             ],
             [
-                'name'     => 'Bhuj City (Kutch Capital)',
-                'distance' => '~55 km',
-                'type'     => 'City / Tourism',
-                'color'    => 'purple',
-                'desc'     => 'Kutch nu matha-makkam. Prag Mahal, Aina Mahal, Kutch Museum ane famous Kutch handicrafts market.',
+                'name'     => 'ભુજ શહેર (કચ્છનું મુખ્ય મથક)',
+                'distance' => '~૫૫ કિ.મી.',
+                'type'     => 'નગર / પ્રવાસન',
+                'desc'     => 'કચ્છનું મુખ્ય મથક. પ્રાગ મહેલ, આયના મહેલ, કચ્છ મ્યુઝિયમ અને જગપ્રસિદ્ધ કચ્છી હસ્તકલા બજાર.',
                 'icon'     => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4',
             ],
             [
-                'name'     => 'Mandvi Beach',
-                'distance' => '~60 km',
-                'type'     => 'Natural',
-                'color'    => 'emerald',
-                'desc'     => 'Kutch no sabse prasiddha beach. Sunset views, camel rides ane Vijay Vilas Palace sathe famous tourist spot.',
+                'name'     => 'માંડવી બીચ',
+                'distance' => '~૬૦ કિ.મી.',
+                'type'     => 'કુદરતી',
+                'desc'     => 'કચ્છનો સૌથી પ્રસિદ્ધ બીચ. સૂર્યાસ્ત, ઊંટ-સવારી અને વિજય-વિલાસ પેલેસ સાથેનો જાણીતો પ્રવાસ-સ્થળ.',
                 'icon'     => 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9',
             ],
         ];
@@ -94,7 +88,7 @@
     </div>
 
     <div class="mt-10 bg-amber-900/20 border border-amber-800/30 rounded-xl p-5 text-sm text-amber-100/50">
-        <p><strong class="text-amber-100/70">Note:</strong> Aapelaa distances approximate chhe. Actual travel time traffic par depend karshhe. Proper planning sathe tour karo.</p>
+        <p><strong class="text-amber-100/70">નોંધ:</strong> દર્શાવેલ અંતર અંદાજિત છે. વાસ્તવિક પ્રવાસ-સમય ટ્રાફિક પર આધાર રાખે છે. યોગ્ય આયોજન સાથે મુલાકાત લેવી.</p>
     </div>
 
 </div>

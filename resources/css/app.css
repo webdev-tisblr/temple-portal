@@ -271,6 +271,57 @@
 .bg-stone-900,
 .bg-stone-950 { background-color: #FBF5EA !important; }
 
+/* ─── Status chips: emerald (success) ─── */
+.bg-emerald-950,
+.bg-emerald-950\/60,
+.bg-emerald-950\/50,
+.bg-emerald-950\/40,
+.bg-emerald-950\/30,
+.bg-emerald-900,
+.bg-emerald-900\/40,
+.bg-emerald-900\/30,
+.bg-emerald-900\/20 { background-color: rgba(63, 122, 63, 0.14) !important; }
+.border-emerald-800,
+.border-emerald-800\/40,
+.border-emerald-800\/30,
+.border-emerald-700\/40,
+.border-emerald-700\/30 { border-color: rgba(63, 122, 63, 0.40) !important; }
+.text-emerald-300,
+.text-emerald-400,
+.text-emerald-500 { color: #2D5F2D !important; }
+
+/* ─── Status chips: red (error / out-of-stock / urgent) ─── */
+.bg-red-950,
+.bg-red-950\/60,
+.bg-red-950\/50,
+.bg-red-950\/40,
+.bg-red-950\/30,
+.bg-red-900,
+.bg-red-900\/40,
+.bg-red-900\/30,
+.bg-red-900\/20 { background-color: rgba(168, 50, 50, 0.10) !important; }
+.border-red-800,
+.border-red-800\/40,
+.border-red-800\/30,
+.border-red-700\/40,
+.border-red-700\/30 { border-color: rgba(168, 50, 50, 0.40) !important; }
+.text-red-400,
+.text-red-500 { color: #A83232 !important; }
+
+/* `bg-black/X` overlays — used as image hovers, carousel buttons, captions.
+   On parchment most should be a soft maroon ink scrim.
+   Exceptions (full-screen lightboxes etc.) use bg-black/95 or specific
+   utility values and should remain dark — keep those untouched. */
+.bg-black\/40 { background-color: rgba(42, 24, 16, 0.35) !important; }
+.bg-black\/50 { background-color: rgba(42, 24, 16, 0.40) !important; }
+.bg-black\/60 { background-color: rgba(42, 24, 16, 0.50) !important; }
+.bg-black\/70 { background-color: rgba(42, 24, 16, 0.60) !important; }
+.hover\:bg-black\/60:hover { background-color: rgba(42, 24, 16, 0.55) !important; }
+.hover\:bg-black\/70:hover { background-color: rgba(42, 24, 16, 0.65) !important; }
+/* `bg-black/0 → bg-black/40` gallery hover dim — soft maroon wash on hover */
+.bg-black\/0 { background-color: transparent !important; }
+.group:hover .group-hover\:bg-black\/40 { background-color: rgba(42, 24, 16, 0.30) !important; }
+
 /* Gradient utilities — neutralise dark amber gradients */
 .from-amber-900,
 .from-amber-900\/60,

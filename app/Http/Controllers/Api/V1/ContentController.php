@@ -373,10 +373,15 @@ class ContentController extends BaseApiController
             'message' => 'required|string|max:2000',
         ]);
 
-        ContactSubmission::create(array_merge($validated, [
+        $submission = ContactSubmission::create(array_merge($validated, [
             'ip_address' => $request->ip(),
             'is_read' => false,
         ]));
+
+        app(\App\Services\Notifications\NotificationService::class)->dispatch('contact.submitted', [
+            'submission' => $submission,
+            'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+        ]);
 
         return $this->success(null, 'તમારો સંદેશ સફળતાપૂર્વક મોકલાયો.');
     }

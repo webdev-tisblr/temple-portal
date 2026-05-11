@@ -17,12 +17,12 @@ use Filament\Tables\Table;
 class NotificationTemplateResource extends Resource
 {
     protected static ?string $model = NotificationTemplate::class;
-    protected static ?string $navigationIcon = 'heroicon-o-bell-alert';
-    protected static ?string $navigationGroup = 'System';
+    protected static ?string $navigationIcon = 'heroicon-o-envelope-open';
+    protected static ?string $navigationGroup = 'Communication';
     protected static ?int $navigationSort = 2;
-    protected static ?string $navigationLabel = 'Notifications';
-    protected static ?string $modelLabel = 'Notification template';
-    protected static ?string $pluralModelLabel = 'Notification templates';
+    protected static ?string $navigationLabel = 'Email & WhatsApp';
+    protected static ?string $modelLabel = 'Email / WhatsApp template';
+    protected static ?string $pluralModelLabel = 'Email & WhatsApp';
 
     public static function form(Form $form): Form
     {
@@ -37,13 +37,38 @@ class NotificationTemplateResource extends Resource
                             ->searchable()
                             ->required()
                             ->live()
+                            // When the admin picks a trigger AND the
+                            // placeholder map is still empty, pre-fill it
+                            // from the registry so they get every available
+                            // token mapped to its dot-path automatically.
+                            // Existing maps are never overwritten.
+                            ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                                if (! $state) return;
+                                $existing = $get('placeholder_map');
+                                if (is_array($existing) && count(array_filter($existing)) > 0) return;
+                                $info = NotificationRegistry::describe($state);
+                                if (! $info) return;
+                                $map = [];
+                                foreach ($info['placeholders'] as $token => $desc) {
+                                    // Description is "Donor name (donation.devotee.name)" —
+                                    // pull the dot-path out of the trailing parens.
+                                    if (preg_match('/\\(([^)]+)\\)\\s*$/', (string) $desc, $m)) {
+                                        $map[$token] = $m[1];
+                                    } else {
+                                        $map[$token] = $token;
+                                    }
+                                }
+                                $set('placeholder_map', $map);
+                            })
                             ->columnSpan(1),
                         Forms\Components\Select::make('channel')
                             ->label('Channel')
+                            // Push templates live under the separate
+                            // "Push Notifications" resource — they\'re
+                            // admin-broadcast, not template-driven.
                             ->options([
                                 NotificationTemplate::CHANNEL_EMAIL => 'Email',
                                 NotificationTemplate::CHANNEL_WHATSAPP => 'WhatsApp',
-                                NotificationTemplate::CHANNEL_PUSH => 'Push',
                             ])
                             ->required()
                             ->live()
@@ -138,63 +163,80 @@ class NotificationTemplateResource extends Resource
                             ->helperText('e.g. en, gu_IN, hi_IN.'),
                     ]),
 
+                    Forms\Components\Placeholder::make('wa_components_help')
+                        ->label('How to fill the parameter table')
+                        ->columnSpanFull()
+                        ->content(new \Illuminate\Support\HtmlString(
+                            '<div style="font-size:0.875rem;line-height:1.55;">'
+                            . '<p style="margin:0 0 0.5rem;">A WhatsApp template message has three possible <strong>sections</strong> — <strong>Header</strong>, <strong>Body</strong> and <strong>Buttons</strong> — each with its own list of variables (the <code>{{1}}</code>, <code>{{2}}</code>… you see in Meta\'s template editor).</p>'
+                            . '<ol style="margin:0 0 0.5rem 1.25rem; padding:0;">'
+                            . '<li>Add one <strong>outer row</strong> per section your template actually uses (skip sections that have no variables).</li>'
+                            . '<li>For each outer row, add one <strong>inner Parameter</strong> per <code>{{n}}</code> placeholder in that section, <em>in the same order</em>.</li>'
+                            . '<li>In each inner Parameter, set <em>Type</em> to <code>text</code> (or image/document/video for media) and type a token name into <em>Value token</em> — e.g. <code>donor_name</code>. The Placeholder map below decides what real value the token resolves to (usually it\'s filled for you automatically).</li>'
+                            . '</ol>'
+                            . '<p style="margin:0;"><strong>Example:</strong> Meta template body says <em>"Hi {{1}}, your donation of ₹{{2}} is received."</em> → one outer row of <code>type: body</code> with two inner Parameters: <code>donor_name</code>, then <code>amount</code>.</p>'
+                            . '</div>'
+                        )),
+
                     Forms\Components\Repeater::make('wa_components')
-                        ->label('Template parameters')
-                        ->helperText('Mirror the parameters of the chosen WhatsApp template, in order. Each value_token is resolved through the placeholder map below.')
+                        ->label('Sections (header / body / button)')
+                        ->addActionLabel('+ Add a section')
+                        ->itemLabel(fn (array $state): ?string => isset($state['type']) ? strtoupper($state['type']) : null)
                         ->schema([
                             Forms\Components\Grid::make(3)->schema([
-                                Forms\Components\Select::make('type')->options([
-                                    'header' => 'Header',
-                                    'body' => 'Body',
-                                    'button' => 'Button',
-                                ])->required(),
-                                Forms\Components\TextInput::make('sub_type')->placeholder('url / quick_reply (button only)'),
-                                Forms\Components\TextInput::make('index')->placeholder('Button index (0-based)')->numeric(),
+                                Forms\Components\Select::make('type')
+                                    ->label('Section')
+                                    ->options([
+                                        'header' => 'Header',
+                                        'body' => 'Body',
+                                        'button' => 'Button',
+                                    ])
+                                    ->required(),
+                                Forms\Components\Select::make('sub_type')
+                                    ->label('Button sub-type')
+                                    ->options(['url' => 'URL button', 'quick_reply' => 'Quick reply'])
+                                    ->placeholder('— only for buttons —'),
+                                Forms\Components\TextInput::make('index')
+                                    ->label('Button index')
+                                    ->placeholder('0-based, only for buttons')
+                                    ->numeric(),
                             ]),
+
                             Forms\Components\Repeater::make('parameters')
+                                ->label('Variables ({{1}}, {{2}}, …) for this section')
+                                ->addActionLabel('+ Add a variable')
+                                ->itemLabel(fn (array $state): ?string => $state['value_token'] ?? null)
                                 ->schema([
                                     Forms\Components\Grid::make(3)->schema([
-                                        Forms\Components\Select::make('type')->options([
-                                            'text' => 'Text',
-                                            'image' => 'Image',
-                                            'document' => 'Document',
-                                            'video' => 'Video',
-                                        ])->default('text')->required(),
+                                        Forms\Components\Select::make('type')
+                                            ->label('Variable type')
+                                            ->options([
+                                                'text' => 'Text',
+                                                'image' => 'Image',
+                                                'document' => 'Document',
+                                                'video' => 'Video',
+                                            ])
+                                            ->default('text')
+                                            ->required(),
                                         Forms\Components\TextInput::make('value_token')
+                                            ->label('Value token')
                                             ->placeholder('e.g. donor_name')
-                                            ->helperText('Token resolved via placeholder map.'),
+                                            ->helperText('Pick a token from the Placeholder map below.'),
                                         Forms\Components\TextInput::make('filename')
-                                            ->placeholder('Document filename (optional)'),
+                                            ->label('Filename')
+                                            ->placeholder('Only for documents'),
                                     ]),
-                                ])->collapsible()->itemLabel(fn (array $state): ?string => $state['value_token'] ?? null),
+                                ])
+                                ->collapsible(),
                         ])
                         ->collapsible()
                         ->columnSpanFull(),
                 ]),
 
-            // ── Push channel ───────────────────────────────────────────
-            Forms\Components\Section::make('Push notification content')
-                ->visible(fn (Forms\Get $get) => $get('channel') === NotificationTemplate::CHANNEL_PUSH)
-                ->schema([
-                    Forms\Components\Tabs::make('Push')->tabs([
-                        Forms\Components\Tabs\Tab::make('ગુજરાતી')->schema([
-                            Forms\Components\TextInput::make('push_title.gu')->label('Title (GU)')->maxLength(64),
-                            Forms\Components\Textarea::make('push_body.gu')->label('Body (GU)')->rows(3),
-                        ]),
-                        Forms\Components\Tabs\Tab::make('हिन्दी')->schema([
-                            Forms\Components\TextInput::make('push_title.hi')->label('Title (HI)')->maxLength(64),
-                            Forms\Components\Textarea::make('push_body.hi')->label('Body (HI)')->rows(3),
-                        ]),
-                        Forms\Components\Tabs\Tab::make('English')->schema([
-                            Forms\Components\TextInput::make('push_title.en')->label('Title (EN)')->maxLength(64),
-                            Forms\Components\Textarea::make('push_body.en')->label('Body (EN)')->rows(3),
-                        ]),
-                    ])->columnSpanFull(),
-                    Forms\Components\TextInput::make('push_deep_link')
-                        ->label('Deep link (optional)')
-                        ->placeholder('app://donations/{{ donation_id }}')
-                        ->columnSpanFull(),
-                ]),
+            // Push templates have been moved to the separate "Push
+            // Notifications" admin resource — broadcast-style fan-out to
+            // every device-token registered with FCM. This resource is
+            // now scoped to email + WhatsApp only.
 
             // ── Recipient + placeholders ───────────────────────────────
             Forms\Components\Section::make('Recipient')->schema([
@@ -221,7 +263,14 @@ class NotificationTemplateResource extends Resource
             ])->columns(2),
 
             Forms\Components\Section::make('Placeholder map')
-                ->description('Map each {{ token }} you used above to a dot-path inside the dispatch context. Tokens with no entry here resolve against the context as-is.')
+                ->description(new \Illuminate\Support\HtmlString(
+                    '<div style="font-size:0.875rem;line-height:1.5;">'
+                    . '<p style="margin:0 0 0.5rem;"><strong>What is this?</strong> When you write <code>{{ donor_name }}</code> in the subject or body above, this table tells the system where to find the real value for <code>donor_name</code>. <em>You usually do not need to touch this</em> — when you pick a trigger above, this table fills itself automatically with all the available tokens for that trigger.</p>'
+                    . '<p style="margin:0;"><strong>If you do edit it:</strong> the <em>Token</em> column is the placeholder you typed (without the curly braces). The <em>Context path</em> column is a dot-separated path into the data the trigger publishes — e.g. <code>donation.devotee.name</code> walks from the donation object, into its devotee relation, and reads the name.</p>'
+                    . '</div>'
+                ))
+                ->collapsible()
+                ->collapsed(true)
                 ->schema([
                     Forms\Components\KeyValue::make('placeholder_map')
                         ->keyLabel('Token')
@@ -229,6 +278,16 @@ class NotificationTemplateResource extends Resource
                         ->columnSpanFull()
                         ->reorderable(false),
                 ]),
+        ]);
+    }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        // Push rows are managed under the separate Push Notifications
+        // resource — keep them out of this list.
+        return parent::getEloquentQuery()->whereIn('channel', [
+            NotificationTemplate::CHANNEL_EMAIL,
+            NotificationTemplate::CHANNEL_WHATSAPP,
         ]);
     }
 
@@ -241,7 +300,6 @@ class NotificationTemplateResource extends Resource
                     ->colors([
                         'primary' => NotificationTemplate::CHANNEL_EMAIL,
                         'success' => NotificationTemplate::CHANNEL_WHATSAPP,
-                        'warning' => NotificationTemplate::CHANNEL_PUSH,
                     ]),
                 Tables\Columns\TextColumn::make('label')->searchable()->limit(40),
                 Tables\Columns\IconColumn::make('is_enabled')->boolean()->label('On'),
@@ -251,7 +309,6 @@ class NotificationTemplateResource extends Resource
                 Tables\Filters\SelectFilter::make('channel')->options([
                     NotificationTemplate::CHANNEL_EMAIL => 'Email',
                     NotificationTemplate::CHANNEL_WHATSAPP => 'WhatsApp',
-                    NotificationTemplate::CHANNEL_PUSH => 'Push',
                 ]),
                 Tables\Filters\TernaryFilter::make('is_enabled')->label('Enabled'),
             ])

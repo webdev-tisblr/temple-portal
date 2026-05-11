@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Jobs\SendWhatsAppMessage;
 use App\Models\OtpCode;
+use App\Services\Notifications\NotificationService;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
@@ -39,19 +39,15 @@ class OtpService
 
         Log::info("OTP for {$phone}: {$code}");
 
-        // Send OTP via WhatsApp (skip in local — API onboarding in progress)
+        // Route the OTP send through the central notification dispatcher.
+        // Every enabled NotificationTemplate for 'auth.otp' fires
+        // (WhatsApp today; SMS once the channel driver lands; email
+        // when admin enables it).
         if (! app()->environment('local')) {
-            SendWhatsAppMessage::dispatch($phone, 'template', [
-                'template_name' => 'otp_verification',
-                'language_code' => 'en',
-                'components' => [
-                    [
-                        'type' => 'body',
-                        'parameters' => [
-                            ['type' => 'text', 'text' => $code],
-                        ],
-                    ],
-                ],
+            app(NotificationService::class)->dispatch('auth.otp', [
+                'phone' => $phone,
+                'otp' => $code,
+                'expires_in_minutes' => 10,
             ]);
         }
 

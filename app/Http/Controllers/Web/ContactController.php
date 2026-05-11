@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\ContactSubmission;
 use App\Models\SystemSetting;
+use App\Services\Notifications\NotificationService;
 use Artesaos\SEOTools\Facades\SEOMeta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,11 +43,18 @@ class ContactController extends Controller
             'message' => 'required|string|max:2000',
         ]);
 
-        ContactSubmission::create(array_merge($validated, [
+        $submission = ContactSubmission::create(array_merge($validated, [
             'subject' => $validated['subject'] ?? 'General inquiry',
             'ip_address' => $request->ip(),
             'is_read' => false,
         ]));
+
+        // Notify admin via every enabled channel (email + WhatsApp once
+        // the admin enables those templates from /admin/system).
+        app(NotificationService::class)->dispatch('contact.submitted', [
+            'submission' => $submission,
+            'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+        ]);
 
         return back()->with('success', 'તમારો સંદેશ મોકલવામાં આવ્યો છે. અમે ટૂંક સમયમાં સંપર્ક કરીશું.');
     }

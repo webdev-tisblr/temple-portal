@@ -70,11 +70,19 @@ class AuthWebController extends Controller
                 'last_login_at' => now(),
             ]
         );
+        $wasNew = $devotee->wasRecentlyCreated;
 
         $devotee->update([
             'phone_verified_at' => now(),
             'last_login_at' => now(),
         ]);
+
+        if ($wasNew) {
+            app(\App\Services\Notifications\NotificationService::class)->dispatch(
+                'devotee.registered',
+                ['devotee' => $devotee],
+            );
+        }
 
         Auth::guard('devotee')->login($devotee);
 

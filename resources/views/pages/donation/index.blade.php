@@ -18,14 +18,19 @@
 
     <div class="card-sacred p-6 sm:p-8">
 
-        {{-- Preset Amounts --}}
+        {{-- Preset Amounts.
+             Chip click writes the preset into the amount input below
+             and into the hidden `amount` (the single source of truth
+             for the form). Typing into the input is also reflected back
+             into `amount`, so admins/devotees can pick a preset and
+             then override it. Mirrors the mobile donate screen. --}}
         <div class="mb-6">
             <label class="block text-sm font-medium text-amber-600 mb-3">રકમ પસંદ કરો</label>
             <div class="grid grid-cols-3 gap-3">
                 @foreach([101, 501, 1100, 2100, 5100, 11000] as $preset)
                     <button type="button"
-                        @click="amount = {{ $preset }}; customAmount = ''"
-                        :class="amount === {{ $preset }} && !customAmount ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-900 border-amber-500 font-bold' : 'bg-transparent text-amber-100/60 border-amber-800/30 hover:border-amber-600'"
+                        @click="selectPreset({{ $preset }})"
+                        :class="amount === {{ $preset }} ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-900 border-amber-500 font-bold' : 'bg-transparent text-amber-100/60 border-amber-800/30 hover:border-amber-600'"
                         class="py-3 border rounded-lg text-sm font-semibold transition">
                         ₹{{ number_format($preset) }}
                     </button>
@@ -33,14 +38,16 @@
             </div>
         </div>
 
-        {{-- Custom Amount --}}
+        {{-- Custom Amount.
+             Filled automatically when a preset chip is clicked; typing
+             here overrides the chip selection. --}}
         <div class="mb-6">
-            <label class="block text-sm font-medium text-amber-600 mb-1">અથવા કસ્ટમ રકમ</label>
+            <label class="block text-sm font-medium text-amber-600 mb-1">રકમ</label>
             <div class="flex">
                 <span class="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-amber-800/30 bg-amber-900/20 text-amber-500 font-medium">₹</span>
                 <input type="number" min="1" placeholder="રકમ દાખલ કરો"
                     x-model="customAmount"
-                    @input="if(customAmount) amount = parseInt(customAmount)"
+                    @input="amount = customAmount ? parseInt(customAmount) : 0"
                     class="flex-1 block w-full rounded-r-lg bg-transparent border-amber-800/30 text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20 text-lg">
             </div>
         </div>
@@ -160,7 +167,7 @@
 function donationForm() {
     return {
         amount: 1100,
-        customAmount: '',
+        customAmount: '1100',
         selectedTypeId: '',
         donationType: 'general',
         purpose: '',
@@ -169,6 +176,13 @@ function donationForm() {
 
         // Donation types data from server
         donationTypesData: @json($donationTypesJs),
+
+        // Chip click — write the preset into both the canonical amount
+        // and the visible custom input so the value is editable.
+        selectPreset(preset) {
+            this.amount = preset;
+            this.customAmount = String(preset);
+        },
 
         onTypeChange() {
             const selected = this.donationTypesData.find(t => t.id == this.selectedTypeId);

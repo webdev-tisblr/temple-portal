@@ -141,15 +141,27 @@
             </div>
         @endif
 
-        {{-- Date Picker --}}
+        {{-- Date picker — horizontal chip carousel.
+             Mirrors the seva-detail date picker (and the mobile app).
+             Shows the next 60 days for hall booking; availability is
+             checked per-chip via checkAvailability() once the booking
+             type below is set. --}}
         <div class="mb-5">
-            <label class="block text-sm font-medium text-amber-600 mb-1">તારીખ પસંદ કરો <span class="text-red-400">*</span></label>
-            <input type="date"
-                :min="minDate"
-                :max="maxDate"
-                x-model="selectedDate"
-                @change="checkAvailability()"
-                class="w-full sm:w-auto bg-transparent border-amber-800/30 rounded-lg text-amber-100 focus:border-amber-600 focus:ring-amber-600/20">
+            <label class="block text-sm font-medium text-amber-600 mb-2">તારીખ પસંદ કરો <span class="text-red-400">*</span></label>
+            <div class="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x"
+                 style="scrollbar-width: thin;">
+                <template x-for="day in upcomingDays" :key="day.date">
+                    <button type="button" @click="pickDate(day.date)"
+                        :class="selectedDate === day.date
+                            ? 'bg-gradient-to-br from-amber-600 to-amber-500 text-stone-900 border-amber-500 shadow-md'
+                            : 'bg-transparent text-amber-100/70 border-amber-800/30 hover:border-amber-600'"
+                        class="flex-shrink-0 w-16 py-2 border rounded-xl text-center transition snap-start">
+                        <span class="block text-[10px] font-medium uppercase tracking-wide opacity-80" x-text="day.dayLabel"></span>
+                        <span class="block text-xl font-black leading-none mt-0.5" x-text="day.dayOfMonth"></span>
+                        <span class="block text-[10px] mt-0.5 opacity-70" x-text="day.monthLabel"></span>
+                    </button>
+                </template>
+            </div>
         </div>
 
         {{-- Booking Type --}}
@@ -314,19 +326,41 @@ function hallGallery() {
 function hallBooking() {
     const today = new Date();
     const maxDay = new Date();
-    maxDay.setDate(today.getDate() + 90);
+    maxDay.setDate(today.getDate() + 60);
 
     const pricePerDay = {{ (float) $hall->price_per_day }};
     const pricePerHalfDay = {{ (float) $hall->price_per_half_day }};
     const hallId = {{ $hall->id }};
+
+    // Build the next 60 days for the chip carousel — local-time
+    // midnight so day-of-week / month labels are temple-local.
+    const dayLabels = ['રવિ', 'સોમ', 'મંગળ', 'બુધ', 'ગુરુ', 'શુક્ર', 'શનિ'];
+    const monthLabels = ['જાન્યુ', 'ફેબ્રુ', 'માર્ચ', 'એપ્રિલ', 'મે', 'જૂન', 'જુલાઈ', 'ઑગસ્ટ', 'સપ્ટે', 'ઑક્ટો', 'નવે', 'ડિસે'];
+    const pad = n => String(n).padStart(2, '0');
+    const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const days = [];
+    for (let i = 0; i < 60; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() + i);
+        days.push({
+            date: fmt(d),
+            dayLabel: dayLabels[d.getDay()],
+            dayOfMonth: d.getDate(),
+            monthLabel: monthLabels[d.getMonth()],
+        });
+    }
 
     return {
         selectedDate: '',
         bookingType: '',
         checking: false,
         available: null,
-        minDate: today.toISOString().split('T')[0],
-        maxDate: maxDay.toISOString().split('T')[0],
+        upcomingDays: days,
+
+        pickDate(iso) {
+            this.selectedDate = iso;
+            this.checkAvailability();
+        },
 
         get calculatedAmount() {
             if (this.bookingType === 'full_day') return pricePerDay;

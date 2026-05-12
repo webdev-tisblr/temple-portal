@@ -49,14 +49,16 @@
                 આ પ્રોજેક્ટ સમાપ્ત થયો છે
             </div>
         @else
-            {{-- Preset Amounts --}}
+            {{-- Preset Amounts.
+                 Chip click fills the input below; typing in the input
+                 overrides the chip. Same flow as /donate. --}}
             <div class="mb-4">
                 <label class="block text-sm font-medium text-amber-600 mb-2">રકમ પસંદ કરો</label>
                 <div class="grid grid-cols-3 gap-2">
                     @foreach([501, 1100, 2100, 5100, 11000] as $preset)
                         <button type="button"
-                            @click="amount = {{ $preset }}; customAmount = ''"
-                            :class="amount === {{ $preset }} && !customAmount ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-900 border-amber-500 font-bold' : 'bg-transparent text-amber-100/60 border-amber-800/30 hover:border-amber-600'"
+                            @click="amount = {{ $preset }}; customAmount = '{{ $preset }}'"
+                            :class="amount === {{ $preset }} ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-900 border-amber-500 font-bold' : 'bg-transparent text-amber-100/60 border-amber-800/30 hover:border-amber-600'"
                             class="py-2.5 border rounded-lg text-sm font-semibold transition">
                             ₹{{ number_format($preset) }}
                         </button>
@@ -66,12 +68,12 @@
 
             {{-- Custom Amount --}}
             <div class="mb-4">
-                <label class="block text-sm font-medium text-amber-600 mb-1">અથવા કસ્ટમ રકમ</label>
+                <label class="block text-sm font-medium text-amber-600 mb-1">રકમ</label>
                 <div class="flex">
                     <span class="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-amber-800/30 bg-amber-900/20 text-amber-500 font-medium text-sm">₹</span>
                     <input type="number" min="1" placeholder="રકમ દાખલ કરો"
                         x-model="customAmount"
-                        @input="if(customAmount) amount = parseInt(customAmount)"
+                        @input="amount = customAmount ? parseInt(customAmount) : 0"
                         class="flex-1 block w-full rounded-r-lg bg-transparent border-amber-800/30 text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
                 </div>
             </div>
@@ -191,7 +193,7 @@
 function campaignDonation() {
     return {
         amount: 1100,
-        customAmount: '',
+        customAmount: '1100',
         anonymous: false,
         copied: false,
 

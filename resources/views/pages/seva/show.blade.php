@@ -50,15 +50,38 @@
                 <div class="mt-8 border-t border-amber-900/20 pt-6" x-data="slotPicker({{ $seva->id }})">
                     <h2 class="text-lg font-semibold text-gold mb-4">તારીખ અને સમય પસંદ કરો</h2>
 
-                    {{-- Date Picker --}}
+                    {{-- Date picker — horizontal chip carousel.
+                         Mirrors the mobile seva detail screen exactly:
+                         only bookable dates appear (returned by
+                         /sevas/{id}/available-dates), each chip shows
+                         day label + day number + month, and the
+                         selected chip is highlighted in saffron. --}}
                     <div class="mb-4">
-                        <label class="block text-sm font-medium text-amber-600 mb-1">તારીખ</label>
-                        <input type="date"
-                            :min="minDate"
-                            :max="maxDate"
-                            x-model="selectedDate"
-                            @change="fetchSlots()"
-                            class="w-full sm:w-auto bg-transparent border-amber-800/30 rounded-lg text-amber-100 focus:border-amber-600 focus:ring-amber-600/20">
+                        <label class="block text-sm font-medium text-amber-600 mb-2">તારીખ પસંદ કરો</label>
+
+                        <div x-show="datesLoading" class="text-amber-100/40 text-xs py-2">
+                            તારીખો લોડ થઈ રહી છે...
+                        </div>
+
+                        <div x-show="!datesLoading && availableDates.length === 0" class="text-sm py-3 px-4 bg-amber-900/10 border border-amber-800/30 rounded-lg text-amber-100/60">
+                            હાલ આગામી 30 દિવસોમાં કોઈ ઉપલબ્ધ તારીખ નથી.
+                        </div>
+
+                        <div x-show="!datesLoading && availableDates.length > 0"
+                             class="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x"
+                             style="scrollbar-width: thin;">
+                            <template x-for="day in availableDates" :key="day.date">
+                                <button type="button" @click="pickDate(day.date)"
+                                    :class="selectedDate === day.date
+                                        ? 'bg-gradient-to-br from-amber-600 to-amber-500 text-stone-900 border-amber-500 shadow-md'
+                                        : 'bg-transparent text-amber-100/70 border-amber-800/30 hover:border-amber-600'"
+                                    class="flex-shrink-0 w-16 py-2 border rounded-xl text-center transition snap-start">
+                                    <span class="block text-[10px] font-medium uppercase tracking-wide opacity-80" x-text="day.dayLabel"></span>
+                                    <span class="block text-xl font-black leading-none mt-0.5" x-text="day.dayOfMonth"></span>
+                                    <span class="block text-[10px] mt-0.5 opacity-70" x-text="day.monthLabel"></span>
+                                </button>
+                            </template>
+                        </div>
                     </div>
 
                     {{-- Slots --}}
@@ -193,24 +216,12 @@
 @push('scripts')
 <script>
 function slotPicker(sevaId) {
-    const today = new Date();
-    const defaultMax = new Date();
-    defaultMax.setDate(today.getDate() + 30);
-
     const config = @json($seva->getResolvedSlotConfig());
-    const acceptance = config.acceptance_period || {};
 
-    let computedMin = today.toISOString().split('T')[0];
-    let computedMax = defaultMax.toISOString().split('T')[0];
-
-    if (acceptance.type === 'range') {
-        if (acceptance.start_date && acceptance.start_date > computedMin) {
-            computedMin = acceptance.start_date;
-        }
-        if (acceptance.end_date) {
-            computedMax = acceptance.end_date;
-        }
-    }
+    // Gujarati day-of-week labels — week starts Monday = index 0 for
+    // Carbon parity, but JS Date.getDay() returns Sun=0..Sat=6.
+    const dayLabels = ['રવિ', 'સોમ', 'મંગળ', 'બુધ', 'ગુરુ', 'શુક્ર', 'શનિ'];
+    const monthLabels = ['જાન્યુ', 'ફેબ્રુ', 'માર્ચ', 'એપ્રિલ', 'મે', 'જૂન', 'જુલાઈ', 'ઑગસ્ટ', 'સપ્ટે', 'ઑક્ટો', 'નવે', 'ડિસે'];
 
     return {
         sevaId: sevaId,
@@ -227,8 +238,48 @@ function slotPicker(sevaId) {
         devoteeName: '',
         gotra: '',
         sankalp: '',
-        minDate: computedMin,
-        maxDate: computedMax,
+
+        // Date carousel state — populated from the
+        // /sevas/{id}/available-dates endpoint so blackouts, fully
+        // booked dates and today's-elapsed-slots are hidden.
+        availableDates: [],
+        datesLoading: false,
+
+        init() {
+            this.fetchAvailableDates();
+        },
+
+        async fetchAvailableDates() {
+            this.datesLoading = true;
+            try {
+                const res = await fetch(`/api/v1/sevas/${this.sevaId}/available-dates?days=30`);
+                const json = await res.json();
+                const isoList = json.data?.dates || [];
+                this.availableDates = isoList.map(iso => this.decorateDate(iso));
+            } catch (e) {
+                this.availableDates = [];
+            }
+            this.datesLoading = false;
+        },
+
+        decorateDate(iso) {
+            // iso = 'YYYY-MM-DD'. Construct as local-time midnight so
+            // getDay() / getDate() / getMonth() return the temple-local
+            // values regardless of the browser's timezone.
+            const [y, m, d] = iso.split('-').map(Number);
+            const date = new Date(y, m - 1, d);
+            return {
+                date: iso,
+                dayLabel: dayLabels[date.getDay()],
+                dayOfMonth: date.getDate(),
+                monthLabel: monthLabels[date.getMonth()],
+            };
+        },
+
+        pickDate(iso) {
+            this.selectedDate = iso;
+            this.fetchSlots();
+        },
 
         async fetchSlots() {
             if (!this.selectedDate) return;

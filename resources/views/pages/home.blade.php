@@ -496,28 +496,9 @@
 </section>
 @endif
 
-{{-- =================================================================
-     ABOUT — short intro snippet pulled from the Parichay CMS page.
-     ================================================================= --}}
-@if($intro)
-<section class="py-14">
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <div class="divine-divider"><span style="color: #C89434;">🙏</span></div>
-        <h2 class="divine-heading mb-6">{{ $intro->title }}</h2>
-        <div class="text-lg leading-relaxed" style="color: #3E3226;">
-            {!! \Illuminate\Support\Str::limit(strip_tags($intro->body), 480) !!}
-        </div>
-        <div class="mt-7">
-            <a href="/parichay" class="btn-temple">
-                વધુ વાંચો
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
-                </svg>
-            </a>
-        </div>
-    </div>
-</section>
-@endif
+{{-- Parichay (about) section intentionally removed from the home
+     page — full content lives at /parichay and is reachable from the
+     header nav + footer quick-links. --}}
 
 {{-- =================================================================
      VISIT US — address + map + contact.

@@ -9,7 +9,6 @@ use App\Models\DarshanTiming;
 use App\Models\DonationCampaign;
 use App\Models\Event;
 use App\Models\GalleryImage;
-use App\Models\Page;
 use App\Models\Seva;
 use Artesaos\SEOTools\Facades\OpenGraph;
 use Artesaos\SEOTools\Facades\SEOMeta;
@@ -65,10 +64,6 @@ class HomeController extends Controller
             return GalleryImage::orderByDesc('id')->take(8)->get();
         });
 
-        $intro = Cache::remember('page_parichay', 3600, fn () =>
-            Page::where('slug', 'parichay')->where('status', 'published')->first()
-        );
-
         SEOMeta::setTitle('શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ | અંતરજાલ, ગાંધીધામ');
         SEOMeta::setDescription('ગુજરાતમાં હનુમાનજીનું પ્રસિદ્ધ ધામ. ઓનલાઇન સેવા બુકિંગ, દાન, લાઇવ દર્શન.');
         OpenGraph::setUrl(url('/'));
@@ -80,7 +75,6 @@ class HomeController extends Controller
             'timings',
             'campaigns',
             'galleryPreview',
-            'intro',
         ));
     }
 }

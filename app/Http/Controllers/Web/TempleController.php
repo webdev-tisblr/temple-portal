@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\DailyDarshanPhoto;
 use App\Models\DarshanTiming;
 use App\Models\SystemSetting;
 use Artesaos\SEOTools\Facades\SEOMeta;
@@ -21,10 +22,23 @@ class TempleController extends Controller
         $youtubeUrl = SystemSetting::getValue('youtube_live_url');
         $templeRules = SystemSetting::getValue('temple_rules');
 
+        // Today's darshan photo prominent at the top of the page.
+        // Same logic as HomeController — today's first, latest fallback.
+        $dailyDarshanPhoto = Cache::remember('darshan_page_daily_photo', 600, function () {
+            return DailyDarshanPhoto::where('is_active', true)
+                ->whereDate('captured_on', today())
+                ->latest('id')
+                ->first()
+                ?? DailyDarshanPhoto::where('is_active', true)
+                    ->orderByDesc('captured_on')
+                    ->orderByDesc('id')
+                    ->first();
+        });
+
         SEOMeta::setTitle('દર્શન સમય — શ્રી પાતળિયા હનુમાનજી');
         SEOMeta::setDescription('મંદિરના દૈનિક દર્શન સમય અને લાઇવ દર્શન.');
 
-        return view('pages.darshan', compact('timings', 'youtubeUrl', 'templeRules'));
+        return view('pages.darshan', compact('timings', 'youtubeUrl', 'templeRules', 'dailyDarshanPhoto'));
     }
 
     public function trustees(): View

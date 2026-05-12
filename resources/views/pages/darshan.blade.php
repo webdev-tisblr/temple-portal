@@ -9,6 +9,48 @@
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
+    {{-- 0. Today's Darshan Photo — hero card.
+         A fresh "આજનું દર્શન" image set by the temple admin each
+         morning. Falls back to the most recent active photo if today's
+         hasn't been uploaded yet. --}}
+    @if(isset($dailyDarshanPhoto) && $dailyDarshanPhoto)
+        <div class="mb-14">
+            <h2 class="text-2xl font-bold text-gold mb-6 flex items-center gap-3">
+                <span class="text-3xl">🪔</span>
+                આજનું દર્શન
+                @if($dailyDarshanPhoto->captured_on)
+                    <span class="ml-auto text-sm font-normal" style="color: #5E4F3D;">
+                        {{ $dailyDarshanPhoto->captured_on->format('d M, Y') }}
+                    </span>
+                @endif
+            </h2>
+
+            <div class="card-sacred overflow-hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-5">
+                    <div class="lg:col-span-3 aspect-[4/3] lg:aspect-auto overflow-hidden"
+                         style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
+                        <img src="{{ image_url($dailyDarshanPhoto->image_path) }}"
+                             alt="આજનું દર્શન — {{ $dailyDarshanPhoto->captured_on?->format('d M, Y') }}"
+                             class="w-full h-full object-cover">
+                    </div>
+                    <div class="lg:col-span-2 p-6 sm:p-8 flex flex-col justify-center">
+                        <p class="text-xs uppercase tracking-[0.25em] font-bold" style="color: #C45F12;">
+                            {{ $dailyDarshanPhoto->captured_on && $dailyDarshanPhoto->captured_on->isToday()
+                                ? 'આજનું દર્શન'
+                                : 'નવીનતમ દર્શન' }}
+                        </p>
+                        <h3 class="text-2xl font-black mt-3 leading-tight" style="color: #7A1E1E;">
+                            {{ $dailyDarshanPhoto->caption ?: 'જય શ્રી હનુમાનજી' }}
+                        </h3>
+                        <p class="text-sm mt-3" style="color: #5E4F3D;">
+                            મંદિરના પૂજારી દ્વારા દરરોજ સવારે અપડેટ કરવામાં આવેલી છબી.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- 1. Live Darshan Section (TOP) --}}
     <div class="mb-14">
         <h2 class="text-2xl font-bold text-gold mb-6 flex items-center gap-3">

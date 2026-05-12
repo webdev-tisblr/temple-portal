@@ -13,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->web(append: [
+            // Coming-soon gate. Renders pages/coming-soon when the
+            // admin has flipped the toggle on the dashboard.
+            // Bypasses admin / api / asset paths internally.
+            \App\Http\Middleware\ComingSoonMode::class,
             \App\Http\Middleware\SetLocale::class,
         ]);
         $middleware->api(prepend: [

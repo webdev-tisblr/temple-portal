@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use App\Models\DailyDarshanPhoto;
 use App\Models\DarshanTiming;
 use App\Models\DonationCampaign;
 use App\Models\Event;
@@ -70,20 +69,6 @@ class HomeController extends Controller
             Page::where('slug', 'parichay')->where('status', 'published')->first()
         );
 
-        // Today's darshan photo — short cache so admin uploads land
-        // within ~10 min on a busy day. Falls back to the most-recent
-        // active photo so the widget never goes empty.
-        $dailyDarshanPhoto = Cache::remember('homepage_daily_darshan_photo', 600, function () {
-            return DailyDarshanPhoto::where('is_active', true)
-                ->whereDate('captured_on', today())
-                ->latest('id')
-                ->first()
-                ?? DailyDarshanPhoto::where('is_active', true)
-                    ->orderByDesc('captured_on')
-                    ->orderByDesc('id')
-                    ->first();
-        });
-
         SEOMeta::setTitle('શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ | અંતરજાલ, ગાંધીધામ');
         SEOMeta::setDescription('ગુજરાતમાં હનુમાનજીનું પ્રસિદ્ધ ધામ. ઓનલાઇન સેવા બુકિંગ, દાન, લાઇવ દર્શન.');
         OpenGraph::setUrl(url('/'));
@@ -96,7 +81,6 @@ class HomeController extends Controller
             'campaigns',
             'galleryPreview',
             'intro',
-            'dailyDarshanPhoto',
         ));
     }
 }

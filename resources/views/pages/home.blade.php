@@ -256,49 +256,6 @@
 @endif
 
 {{-- =================================================================
-     DAILY DARSHAN PHOTO — today's photo (or latest active fallback).
-     Right after the darshan-samay block so visitors who came to see
-     "what does the deity look like right now" get the answer here.
-     ================================================================= --}}
-@if(isset($dailyDarshanPhoto) && $dailyDarshanPhoto)
-<section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-    <div class="card-sacred overflow-hidden">
-        <div class="grid grid-cols-1 md:grid-cols-5">
-            <div class="md:col-span-3 aspect-[4/3] md:aspect-auto overflow-hidden"
-                 style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
-                <img src="{{ image_url($dailyDarshanPhoto->image_path) }}"
-                     alt="આજનું દર્શન"
-                     loading="lazy"
-                     class="w-full h-full object-cover">
-            </div>
-            <div class="md:col-span-2 p-6 sm:p-8 flex flex-col justify-center">
-                <p class="text-xs uppercase tracking-[0.25em] font-bold" style="color: #C45F12;">આજનું દર્શન</p>
-                <h3 class="text-2xl font-black mt-2 leading-tight" style="color: #7A1E1E;">
-                    {{ $dailyDarshanPhoto->caption ?: 'જય શ્રી હનુમાનજી' }}
-                </h3>
-                @if($dailyDarshanPhoto->captured_on)
-                    <p class="text-sm mt-2 flex items-center gap-1.5" style="color: #5E4F3D;">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                        </svg>
-                        {{ $dailyDarshanPhoto->captured_on->format('d M, Y') }}
-                    </p>
-                @endif
-                <a href="{{ route('gallery') }}"
-                   class="mt-5 inline-flex items-center gap-1 text-sm font-semibold hover:underline self-start"
-                   style="color: #C45F12;">
-                    વધુ ફોટા જુઓ
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
-                </a>
-            </div>
-        </div>
-    </div>
-</section>
-@endif
-
-{{-- =================================================================
      ACTIVE CAMPAIGNS — adaptive layout:
        1 campaign  → single full-width hero card
        2 campaigns → 2-up grid (each card full-width on mobile)
@@ -569,7 +526,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-10">
             <div class="divine-divider"><span style="color: #C89434;">📍</span></div>
-            <h2 class="divine-heading">અમારી મુલાકાત લો</h2>
+            <h2 class="divine-heading">દર્શન માટે પધારો</h2>
             <p class="divine-subtext">અંતરજાલ, ગાંધીધામ, કચ્છ — 370110</p>
         </div>
 

@@ -94,9 +94,42 @@ jobs:
           script: |
             cd ~/domains/patadiyahanumanji.com/public_html
             php artisan migrate --force
+            # Idempotent — only inserts rows that don't already exist.
+            # Seeds the per-channel notification templates so triggers
+            # like contact.submitted have a delivery body the moment
+            # the trigger fires.
+            php artisan db:seed --class=Database\\Seeders\\NotificationTemplatesSeeder --force || true
+
+            # Clear ALL caches BEFORE rebuilding them. Filament's
+            # admin-resource registration is computed from class
+            # discovery at boot — without optimize:clear, a newly-added
+            # resource (or a navigationGroup move) is invisible until
+            # the cached bootstrap PHP is regenerated.
+            php artisan optimize:clear
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
+            php artisan filament:cache-components 2>/dev/null || true
+
+            # Reset Hostinger's PHP-OPcache. Without this, the new
+            # compiled .php files sit on disk but PHP-FPM keeps serving
+            # the old class definitions from memory until the worker
+            # process naturally recycles (can be hours). The one-shot
+            # script trick is the only reliable way on shared hosting
+            # because the SSH session and the web SAPI are separate
+            # PHP processes with separate OPcaches — clearing it from
+            # the CLI only resets the CLI cache.
+            cat > public/_opcache_reset.php << 'PHP'
+            <?php
+            if (function_exists('opcache_reset')) {
+                opcache_reset();
+                echo 'opcache reset';
+            } else {
+                echo 'opcache not available';
+            }
+            PHP
+            curl -s --max-time 10 https://patadiyahanumanji.com/_opcache_reset.php || true
+            rm -f public/_opcache_reset.php
             # storage:link removed — uploads now live in Cloudflare R2,
             # not storage/app/public, so the public/storage symlink is unused.
 

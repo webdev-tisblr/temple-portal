@@ -172,6 +172,32 @@ class NotificationTemplatesSeeder extends Seeder
                 ],
             ],
 
+            // ── AUTH OTP — SMS (MSG91, DLT-approved) ──────────────────────
+            // Off by default — enable AFTER you:
+            //   1. Complete TRAI DLT registration (operator + template).
+            //   2. Paste MSG91 keys into System Settings → SMS.
+            //   3. Paste the MSG91 Template ID into the row's
+            //      "MSG91 Template ID" field (or leave blank to use the
+            //      default OTP template id from settings).
+            //
+            // placeholder_map convention: keys named var1, var2, ...
+            // match MSG91's positional Flow API variables, which fill
+            // the {#var#} placeholders in the DLT-approved template
+            // body in order.
+            [
+                'key' => 'auth.otp',
+                'channel' => NotificationTemplate::CHANNEL_SMS,
+                'label' => 'Auth OTP — SMS (MSG91)',
+                'description' => 'DLT-approved SMS OTP. Required for Play Store / App Store builds.',
+                'is_enabled' => false,
+                'sms_template_id' => null,
+                'recipient_strategy' => NotificationTemplate::RECIPIENT_CONTEXT_PATH,
+                'recipient_value' => 'phone',
+                'placeholder_map' => [
+                    'var1' => 'otp',
+                ],
+            ],
+
             // ── DEVOTEE REGISTERED — welcome (off by default) ─────────────
             [
                 'key' => 'devotee.registered',

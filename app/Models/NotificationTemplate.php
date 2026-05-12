@@ -22,6 +22,7 @@ class NotificationTemplate extends Model
     public const CHANNEL_EMAIL = 'email';
     public const CHANNEL_WHATSAPP = 'whatsapp';
     public const CHANNEL_PUSH = 'push';
+    public const CHANNEL_SMS = 'sms';
 
     public const RECIPIENT_DEVOTEE = 'devotee';
     public const RECIPIENT_TRUST_ADMIN = 'trust_admin';
@@ -42,6 +43,7 @@ class NotificationTemplate extends Model
         'wa_template_name',
         'wa_template_language',
         'wa_components',
+        'sms_template_id',
         'push_title',
         'push_body',
         'push_deep_link',

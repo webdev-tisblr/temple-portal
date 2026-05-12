@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Services\Notifications\Contracts\NotificationDriver;
 use App\Services\Notifications\Drivers\EmailNotificationDriver;
 use App\Services\Notifications\Drivers\PushNotificationDriver;
+use App\Services\Notifications\Drivers\SmsNotificationDriver;
 use App\Services\Notifications\Drivers\WhatsAppNotificationDriver;
 use App\Services\Notifications\NotificationService;
 use Illuminate\Contracts\Foundation\Application;
@@ -26,11 +27,13 @@ class NotificationServiceProvider extends ServiceProvider
         // their constructor-injected collaborators.
         $this->app->singleton(EmailNotificationDriver::class);
         $this->app->singleton(WhatsAppNotificationDriver::class);
+        $this->app->singleton(SmsNotificationDriver::class);
         $this->app->singleton(PushNotificationDriver::class);
 
         $this->app->tag([
             EmailNotificationDriver::class,
             WhatsAppNotificationDriver::class,
+            SmsNotificationDriver::class,
             PushNotificationDriver::class,
         ], NotificationDriver::class);
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Models\SystemSetting;
+use App\Services\SmsService;
 use App\Services\WhatsAppService;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -165,6 +166,54 @@ class SystemSettings extends Page implements HasForms
                                 ])->columnSpanFull(),
                             ])->columns(2)->collapsible(),
 
+                        // SMS — MSG91
+                        Forms\Components\Section::make('SMS — MSG91')
+                            ->icon('heroicon-o-device-phone-mobile')
+                            ->description('Configure MSG91 Flow API credentials. Required for SMS OTP delivery — mandatory for Play Store / App Store builds.')
+                            ->schema([
+                                Forms\Components\TextInput::make('sms_msg91_auth_key')
+                                    ->label('Auth Key')
+                                    ->password()->revealable()
+                                    ->placeholder('From MSG91 dashboard → Settings → API')
+                                    ->helperText('Generated under MSG91 → API menu. Treat like a password.'),
+                                Forms\Components\TextInput::make('sms_msg91_sender_id')
+                                    ->label('Sender ID')
+                                    ->placeholder('SPHTRT')
+                                    ->maxLength(6)
+                                    ->helperText('6-character DLT-registered header (no spaces, letters only on most operators).'),
+                                Forms\Components\TextInput::make('sms_msg91_otp_template_id')
+                                    ->label('Default OTP Template ID')
+                                    ->placeholder('65a1b2c3d4...')
+                                    ->helperText('MSG91 template id for the OTP DLT template. Auth.otp SMS row falls back to this.'),
+                                Forms\Components\TextInput::make('sms_msg91_dlt_te_id')
+                                    ->label('DLT Template Entity ID')
+                                    ->placeholder('1701xxxxxxxxxxxxxxx')
+                                    ->helperText('TRAI-assigned DLT Template Entity ID — included on every send for compliance routing.'),
+                                Forms\Components\TextInput::make('sms_msg91_api_url')
+                                    ->label('API Base URL')
+                                    ->placeholder('https://control.msg91.com/api/v5')
+                                    ->default('https://control.msg91.com/api/v5')
+                                    ->helperText('Leave default unless MSG91 instructs otherwise.'),
+                                Forms\Components\TextInput::make('sms_test_recipient')
+                                    ->label('Test Recipient Mobile')
+                                    ->placeholder('10-digit number, no spaces')
+                                    ->helperText('Enter a number and use the buttons below to verify your setup.'),
+                                Forms\Components\Actions::make([
+                                    Forms\Components\Actions\Action::make('test_sms_connection')
+                                        ->label('Test Connection')
+                                        ->icon('heroicon-o-wifi')
+                                        ->color('primary')
+                                        ->action(fn () => $this->testSmsConnection()),
+                                    Forms\Components\Actions\Action::make('send_test_sms')
+                                        ->label('Send Test OTP')
+                                        ->icon('heroicon-o-paper-airplane')
+                                        ->color('success')
+                                        ->action(function (Forms\Get $get) {
+                                            $this->sendTestSms($get('sms_test_recipient'));
+                                        }),
+                                ])->columnSpanFull(),
+                            ])->columns(2)->collapsible(),
+
                     ]),
 
             ])->persistTabInQueryString(),
@@ -181,6 +230,7 @@ class SystemSettings extends Page implements HasForms
             'razorpay_' => 'payment',
             'mail_' => 'mail',
             'whatsapp_' => 'whatsapp',
+            'sms_' => 'sms',
         ];
 
         foreach ($data as $key => $value) {
@@ -315,18 +365,78 @@ class SystemSettings extends Page implements HasForms
      * service we're about to call sees the same values the admin
      * just typed in. Without this, "Test connection" before "Save"
      * would always test the previously-saved credentials.
+     *
+     * @param string $prefix Key prefix to scope the flush — typically
+     *                       'whatsapp_' or 'sms_'.
+     * @param string $group  SystemSetting.group value for new rows.
      */
-    private function persistFormState(): void
+    private function persistFormState(string $prefix = 'whatsapp_', string $group = 'whatsapp'): void
     {
         $data = $this->form->getState();
         foreach ($data as $key => $value) {
-            // Only the WhatsApp keys are needed for these actions; we
-            // avoid mutating unrelated rows for safety.
-            if (! str_starts_with($key, 'whatsapp_')) continue;
+            if (! str_starts_with($key, $prefix)) continue;
             SystemSetting::updateOrCreate(
                 ['key' => $key],
-                ['value' => $value ?? '', 'group' => 'whatsapp', 'updated_at' => now()]
+                ['value' => $value ?? '', 'group' => $group, 'updated_at' => now()]
             );
         }
+    }
+
+    /**
+     * Verify the MSG91 credentials currently entered in the form by
+     * hitting the wallet-balance endpoint. Returns the live balance on
+     * success so the admin can confirm both that the auth key works
+     * and that the wallet has credit.
+     */
+    public function testSmsConnection(): void
+    {
+        $this->persistFormState('sms_', 'sms');
+
+        $result = app(SmsService::class)->testConnection();
+
+        Notification::make()
+            ->title($result['ok'] ? 'SMS provider connected' : 'SMS connection failed')
+            ->body($result['message'])
+            ->color($result['ok'] ? 'success' : 'danger')
+            ->persistent(! $result['ok'])
+            ->send();
+    }
+
+    /**
+     * Fire a sample OTP SMS to a number the admin typed into the test
+     * recipient field. Uses the configured default OTP template id +
+     * a random 6-digit code (NOT persisted to temple_otp_codes — this
+     * is a dry-run test, not a real login).
+     */
+    public function sendTestSms(?string $recipient = null): void
+    {
+        if (empty($recipient)) {
+            Notification::make()->title('Enter a test recipient mobile first.')->warning()->send();
+            return;
+        }
+
+        $this->persistFormState('sms_', 'sms');
+
+        $sms = app(SmsService::class);
+        $templateId = $sms->getOtpTemplateId();
+
+        if ($templateId === '') {
+            Notification::make()
+                ->title('No default OTP template configured')
+                ->body('Paste the MSG91 template id into "Default OTP Template ID" and save before sending a test.')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        $code = (string) random_int(100000, 999999);
+        $result = $sms->sendTemplate($recipient, $templateId, ['var1' => $code]);
+
+        Notification::make()
+            ->title($result['ok'] ? "Test OTP sent (code: {$code})" : 'Test SMS failed')
+            ->body($result['message'])
+            ->color($result['ok'] ? 'success' : 'danger')
+            ->persistent(! $result['ok'])
+            ->send();
     }
 }

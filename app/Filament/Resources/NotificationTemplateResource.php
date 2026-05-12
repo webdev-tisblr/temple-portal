@@ -20,9 +20,9 @@ class NotificationTemplateResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-envelope-open';
     protected static ?string $navigationGroup = 'Communication';
     protected static ?int $navigationSort = 2;
-    protected static ?string $navigationLabel = 'Email & WhatsApp';
-    protected static ?string $modelLabel = 'Email / WhatsApp template';
-    protected static ?string $pluralModelLabel = 'Email & WhatsApp';
+    protected static ?string $navigationLabel = 'Email · WhatsApp · SMS';
+    protected static ?string $modelLabel = 'Email / WhatsApp / SMS template';
+    protected static ?string $pluralModelLabel = 'Email · WhatsApp · SMS';
 
     public static function form(Form $form): Form
     {
@@ -69,6 +69,7 @@ class NotificationTemplateResource extends Resource
                             ->options([
                                 NotificationTemplate::CHANNEL_EMAIL => 'Email',
                                 NotificationTemplate::CHANNEL_WHATSAPP => 'WhatsApp',
+                                NotificationTemplate::CHANNEL_SMS => 'SMS',
                             ])
                             ->required()
                             ->live()
@@ -233,10 +234,36 @@ class NotificationTemplateResource extends Resource
                         ->columnSpanFull(),
                 ]),
 
+            // ── SMS channel ────────────────────────────────────────────
+            Forms\Components\Section::make('SMS template')
+                ->visible(fn (Forms\Get $get) => $get('channel') === NotificationTemplate::CHANNEL_SMS)
+                ->schema([
+                    Forms\Components\Placeholder::make('sms_help')
+                        ->label('How SMS templates work')
+                        ->columnSpanFull()
+                        ->content(new \Illuminate\Support\HtmlString(
+                            '<div style="font-size:0.875rem;line-height:1.55;">'
+                            . '<p style="margin:0 0 0.5rem;">SMS in India must use a <strong>DLT-approved template</strong> hosted with MSG91. You can\'t type a free-form message body here — only point at the template id MSG91 gives you, and supply the variable values.</p>'
+                            . '<ol style="margin:0 0 0.5rem 1.25rem; padding:0;">'
+                            . '<li>Register the SMS template with your operator\'s DLT portal (Jio True Connect / Airtel / VI).</li>'
+                            . '<li>In MSG91 dashboard → DLT Configurations → sync templates → copy the <strong>MSG91 Template ID</strong>.</li>'
+                            . '<li>Paste it into the field below.</li>'
+                            . '<li>For each <code>{#var#}</code> in your DLT template, add one row in the <strong>Placeholder map</strong> below with <em>Token</em> set to <code>var1</code>, <code>var2</code>, … (in template order) and <em>Context path</em> set to the dispatched value (e.g. <code>otp</code>).</li>'
+                            . '</ol>'
+                            . '<p style="margin:0;"><strong>Example for the auth.otp template:</strong> Template id <code>65a1b2c3…</code>, placeholder map <code>var1 → otp</code>. When the OTP fires, MSG91 sends the variable as the first <code>{#var#}</code> in your DLT-approved text.</p>'
+                            . '</div>'
+                        )),
+                    Forms\Components\TextInput::make('sms_template_id')
+                        ->label('MSG91 Template ID')
+                        ->placeholder('65a1b2c3d4e5f6...')
+                        ->helperText('Leave blank to fall back to the default OTP template id configured in System Settings → SMS.')
+                        ->columnSpanFull(),
+                ]),
+
             // Push templates have been moved to the separate "Push
             // Notifications" admin resource — broadcast-style fan-out to
             // every device-token registered with FCM. This resource is
-            // now scoped to email + WhatsApp only.
+            // now scoped to email + WhatsApp + SMS only.
 
             // ── Recipient + placeholders ───────────────────────────────
             Forms\Components\Section::make('Recipient')->schema([
@@ -288,6 +315,7 @@ class NotificationTemplateResource extends Resource
         return parent::getEloquentQuery()->whereIn('channel', [
             NotificationTemplate::CHANNEL_EMAIL,
             NotificationTemplate::CHANNEL_WHATSAPP,
+            NotificationTemplate::CHANNEL_SMS,
         ]);
     }
 
@@ -300,6 +328,7 @@ class NotificationTemplateResource extends Resource
                     ->colors([
                         'primary' => NotificationTemplate::CHANNEL_EMAIL,
                         'success' => NotificationTemplate::CHANNEL_WHATSAPP,
+                        'warning' => NotificationTemplate::CHANNEL_SMS,
                     ]),
                 Tables\Columns\TextColumn::make('label')->searchable()->limit(40),
                 Tables\Columns\IconColumn::make('is_enabled')->boolean()->label('On'),
@@ -309,6 +338,7 @@ class NotificationTemplateResource extends Resource
                 Tables\Filters\SelectFilter::make('channel')->options([
                     NotificationTemplate::CHANNEL_EMAIL => 'Email',
                     NotificationTemplate::CHANNEL_WHATSAPP => 'WhatsApp',
+                    NotificationTemplate::CHANNEL_SMS => 'SMS',
                 ]),
                 Tables\Filters\TernaryFilter::make('is_enabled')->label('Enabled'),
             ])

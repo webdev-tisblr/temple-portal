@@ -74,4 +74,47 @@ class Devotee extends Authenticatable
     {
         return $this->hasMany(Order::class, 'devotee_id');
     }
+
+    /**
+     * Resolve a devotee for OTP login: find by phone (including
+     * soft-deleted rows), restore if trashed, create if missing.
+     * Stamps verification + login timestamps in every branch.
+     *
+     * The withTrashed() lookup is the critical bit. The phone column
+     * has a UNIQUE constraint that DOES NOT ignore soft-deleted rows
+     * (MySQL treats tombstones like live rows for unique indexes), so
+     * a plain firstOrCreate() crashes with SQLSTATE[23000] the moment
+     * a phone has ever been associated with a since-deleted devotee.
+     *
+     * Returns [Devotee, wasNew] — `wasNew` only true for first-ever
+     * signups (a restored tombstone is treated as a returning user
+     * so the welcome notification doesn't fire twice).
+     *
+     * @return array{0: self, 1: bool}
+     */
+    public static function resolveForLogin(string $phone): array
+    {
+        $devotee = static::withTrashed()->where('phone', $phone)->first();
+
+        if (! $devotee) {
+            $devotee = static::create([
+                'phone' => $phone,
+                'name' => '',
+                'phone_verified_at' => now(),
+                'last_login_at' => now(),
+            ]);
+            return [$devotee, true];
+        }
+
+        if ($devotee->trashed()) {
+            $devotee->restore();
+        }
+
+        $devotee->update([
+            'phone_verified_at' => now(),
+            'last_login_at' => now(),
+        ]);
+
+        return [$devotee, false];
+    }
 }

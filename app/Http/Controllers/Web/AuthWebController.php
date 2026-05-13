@@ -62,20 +62,10 @@ class AuthWebController extends Controller
                 ->withErrors(['code' => 'ખોટો અથવા સમય વીતી ગયેલો OTP.']);
         }
 
-        $devotee = Devotee::firstOrCreate(
-            ['phone' => $validated['phone']],
-            [
-                'name' => '',
-                'phone_verified_at' => now(),
-                'last_login_at' => now(),
-            ]
-        );
-        $wasNew = $devotee->wasRecentlyCreated;
-
-        $devotee->update([
-            'phone_verified_at' => now(),
-            'last_login_at' => now(),
-        ]);
+        // Devotee::resolveForLogin handles the soft-delete tombstone
+        // problem — see the doc-comment on the model method. Stamps
+        // phone_verified_at + last_login_at internally.
+        [$devotee, $wasNew] = Devotee::resolveForLogin($validated['phone']);
 
         if ($wasNew) {
             app(\App\Services\Notifications\NotificationService::class)->dispatch(

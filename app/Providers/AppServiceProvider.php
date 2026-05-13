@@ -55,9 +55,18 @@ class AppServiceProvider extends ServiceProvider
      * Default Filament behaviour bubbled the QueryException to the
      * Laravel exception handler → 500 page. We catch it instead, show
      * a clear Filament notification telling the admin why the delete
-     * failed, and leave the page intact so they can decide what to
-     * do (unlink children first, or accept that the record can't be
-     * removed because it's referenced by financial / tax records).
+     * failed, and leave the page intact so they can decide what to do.
+     *
+     * Critical Filament-3 detail: configureUsing() callbacks run
+     * BEFORE the component's setUp() by default — see
+     * Filament\Support\Components\ComponentManager::configure(). That
+     * means a plain configureUsing() that calls $action->action(...)
+     * gets clobbered by the DeleteBulkAction::setUp() that runs
+     * immediately after and re-sets its own default $this->action(...).
+     *
+     * The fix is to pass isImportant: true, which moves the callback
+     * into the SECOND pass that runs AFTER setUp() — our ->action()
+     * override is then the last one wired and actually takes effect.
      *
      * Three delete action surfaces in this app: per-row table actions
      * (Tables\Actions\DeleteAction), bulk table actions
@@ -78,7 +87,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Per-row table action — "Delete" link on each row.
         TableDeleteAction::configureUsing(function (TableDeleteAction $action) use ($renderFkError) {
-            $action->action(function ($action, $record) use ($renderFkError) {
+            $action->action(function (TableDeleteAction $action, \Illuminate\Database\Eloquent\Model $record) use ($renderFkError) {
                 try {
                     $record->delete();
                     Notification::make()->title('Deleted')->success()->send();
@@ -91,13 +100,13 @@ class AppServiceProvider extends ServiceProvider
                     throw $e;
                 }
             });
-        });
+        }, isImportant: true);
 
         // Bulk table action — selected-rows checkbox → Delete selected.
         // Walk one record at a time so a single offender doesn't abort
         // the whole batch; collect failures and surface them at the end.
         DeleteBulkAction::configureUsing(function (DeleteBulkAction $action) use ($renderFkError) {
-            $action->action(function ($action, $records) use ($renderFkError) {
+            $action->action(function (DeleteBulkAction $action, \Illuminate\Database\Eloquent\Collection $records) use ($renderFkError) {
                 $deleted = 0;
                 $blocked = 0;
                 foreach ($records as $record) {
@@ -125,11 +134,11 @@ class AppServiceProvider extends ServiceProvider
                     );
                 }
             });
-        });
+        }, isImportant: true);
 
         // Edit-page header action — the trash icon on /admin/.../edit pages.
         PageDeleteAction::configureUsing(function (PageDeleteAction $action) use ($renderFkError) {
-            $action->action(function ($action, $record) use ($renderFkError) {
+            $action->action(function (PageDeleteAction $action, \Illuminate\Database\Eloquent\Model $record) use ($renderFkError) {
                 try {
                     $record->delete();
                     Notification::make()->title('Deleted')->success()->send();
@@ -145,7 +154,7 @@ class AppServiceProvider extends ServiceProvider
                     throw $e;
                 }
             });
-        });
+        }, isImportant: true);
     }
 
     /**

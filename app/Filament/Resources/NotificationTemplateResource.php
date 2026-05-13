@@ -12,11 +12,14 @@ use App\Services\Notifications\WhatsAppTemplateBlueprint;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use App\Filament\Concerns\HiddenFromPujari;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class NotificationTemplateResource extends Resource
 {
+    use HiddenFromPujari;
+
     protected static ?string $model = NotificationTemplate::class;
     protected static ?string $navigationIcon = 'heroicon-o-envelope-open';
     protected static ?string $navigationGroup = 'Communication';
@@ -178,6 +181,7 @@ class NotificationTemplateResource extends Resource
                     ->options([
                         NotificationTemplate::RECIPIENT_DEVOTEE => 'Devotee in the event (email or phone)',
                         NotificationTemplate::RECIPIENT_TRUST_ADMIN => 'Trust admin (trust_email / trust_phone)',
+                        NotificationTemplate::RECIPIENT_ADMIN_USER => 'A specific admin user (pick below)',
                         NotificationTemplate::RECIPIENT_FIXED_EMAIL => 'A specific email address',
                         NotificationTemplate::RECIPIENT_FIXED_PHONE => 'A specific phone number',
                         NotificationTemplate::RECIPIENT_CONTEXT_PATH => 'Look up from the event data (advanced)',
@@ -185,6 +189,39 @@ class NotificationTemplateResource extends Resource
                     ->default(NotificationTemplate::RECIPIENT_DEVOTEE)
                     ->required()
                     ->live(),
+
+                // Admin-user picker — visible only when "A specific admin
+                // user" is chosen. recipient_value stores the user's id;
+                // the resolver looks them up at send time and reads
+                // .email or .phone depending on channel. Inactive users
+                // are filtered out so admin can't pick someone who's
+                // already been offboarded.
+                Forms\Components\Select::make('recipient_value')
+                    ->label('Admin user')
+                    ->options(function () {
+                        return \App\Models\AdminUser::query()
+                            ->where('is_active', true)
+                            ->orderBy('name')
+                            ->get()
+                            ->mapWithKeys(fn ($u) => [
+                                $u->id => trim(
+                                    $u->name
+                                    . ($u->email ? "  ·  {$u->email}" : '')
+                                    . ($u->phone ? "  ·  {$u->phone}" : '')
+                                ),
+                            ])
+                            ->all();
+                    })
+                    ->searchable()
+                    ->required()
+                    ->helperText('Email channel will use this admin\'s email; WhatsApp / SMS will use their phone. Channel sends are skipped if the matching field is empty on the chosen user.')
+                    ->visible(fn (Forms\Get $get) => $get('recipient_strategy') === NotificationTemplate::RECIPIENT_ADMIN_USER),
+
+                // Free-text input — shown for the remaining strategies
+                // that need a literal value (fixed email / fixed phone /
+                // context dot-path). Devotee + trust-admin + admin-user
+                // strategies all resolve from elsewhere, so this stays
+                // hidden in those cases.
                 Forms\Components\TextInput::make('recipient_value')
                     ->label('Value')
                     ->visible(fn (Forms\Get $get) => in_array($get('recipient_strategy'), [

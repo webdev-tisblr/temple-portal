@@ -9,12 +9,15 @@ use App\Models\AdminUser;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use App\Filament\Concerns\HiddenFromPujari;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Spatie\Permission\Models\Role;
 
 class AdminUserResource extends Resource
 {
+    use HiddenFromPujari;
+
     protected static ?string $model = AdminUser::class;
     protected static ?string $navigationIcon = 'heroicon-o-shield-check';
     protected static ?string $navigationGroup = 'System';

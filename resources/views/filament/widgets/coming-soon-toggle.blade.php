@@ -41,26 +41,64 @@
                 </div>
             </div>
 
-            {{-- Toggle switch (Livewire wire:click → toggle()) --}}
-            <button
-                type="button"
-                wire:click="toggle"
-                wire:loading.attr="disabled"
-                role="switch"
-                :aria-checked="@js($enabled)"
-                @class([
-                    'relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2',
-                    'bg-warning-500' => $enabled,
-                    'bg-gray-300 dark:bg-gray-600' => ! $enabled,
-                ])
-            >
-                <span class="sr-only">Toggle coming soon mode</span>
+            {{-- Toggle switch (Livewire wire:click → toggle()).
+
+                 Larger + higher-contrast than Filament's stock toggle so
+                 the admin can tell its state at a glance in both light
+                 and dark mode:
+                   • ON  → solid amber bg with knob on the right and a
+                           "lock-closed" icon inside the knob. The amber
+                           reads loudly even on a dark dashboard.
+                   • OFF → solid emerald bg with knob on the left and a
+                           "globe" icon inside the knob. Site-is-live
+                           gets a friendly green; we keep both states
+                           on coloured backgrounds (not gray) so neither
+                           state can be confused for "disabled."
+                 Inline "ON" / "OFF" labels next to the switch make the
+                 state unambiguous even before noticing the colour. --}}
+            <div class="flex items-center gap-3 shrink-0">
                 <span @class([
-                    'pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                    'translate-x-5' => $enabled,
-                    'translate-x-0' => ! $enabled,
-                ])></span>
-            </button>
+                    'text-sm font-semibold transition-colors',
+                    'text-warning-700 dark:text-warning-400' => $enabled,
+                    'text-gray-400 dark:text-gray-500' => ! $enabled,
+                ])>
+                    ON
+                </span>
+
+                <button
+                    type="button"
+                    wire:click="toggle"
+                    wire:loading.attr="disabled"
+                    role="switch"
+                    :aria-checked="@js($enabled)"
+                    @class([
+                        'relative inline-flex h-9 w-16 shrink-0 cursor-pointer rounded-full border-2 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900',
+                        'bg-warning-500 border-warning-600 focus:ring-warning-400/40' => $enabled,
+                        'bg-emerald-500 border-emerald-600 focus:ring-emerald-400/40' => ! $enabled,
+                    ])
+                >
+                    <span class="sr-only">Toggle coming soon mode</span>
+                    <span @class([
+                        'pointer-events-none flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-black/10 transform transition duration-200 ease-in-out',
+                        'translate-x-7' => $enabled,
+                        'translate-x-0' => ! $enabled,
+                    ])>
+                        @if ($enabled)
+                            <x-heroicon-s-lock-closed class="h-4 w-4 text-warning-600" />
+                        @else
+                            <x-heroicon-s-globe-alt class="h-4 w-4 text-emerald-600" />
+                        @endif
+                    </span>
+                </button>
+
+                <span @class([
+                    'text-sm font-semibold transition-colors',
+                    'text-gray-400 dark:text-gray-500' => $enabled,
+                    'text-emerald-700 dark:text-emerald-400' => ! $enabled,
+                ])>
+                    OFF
+                </span>
+            </div>
         </div>
     </x-filament::section>
 </x-filament-widgets::widget>

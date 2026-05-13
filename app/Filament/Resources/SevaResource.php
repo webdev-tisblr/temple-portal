@@ -12,11 +12,14 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Resources\Resource;
+use App\Filament\Concerns\HiddenFromPujari;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class SevaResource extends Resource
 {
+    use HiddenFromPujari;
+
     protected static ?string $model = Seva::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-hand-raised';

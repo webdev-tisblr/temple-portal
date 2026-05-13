@@ -29,6 +29,11 @@ class NotificationTemplate extends Model
     public const RECIPIENT_FIXED_EMAIL = 'fixed_email';
     public const RECIPIENT_FIXED_PHONE = 'fixed_phone';
     public const RECIPIENT_CONTEXT_PATH = 'context_path';
+    // Send to a specific AdminUser row — recipient_value stores the
+    // user's id. Email channel reads admin_users.email, WhatsApp / SMS
+    // read admin_users.phone. Lets the trust route a trigger to a
+    // particular staff member (eg. the pujari for seva confirmations).
+    public const RECIPIENT_ADMIN_USER = 'admin_user';
 
     protected $fillable = [
         'key',

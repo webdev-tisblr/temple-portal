@@ -9,11 +9,14 @@ use App\Models\Devotee;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use App\Filament\Concerns\HiddenFromPujari;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class DevoteeResource extends Resource
 {
+    use HiddenFromPujari;
+
     protected static ?string $model = Devotee::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-users';

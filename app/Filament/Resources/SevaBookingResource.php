@@ -32,6 +32,27 @@ class SevaBookingResource extends Resource
         return false;
     }
 
+    /**
+     * Pujari role is view-only. Block edits + deletes for that role
+     * so a priest can browse the upcoming sevas without accidentally
+     * mutating booking state. Other roles fall through to defaults.
+     */
+    public static function canEdit($record): bool
+    {
+        if (auth('admin')->user()?->hasRole('pujari')) {
+            return false;
+        }
+        return parent::canEdit($record);
+    }
+
+    public static function canDelete($record): bool
+    {
+        if (auth('admin')->user()?->hasRole('pujari')) {
+            return false;
+        }
+        return parent::canDelete($record);
+    }
+
     public static function form(Form $form): Form
     {
         // Filament's EditRecord::fillForm() only fills with $record->attributesToArray(),

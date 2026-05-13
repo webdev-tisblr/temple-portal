@@ -9,11 +9,14 @@ use App\Models\ContactSubmission;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use App\Filament\Concerns\HiddenFromPujari;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class ContactSubmissionResource extends Resource
 {
+    use HiddenFromPujari;
+
     protected static ?string $model = ContactSubmission::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-envelope';

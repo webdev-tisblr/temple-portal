@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Notifications;
 
+use App\Models\AdminUser;
 use App\Models\NotificationTemplate;
 use App\Models\SystemSetting;
 use Illuminate\Database\Eloquent\Model;
@@ -36,6 +37,10 @@ final class RecipientResolver
             NotificationTemplate::RECIPIENT_CONTEXT_PATH => $template->recipient_value
                 ? $context->get($template->recipient_value)
                 : null,
+            NotificationTemplate::RECIPIENT_ADMIN_USER => $this->fromAdminUser(
+                $template->recipient_value,
+                $expectedType,
+            ),
             default => null,
         };
 
@@ -63,5 +68,23 @@ final class RecipientResolver
         $key = $expectedType === 'email' ? 'trust_email' : 'trust_phone';
         $value = SystemSetting::getValue($key, '');
         return $value !== '' ? $value : null;
+    }
+
+    /**
+     * Resolve a specific AdminUser's email / phone by their id stored
+     * in template.recipient_value. Returns null when:
+     *   • no recipient_value is set
+     *   • the user row doesn't exist (deleted since template was saved)
+     *   • the user has no email / phone for the requested channel
+     * — same null-returns-skip contract the rest of the resolver uses.
+     */
+    private function fromAdminUser(?string $userId, string $expectedType): ?string
+    {
+        if ($userId === null || $userId === '') return null;
+        $user = AdminUser::find($userId);
+        if (! $user) return null;
+        $field = $expectedType === 'email' ? 'email' : 'phone';
+        $value = $user->{$field};
+        return is_string($value) && trim($value) !== '' ? $value : null;
     }
 }

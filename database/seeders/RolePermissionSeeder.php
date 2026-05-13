@@ -14,7 +14,12 @@ class RolePermissionSeeder extends Seeder
     {
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-        $roles = ['super_admin', 'trustee', 'accountant', 'staff', 'volunteer'];
+        // `pujari` — restricted role that only sees the Seva Bookings
+        // resource in the admin. Gated via the HiddenFromPujari trait
+        // on every other resource. Used when the temple wants to give
+        // a priest visibility into upcoming sevas without exposing
+        // donations / store / users / settings.
+        $roles = ['super_admin', 'trustee', 'accountant', 'staff', 'volunteer', 'pujari'];
 
         foreach ($roles as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'admin']);

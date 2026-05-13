@@ -35,20 +35,59 @@ class AppServiceProvider extends ServiceProvider
         // All Filament image uploads land in Cloudflare R2 (the 'r2' disk
         // pins to the public bucket, served via cdn.patadiyahanumanji.com).
         // ImageColumn uses the same disk so list/edit thumbnails resolve to
-        // the R2 CDN URL. Pre-existing image_path values point at keys that
-        // already lived in storage/app/public/<dir>/<file> — those keys are
-        // identical in R2, so no DB migration needed.
+        // the R2 CDN URL.
         //
-        // fetchFileInformation(false) is the key bit: by default Filament
-        // does an S3 HEAD on every existing file (to learn size + MIME for
-        // the FilePond preview), and against R2 from the Hostinger box that
-        // request either times out or sits in a long-running socket — the
-        // component visibly hangs on "Loading / Waiting for size" forever
-        // and the X button to swap the image never becomes clickable. Skip
-        // the metadata round-trip; the CDN URL alone is enough to display
-        // the existing image, and Filament still uploads new files fine.
+        // We solve the "FilePond stuck on Loading / Waiting for size"
+        // problem two ways simultaneously, because either one alone has
+        // proven flaky on Hostinger:
+        //
+        // 1. fetchFileInformation(false) — tells Filament's BaseFileUpload
+        //    to skip the S3 HEAD calls (exists / size / mimeType) when an
+        //    existing file is loaded. Those HEADs against R2 from the
+        //    Hostinger PHP-FPM workers either time out or sit on a long
+        //    socket. Without the fetch the existing-file path renders
+        //    immediately.
+        //
+        // 2. Custom getUploadedFileUsing — bypasses the entire default
+        //    pipeline and returns the file metadata FilePond needs in a
+        //    single synchronous call, no disk round-trip whatsoever:
+        //      • name  → basename of the stored path
+        //      • size  → 1 (any non-zero; FilePond's JS reads size=0
+        //                  as "not yet loaded" and stays in
+        //                  "Waiting for size" state, so the previous
+        //                  fix's size=0 wasn't enough)
+        //      • type  → mime guessed from the file extension, no
+        //                disk call needed
+        //      • url   → CDN URL via $disk->url() (string concat,
+        //                no network)
+        //    This is the actual fix; fetchFileInformation(false) is the
+        //    belt that backs up the suspenders.
         FileUpload::configureUsing(function (FileUpload $c) {
-            $c->disk('r2')->fetchFileInformation(false);
+            $c->disk('r2')
+              ->fetchFileInformation(false)
+              ->getUploadedFileUsing(function (FileUpload $component, string $file, string|array|null $storedFileNames): ?array {
+                  // Common image MIME types by extension — covers every
+                  // upload route in this app (products / sevas / halls
+                  // / blog posts / etc all accept image/* only).
+                  $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+                  $mime = match ($ext) {
+                      'jpg', 'jpeg' => 'image/jpeg',
+                      'png' => 'image/png',
+                      'webp' => 'image/webp',
+                      'gif' => 'image/gif',
+                      'svg' => 'image/svg+xml',
+                      'pdf' => 'application/pdf',
+                      default => 'application/octet-stream',
+                  };
+
+                  return [
+                      'name' => $storedFileNames ?: basename($file),
+                      // 1, not 0 — see comment block above.
+                      'size' => 1,
+                      'type' => $mime,
+                      'url' => $component->getDisk()->url($file),
+                  ];
+              });
         });
         ImageColumn::configureUsing(fn (ImageColumn $c) => $c->disk('r2'));
 

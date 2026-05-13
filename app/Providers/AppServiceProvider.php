@@ -37,66 +37,33 @@ class AppServiceProvider extends ServiceProvider
         // ImageColumn uses the same disk so list/edit thumbnails resolve to
         // the R2 CDN URL.
         //
-        // We solve the "FilePond stuck on Loading / Waiting for size"
-        // problem two ways simultaneously, because either one alone has
-        // proven flaky on Hostinger:
+        // Two overrides survive the Filament setUp() pass via
+        // isImportant: true (default priority runs BEFORE setUp() which
+        // would overwrite our changes):
         //
-        // 1. fetchFileInformation(false) — tells Filament's BaseFileUpload
-        //    to skip the S3 HEAD calls (exists / size / mimeType) when an
-        //    existing file is loaded. Those HEADs against R2 from the
-        //    Hostinger PHP-FPM workers either time out or sit on a long
-        //    socket. Without the fetch the existing-file path renders
-        //    immediately.
+        // 1. fetchFileInformation(false) — skip the S3 HEAD calls
+        //    (exists / size / mimeType) on every existing-file load. Those
+        //    HEADs against R2 from Hostinger's PHP-FPM workers either
+        //    time out or sit on a long socket, leaving the FileUpload
+        //    panel stuck on "Loading / Waiting for size."
         //
-        // 2. Custom getUploadedFileUsing — bypasses the entire default
-        //    pipeline and returns the file metadata FilePond needs in a
-        //    single synchronous call, no disk round-trip whatsoever:
-        //      • name  → basename of the stored path
-        //      • size  → 1 (any non-zero; FilePond's JS reads size=0
-        //                  as "not yet loaded" and stays in
-        //                  "Waiting for size" state, so the previous
-        //                  fix's size=0 wasn't enough)
-        //      • type  → mime guessed from the file extension, no
-        //                disk call needed
-        //      • url   → CDN URL via $disk->url() (string concat,
-        //                no network)
-        //    This is the actual fix; fetchFileInformation(false) is the
-        //    belt that backs up the suspenders.
-        // isImportant: true is the trick that makes the override stick.
-        // Filament's ComponentManager runs callbacks in three passes:
-        //   1. Normal configureUsing (this would have run here)
-        //   2. setUp() — BaseFileUpload::setUp() registers a default
-        //      $this->getUploadedFileUsing(...) closure that does the
-        //      slow R2 HEAD calls
-        //   3. Important configureUsing
-        // If we register at the default (false) priority, setUp() in
-        // pass 2 immediately overwrites our override. Same regression
-        // pattern that bit the delete actions earlier today. Moving
-        // into pass 3 ensures OUR closure is the last $this->action
-        // assignment and survives.
+        // 2. Custom getUploadedFileUsing — return file metadata
+        //    synchronously without any disk round-trip:
+        //      • name → basename
+        //      • size → 1 (NON-zero; FilePond's JS treats size=0 as
+        //                  "not loaded yet" and stays in the spinner)
+        //      • type → mime guessed from extension, no disk call
+        //      • url  → CDN URL via $disk->url() (pure string concat)
+        //
+        // CORS on the cdn.patadiyahanumanji.com bucket must allow
+        // https://patadiyahanumanji.com as an origin or FilePond's
+        // XHR fetch of the image (for canvas preview) will hang.
+        // Configured in Cloudflare R2 dashboard → bucket Settings →
+        // CORS Policy.
         FileUpload::configureUsing(function (FileUpload $c) {
             $c->disk('r2')
               ->fetchFileInformation(false)
-              // panelLayout('compact') is the key UX fix here. The
-              // default FilePond "integrated" panel renders a canvas-
-              // based image preview, which under the hood does an XHR
-              // fetch of the image to draw the thumbnail. R2's public
-              // bucket doesn't ship a CORS header by default, so that
-              // fetch hangs / fails, and FilePond visibly stays on
-              // "Loading / Waiting for size" forever even though
-              // <img src> would have displayed the same file fine.
-              //
-              // 'compact' renders a single-line panel with filename +
-              // remove + open buttons. Open opens the CDN URL in a new
-              // tab so admins can still see the actual image without
-              // the canvas-preview path. Once R2 CORS is configured
-              // (allow patadiyahanumanji.com origin) this line can be
-              // removed to restore inline thumbnails.
-              ->panelLayout('compact')
               ->getUploadedFileUsing(function (FileUpload $component, string $file, string|array|null $storedFileNames): ?array {
-                  // Common image MIME types by extension — covers every
-                  // upload route in this app (products / sevas / halls
-                  // / blog posts / etc all accept image/* only).
                   $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
                   $mime = match ($ext) {
                       'jpg', 'jpeg' => 'image/jpeg',
@@ -110,8 +77,6 @@ class AppServiceProvider extends ServiceProvider
 
                   return [
                       'name' => $storedFileNames ?: basename($file),
-                      // 1, not 0 — FilePond's JS treats size=0 as
-                      // "not yet loaded" and stays in the spinner state.
                       'size' => 1,
                       'type' => $mime,
                       'url' => $component->getDisk()->url($file),

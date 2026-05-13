@@ -112,6 +112,17 @@ final class NotificationContext
             return $value->format($hasTime ? 'd M Y H:i' : 'd M Y');
         }
 
+        // MySQL TIME columns (eg seva_bookings.slot_time) round-trip
+        // through PHP as a raw "HH:MM:SS" string with no Eloquent cast.
+        // Reformat to a friendly 12-hour clock so messages show
+        // "7:00 AM" instead of "07:00:00".
+        if (is_string($value) && preg_match('/^\d{2}:\d{2}:\d{2}$/', $value)) {
+            $timestamp = strtotime($value);
+            if ($timestamp !== false) {
+                return date('g:i A', $timestamp);
+            }
+        }
+
         if (is_scalar($value)) {
             return (string) $value;
         }

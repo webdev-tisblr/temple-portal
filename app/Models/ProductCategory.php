@@ -29,7 +29,9 @@ class ProductCategory extends Model
         };
         static::saved($bust);
         static::deleted($bust);
-        static::restored($bust);
+        // The restored event only exists on SoftDeletes models. We
+        // dropped that trait in the 2026_05_13 migration; saved +
+        // deleted already cover every state change.
     }
 
     protected $fillable = [

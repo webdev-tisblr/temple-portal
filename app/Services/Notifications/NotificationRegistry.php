@@ -95,10 +95,12 @@ final class NotificationRegistry
             // ── Auth flow ─────────────────────────────────────────────
             'auth.otp' => [
                 'label' => 'Auth — OTP requested',
-                'description' => 'Fired synchronously when a devotee requests an OTP. Use a templated WhatsApp message — email is also supported.',
+                'description' => 'Fired synchronously when a devotee requests an OTP. For WhatsApp use recipient = "Look up from event data" with value "phone". For email use the "Devotee in the event" strategy — works once the devotee has registered an email; first-time logins skip the email send silently.',
                 'placeholders' => [
-                    'otp' => 'The 6-digit OTP code',
-                    'expires_in_minutes' => 'OTP validity window in minutes',
+                    'otp' => 'The 6-digit OTP code (otp)',
+                    'expires_in_minutes' => 'OTP validity window in minutes (expires_in_minutes)',
+                    'phone' => 'The phone number requesting OTP (phone)',
+                    'name' => "Devotee name if they're registered, blank otherwise (name)",
                 ],
             ],
 

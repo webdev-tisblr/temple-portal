@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Devotee;
 use App\Models\OtpCode;
 use App\Services\Notifications\NotificationService;
 use Illuminate\Support\Facades\Log;
@@ -42,6 +43,12 @@ class OtpService
 
         Log::info("OTP for {$phone}: {$code}");
 
+        // Look up an existing devotee by phone so the dispatcher can use
+        // the 'devotee' recipient strategy (email/phone off the model) for
+        // returning logins. First-time logins won't have a devotee yet —
+        // that's fine, the context_path → phone strategy still works.
+        $devotee = Devotee::where('phone', $phone)->first();
+
         // Route the OTP send through the central notification dispatcher.
         // Every enabled NotificationTemplate for 'auth.otp' fires — nothing
         // sends unless the admin has explicitly created and enabled a
@@ -50,6 +57,9 @@ class OtpService
             'phone' => $phone,
             'otp' => $code,
             'expires_in_minutes' => 10,
+            'devotee' => $devotee,
+            'email' => $devotee?->email,
+            'name' => $devotee?->name,
         ]);
 
         return $code;

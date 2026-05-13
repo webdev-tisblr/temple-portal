@@ -58,7 +58,13 @@ class BlogPostResource extends Resource
                 Tables\Columns\TextColumn::make('title_gu')->label('Title')->searchable()->sortable()->limit(50),
                 Tables\Columns\TextColumn::make('slug')->searchable(),
                 Tables\Columns\TextColumn::make('category')->badge(),
-                Tables\Columns\TextColumn::make('status')->badge()->color(fn (string $state) => $state === 'published' ? 'success' : 'warning'),
+                Tables\Columns\TextColumn::make('status')->badge()->color(function ($state) {
+                    // status column is cast to PageStatus enum on the
+                    // model, so $state arrives as the enum instance.
+                    // Normalise to the backing string for the comparison.
+                    $value = $state instanceof \BackedEnum ? $state->value : (string) $state;
+                    return $value === 'published' ? 'success' : 'warning';
+                }),
                 Tables\Columns\TextColumn::make('published_at')->dateTime('d M Y'),
             ])
             ->defaultSort('created_at', 'desc')

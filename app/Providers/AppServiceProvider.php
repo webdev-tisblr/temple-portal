@@ -62,6 +62,18 @@ class AppServiceProvider extends ServiceProvider
         //                no network)
         //    This is the actual fix; fetchFileInformation(false) is the
         //    belt that backs up the suspenders.
+        // isImportant: true is the trick that makes the override stick.
+        // Filament's ComponentManager runs callbacks in three passes:
+        //   1. Normal configureUsing (this would have run here)
+        //   2. setUp() — BaseFileUpload::setUp() registers a default
+        //      $this->getUploadedFileUsing(...) closure that does the
+        //      slow R2 HEAD calls
+        //   3. Important configureUsing
+        // If we register at the default (false) priority, setUp() in
+        // pass 2 immediately overwrites our override. Same regression
+        // pattern that bit the delete actions earlier today. Moving
+        // into pass 3 ensures OUR closure is the last $this->action
+        // assignment and survives.
         FileUpload::configureUsing(function (FileUpload $c) {
             $c->disk('r2')
               ->fetchFileInformation(false)
@@ -82,13 +94,14 @@ class AppServiceProvider extends ServiceProvider
 
                   return [
                       'name' => $storedFileNames ?: basename($file),
-                      // 1, not 0 — see comment block above.
+                      // 1, not 0 — FilePond's JS treats size=0 as
+                      // "not yet loaded" and stays in the spinner state.
                       'size' => 1,
                       'type' => $mime,
                       'url' => $component->getDisk()->url($file),
                   ];
               });
-        });
+        }, isImportant: true);
         ImageColumn::configureUsing(fn (ImageColumn $c) => $c->disk('r2'));
 
         $this->configureMailFromDatabase();

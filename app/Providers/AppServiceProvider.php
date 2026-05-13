@@ -190,6 +190,7 @@ class AppServiceProvider extends ServiceProvider
                 'mail.mailers.smtp.encryption' => SystemSetting::getValue('mail_encryption', (string) config('mail.mailers.smtp.encryption', 'tls')) ?: null,
                 'mail.mailers.smtp.username' => SystemSetting::getValue('mail_username', (string) config('mail.mailers.smtp.username', '')),
                 'mail.mailers.smtp.password' => SystemSetting::getValue('mail_password', (string) config('mail.mailers.smtp.password', '')),
+                'mail.mailers.smtp.timeout' => (int) (config('mail.mailers.smtp.timeout') ?: 10),
                 'mail.from.address' => SystemSetting::getValue('mail_from_address', (string) config('mail.from.address', '')),
                 'mail.from.name' => SystemSetting::getValue('mail_from_name', (string) config('mail.from.name', '')),
             ]);

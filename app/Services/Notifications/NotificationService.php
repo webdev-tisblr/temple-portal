@@ -59,8 +59,24 @@ final class NotificationService
         $ctx = new NotificationContext($context);
         $delivered = 0;
 
+        // Wrap every per-template send in its own try/catch so one
+        // dead channel (SMTP timeout, WhatsApp 5xx, etc.) cannot bring
+        // down the whole trigger. Earlier an uncaught exception bubbled
+        // up to the caller, killed the request, and any subsequent
+        // template — eg WhatsApp after a failing email — never ran.
         foreach ($templates as $template) {
-            $delivered += $this->sendTemplate($template, $ctx) ? 1 : 0;
+            try {
+                $ok = $this->sendTemplate($template, $ctx);
+                $delivered += $ok ? 1 : 0;
+            } catch (\Throwable $e) {
+                Log::error('Notification: template send threw unexpectedly', [
+                    'template_id' => $template->id,
+                    'template_key' => $template->key,
+                    'channel' => $template->channel,
+                    'error' => $e->getMessage(),
+                ]);
+                // Continue — next template still gets a chance.
+            }
         }
         return $delivered;
     }

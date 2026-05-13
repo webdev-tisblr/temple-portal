@@ -45,7 +45,15 @@ return [
             'port' => env('MAIL_PORT', 2525),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
-            'timeout' => null,
+            // 10-second SMTP socket timeout. Previously null → connection
+            // could hang indefinitely and blow past PHP-FPM's
+            // max_execution_time, killing the request mid-send and
+            // producing the "sometimes mails arrive, sometimes not"
+            // pattern. 10s is enough for any healthy SMTP handshake
+            // (Hostinger / Gmail / SendGrid all answer in < 2s) and
+            // short enough to fail fast for the retry layer in
+            // EmailNotificationDriver to pick up.
+            'timeout' => (int) env('MAIL_TIMEOUT', 10),
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url(env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 

@@ -98,34 +98,67 @@ class WhatsAppService
 
         $url = "{$this->apiUrl}/{$this->phoneNumberId}/messages";
 
-        try {
-            $response = Http::withToken($this->accessToken)
-                ->timeout(30)
-                ->post($url, $payload);
+        // Retry layer absorbs transient Meta API failures (rate limits,
+        // 5xx blips, network glitches between Hostinger and graph.fb).
+        // Previously a single failure silently dropped the message —
+        // the "sometimes OTP comes, sometimes not" pattern the admin
+        // hit. Timeout dropped from 30s to 10s so three attempts plus
+        // backoff still fit inside PHP-FPM's 60s execution budget.
+        $maxAttempts = 3;
+        $lastError = null;
+        $lastResponseError = null;
 
-            if ($response->successful()) {
-                Log::info('WhatsApp message sent', [
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                $response = Http::withToken($this->accessToken)
+                    ->timeout(10)
+                    ->post($url, $payload);
+
+                if ($response->successful()) {
+                    Log::info('WhatsApp message sent', [
+                        'to' => $payload['to'],
+                        'type' => $payload['type'],
+                        'attempt' => $attempt,
+                        'message_id' => $response->json('messages.0.id'),
+                    ]);
+                    return true;
+                }
+
+                $lastResponseError = $response->json('error');
+                Log::warning('WhatsApp API non-2xx', [
                     'to' => $payload['to'],
-                    'type' => $payload['type'],
-                    'message_id' => $response->json('messages.0.id'),
+                    'attempt' => $attempt,
+                    'status' => $response->status(),
+                    'error' => $lastResponseError,
                 ]);
-                return true;
+
+                // 4xx auth / validation errors won't change on retry —
+                // bail immediately so we don't waste the budget.
+                if ($response->status() >= 400 && $response->status() < 500
+                    && ! in_array($response->status(), [408, 429], true)) {
+                    break;
+                }
+            } catch (\Throwable $e) {
+                $lastError = $e;
+                Log::warning('WhatsApp send attempt failed', [
+                    'to' => $payload['to'],
+                    'attempt' => $attempt,
+                    'error' => $e->getMessage(),
+                ]);
             }
 
-            Log::error('WhatsApp API error', [
-                'to' => $payload['to'],
-                'status' => $response->status(),
-                'error' => $response->json('error'),
-            ]);
-            return false;
-
-        } catch (\Exception $e) {
-            Log::error('WhatsApp send failed', [
-                'to' => $payload['to'],
-                'error' => $e->getMessage(),
-            ]);
-            return false;
+            if ($attempt < $maxAttempts) {
+                usleep($attempt * 1_000_000); // 1s, 2s
+            }
         }
+
+        Log::error('WhatsApp send permanently failed', [
+            'to' => $payload['to'],
+            'attempts' => $maxAttempts,
+            'last_error' => $lastError?->getMessage(),
+            'last_response_error' => $lastResponseError,
+        ]);
+        return false;
     }
 
     /**

@@ -53,21 +53,23 @@ class HallBookingController extends Controller
 
     public function checkAvailability(Request $request): JsonResponse
     {
+        // Accept both `type` (front-end JS) and `booking_type` (canonical)
+        // for backward compatibility. The Alpine handler in
+        // pages/hall-booking/index.blade.php sends `type=...` — when only
+        // `booking_type` was honoured the controller silently defaulted
+        // to 'full_day' and every half-day check returned "available" even
+        // after a confirmed booking on the same date / slot.
         $request->validate([
             'hall_id' => ['required', 'integer', 'exists:temple_halls,id'],
             'date' => ['required', 'date'],
             'booking_type' => ['nullable', 'string', 'in:full_day,half_day_morning,half_day_evening'],
+            'type' => ['nullable', 'string', 'in:full_day,half_day_morning,half_day_evening'],
         ]);
 
-        $bookingType = $request->input('booking_type', 'full_day');
+        $bookingType = $request->input('booking_type')
+            ?? $request->input('type', 'full_day');
 
-        $exists = HallBooking::where('hall_id', $request->hall_id)
-            ->where('booking_date', $request->date)
-            ->where('booking_type', $bookingType)
-            ->whereIn('status', ['confirmed', 'pending'])
-            ->exists();
-
-        if ($exists) {
+        if ($this->hallSlotConflicts($request->integer('hall_id'), (string) $request->date, $bookingType)) {
             return response()->json([
                 'available' => false,
                 'message' => 'આ તારીખ અને સમય માટે હૉલ પહેલેથી બુક છે.',
@@ -78,6 +80,30 @@ class HallBookingController extends Controller
             'available' => true,
             'message' => 'હૉલ ઉપલબ્ધ છે.',
         ]);
+    }
+
+    /**
+     * True when the (hall, date, booking_type) combination overlaps an
+     * existing pending or confirmed booking. Handles the full-day vs
+     * half-day fan-out so a confirmed full_day blocks both half-days
+     * and a confirmed half-day blocks any full_day attempt.
+     */
+    private function hallSlotConflicts(int $hallId, string $date, string $bookingType): bool
+    {
+        $query = HallBooking::where('hall_id', $hallId)
+            ->where('booking_date', $date)
+            ->whereIn('status', ['pending', 'confirmed']);
+
+        if ($bookingType === 'full_day') {
+            // Full-day attempt collides with ANY existing booking.
+            return $query->exists();
+        }
+
+        // Half-day attempt collides with same-slot half-day OR a full_day.
+        return $query->where(function ($q) use ($bookingType) {
+            $q->where('booking_type', 'full_day')
+              ->orWhere('booking_type', $bookingType);
+        })->exists();
     }
 
     public function book(Request $request): View
@@ -98,14 +124,13 @@ class HallBookingController extends Controller
         $devotee = Auth::guard('devotee')->user();
         $hall = Hall::where('id', $validated['hall_id'])->where('is_active', true)->firstOrFail();
 
-        // Check availability
-        $exists = HallBooking::where('hall_id', $hall->id)
-            ->where('booking_date', $validated['booking_date'])
-            ->where('booking_type', $validated['booking_type'])
-            ->whereIn('status', ['confirmed', 'pending'])
-            ->exists();
-
-        if ($exists) {
+        // Check availability — must use the overlap helper so that a
+        // half_day_morning attempt is blocked by an existing full_day,
+        // and a full_day attempt is blocked by either existing half-day.
+        // Plain where('booking_type', $type) only matches exact type and
+        // allowed a confirmed full_day booking to be silently overlapped
+        // by half-day re-bookings on the same date.
+        if ($this->hallSlotConflicts((int) $hall->id, $validated['booking_date'], $validated['booking_type'])) {
             return back()->withErrors(['booking_date' => 'આ તારીખ અને સમય માટે હૉલ પહેલેથી બુક છે.']);
         }
 

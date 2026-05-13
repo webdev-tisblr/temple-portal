@@ -175,7 +175,11 @@ class SevaSlotService
         $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
         $bookingCounts = SevaBooking::where('seva_id', $seva->id)
             ->where('booking_date', $date)
-            ->whereIn('status', ['confirmed', 'completed'])
+            // `pending` holds the slot during the ~10-30s payment window
+            // so two devotees can't race-book the same slot while one
+            // is mid-Razorpay. PaymentCaptureService::markFailed flips
+            // failed payments to `cancelled`, releasing the hold.
+            ->whereIn('status', ['pending', 'confirmed', 'completed'])
             ->selectRaw("LEFT(slot_time, 5) as slot, COUNT(*) as cnt")
             ->groupBy('slot')
             ->pluck('cnt', 'slot')
@@ -223,7 +227,11 @@ class SevaSlotService
         // Bulk-fetch the booking counts for the window, then index by date+slot.
         $rows = SevaBooking::where('seva_id', $seva->id)
             ->whereBetween('booking_date', [$start->toDateString(), $end->toDateString()])
-            ->whereIn('status', ['confirmed', 'completed'])
+            // `pending` holds the slot during the ~10-30s payment window
+            // so two devotees can't race-book the same slot while one
+            // is mid-Razorpay. PaymentCaptureService::markFailed flips
+            // failed payments to `cancelled`, releasing the hold.
+            ->whereIn('status', ['pending', 'confirmed', 'completed'])
             ->selectRaw("DATE(booking_date) as bdate, LEFT(slot_time, 5) as slot, COUNT(*) as cnt")
             ->groupBy('bdate', 'slot')
             ->get();
@@ -337,7 +345,11 @@ class SevaSlotService
         $currentBookings = SevaBooking::where('seva_id', $seva->id)
             ->where('booking_date', $date)
             ->where('slot_time', $slotTime)
-            ->whereIn('status', ['confirmed', 'completed'])
+            // `pending` holds the slot during the ~10-30s payment window
+            // so two devotees can't race-book the same slot while one
+            // is mid-Razorpay. PaymentCaptureService::markFailed flips
+            // failed payments to `cancelled`, releasing the hold.
+            ->whereIn('status', ['pending', 'confirmed', 'completed'])
             ->count();
 
         if ($currentBookings >= $maxPerSlot) {

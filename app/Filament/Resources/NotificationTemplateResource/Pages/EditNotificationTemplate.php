@@ -82,15 +82,23 @@ class EditNotificationTemplate extends EditRecord
      *
      *   1. WhatsApp channel — convert the flat `wa_vars` admin input
      *      into the nested `wa_components` JSON the driver consumes.
-     *   2. Auto-fill `placeholder_map` from the registry so the driver
-     *      can resolve every token to its dot-path. Admins never edit
-     *      this directly anymore.
+     *   2. MERGE `placeholder_map` from the registry on top of whatever
+     *      the row already had. Existing entries (from the seeder or a
+     *      previous save) win; registry defaults fill only the gaps.
+     *      This is the critical "preserve admin intent" rule — earlier
+     *      versions rebuilt the map from scratch and clobbered seeded
+     *      paths like `booking.seva.name_gu` with the registry's looser
+     *      `booking.seva.name`, which doesn't exist on the Seva model
+     *      and rendered every seva-booking email body as empty strings.
      */
     public static function serialiseTemplate(array $data): array
     {
-        // Always rebuild placeholder_map from the registry. Single source
-        // of truth — registry change in code propagates automatically.
-        $data['placeholder_map'] = self::buildPlaceholderMap($data['key'] ?? null);
+        $existing = is_array($data['placeholder_map'] ?? null) ? $data['placeholder_map'] : [];
+        $fromRegistry = self::buildPlaceholderMap($data['key'] ?? null);
+
+        // Existing wins on key collision — admins/seeders can override
+        // any registry default, the registry only seeds defaults.
+        $data['placeholder_map'] = $existing + $fromRegistry;
 
         if (($data['channel'] ?? null) === NotificationTemplate::CHANNEL_WHATSAPP) {
             $templateName = $data['wa_template_name'] ?? null;
@@ -122,6 +130,9 @@ class EditNotificationTemplate extends EditRecord
             if (preg_match('/\(([^)]+)\)\s*$/', (string) $desc, $m)) {
                 $map[$token] = trim($m[1]);
             } else {
+                // No dot-path in the description — fall back to using
+                // the token name itself as a top-level context key.
+                // Works for things like `trust_name`, `otp`, `name` etc.
                 $map[$token] = $token;
             }
         }

@@ -273,37 +273,36 @@ class NotificationTemplateResource extends Resource
             // under `wa_vars` without further nesting.
             $stateKey = 'wa_vars.' . $slot['key'];
 
+            // Both inputs MUST be dehydrated (default true). Earlier
+            // versions used dehydrated(false) which silently stripped
+            // wa_vars from the save payload — mappings never persisted.
+            // mutateFormDataBeforeSave (Edit/Create page) consumes the
+            // wa_vars bag and converts it to wa_components JSON, then
+            // unsets wa_vars before save reaches the model.
             if ($slot['is_filename']) {
                 $fields[] = Forms\Components\TextInput::make($stateKey)
                     ->label($slot['label'])
                     ->placeholder('e.g. 80G_Receipt.pdf')
-                    ->helperText($slot['help'])
-                    ->dehydrated(false)
+                    ->helperText($slot['help'] ?: null)
                     ->columnSpanFull();
                 continue;
             }
 
-            $fields[] = Forms\Components\Select::make($stateKey)
+            // Plain TextInput with a helperText listing the available
+            // tokens. A Select looked cleaner but constrained values to
+            // its options list — admins couldn't type a literal string
+            // for things like filenames or static URLs. Free-form
+            // input + the placeholders panel at the top of the form
+            // gives the same UX without the constraint.
+            $tokenHint = $tokenOptions
+                ? 'Available tokens: ' . implode(', ', array_keys($tokenOptions))
+                : '';
+            $helper = trim(($slot['help'] ?: '') . ($tokenHint ? "  •  {$tokenHint}" : ''));
+
+            $fields[] = Forms\Components\TextInput::make($stateKey)
                 ->label($slot['label'])
-                ->options($tokenOptions)
-                ->searchable()
-                ->allowHtml(false)
-                ->placeholder('Pick a token or type a literal value…')
-                ->helperText($slot['help'] ?: null)
-                ->dehydrated(false)
-                ->getSearchResultsUsing(function (string $search) use ($tokenOptions) {
-                    // Let the admin type a literal value that isn't a
-                    // registry token — accept it as-is.
-                    $results = collect($tokenOptions)
-                        ->filter(fn ($label, $key) => stripos($key . $label, $search) !== false)
-                        ->all();
-                    $literal = trim($search);
-                    if ($literal !== '' && ! isset($tokenOptions[$literal])) {
-                        $results[$literal] = $literal . ' (literal text)';
-                    }
-                    return $results;
-                })
-                ->getOptionLabelUsing(fn ($value) => $tokenOptions[$value] ?? $value)
+                ->placeholder('e.g. {{ donor_name }} or a literal value')
+                ->helperText($helper !== '' ? $helper : null)
                 ->columnSpanFull();
         }
 

@@ -111,18 +111,33 @@ final class WhatsAppNotificationDriver implements NotificationDriver
                 $type = $p['type'] ?? 'text';
 
                 if ($type === 'text') {
+                    // Three input shapes the form layer can emit:
+                    //   value_token = "donor_name"           → resolve via map
+                    //   value       = "{{ donor_name }} hi"  → render mixed string
+                    //   value       = "Hello"                → literal
+                    // Render every literal through context->render() so
+                    // admins can mix tokens and static text in the same
+                    // field (e.g. "Receipt {{ receipt_number }}").
                     $token = $p['value_token'] ?? null;
                     $literal = $p['value'] ?? null;
-                    $resolved = $token
+                    $resolved = $token !== null
                         ? $context->get($placeholderMap[$token] ?? $token, '')
-                        : ($literal ?? '');
+                        : $context->render((string) ($literal ?? ''), $placeholderMap);
                     $params[] = ['type' => 'text', 'text' => (string) $resolved];
                 } elseif (in_array($type, ['image', 'document', 'video'], true)) {
-                    // Media param — value_token resolves to a URL; filename optional for documents.
+                    // Media param — URL can be a pure token, a templated
+                    // string, or a literal. Filename runs through the
+                    // same renderer so things like "Receipt_{{ receipt_number }}.pdf"
+                    // work as a dynamic filename too.
                     $token = $p['value_token'] ?? null;
-                    $url = $token ? $context->get($placeholderMap[$token] ?? $token, '') : ($p['link'] ?? '');
+                    $literal = $p['value'] ?? ($p['link'] ?? '');
+                    $url = $token !== null
+                        ? $context->get($placeholderMap[$token] ?? $token, '')
+                        : $context->render((string) $literal, $placeholderMap);
                     $media = ['link' => (string) $url];
-                    if (! empty($p['filename'])) $media['filename'] = (string) $p['filename'];
+                    if (! empty($p['filename'])) {
+                        $media['filename'] = $context->render((string) $p['filename'], $placeholderMap);
+                    }
                     $params[] = ['type' => $type, $type => $media];
                 } else {
                     // Currencies / dates / etc — pass through verbatim.

@@ -6,8 +6,6 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BookSevaRequest;
-use App\Jobs\Generate80GReceipt;
-use App\Models\Donation;
 use App\Models\Payment;
 use App\Models\Seva;
 use App\Models\SevaBooking;
@@ -166,32 +164,12 @@ class SevaWebController extends Controller
                     'selected_product_id' => $validated['selected_product_id'] ?? null,
                 ]);
 
-                // Create donation record for 80G receipt
-                $fy = now()->month >= 4
-                    ? now()->year . '-' . substr((string) (now()->year + 1), -2)
-                    : (now()->year - 1) . '-' . substr((string) now()->year, -2);
-
-                $donation = Donation::create([
-                    'id' => (string) Str::uuid(),
-                    'devotee_id' => $devotee->id,
-                    'payment_id' => $payment->id,
-                    'amount' => $totalAmount,
-                    'donation_type' => 'seva',
-                    'purpose' => 'Seva: ' . ($seva->name_en ?? 'Seva Booking'),
-                    'seva_booking_id' => $booking->id,
-                    'is_80g_eligible' => true,
-                    'financial_year' => $fy,
-                ]);
-
-                return ['booking' => $booking, 'payment' => $payment, 'donation' => $donation];
+                // No Donation row for seva bookings — seva payments are
+                // not 80G eligible. See PaymentCaptureService doc-comment.
+                return ['booking' => $booking, 'payment' => $payment];
             });
 
             Log::info('Web seva booking confirmed (test mode)', ['booking_id' => $result['booking']->id]);
-
-            // Auto-generate 80G receipt
-            if ($result['donation']) {
-                Generate80GReceipt::dispatchSync($result['donation']);
-            }
 
             return view('pages.seva.booking-success', [
                 'verified' => true,
@@ -233,30 +211,10 @@ class SevaWebController extends Controller
                         $booking->update(['status' => 'confirmed']);
                     }
 
-                    // Create donation record if not yet created (webhook may have done it already)
-                    $donation = Donation::where('payment_id', $payment->id)->first();
-                    if (! $donation && $booking) {
-                        $fy = now()->month >= 4
-                            ? now()->year . '-' . substr((string) (now()->year + 1), -2)
-                            : (now()->year - 1) . '-' . substr((string) now()->year, -2);
-
-                        $donation = Donation::create([
-                            'id' => (string) Str::uuid(),
-                            'devotee_id' => $booking->devotee_id,
-                            'payment_id' => $payment->id,
-                            'amount' => $payment->amount,
-                            'donation_type' => 'seva',
-                            'purpose' => 'Seva: ' . ($booking->seva->name_en ?? 'Seva Booking'),
-                            'seva_booking_id' => $booking->id,
-                            'is_80g_eligible' => true,
-                            'financial_year' => $fy,
-                        ]);
-                    }
-
-                    // Auto-generate 80G receipt
-                    if ($donation && ! $donation->receipt_generated) {
-                        Generate80GReceipt::dispatchSync($donation);
-                    }
+                    // No Donation / 80G dispatch for seva bookings — seva
+                    // payments aren't 80G eligible. seva.booking.confirmed
+                    // already fired from the webhook / verify endpoint
+                    // path via PaymentCaptureService.
                 }
             }
         }

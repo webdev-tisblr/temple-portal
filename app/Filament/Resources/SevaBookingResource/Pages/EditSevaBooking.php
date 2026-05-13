@@ -14,33 +14,13 @@ class EditSevaBooking extends EditRecord
 
     protected function getHeaderActions(): array
     {
+        // The "Download 80G Receipt" action was removed on 2026-05-13
+        // when seva bookings stopped synthesizing Donation rows. Seva
+        // payments are not 80G-eligible; the button only ever applied
+        // to a few legacy rows from before that change. If you need to
+        // export a legacy receipt, find the row directly in
+        // /admin/donations filtered by the seva_booking_id.
         return [
-            Actions\Action::make('download_receipt')
-                ->label('Download 80G Receipt')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->color('warning')
-                ->visible(function () {
-                    $donation = \App\Models\Donation::where('seva_booking_id', $this->record->id)
-                        ->latest()->first();
-                    return $donation && $donation->receipt_generated;
-                })
-                ->action(function () {
-                    $donation = \App\Models\Donation::where('seva_booking_id', $this->record->id)
-                        ->with('receipt')->latest()->first();
-                    if (! $donation || ! $donation->receipt || ! $donation->receipt->pdf_path) {
-                        return;
-                    }
-                    $disk = \Illuminate\Support\Facades\Storage::disk('r2_private');
-                    if (! $disk->exists($donation->receipt->pdf_path)) {
-                        return;
-                    }
-                    $bytes = $disk->get($donation->receipt->pdf_path);
-                    return response($bytes, 200, [
-                        'Content-Type' => 'application/pdf',
-                        'Content-Length' => (string) strlen($bytes),
-                        'Content-Disposition' => 'attachment; filename="receipt-' . str_replace('/', '-', $donation->receipt->receipt_number) . '.pdf"',
-                    ]);
-                }),
             Actions\DeleteAction::make(),
         ];
     }

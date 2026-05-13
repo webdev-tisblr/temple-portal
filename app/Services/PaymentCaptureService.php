@@ -76,25 +76,14 @@ class PaymentCaptureService
             Log::info("Hall booking {$hallBooking->id} confirmed via payment capture");
         }
 
+        // 80G receipts are STRICTLY for direct donations (daan), not
+        // for seva / hall / store payments. Earlier this block also
+        // synthesised a Donation from a SevaBooking with
+        // is_80g_eligible=true and fired Generate80GReceipt, which is
+        // why test seva bookings were emailing 80G PDFs. Removed —
+        // seva payments now fire only seva.booking.confirmed above,
+        // never the donation flow.
         $donation = Donation::where('payment_id', $payment->id)->first();
-
-        if (! $donation && $booking) {
-            $fy = now()->month >= 4
-                ? now()->year . '-' . substr((string) (now()->year + 1), -2)
-                : (now()->year - 1) . '-' . substr((string) now()->year, -2);
-
-            $donation = Donation::create([
-                'id' => (string) Str::uuid(),
-                'devotee_id' => $booking->devotee_id,
-                'payment_id' => $payment->id,
-                'amount' => $payment->amount,
-                'donation_type' => 'seva',
-                'purpose' => 'Seva: ' . ($booking->seva->name_en ?? 'Seva Booking'),
-                'seva_booking_id' => $booking->id,
-                'is_80g_eligible' => true,
-                'financial_year' => $fy,
-            ]);
-        }
 
         if ($donation) {
             $devotee = $donation->devotee;

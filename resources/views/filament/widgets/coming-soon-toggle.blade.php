@@ -49,6 +49,11 @@
                    • work in both light + dark mode
                  No inline ON/OFF labels — they were redundant with the
                  badge and made the whole widget feel cluttered. --}}
+            {{-- Matches the look of Filament's stock ToggleColumn (the
+                 same orange you see in the "Active" column on every
+                 admin list). Primary = Orange in AdminPanelProvider, so
+                 reusing `primary-500` keeps the visual language
+                 consistent across the dashboard. --}}
             <button
                 type="button"
                 wire:click="toggle"
@@ -57,7 +62,7 @@
                 :aria-checked="@js($enabled)"
                 @class([
                     'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900',
-                    'bg-warning-500 focus:ring-warning-400' => $enabled,
+                    'bg-primary-500 focus:ring-primary-400' => $enabled,
                     'bg-gray-300 dark:bg-gray-600 focus:ring-gray-400' => ! $enabled,
                 ])
             >

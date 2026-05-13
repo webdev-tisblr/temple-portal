@@ -54,6 +54,15 @@
                  admin list). Primary = Orange in AdminPanelProvider, so
                  reusing `primary-500` keeps the visual language
                  consistent across the dashboard. --}}
+            {{-- HeadlessUI / Filament canonical toggle markup:
+                 • button is h-6 w-11 with a 2px transparent border so the
+                   inner content area is exactly h-5 w-9 (the knob's
+                   travel lane). border-transparent keeps the visible
+                   shape rounded without an extra outline.
+                 • items-center vertically centers the knob in the lane.
+                 • knob is h-5 w-5 — snaps neatly inside the border area
+                   without the height-mismatch gap that produced the
+                   misaligned look in the previous version. --}}
             <button
                 type="button"
                 wire:click="toggle"
@@ -61,16 +70,16 @@
                 role="switch"
                 :aria-checked="@js($enabled)"
                 @class([
-                    'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900',
+                    'relative inline-flex h-6 w-11 shrink-0 items-center cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900',
                     'bg-primary-500 focus:ring-primary-400' => $enabled,
                     'bg-gray-300 dark:bg-gray-600 focus:ring-gray-400' => ! $enabled,
                 ])
             >
                 <span class="sr-only">Toggle coming soon mode</span>
                 <span @class([
-                    'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-1 ring-black/5 transition duration-200 ease-in-out',
+                    'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
                     'translate-x-5' => $enabled,
-                    'translate-x-0.5' => ! $enabled,
+                    'translate-x-0' => ! $enabled,
                 ])></span>
             </button>
         </div>

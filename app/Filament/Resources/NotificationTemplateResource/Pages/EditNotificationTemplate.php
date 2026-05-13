@@ -8,7 +8,9 @@ use App\Filament\Resources\NotificationTemplateResource;
 use App\Models\Devotee;
 use App\Models\NotificationTemplate;
 use App\Models\SystemSetting;
+use App\Services\Notifications\NotificationRegistry;
 use App\Services\Notifications\NotificationService;
+use App\Services\Notifications\WhatsAppTemplateBlueprint;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -20,10 +22,8 @@ class EditNotificationTemplate extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            // Send a test instance of this template to the trust admin
-            // (or a specified address). The dispatch context is a small
-            // demo bundle keyed by the registry, so admins can preview
-            // their template without firing a real domain event.
+            // Send a test instance to a chosen address/phone. Lets admins
+            // dry-run a template without firing the underlying domain event.
             Actions\Action::make('send_test')
                 ->label('Send test')
                 ->icon('heroicon-o-paper-airplane')
@@ -31,8 +31,8 @@ class EditNotificationTemplate extends EditRecord
                 ->form([
                     \Filament\Forms\Components\TextInput::make('test_recipient')
                         ->label('Recipient')
-                        ->helperText('Email for email channel; phone (E.164 or 10-digit) for WhatsApp; ignored for push.')
-                        ->required(fn () => $this->record->channel !== NotificationTemplate::CHANNEL_PUSH),
+                        ->helperText('Email for the email channel; phone (E.164 or 10-digit) for WhatsApp / SMS.')
+                        ->required(),
                 ])
                 ->action(function (array $data) {
                     $template = $this->record;
@@ -44,12 +44,88 @@ class EditNotificationTemplate extends EditRecord
                         ->title($ok ? 'Test dispatched' : 'Test failed')
                         ->body($ok
                             ? 'Driver accepted the message. Check the inbox / device.'
-                            : 'Driver rejected the message — see logs for the reason.')
+                            : 'Driver rejected the message — see laravel.log for the reason.')
                         ->color($ok ? 'success' : 'danger')
                         ->send();
                 }),
             Actions\DeleteAction::make(),
         ];
+    }
+
+    /**
+     * Decode the stored `wa_components` + `placeholder_map` back into
+     * the flat `wa_vars` form state so the auto-detected UI shows each
+     * existing value next to the right slot.
+     */
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        if (($data['channel'] ?? null) === NotificationTemplate::CHANNEL_WHATSAPP
+            && ! empty($data['wa_template_name'])
+        ) {
+            $slots = WhatsAppTemplateBlueprint::slotsFor($data['wa_template_name']);
+            $data['wa_vars'] = WhatsAppTemplateBlueprint::valuesFromComponents(
+                $slots,
+                $data['wa_components'] ?? [],
+            );
+        }
+        return $data;
+    }
+
+    /** Apply the same serialisation as Create — see Create page. */
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        return self::serialiseTemplate($data);
+    }
+
+    /**
+     * Shared serialiser used by both Create and Edit pages:
+     *
+     *   1. WhatsApp channel — convert the flat `wa_vars` admin input
+     *      into the nested `wa_components` JSON the driver consumes.
+     *   2. Auto-fill `placeholder_map` from the registry so the driver
+     *      can resolve every token to its dot-path. Admins never edit
+     *      this directly anymore.
+     */
+    public static function serialiseTemplate(array $data): array
+    {
+        // Always rebuild placeholder_map from the registry. Single source
+        // of truth — registry change in code propagates automatically.
+        $data['placeholder_map'] = self::buildPlaceholderMap($data['key'] ?? null);
+
+        if (($data['channel'] ?? null) === NotificationTemplate::CHANNEL_WHATSAPP) {
+            $templateName = $data['wa_template_name'] ?? null;
+            $values = $data['wa_vars'] ?? [];
+
+            if ($templateName) {
+                $slots = WhatsAppTemplateBlueprint::slotsFor($templateName);
+                $data['wa_components'] = WhatsAppTemplateBlueprint::componentsFromValues($slots, $values);
+            } else {
+                $data['wa_components'] = [];
+            }
+        }
+
+        // wa_vars is a UI-only scratch field — never persist it.
+        unset($data['wa_vars']);
+
+        return $data;
+    }
+
+    /** Token → dot-path map derived from the registry entry for $key. */
+    private static function buildPlaceholderMap(?string $key): array
+    {
+        if (! $key) return [];
+        $info = NotificationRegistry::describe($key);
+        if (! $info) return [];
+
+        $map = [];
+        foreach ($info['placeholders'] as $token => $desc) {
+            if (preg_match('/\(([^)]+)\)\s*$/', (string) $desc, $m)) {
+                $map[$token] = trim($m[1]);
+            } else {
+                $map[$token] = $token;
+            }
+        }
+        return $map;
     }
 
     /**
@@ -59,11 +135,11 @@ class EditNotificationTemplate extends EditRecord
      */
     private function buildDemoContext(NotificationTemplate $template, ?string $recipient): array
     {
-        // Override the recipient strategy temporarily so the test goes
-        // to the address admins typed into the form regardless of the
-        // template's saved strategy.
         if ($recipient) {
-            $template->recipient_strategy = $template->channel === NotificationTemplate::CHANNEL_WHATSAPP
+            $template->recipient_strategy = in_array($template->channel, [
+                NotificationTemplate::CHANNEL_WHATSAPP,
+                NotificationTemplate::CHANNEL_SMS,
+            ], true)
                 ? NotificationTemplate::RECIPIENT_FIXED_PHONE
                 : NotificationTemplate::RECIPIENT_FIXED_EMAIL;
             $template->recipient_value = $recipient;
@@ -112,10 +188,18 @@ class EditNotificationTemplate extends EditRecord
             'receipt' => [
                 'receipt_number' => 'TEST/80G/0001',
                 'amount' => '5,100',
+                'amount_formatted' => '5,100.00',
                 'fiscal_year' => '2025-26',
             ],
-            'otp' => '123456',
+            'donor_name' => $devotee->name ?? 'Test Devotee',
+            'amount' => '5,100',
+            'amount_formatted' => '5,100.00',
+            'receipt_pdf_url' => 'https://example.com/test-receipt.pdf',
+            'greeting_card_url' => 'https://example.com/test-card.png',
+            'otp' => '654321',
             'expires_in_minutes' => 5,
+            'name' => $devotee->name ?? 'Test Devotee',
+            'language' => 'gu',
             'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
         ];
     }

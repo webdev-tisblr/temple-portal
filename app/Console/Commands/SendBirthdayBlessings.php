@@ -4,27 +4,27 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Jobs\SendPushNotification;
-use App\Jobs\SendWhatsAppMessage;
-use App\Models\DeviceToken;
 use App\Models\Devotee;
-use App\Models\Notification;
+use App\Services\Notifications\NotificationService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * Daily cron — finds devotees with a birthday today and fires the
+ * `devotee.birthday` notification trigger for each. Whether anything
+ * actually sends is entirely up to which NotificationTemplate rows
+ * the admin has created for that trigger (WhatsApp / email / SMS).
+ *
+ * No hardcoded message bodies, no hardcoded push fan-out — if the
+ * admin hasn't configured a template, nobody hears from us.
+ */
 class SendBirthdayBlessings extends Command
 {
-    /**
-     * The name and signature of the console command.
-     */
     protected $signature = 'temple:send-birthday-blessings';
 
-    /**
-     * The console command description.
-     */
-    protected $description = 'Send birthday blessings to devotees whose birthday falls on today';
+    protected $description = 'Fire the devotee.birthday trigger for every devotee whose birthday is today.';
 
-    public function handle(): int
+    public function handle(NotificationService $notifications): int
     {
         $today = now();
         $month = (int) $today->month;
@@ -45,65 +45,23 @@ class SendBirthdayBlessings extends Command
             return self::SUCCESS;
         }
 
-        $this->info("Found {$count} devotee(s) with birthdays today. Dispatching blessings...");
+        $this->info("Found {$count} devotee(s) with birthdays today. Dispatching trigger...");
 
         foreach ($devotees as $devotee) {
-            // Dispatch WhatsApp birthday blessing
-            SendWhatsAppMessage::dispatch(
-                $devotee->phone,
-                'template',
-                [
-                    'template_name' => 'birthday_blessing',
-                    'language_code' => $this->resolveLanguageCode($devotee->language?->value ?? 'gu'),
-                    'components' => [
-                        [
-                            'type' => 'body',
-                            'parameters' => [
-                                ['type' => 'text', 'text' => $devotee->name],
-                            ],
-                        ],
-                    ],
-                ],
-            );
-
-            // Dispatch push notification if device token exists
-            $hasToken = DeviceToken::where('devotee_id', $devotee->id)
-                ->where('is_active', true)
-                ->exists();
-
-            if ($hasToken) {
-                $pushNotification = Notification::create([
-                    'title_gu' => 'જન્મદિવસ મુબારક! 🙏',
-                    'title_hi' => 'जन्मदिन मुबारक! 🙏',
-                    'title_en' => 'Happy Birthday! 🙏',
-                    'body_gu' => "પ્રિય {$devotee->name}, શ્રી પાતળિયા હનુમાનજી આપને જન્મદિવસ પર આશીર્વાદ આપે. 🙏",
-                    'body_hi' => "प्रिय {$devotee->name}, श्री पातळिया हनुमानजी आपको जन्मदिन पर आशीर्वाद देते हैं। 🙏",
-                    'body_en' => "Dear {$devotee->name}, Shree Pataliya Hanumanji blesses you on your birthday. 🙏",
-                    'segment' => 'custom',
-                    'custom_filter' => ['devotee_ids' => [$devotee->id]],
-                    'status' => 'pending',
-                    'scheduled_at' => now(),
-                ]);
-
-                SendPushNotification::dispatch($pushNotification);
-            }
+            $notifications->dispatch('devotee.birthday', [
+                'devotee' => $devotee,
+                'name' => $devotee->name,
+                'language' => $devotee->language?->value ?? 'gu',
+            ]);
         }
 
-        $this->info("Birthday blessings dispatched for {$count} devotee(s).");
-        Log::info("temple:send-birthday-blessings: dispatched for {$count} devotee(s).", [
+        $this->info("devotee.birthday dispatched for {$count} devotee(s). Channels that fire depend on which templates are enabled in admin.");
+        Log::info('temple:send-birthday-blessings: trigger dispatched', [
+            'count' => $count,
             'month' => $month,
             'day' => $day,
         ]);
 
         return self::SUCCESS;
-    }
-
-    private function resolveLanguageCode(string $language): string
-    {
-        return match ($language) {
-            'hi' => 'hi',
-            'en' => 'en',
-            default => 'gu', // Gujarati
-        };
     }
 }

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\Donation;
+use App\Models\SystemSetting;
+use App\Services\Notifications\NotificationService;
 use App\Services\ReceiptService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -14,6 +16,17 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Builds the 80G receipt PDF (and optional greeting card) for a
+ * captured donation and hands everything to NotificationService::dispatch
+ * with the URLs and PDF bytes exposed as placeholders / attachments.
+ *
+ * NOTHING is sent from inside this job. Channels fire only if the admin
+ * has created and enabled a NotificationTemplate row for the
+ * `donation.receipt_80g` trigger on that channel (email / whatsapp /
+ * sms / push). That's the rule for the whole platform — no hardcoded
+ * sends, every message originates from a template row.
+ */
 class Generate80GReceipt implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
@@ -33,113 +46,89 @@ class Generate80GReceipt implements ShouldQueue
             'receipt_id' => $receipt->id,
         ]);
 
-        Log::info("80G receipt generated", [
+        Log::info('80G receipt generated', [
             'donation_id' => $this->donation->id,
             'receipt_number' => $receipt->receipt_number,
         ]);
 
-        // Generate greeting card if donation type has a template
+        // Optional greeting card — only generated if the donation type
+        // has a card template configured by the admin.
         try {
             $cardPath = app(\App\Services\GreetingCardService::class)->generate($this->donation);
             if ($cardPath) {
-                Log::info("Greeting card generated", ['donation_id' => $this->donation->id]);
+                Log::info('Greeting card generated', ['donation_id' => $this->donation->id]);
             }
         } catch (\Exception $e) {
-            Log::error("Greeting card generation failed", ['error' => $e->getMessage()]);
+            Log::error('Greeting card generation failed', ['error' => $e->getMessage()]);
         }
 
         $this->donation->loadMissing('devotee');
         $devotee = $this->donation->devotee;
 
-        if (! $devotee) {
+        if (! $devotee || ! $receipt->pdf_path) {
             return;
         }
 
-        // Send receipt via email
-        if ($devotee->email && $receipt->pdf_path) {
-            $this->sendReceiptEmail($devotee, $receipt);
-        }
-
-        // Send receipt via WhatsApp
-        if ($devotee->phone && $receipt->pdf_path) {
-            // WhatsApp's media-by-URL flow needs a publicly-fetchable URL.
-            // Generate a signed temporary URL on the private R2 bucket
-            // (max 7 days per R2/S3 presigner). Long enough for reliable
-            // delivery; users keep the PDF attachment in their chat anyway.
-            try {
-                $pdfUrl = Storage::disk('r2_private')->temporaryUrl(
-                    $receipt->pdf_path,
-                    now()->addDays(7),
-                );
-            } catch (\Throwable $e) {
-                Log::error('Failed to generate WhatsApp PDF URL', [
-                    'donation_id' => $this->donation->id,
-                    'error' => $e->getMessage(),
-                ]);
-                $pdfUrl = null;
-            }
-
-            if ($pdfUrl) {
-                $filename = str_replace('/', '-', "80G_Receipt_{$receipt->receipt_number}.pdf");
-
-                SendWhatsAppMessage::dispatch($devotee->phone, 'document', [
-                    'url' => $pdfUrl,
-                    'filename' => $filename,
-                    'caption' => "Thank you for your donation of ₹" . number_format((float) $this->donation->amount) . ". Here is your 80G receipt.",
-                ]);
-
-                $receipt->update(['whatsapp_sent_at' => now()]);
-            }
-
-            // Send greeting card via WhatsApp if configured. The card download
-            // route (/donate/greeting-card/{id}) is permanent and unauth, so
-            // unlike the PDF we don't need a presigned URL here.
-            $cardConfig = $this->donation->donationType?->greeting_card_config ?? [];
-            if (($cardConfig['send_via_whatsapp'] ?? true) && $this->donation->greeting_card_path) {
-                $cardUrl = url('/donate/greeting-card/' . $this->donation->id);
-                SendWhatsAppMessage::dispatch($devotee->phone, 'document', [
-                    'url' => $cardUrl,
-                    'filename' => 'Greeting_Card.png',
-                    'caption' => 'Here is your personalised greeting card from Shree Pataliya Hanumanji Seva Trust.',
-                ]);
-            }
-        }
-    }
-
-    private function sendReceiptEmail($devotee, $receipt): void
-    {
+        // Build the PDF URL once. WhatsApp needs a publicly-fetchable link
+        // (presigned R2 URL, max 7 days per S3 spec). Email attaches the
+        // bytes inline so the URL is irrelevant there — both channels
+        // come out of the same dispatch.
+        $receiptPdfUrl = null;
         try {
-            // Pull PDF bytes from R2 — no local filesystem path available.
-            $pdfBytes = Storage::disk('r2_private')->get($receipt->pdf_path);
-            $receiptNumber = $receipt->receipt_number;
+            $receiptPdfUrl = Storage::disk('r2_private')->temporaryUrl(
+                $receipt->pdf_path,
+                now()->addDays(7),
+            );
+        } catch (\Throwable $e) {
+            Log::error('Failed to presign 80G PDF URL', [
+                'donation_id' => $this->donation->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
-            // Optional greeting-card attachment also lives on r2_private.
-            $cardBytes = null;
+        // Greeting card URL — the public download route is permanent
+        // and unauth, so no presign required.
+        $greetingCardUrl = $this->donation->greeting_card_path
+            ? url('/donate/greeting-card/' . $this->donation->id)
+            : null;
+
+        // PDF bytes for email attachment; pulled from R2 once.
+        $attachments = [];
+        try {
+            $pdfBytes = Storage::disk('r2_private')->get($receipt->pdf_path);
+            $receiptFilename = str_replace('/', '-', "80G_Receipt_{$receipt->receipt_number}.pdf");
+            $attachments[] = [
+                'data' => $pdfBytes,
+                'name' => $receiptFilename,
+                'mime' => 'application/pdf',
+            ];
+
             if ($this->donation->greeting_card_path) {
                 try {
                     $cardBytes = Storage::disk('r2_private')->get($this->donation->greeting_card_path);
+                    if ($cardBytes) {
+                        $attachments[] = [
+                            'data' => $cardBytes,
+                            'name' => 'Greeting_Card.png',
+                            'mime' => 'image/png',
+                        ];
+                    }
                 } catch (\Throwable $e) {
-                    $cardBytes = null;
+                    // Card is optional; ignore.
                 }
             }
+        } catch (\Throwable $e) {
+            Log::error('Failed to read 80G PDF bytes for attachment', [
+                'donation_id' => $this->donation->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
-            $attachments = [[
-                'data' => $pdfBytes,
-                'name' => str_replace('/', '-', "80G_Receipt_{$receiptNumber}.pdf"),
-                'mime' => 'application/pdf',
-            ]];
-            if ($cardBytes) {
-                $attachments[] = [
-                    'data' => $cardBytes,
-                    'name' => 'Greeting_Card.png',
-                    'mime' => 'image/png',
-                ];
-            }
-
-            // Single dispatch — every enabled NotificationTemplate for
-            // 'donation.receipt_80g' fires (email today; WhatsApp / push
-            // when the admin enables them).
-            app(\App\Services\Notifications\NotificationService::class)->dispatch(
+        // Single dispatch — every enabled NotificationTemplate for
+        // 'donation.receipt_80g' fires. If no rows exist or none are
+        // enabled, nothing sends. That's intentional.
+        try {
+            app(NotificationService::class)->dispatch(
                 'donation.receipt_80g',
                 [
                     'devotee' => $devotee,
@@ -147,21 +136,29 @@ class Generate80GReceipt implements ShouldQueue
                         'amount_formatted' => number_format((float) $this->donation->amount, 2),
                     ]),
                     'donation' => $this->donation,
-                    'trust_name' => \App\Models\SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+                    'donor_name' => $devotee->name,
+                    'amount' => (string) $this->donation->amount,
+                    'amount_formatted' => number_format((float) $this->donation->amount, 2),
+                    'receipt_pdf_url' => $receiptPdfUrl,
+                    'greeting_card_url' => $greetingCardUrl,
+                    'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
                     '_attachments' => $attachments,
                 ],
             );
 
-            $receipt->update(['emailed_at' => now()]);
+            $receipt->update([
+                'emailed_at' => now(),
+                'whatsapp_sent_at' => $receiptPdfUrl ? now() : null,
+            ]);
 
-            Log::info("80G receipt dispatched via NotificationService", [
+            Log::info('80G receipt dispatched via NotificationService', [
                 'donation_id' => $this->donation->id,
                 'email' => $devotee->email,
+                'has_pdf_url' => $receiptPdfUrl !== null,
             ]);
-        } catch (\Exception $e) {
-            Log::error("80G receipt dispatch failed", [
+        } catch (\Throwable $e) {
+            Log::error('80G receipt dispatch failed', [
                 'donation_id' => $this->donation->id,
-                'email' => $devotee->email ?? null,
                 'error' => $e->getMessage(),
             ]);
         }

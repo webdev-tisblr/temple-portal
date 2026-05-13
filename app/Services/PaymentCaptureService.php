@@ -43,9 +43,9 @@ class PaymentCaptureService
         $booking = SevaBooking::where('payment_id', $payment->id)->first();
         if ($booking) {
             $booking->update(['status' => 'confirmed']);
-            // Fan out to every enabled template (email/whatsapp/push)
-            // for the seva.booking.confirmed trigger. Replaces the
-            // hardcoded SendSevaBookingConfirmation job.
+            // Fan out to every enabled template (email/whatsapp/sms)
+            // for the seva.booking.confirmed trigger. Nothing sends
+            // unless the admin has created and enabled a row.
             $booking->loadMissing('devotee', 'seva');
             app(\App\Services\Notifications\NotificationService::class)->dispatch(
                 'seva.booking.confirmed',

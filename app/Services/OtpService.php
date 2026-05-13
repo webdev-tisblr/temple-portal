@@ -25,12 +25,11 @@ class OtpService
             ->whereNull('verified_at')
             ->delete();
 
-        // Real random 6-digit code via the OS CSPRNG. The previous
-        // hardcoded '123456' is kept ONLY in local dev so the
-        // developer doesn't have to wait for an SMS to log in.
-        $code = app()->environment('local')
-            ? '123456'
-            : (string) random_int(100000, 999999);
+        // Real random 6-digit code via the OS CSPRNG, every environment.
+        // No hardcoded bypass: local dev now reads the OTP from the log
+        // line below (or whichever admin-enabled notification template
+        // delivers it — WhatsApp / email / SMS once configured).
+        $code = (string) random_int(100000, 999999);
 
         OtpCode::create([
             'phone' => $phone,
@@ -44,16 +43,14 @@ class OtpService
         Log::info("OTP for {$phone}: {$code}");
 
         // Route the OTP send through the central notification dispatcher.
-        // Every enabled NotificationTemplate for 'auth.otp' fires
-        // (WhatsApp today; SMS once the channel driver lands; email
-        // when admin enables it).
-        if (! app()->environment('local')) {
-            app(NotificationService::class)->dispatch('auth.otp', [
-                'phone' => $phone,
-                'otp' => $code,
-                'expires_in_minutes' => 10,
-            ]);
-        }
+        // Every enabled NotificationTemplate for 'auth.otp' fires — nothing
+        // sends unless the admin has explicitly created and enabled a
+        // template row for the channel they want (WhatsApp / email / SMS).
+        app(NotificationService::class)->dispatch('auth.otp', [
+            'phone' => $phone,
+            'otp' => $code,
+            'expires_in_minutes' => 10,
+        ]);
 
         return $code;
     }

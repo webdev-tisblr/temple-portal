@@ -8,6 +8,7 @@ use App\Filament\Resources\NotificationTemplateResource\Pages;
 use App\Models\NotificationTemplate;
 use App\Models\WhatsAppTemplateCache;
 use App\Services\Notifications\NotificationRegistry;
+use App\Services\Notifications\WhatsAppTemplateBlueprint;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -27,8 +28,9 @@ class NotificationTemplateResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
+            // ── Trigger + channel ──────────────────────────────────────
             Forms\Components\Section::make('Trigger')
-                ->description('Pick the domain event this template responds to. Multiple templates can share one trigger so an event can fan out to email, WhatsApp and push at once.')
+                ->description('Pick the event this template responds to. Multiple templates can share a trigger so one event can fan out to email, WhatsApp and SMS at once. If no template exists for a trigger, that channel stays silent — nothing auto-sends.')
                 ->schema([
                     Forms\Components\Grid::make(2)->schema([
                         Forms\Components\Select::make('key')
@@ -37,35 +39,9 @@ class NotificationTemplateResource extends Resource
                             ->searchable()
                             ->required()
                             ->live()
-                            // When the admin picks a trigger AND the
-                            // placeholder map is still empty, pre-fill it
-                            // from the registry so they get every available
-                            // token mapped to its dot-path automatically.
-                            // Existing maps are never overwritten.
-                            ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
-                                if (! $state) return;
-                                $existing = $get('placeholder_map');
-                                if (is_array($existing) && count(array_filter($existing)) > 0) return;
-                                $info = NotificationRegistry::describe($state);
-                                if (! $info) return;
-                                $map = [];
-                                foreach ($info['placeholders'] as $token => $desc) {
-                                    // Description is "Donor name (donation.devotee.name)" —
-                                    // pull the dot-path out of the trailing parens.
-                                    if (preg_match('/\\(([^)]+)\\)\\s*$/', (string) $desc, $m)) {
-                                        $map[$token] = $m[1];
-                                    } else {
-                                        $map[$token] = $token;
-                                    }
-                                }
-                                $set('placeholder_map', $map);
-                            })
                             ->columnSpan(1),
                         Forms\Components\Select::make('channel')
                             ->label('Channel')
-                            // Push templates live under the separate
-                            // "Push Notifications" resource — they\'re
-                            // admin-broadcast, not template-driven.
                             ->options([
                                 NotificationTemplate::CHANNEL_EMAIL => 'Email',
                                 NotificationTemplate::CHANNEL_WHATSAPP => 'WhatsApp',
@@ -89,12 +65,12 @@ class NotificationTemplateResource extends Resource
                     ]),
 
                     Forms\Components\Placeholder::make('placeholders_help')
-                        ->label('Available placeholders for this trigger')
+                        ->label('Available placeholders')
                         ->columnSpanFull()
                         ->content(function (Forms\Get $get) {
                             $key = $get('key');
                             if (! $key) {
-                                return new \Illuminate\Support\HtmlString('<em>Pick a trigger above to see the placeholders available in subject / body / WhatsApp params.</em>');
+                                return new \Illuminate\Support\HtmlString('<em>Pick a trigger above to see the placeholders this event publishes.</em>');
                             }
                             $info = NotificationRegistry::describe($key);
                             if (! $info) return '';
@@ -113,7 +89,7 @@ class NotificationTemplateResource extends Resource
                         ->columnSpanFull(),
                 ])->columns(1),
 
-            // ── Email channel ──────────────────────────────────────────
+            // ── Email ─────────────────────────────────────────────────
             Forms\Components\Section::make('Email content')
                 ->visible(fn (Forms\Get $get) => $get('channel') === NotificationTemplate::CHANNEL_EMAIL)
                 ->schema([
@@ -140,7 +116,7 @@ class NotificationTemplateResource extends Resource
                     ]),
                 ]),
 
-            // ── WhatsApp channel ───────────────────────────────────────
+            // ── WhatsApp ──────────────────────────────────────────────
             Forms\Components\Section::make('WhatsApp template')
                 ->visible(fn (Forms\Get $get) => $get('channel') === NotificationTemplate::CHANNEL_WHATSAPP)
                 ->schema([
@@ -156,162 +132,187 @@ class NotificationTemplateResource extends Resource
                                 ->all())
                             ->searchable()
                             ->required()
-                            ->helperText('Sync templates from Settings → Integrations → WhatsApp.'),
+                            ->live()
+                            ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                // Mirror the template's language code into the
+                                // language field so admins don't double-enter it.
+                                if (! $state) return;
+                                $row = WhatsAppTemplateCache::where('name', $state)->first();
+                                if ($row) $set('wa_template_language', $row->language);
+                            })
+                            ->helperText('Sync templates from Settings → Integrations → WhatsApp before they appear here.'),
                         Forms\Components\TextInput::make('wa_template_language')
                             ->label('Language code')
                             ->default('en')
                             ->required()
-                            ->helperText('e.g. en, gu_IN, hi_IN.'),
+                            ->disabled()
+                            ->dehydrated()
+                            ->helperText('Locked to the template you picked.'),
                     ]),
 
-                    Forms\Components\Placeholder::make('wa_components_help')
-                        ->label('How to fill the parameter table')
+                    // Auto-detected variables — exactly one input per real
+                    // {{n}} the template uses, plus header media and button
+                    // URL placeholders. The slot list comes from
+                    // WhatsAppTemplateBlueprint::slotsFor() and is recomputed
+                    // every time the template selection changes.
+                    Forms\Components\Group::make()
                         ->columnSpanFull()
-                        ->content(new \Illuminate\Support\HtmlString(
-                            '<div style="font-size:0.875rem;line-height:1.55;">'
-                            . '<p style="margin:0 0 0.5rem;">A WhatsApp template message has three possible <strong>sections</strong> — <strong>Header</strong>, <strong>Body</strong> and <strong>Buttons</strong> — each with its own list of variables (the <code>{{1}}</code>, <code>{{2}}</code>… you see in Meta\'s template editor).</p>'
-                            . '<ol style="margin:0 0 0.5rem 1.25rem; padding:0;">'
-                            . '<li>Add one <strong>outer row</strong> per section your template actually uses (skip sections that have no variables).</li>'
-                            . '<li>For each outer row, add one <strong>inner Parameter</strong> per <code>{{n}}</code> placeholder in that section, <em>in the same order</em>.</li>'
-                            . '<li>In each inner Parameter, set <em>Type</em> to <code>text</code> (or image/document/video for media) and type a token name into <em>Value token</em> — e.g. <code>donor_name</code>. The Placeholder map below decides what real value the token resolves to (usually it\'s filled for you automatically).</li>'
-                            . '</ol>'
-                            . '<p style="margin:0;"><strong>Example:</strong> Meta template body says <em>"Hi {{1}}, your donation of ₹{{2}} is received."</em> → one outer row of <code>type: body</code> with two inner Parameters: <code>donor_name</code>, then <code>amount</code>.</p>'
-                            . '</div>'
-                        )),
-
-                    Forms\Components\Repeater::make('wa_components')
-                        ->label('Sections (header / body / button)')
-                        ->addActionLabel('+ Add a section')
-                        ->itemLabel(fn (array $state): ?string => isset($state['type']) ? strtoupper($state['type']) : null)
-                        ->schema([
-                            Forms\Components\Grid::make(3)->schema([
-                                Forms\Components\Select::make('type')
-                                    ->label('Section')
-                                    ->options([
-                                        'header' => 'Header',
-                                        'body' => 'Body',
-                                        'button' => 'Button',
-                                    ])
-                                    ->required(),
-                                Forms\Components\Select::make('sub_type')
-                                    ->label('Button sub-type')
-                                    ->options(['url' => 'URL button', 'quick_reply' => 'Quick reply'])
-                                    ->placeholder('— only for buttons —'),
-                                Forms\Components\TextInput::make('index')
-                                    ->label('Button index')
-                                    ->placeholder('0-based, only for buttons')
-                                    ->numeric(),
-                            ]),
-
-                            Forms\Components\Repeater::make('parameters')
-                                ->label('Variables ({{1}}, {{2}}, …) for this section')
-                                ->addActionLabel('+ Add a variable')
-                                ->itemLabel(fn (array $state): ?string => $state['value_token'] ?? null)
-                                ->schema([
-                                    Forms\Components\Grid::make(3)->schema([
-                                        Forms\Components\Select::make('type')
-                                            ->label('Variable type')
-                                            ->options([
-                                                'text' => 'Text',
-                                                'image' => 'Image',
-                                                'document' => 'Document',
-                                                'video' => 'Video',
-                                            ])
-                                            ->default('text')
-                                            ->required(),
-                                        Forms\Components\TextInput::make('value_token')
-                                            ->label('Value token')
-                                            ->placeholder('e.g. donor_name')
-                                            ->helperText('Pick a token from the Placeholder map below.'),
-                                        Forms\Components\TextInput::make('filename')
-                                            ->label('Filename')
-                                            ->placeholder('Only for documents'),
-                                    ]),
-                                ])
-                                ->collapsible(),
-                        ])
-                        ->collapsible()
-                        ->columnSpanFull(),
+                        ->schema(fn (Forms\Get $get) => self::buildWhatsAppVariableInputs($get)),
                 ]),
 
-            // ── SMS channel ────────────────────────────────────────────
+            // ── SMS ───────────────────────────────────────────────────
             Forms\Components\Section::make('SMS template')
                 ->visible(fn (Forms\Get $get) => $get('channel') === NotificationTemplate::CHANNEL_SMS)
                 ->schema([
-                    Forms\Components\Placeholder::make('sms_help')
-                        ->label('How SMS templates work')
-                        ->columnSpanFull()
-                        ->content(new \Illuminate\Support\HtmlString(
-                            '<div style="font-size:0.875rem;line-height:1.55;">'
-                            . '<p style="margin:0 0 0.5rem;">SMS in India must use a <strong>DLT-approved template</strong> hosted with MSG91. You can\'t type a free-form message body here — only point at the template id MSG91 gives you, and supply the variable values.</p>'
-                            . '<ol style="margin:0 0 0.5rem 1.25rem; padding:0;">'
-                            . '<li>Register the SMS template with your operator\'s DLT portal (Jio True Connect / Airtel / VI).</li>'
-                            . '<li>In MSG91 dashboard → DLT Configurations → sync templates → copy the <strong>MSG91 Template ID</strong>.</li>'
-                            . '<li>Paste it into the field below.</li>'
-                            . '<li>For each <code>{#var#}</code> in your DLT template, add one row in the <strong>Placeholder map</strong> below with <em>Token</em> set to <code>var1</code>, <code>var2</code>, … (in template order) and <em>Context path</em> set to the dispatched value (e.g. <code>otp</code>).</li>'
-                            . '</ol>'
-                            . '<p style="margin:0;"><strong>Example for the auth.otp template:</strong> Template id <code>65a1b2c3…</code>, placeholder map <code>var1 → otp</code>. When the OTP fires, MSG91 sends the variable as the first <code>{#var#}</code> in your DLT-approved text.</p>'
-                            . '</div>'
-                        )),
                     Forms\Components\TextInput::make('sms_template_id')
                         ->label('MSG91 Template ID')
                         ->placeholder('65a1b2c3d4e5f6...')
-                        ->helperText('Leave blank to fall back to the default OTP template id configured in System Settings → SMS.')
+                        ->helperText('Paste the DLT-approved template ID from MSG91. Leave blank to use the default OTP template id from System Settings → SMS. Variables are filled in {{n}} order from the placeholders available above.')
                         ->columnSpanFull(),
                 ]),
 
-            // Push templates have been moved to the separate "Push
-            // Notifications" admin resource — broadcast-style fan-out to
-            // every device-token registered with FCM. This resource is
-            // now scoped to email + WhatsApp + SMS only.
-
-            // ── Recipient + placeholders ───────────────────────────────
+            // ── Recipient ─────────────────────────────────────────────
             Forms\Components\Section::make('Recipient')->schema([
                 Forms\Components\Select::make('recipient_strategy')
-                    ->label('Strategy')
+                    ->label('Send to')
                     ->options([
-                        NotificationTemplate::RECIPIENT_DEVOTEE => 'Devotee in context (email or phone)',
+                        NotificationTemplate::RECIPIENT_DEVOTEE => 'Devotee in the event (email or phone)',
                         NotificationTemplate::RECIPIENT_TRUST_ADMIN => 'Trust admin (trust_email / trust_phone)',
-                        NotificationTemplate::RECIPIENT_FIXED_EMAIL => 'Fixed email address',
-                        NotificationTemplate::RECIPIENT_FIXED_PHONE => 'Fixed phone number',
-                        NotificationTemplate::RECIPIENT_CONTEXT_PATH => 'Dot-path inside dispatch context',
+                        NotificationTemplate::RECIPIENT_FIXED_EMAIL => 'A specific email address',
+                        NotificationTemplate::RECIPIENT_FIXED_PHONE => 'A specific phone number',
+                        NotificationTemplate::RECIPIENT_CONTEXT_PATH => 'Look up from the event data (advanced)',
                     ])
                     ->default(NotificationTemplate::RECIPIENT_DEVOTEE)
                     ->required()
                     ->live(),
                 Forms\Components\TextInput::make('recipient_value')
-                    ->label('Recipient value')
+                    ->label('Value')
                     ->visible(fn (Forms\Get $get) => in_array($get('recipient_strategy'), [
                         NotificationTemplate::RECIPIENT_FIXED_EMAIL,
                         NotificationTemplate::RECIPIENT_FIXED_PHONE,
                         NotificationTemplate::RECIPIENT_CONTEXT_PATH,
                     ], true))
-                    ->helperText('For fixed_email / fixed_phone enter the address. For context_path enter a dot-path, e.g. booking.contact_email.'),
+                    ->helperText('Email address, phone number, or — for the advanced option — a dot-path like booking.contact_email.'),
             ])->columns(2),
-
-            Forms\Components\Section::make('Placeholder map')
-                ->description(new \Illuminate\Support\HtmlString(
-                    '<div style="font-size:0.875rem;line-height:1.5;">'
-                    . '<p style="margin:0 0 0.5rem;"><strong>What is this?</strong> When you write <code>{{ donor_name }}</code> in the subject or body above, this table tells the system where to find the real value for <code>donor_name</code>. <em>You usually do not need to touch this</em> — when you pick a trigger above, this table fills itself automatically with all the available tokens for that trigger.</p>'
-                    . '<p style="margin:0;"><strong>If you do edit it:</strong> the <em>Token</em> column is the placeholder you typed (without the curly braces). The <em>Context path</em> column is a dot-separated path into the data the trigger publishes — e.g. <code>donation.devotee.name</code> walks from the donation object, into its devotee relation, and reads the name.</p>'
-                    . '</div>'
-                ))
-                ->collapsible()
-                ->collapsed(true)
-                ->schema([
-                    Forms\Components\KeyValue::make('placeholder_map')
-                        ->keyLabel('Token')
-                        ->valueLabel('Context path')
-                        ->columnSpanFull()
-                        ->reorderable(false),
-                ]),
         ]);
+    }
+
+    /**
+     * Build the dynamic auto-detected WhatsApp variable inputs.
+     *
+     * One Filament TextInput per slot (with a Select-style datalist of
+     * available registry tokens). Slot list is derived from the synced
+     * Meta template structure so the admin can't miss or duplicate a
+     * variable — the form has exactly as many rows as the template has
+     * {{n}} placeholders, plus one per media/button URL.
+     *
+     * The inputs use a `wa_vars` state path so they sit in form state
+     * but never get persisted as model attributes — the
+     * Create/Edit page hooks serialise them into `wa_components` JSON
+     * + `placeholder_map` before save.
+     *
+     * @return array<int, \Filament\Forms\Components\Component>
+     */
+    private static function buildWhatsAppVariableInputs(Forms\Get $get): array
+    {
+        $templateName = $get('wa_template_name');
+        $triggerKey = $get('key');
+
+        if (! $templateName) {
+            return [
+                Forms\Components\Placeholder::make('wa_pick_template_first')
+                    ->label('')
+                    ->content(new \Illuminate\Support\HtmlString(
+                        '<div style="padding:.75rem 1rem; background:#f9fafb; border:1px dashed #d1d5db; border-radius:.5rem; font-size:.875rem;">'
+                        . 'Pick an approved template above. The fields you need to fill will appear here automatically — one per <code>{{n}}</code> variable Meta detected.'
+                        . '</div>'
+                    )),
+            ];
+        }
+
+        $slots = WhatsAppTemplateBlueprint::slotsFor($templateName);
+
+        if ($slots === []) {
+            return [
+                Forms\Components\Placeholder::make('wa_no_vars')
+                    ->label('')
+                    ->content(new \Illuminate\Support\HtmlString(
+                        '<div style="padding:.75rem 1rem; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:.5rem; font-size:.875rem;">'
+                        . 'This template has no variables — Meta will send the body verbatim. Nothing to fill in.'
+                        . '</div>'
+                    )),
+            ];
+        }
+
+        // Registry tokens available for THIS trigger — admin can pick
+        // any of them or type a literal value.
+        $tokenOptions = [];
+        if ($triggerKey) {
+            $info = NotificationRegistry::describe($triggerKey);
+            if ($info) {
+                foreach ($info['placeholders'] as $token => $desc) {
+                    $tokenOptions['{{ ' . $token . ' }}'] = '{{ ' . $token . ' }} — ' . $desc;
+                }
+            }
+        }
+
+        $fields = [
+            Forms\Components\Placeholder::make('wa_vars_header')
+                ->label('')
+                ->content(new \Illuminate\Support\HtmlString(
+                    '<div style="font-size:.875rem; color:#4b5563; margin-bottom:.25rem;">'
+                    . 'Fill in each variable below. Pick a <code>{{ token }}</code> from the dropdown to insert dynamic data from the event, or type a literal value.'
+                    . '</div>'
+                )),
+        ];
+
+        foreach ($slots as $slot) {
+            // Slot keys are underscore-only by design — Filament parses
+            // dots in field names into nested state paths, which would
+            // scramble our flat lookup. Group statePath keeps these
+            // under `wa_vars` without further nesting.
+            $stateKey = 'wa_vars.' . $slot['key'];
+
+            if ($slot['is_filename']) {
+                $fields[] = Forms\Components\TextInput::make($stateKey)
+                    ->label($slot['label'])
+                    ->placeholder('e.g. 80G_Receipt.pdf')
+                    ->helperText($slot['help'])
+                    ->dehydrated(false)
+                    ->columnSpanFull();
+                continue;
+            }
+
+            $fields[] = Forms\Components\Select::make($stateKey)
+                ->label($slot['label'])
+                ->options($tokenOptions)
+                ->searchable()
+                ->allowHtml(false)
+                ->placeholder('Pick a token or type a literal value…')
+                ->helperText($slot['help'] ?: null)
+                ->dehydrated(false)
+                ->getSearchResultsUsing(function (string $search) use ($tokenOptions) {
+                    // Let the admin type a literal value that isn't a
+                    // registry token — accept it as-is.
+                    $results = collect($tokenOptions)
+                        ->filter(fn ($label, $key) => stripos($key . $label, $search) !== false)
+                        ->all();
+                    $literal = trim($search);
+                    if ($literal !== '' && ! isset($tokenOptions[$literal])) {
+                        $results[$literal] = $literal . ' (literal text)';
+                    }
+                    return $results;
+                })
+                ->getOptionLabelUsing(fn ($value) => $tokenOptions[$value] ?? $value)
+                ->columnSpanFull();
+        }
+
+        return $fields;
     }
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        // Push rows are managed under the separate Push Notifications
-        // resource — keep them out of this list.
+        // Push rows are managed in the separate Push Notifications resource.
         return parent::getEloquentQuery()->whereIn('channel', [
             NotificationTemplate::CHANNEL_EMAIL,
             NotificationTemplate::CHANNEL_WHATSAPP,

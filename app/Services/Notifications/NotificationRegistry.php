@@ -41,12 +41,15 @@ final class NotificationRegistry
             ],
             'donation.receipt_80g' => [
                 'label' => 'Donation — 80G receipt ready',
-                'description' => 'Fires when an 80G receipt PDF is generated and ready to email.',
+                'description' => 'Fires when an 80G receipt PDF is generated. For WhatsApp, point the Header (DOCUMENT) link to {{ receipt_pdf_url }} to attach the PDF; for email the PDF is already attached automatically.',
                 'placeholders' => [
-                    'donor_name' => 'Devotee name (devotee.name)',
+                    'donor_name' => 'Devotee name (donor_name)',
                     'receipt_number' => 'Receipt number (receipt.receipt_number)',
-                    'amount' => 'Donation amount (receipt.amount)',
+                    'amount' => 'Donation amount in INR (amount)',
+                    'amount_formatted' => 'Amount with thousands separator (amount_formatted)',
                     'fiscal_year' => 'Fiscal year (receipt.fiscal_year)',
+                    'receipt_pdf_url' => 'Presigned 80G PDF URL, 7-day validity (receipt_pdf_url)',
+                    'greeting_card_url' => 'Greeting card download URL — empty when card is disabled (greeting_card_url)',
                 ],
             ],
 
@@ -117,6 +120,15 @@ final class NotificationRegistry
                 'description' => 'Fired the first time a devotee verifies their phone via OTP. Welcome message.',
                 'placeholders' => [
                     'name' => 'Devotee name (devotee.name)',
+                ],
+            ],
+
+            'devotee.birthday' => [
+                'label' => 'Devotee — birthday greeting',
+                'description' => 'Fired daily by the temple:send-birthday-blessings cron for every devotee whose date_of_birth is today.',
+                'placeholders' => [
+                    'name' => 'Devotee name (name)',
+                    'language' => "Devotee's preferred language code: gu / hi / en (language)",
                 ],
             ],
         ];

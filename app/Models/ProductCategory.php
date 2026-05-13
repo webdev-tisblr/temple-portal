@@ -7,12 +7,11 @@ namespace App\Models;
 use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Cache;
 
 class ProductCategory extends Model
 {
-    use HasManagedImages, SoftDeletes;
+    use HasManagedImages;
 
     protected $table = 'temple_product_categories';
 

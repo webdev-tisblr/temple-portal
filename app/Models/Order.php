@@ -10,12 +10,11 @@ use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 class Order extends Model
 {
-    use HasManagedImages, HasUuid, SoftDeletes;
+    use HasManagedImages, HasUuid;
 
     protected $table = 'temple_orders';
 

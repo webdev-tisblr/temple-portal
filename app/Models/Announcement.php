@@ -6,11 +6,10 @@ namespace App\Models;
 
 use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Announcement extends Model
 {
-    use HasManagedImages, SoftDeletes;
+    use HasManagedImages;
 
     protected $table = 'temple_announcements';
 

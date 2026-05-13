@@ -7,11 +7,10 @@ namespace App\Models;
 use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DonationCampaign extends Model
 {
-    use HasManagedImages, SoftDeletes;
+    use HasManagedImages;
 
     protected $table = 'temple_donation_campaigns';
 

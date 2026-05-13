@@ -16,7 +16,9 @@ class MigrateSevaSlotConfig extends Command
 
     public function handle(SevaSlotService $slotService): int
     {
-        $sevas = Seva::withTrashed()->whereNotNull('slot_config')->get();
+        // SoftDeletes was dropped from Seva in 2026_05_13; withTrashed()
+        // no longer applies — plain query covers every row.
+        $sevas = Seva::whereNotNull('slot_config')->get();
 
         if ($sevas->isEmpty()) {
             $this->info('No sevas with slot_config found.');

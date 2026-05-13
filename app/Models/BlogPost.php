@@ -7,11 +7,10 @@ namespace App\Models;
 use App\Enums\PageStatus;
 use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class BlogPost extends Model
 {
-    use HasManagedImages, SoftDeletes;
+    use HasManagedImages;
 
     protected $table = 'temple_blog_posts';
 

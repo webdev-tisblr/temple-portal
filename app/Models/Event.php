@@ -7,11 +7,10 @@ namespace App\Models;
 use App\Enums\EventType;
 use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Event extends Model
 {
-    use HasManagedImages, SoftDeletes;
+    use HasManagedImages;
 
     protected $table = 'temple_events';
 

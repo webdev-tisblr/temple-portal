@@ -8,13 +8,12 @@ use App\Enums\Language;
 use App\Models\Concerns\HasManagedImages;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 
 class Devotee extends Authenticatable
 {
-    use HasApiTokens, HasManagedImages, HasUuid, SoftDeletes;
+    use HasApiTokens, HasManagedImages, HasUuid;
 
     protected $table = 'temple_devotees';
 
@@ -76,45 +75,40 @@ class Devotee extends Authenticatable
     }
 
     /**
-     * Resolve a devotee for OTP login: find by phone (including
-     * soft-deleted rows), restore if trashed, create if missing.
+     * Resolve a devotee for OTP login: find by phone, create if missing.
      * Stamps verification + login timestamps in every branch.
      *
-     * The withTrashed() lookup is the critical bit. The phone column
-     * has a UNIQUE constraint that DOES NOT ignore soft-deleted rows
-     * (MySQL treats tombstones like live rows for unique indexes), so
-     * a plain firstOrCreate() crashes with SQLSTATE[23000] the moment
-     * a phone has ever been associated with a since-deleted devotee.
+     * Returns [Devotee, wasNew]. wasNew is true only for first-ever
+     * signups, so the devotee.registered welcome notification fires
+     * once.
      *
-     * Returns [Devotee, wasNew] — `wasNew` only true for first-ever
-     * signups (a restored tombstone is treated as a returning user
-     * so the welcome notification doesn't fire twice).
+     * Earlier versions of this method used withTrashed() + restore()
+     * to work around a SoftDeletes tombstone bug — phone has a UNIQUE
+     * index that MySQL doesn't relax for soft-deleted rows, so a
+     * tombstone with the same phone broke every subsequent login.
+     * The SoftDeletes trait was dropped from this model (and ten
+     * others) in the 2026_05_13 migration; tombstones no longer exist.
      *
      * @return array{0: self, 1: bool}
      */
     public static function resolveForLogin(string $phone): array
     {
-        $devotee = static::withTrashed()->where('phone', $phone)->first();
+        $devotee = static::where('phone', $phone)->first();
 
-        if (! $devotee) {
-            $devotee = static::create([
-                'phone' => $phone,
-                'name' => '',
+        if ($devotee) {
+            $devotee->update([
                 'phone_verified_at' => now(),
                 'last_login_at' => now(),
             ]);
-            return [$devotee, true];
+            return [$devotee, false];
         }
 
-        if ($devotee->trashed()) {
-            $devotee->restore();
-        }
-
-        $devotee->update([
+        $devotee = static::create([
+            'phone' => $phone,
+            'name' => '',
             'phone_verified_at' => now(),
             'last_login_at' => now(),
         ]);
-
-        return [$devotee, false];
+        return [$devotee, true];
     }
 }

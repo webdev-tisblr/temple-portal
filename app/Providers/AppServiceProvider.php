@@ -77,6 +77,22 @@ class AppServiceProvider extends ServiceProvider
         FileUpload::configureUsing(function (FileUpload $c) {
             $c->disk('r2')
               ->fetchFileInformation(false)
+              // panelLayout('compact') is the key UX fix here. The
+              // default FilePond "integrated" panel renders a canvas-
+              // based image preview, which under the hood does an XHR
+              // fetch of the image to draw the thumbnail. R2's public
+              // bucket doesn't ship a CORS header by default, so that
+              // fetch hangs / fails, and FilePond visibly stays on
+              // "Loading / Waiting for size" forever even though
+              // <img src> would have displayed the same file fine.
+              //
+              // 'compact' renders a single-line panel with filename +
+              // remove + open buttons. Open opens the CDN URL in a new
+              // tab so admins can still see the actual image without
+              // the canvas-preview path. Once R2 CORS is configured
+              // (allow patadiyahanumanji.com origin) this line can be
+              // removed to restore inline thumbnails.
+              ->panelLayout('compact')
               ->getUploadedFileUsing(function (FileUpload $component, string $file, string|array|null $storedFileNames): ?array {
                   // Common image MIME types by extension — covers every
                   // upload route in this app (products / sevas / halls

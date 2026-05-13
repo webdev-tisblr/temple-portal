@@ -38,7 +38,18 @@ class AppServiceProvider extends ServiceProvider
         // the R2 CDN URL. Pre-existing image_path values point at keys that
         // already lived in storage/app/public/<dir>/<file> — those keys are
         // identical in R2, so no DB migration needed.
-        FileUpload::configureUsing(fn (FileUpload $c) => $c->disk('r2'));
+        //
+        // fetchFileInformation(false) is the key bit: by default Filament
+        // does an S3 HEAD on every existing file (to learn size + MIME for
+        // the FilePond preview), and against R2 from the Hostinger box that
+        // request either times out or sits in a long-running socket — the
+        // component visibly hangs on "Loading / Waiting for size" forever
+        // and the X button to swap the image never becomes clickable. Skip
+        // the metadata round-trip; the CDN URL alone is enough to display
+        // the existing image, and Filament still uploads new files fine.
+        FileUpload::configureUsing(function (FileUpload $c) {
+            $c->disk('r2')->fetchFileInformation(false);
+        });
         ImageColumn::configureUsing(fn (ImageColumn $c) => $c->disk('r2'));
 
         $this->configureMailFromDatabase();

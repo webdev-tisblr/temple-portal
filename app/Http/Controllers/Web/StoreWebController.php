@@ -417,13 +417,9 @@ class StoreWebController extends Controller
                         'unit_price' => $item['unit_price'],
                         'subtotal' => $item['subtotal'],
                     ]);
-                    // Decrement variant-specific stock for variable
-                    // products; top-level stock_quantity for the rest.
-                    if ($product->has_variants && $item['variant_label']) {
-                        $product->decrementVariantStock($item['variant_label'], $item['quantity']);
-                    } else {
-                        $product->decrementStock($item['quantity']);
-                    }
+                    // NB: stock is NOT decremented here. PaymentCaptureService
+                    // does it once Razorpay confirms the payment, so abandoned
+                    // payment flows don't leak stock.
                 }
 
                 return [

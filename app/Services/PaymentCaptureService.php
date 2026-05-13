@@ -9,6 +9,7 @@ use App\Models\Donation;
 use App\Models\HallBooking;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\Product;
 use App\Models\SevaBooking;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -61,10 +62,38 @@ class PaymentCaptureService
         $order = Order::where('payment_id', $payment->id)->first();
         if ($order) {
             $order->update(['status' => 'confirmed']);
+
+            // Decrement stock HERE, after payment is captured — not
+            // at order creation. The web checkout previously
+            // decremented inline when the Order row was created,
+            // which meant abandoned Razorpay payments leaked stock
+            // (the row stayed `pending`, status never flipped, but
+            // the decrement had already happened). The API order
+            // creation didn't decrement at all, an even bigger gap.
+            //
+            // Both gaps now close here: every captured payment that
+            // produced an Order walks its items and decrements
+            // variant-aware stock atomically.
+            $order->loadMissing('items');
+            foreach ($order->items as $item) {
+                $product = Product::find($item->product_id);
+                if (! $product) continue;
+                if ($product->has_variants && $item->variant_label) {
+                    $product->decrementVariantStock(
+                        $item->variant_label,
+                        (int) $item->quantity,
+                    );
+                } else {
+                    $product->decrementStock((int) $item->quantity);
+                }
+            }
+
             // store.order.confirmed dispatch happens inside
             // GenerateStoreInvoice once the PDF is built — that path
             // attaches the invoice and uses the same trigger key.
-            Log::info("Store order {$order->id} confirmed via payment capture");
+            Log::info("Store order {$order->id} confirmed via payment capture", [
+                'items' => $order->items->count(),
+            ]);
         }
 
         $hallBooking = HallBooking::where('payment_id', $payment->id)->first();

@@ -119,10 +119,30 @@ class StoreController extends BaseApiController
                     if (! $product->is_active) {
                         throw new \RuntimeException("Product '{$product->name}' is no longer available.");
                     }
+
+                    // Stock validation — variant-aware. The web checkout
+                    // does the same check before payment; API was missing
+                    // it entirely, meaning the mobile app could submit
+                    // an order for an out-of-stock variant and the order
+                    // would be created with status=pending until the user
+                    // either paid (and stock went negative) or abandoned
+                    // (and the order sat as a ghost).
+                    $variantLabel = $item['variant_label'] ?? null;
+                    $available = $variantLabel && $product->has_variants
+                        ? ($product->getVariantStock($variantLabel) ?? 0)
+                        : $product->stock_quantity;
+
+                    if ($available < (int) $item['quantity']) {
+                        $label = $variantLabel ? " ({$variantLabel})" : '';
+                        throw new \RuntimeException(
+                            "Not enough stock for '{$product->name}{$label}'. Available: {$available}, requested: {$item['quantity']}."
+                        );
+                    }
+
                     $unitPrice = (float) $product->price;
 
-                    if (! empty($item['variant_label']) && $product->has_variants) {
-                        $variantPrice = $product->getVariantPrice($item['variant_label']);
+                    if (! empty($variantLabel) && $product->has_variants) {
+                        $variantPrice = $product->getVariantPrice($variantLabel);
                         if ($variantPrice !== null) {
                             $unitPrice = (float) $variantPrice;
                         }
@@ -134,11 +154,15 @@ class StoreController extends BaseApiController
                     $orderItems[] = [
                         'product_id' => $product->id,
                         'product_name' => $product->name,
-                        'variant_label' => $item['variant_label'] ?? null,
+                        'variant_label' => $variantLabel,
                         'quantity' => $item['quantity'],
                         'unit_price' => $unitPrice,
                         'subtotal' => $itemSubtotal,
                     ];
+                    // NB: stock is NOT decremented here. PaymentCaptureService
+                    // does it after Razorpay confirms, so abandoned-payment
+                    // flows don't leak stock. The validation above prevents
+                    // creating an order we know can't be fulfilled.
                 }
 
                 $receipt = 'ORDER-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));

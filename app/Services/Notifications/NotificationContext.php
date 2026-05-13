@@ -65,13 +65,63 @@ final class NotificationContext
             function ($m) use ($placeholderMap) {
                 $token = $m[1];
                 $path = $placeholderMap[$token] ?? $token;
-                $value = $this->get($path);
-                if (is_array($value) || is_object($value)) {
-                    return ''; // never inline raw structures into a message
-                }
-                return (string) $value;
+                return self::formatForDisplay($this->get($path));
             }
         );
+    }
+
+    /**
+     * Resolve a dot-path AND format the result for human display.
+     *
+     * Drivers (email body, WhatsApp parameters, SMS, push) all want
+     * the same coercion rules:
+     *
+     *   • null                → empty string
+     *   • Carbon / DateTime   → 'd M Y' for pure dates, 'd M Y H:i'
+     *                           when there's a non-zero time. Without
+     *                           this an Eloquent `date` cast renders
+     *                           as "2026-05-15 00:00:00" because
+     *                           Carbon's __toString is full Y-m-d H:i:s.
+     *   • Stringable object   → __toString()
+     *   • array / unknown obj → empty string (never inline raw bag)
+     *   • scalars             → (string) cast
+     *
+     * This is the single coercion point — every driver calls it
+     * instead of casting (string) directly so date formatting (and
+     * future per-type rules) stay consistent across channels.
+     */
+    public function getForDisplay(string $path, string $default = ''): string
+    {
+        $value = $this->get($path);
+        if ($value === null) {
+            return $default;
+        }
+        return self::formatForDisplay($value);
+    }
+
+    public static function formatForDisplay(mixed $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            // Pure date cast → time is exactly midnight → show date only.
+            // Anything else has a meaningful time → include it.
+            $hasTime = (int) $value->format('His') !== 0;
+            return $value->format($hasTime ? 'd M Y H:i' : 'd M Y');
+        }
+
+        if (is_scalar($value)) {
+            return (string) $value;
+        }
+
+        if (is_object($value) && method_exists($value, '__toString')) {
+            return (string) $value;
+        }
+
+        // Arrays / unknown objects — don't inline a raw representation.
+        return '';
     }
 
     public function asArray(): array

@@ -115,26 +115,28 @@ final class WhatsAppNotificationDriver implements NotificationDriver
                     //   value_token = "donor_name"           → resolve via map
                     //   value       = "{{ donor_name }} hi"  → render mixed string
                     //   value       = "Hello"                → literal
-                    // Render every literal through context->render() so
-                    // admins can mix tokens and static text in the same
-                    // field (e.g. "Receipt {{ receipt_number }}").
+                    // Either path goes through NotificationContext's
+                    // display formatter so Carbon date casts render as
+                    // "15 May 2026" instead of Carbon's default
+                    // "Y-m-d H:i:s" (the previous (string) cast leaked
+                    // " 00:00:00" into WhatsApp messages — see
+                    // 2026-05-13 commit).
                     $token = $p['value_token'] ?? null;
                     $literal = $p['value'] ?? null;
                     $resolved = $token !== null
-                        ? $context->get($placeholderMap[$token] ?? $token, '')
+                        ? $context->getForDisplay($placeholderMap[$token] ?? $token, '')
                         : $context->render((string) ($literal ?? ''), $placeholderMap);
-                    $params[] = ['type' => 'text', 'text' => (string) $resolved];
+                    $params[] = ['type' => 'text', 'text' => $resolved];
                 } elseif (in_array($type, ['image', 'document', 'video'], true)) {
-                    // Media param — URL can be a pure token, a templated
-                    // string, or a literal. Filename runs through the
-                    // same renderer so things like "Receipt_{{ receipt_number }}.pdf"
-                    // work as a dynamic filename too.
+                    // Media param — URLs / filenames are always strings,
+                    // so no date-formatting concerns here, but they go
+                    // through the same display path for consistency.
                     $token = $p['value_token'] ?? null;
                     $literal = $p['value'] ?? ($p['link'] ?? '');
                     $url = $token !== null
-                        ? $context->get($placeholderMap[$token] ?? $token, '')
+                        ? $context->getForDisplay($placeholderMap[$token] ?? $token, '')
                         : $context->render((string) $literal, $placeholderMap);
-                    $media = ['link' => (string) $url];
+                    $media = ['link' => $url];
                     if (! empty($p['filename'])) {
                         $media['filename'] = $context->render((string) $p['filename'], $placeholderMap);
                     }

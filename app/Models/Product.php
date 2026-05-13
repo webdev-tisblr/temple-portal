@@ -181,6 +181,38 @@ class Product extends Model
         return true;
     }
 
+    /** Reverse of decrementStock. Used when a confirmed order is cancelled. */
+    public function incrementStock(int $qty): void
+    {
+        $this->increment('stock_quantity', $qty);
+    }
+
+    /**
+     * Reverse of decrementVariantStock. Returns true on success,
+     * false when the label doesn't match any variant (in which case
+     * the caller may want to fall back to incrementStock or log).
+     */
+    public function incrementVariantStock(string $label, int $qty): bool
+    {
+        if (! $this->has_variants || empty($this->variants)) {
+            return false;
+        }
+
+        $variants = $this->variants;
+        $found = false;
+        foreach ($variants as $i => $v) {
+            if (($v['label'] ?? '') !== $label) continue;
+            $variants[$i]['stock'] = (int) ($v['stock'] ?? 0) + $qty;
+            $found = true;
+            break;
+        }
+
+        if (! $found) return false;
+
+        $this->forceFill(['variants' => $variants])->save();
+        return true;
+    }
+
     public function scopeActive(Builder $q): Builder
     {
         return $q->where('is_active', true);

@@ -76,8 +76,26 @@ class Product extends Model
         return $this->hasMany(ProductImage::class, 'product_id');
     }
 
+    /**
+     * Whether the product can be added to a cart right now.
+     *
+     * For variable products the answer is "yes if ANY variant has
+     * stock > 0" — even if some variants are sold out we still want
+     * the card to show as available so the user can pick a stocked
+     * variant. The per-variant gate is enforced at add-to-cart time
+     * via getVariantStock().
+     */
     public function inStock(): bool
     {
+        if ($this->has_variants && ! empty($this->variants)) {
+            foreach ($this->variants as $v) {
+                if ((int) ($v['stock'] ?? 0) > 0) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         return $this->stock_quantity > 0;
     }
 
@@ -96,6 +114,27 @@ class Product extends Model
         return null;
     }
 
+    /**
+     * Stock count for a single variant (variants[i].stock). Returns
+     * null when the product has no variants OR the label doesn't
+     * match any variant — caller can fall back to stock_quantity or
+     * treat as zero, whichever makes sense locally.
+     */
+    public function getVariantStock(string $label): ?int
+    {
+        if (! $this->has_variants || empty($this->variants)) {
+            return null;
+        }
+
+        foreach ($this->variants as $v) {
+            if (($v['label'] ?? '') === $label) {
+                return (int) ($v['stock'] ?? 0);
+            }
+        }
+
+        return null;
+    }
+
     public function getDisplayPrice(): string
     {
         if ($this->has_variants && ! empty($this->variants)) {
@@ -106,9 +145,40 @@ class Product extends Model
         return '₹' . number_format((float) $this->price, 2);
     }
 
+    /** Drop $qty from the top-level stock_quantity (non-variant flow). */
     public function decrementStock(int $qty): void
     {
         $this->decrement('stock_quantity', $qty);
+    }
+
+    /**
+     * Drop $qty from variants[label].stock and persist the variants
+     * JSON. Returns true on success, false when the label doesn't
+     * exist in the variants array — caller should treat false as
+     * "stock check failed, bail before charging the customer."
+     */
+    public function decrementVariantStock(string $label, int $qty): bool
+    {
+        if (! $this->has_variants || empty($this->variants)) {
+            return false;
+        }
+
+        $variants = $this->variants;
+        $found = false;
+        foreach ($variants as $i => $v) {
+            if (($v['label'] ?? '') !== $label) continue;
+            $variants[$i]['stock'] = max(0, (int) ($v['stock'] ?? 0) - $qty);
+            $found = true;
+            break;
+        }
+
+        if (! $found) return false;
+
+        // forceFill + save — assigning to ->variants alone doesn't trip
+        // Eloquent's dirty tracking when the underlying array is the
+        // same reference. Persist explicitly.
+        $this->forceFill(['variants' => $variants])->save();
+        return true;
     }
 
     public function scopeActive(Builder $q): Builder

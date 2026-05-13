@@ -63,13 +63,23 @@
                     <span class="text-3xl font-black text-gold">₹{{ number_format((float) $product->price) }}</span>
                 </div>
 
-                {{-- Stock Status --}}
+                {{-- Stock Status — for variable products the badge updates
+                     when the user picks a variant; for non-variant products
+                     it's static. maxStock is wired in the Alpine bag below. --}}
                 <div class="mt-3">
                     @if($product->inStock())
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-emerald-950/50 text-emerald-400 border border-emerald-800/30">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                            In Stock ({{ $product->stock_quantity }} ઉપલબ્ધ)
-                        </span>
+                        <template x-if="maxStock > 0">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-emerald-950/50 text-emerald-400 border border-emerald-800/30">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                <span x-text="`In Stock (${maxStock} ઉપલબ્ધ)`"></span>
+                            </span>
+                        </template>
+                        <template x-if="maxStock <= 0">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-red-950/50 text-red-400 border border-red-800/30">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                                Out of Stock
+                            </span>
+                        </template>
                     @else
                         <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-red-950/50 text-red-400 border border-red-800/30">
                             <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
@@ -95,11 +105,24 @@
                                     <label class="block text-sm font-medium text-amber-600 mb-2">વિકલ્પ પસંદ કરો</label>
                                     <div class="flex flex-wrap gap-2">
                                         @foreach($product->variants as $i => $variant)
+                                            @php
+                                                $variantStock = (int) ($variant['stock'] ?? 0);
+                                            @endphp
                                             <button type="button"
-                                                @click="selectedVariant = {{ $i }}; selectedPrice = {{ (float) $variant['price'] }}; variantLabel = '{{ e($variant['label']) }}'"
+                                                @if($variantStock > 0)
+                                                    @click="selectedVariant = {{ $i }}; selectedPrice = {{ (float) $variant['price'] }}; variantLabel = '{{ e($variant['label']) }}'; maxStock = {{ $variantStock }}; quantity = Math.min(quantity, maxStock)"
+                                                @else
+                                                    disabled
+                                                @endif
                                                 :class="selectedVariant === {{ $i }} ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-900 border-amber-500 font-bold' : 'bg-transparent text-amber-100/60 border-amber-800/30 hover:border-amber-600'"
-                                                class="px-4 py-2.5 border rounded-lg text-sm font-medium transition">
+                                                @class([
+                                                    'px-4 py-2.5 border rounded-lg text-sm font-medium transition',
+                                                    'opacity-40 cursor-not-allowed line-through' => $variantStock <= 0,
+                                                ])>
                                                 {{ $variant['label'] }} — ₹{{ number_format((float) $variant['price'], 2) }}
+                                                @if($variantStock <= 0)
+                                                    <span class="text-xs">(Out)</span>
+                                                @endif
                                             </button>
                                         @endforeach
                                     </div>
@@ -210,17 +233,24 @@ function productPage() {
 
     const hasVariants = {{ $product->has_variants ? 'true' : 'false' }};
     const variants = @json($product->variants ?? []);
-    const firstVariantPrice = variants.length > 0 ? parseFloat(variants[0].price) : {{ (float) $product->price }};
+    // Default-select the first IN-STOCK variant so the picker doesn't
+    // open on a sold-out option (which would lock the user out of
+    // add-to-cart). Falls back to index 0 only if every variant is out.
+    const firstInStock = hasVariants ? variants.findIndex(v => (parseInt(v.stock || 0)) > 0) : -1;
+    const initialIdx = firstInStock >= 0 ? firstInStock : (hasVariants && variants.length > 0 ? 0 : null);
+    const initialVariant = hasVariants && initialIdx !== null ? variants[initialIdx] : null;
 
     return {
         images: allImages,
         currentImage: allImages.length > 0 ? allImages[0] : null,
         quantity: 1,
-        maxStock: {{ $product->stock_quantity }},
+        // Variable products: stock for the currently-selected variant.
+        // Non-variant: top-level stock_quantity.
+        maxStock: hasVariants ? parseInt(initialVariant?.stock ?? 0) : {{ (int) $product->stock_quantity }},
         hasVariants: hasVariants,
-        selectedVariant: hasVariants ? 0 : null,
-        selectedPrice: hasVariants ? firstVariantPrice : {{ (float) $product->price }},
-        variantLabel: hasVariants && variants.length > 0 ? variants[0].label : '',
+        selectedVariant: initialIdx,
+        selectedPrice: initialVariant ? parseFloat(initialVariant.price) : {{ (float) $product->price }},
+        variantLabel: initialVariant ? initialVariant.label : '',
         adding: false,
         showToast: false,
         toastSuccess: false,

@@ -49,28 +49,42 @@ class ProductResource extends Resource
 
             Forms\Components\Section::make('Pricing & Stock')->schema([
                 Forms\Components\Toggle::make('has_variants')->label('Variable Pricing (multiple options)')
-                    ->helperText('Enable for products with size/weight variants (e.g., 250gm, 500gm, 1kg).')
+                    ->helperText('Enable for products with size/weight variants (e.g., 250gm, 500gm, 1kg). Each variant tracks its own price AND stock count.')
                     ->live()
                     ->columnSpanFull(),
                 Forms\Components\TextInput::make('price')->numeric()->prefix('₹')->required()
                     ->label(fn (Forms\Get $get) => $get('has_variants') ? 'Starting Price (display)' : 'Price')
                     ->helperText(fn (Forms\Get $get) => $get('has_variants') ? 'Shown as "₹xxx+" on listings. Set to lowest variant price.' : ''),
-                Forms\Components\TextInput::make('stock_quantity')->numeric()->minValue(0)->required()->default(0),
+                // Top-level stock — only meaningful for non-variant products.
+                // Hidden when has_variants is on so admins don't accidentally
+                // edit it (variant stock is on each row below instead).
+                Forms\Components\TextInput::make('stock_quantity')
+                    ->numeric()
+                    ->minValue(0)
+                    ->required(fn (Forms\Get $get) => ! $get('has_variants'))
+                    ->default(0)
+                    ->visible(fn (Forms\Get $get) => ! $get('has_variants'))
+                    ->helperText('Total units in stock. For variable products, set stock on each variant below instead.'),
                 Forms\Components\Repeater::make('variants')
-                    ->label('Price Variants')
+                    ->label('Price & Stock Variants')
                     ->schema([
                         Forms\Components\TextInput::make('label')->label('Option Label')
                             ->required()->placeholder('e.g. 250 gm, 500 gm, 1 kg')
                             ->maxLength(100),
                         Forms\Components\TextInput::make('price')->label('Price (₹)')
                             ->required()->numeric()->prefix('₹')->minValue(1),
+                        // Per-variant stock. Variable products gate
+                        // add-to-cart against THIS number, not stock_quantity.
+                        Forms\Components\TextInput::make('stock')->label('Stock')
+                            ->required()->numeric()->minValue(0)->default(0)
+                            ->helperText('Units available for this option.'),
                     ])
-                    ->columns(2)
+                    ->columns(3)
                     ->defaultItems(0)
                     ->addActionLabel('Add Variant')
                     ->visible(fn (Forms\Get $get) => (bool) $get('has_variants'))
                     ->columnSpanFull()
-                    ->helperText('Add all size/weight/quantity options with their prices.'),
+                    ->helperText('Add all size/weight/quantity options with their prices AND individual stock counts.'),
             ])->columns(2),
 
             Forms\Components\Section::make('Images')->schema([
@@ -105,7 +119,16 @@ class ProductResource extends Resource
                 Tables\Columns\TextColumn::make('category.name_gu')->label('Category'),
                 Tables\Columns\TextColumn::make('price')->prefix('₹')->sortable()
                     ->description(fn (Product $record) => $record->has_variants ? 'Variable' : null),
-                Tables\Columns\TextColumn::make('stock_quantity')->label('Stock'),
+                Tables\Columns\TextColumn::make('stock_quantity')->label('Stock')
+                    // Variable products: sum each variant's stock so the
+                    // admin sees a total at-a-glance. Non-variant products
+                    // just show the column value as-is.
+                    ->state(fn (Product $record) => $record->has_variants
+                        ? (string) collect($record->variants ?? [])->sum(fn ($v) => (int) ($v['stock'] ?? 0))
+                        : (string) $record->stock_quantity)
+                    ->description(fn (Product $record) => $record->has_variants
+                        ? 'across ' . count($record->variants ?? []) . ' variants'
+                        : null),
                 Tables\Columns\ToggleColumn::make('is_active')->label('Active'),
                 Tables\Columns\IconColumn::make('is_featured')->label('Featured')->boolean(),
                 Tables\Columns\IconColumn::make('is_seva_only')->label('Seva Only')->boolean()->toggleable(isToggledHiddenByDefault: true),

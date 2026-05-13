@@ -133,7 +133,14 @@ class StoreWebController extends Controller
             }
         }
 
-        if ($product->stock_quantity < $request->quantity) {
+        // Stock check — variable products gate against the picked
+        // variant's stock; non-variant products use the top-level
+        // stock_quantity column.
+        $availableStock = $product->has_variants
+            ? ($product->getVariantStock($request->variant_label) ?? 0)
+            : $product->stock_quantity;
+
+        if ($availableStock < (int) $request->quantity) {
             return response()->json(['success' => false, 'message' => 'પૂરતો સ્ટોક ઉપલબ્ધ નથી.'], 422);
         }
 
@@ -323,7 +330,14 @@ class StoreWebController extends Controller
                 return back()->withErrors(['cart' => 'કેટલીક પ્રોડક્ટ ઉપલબ્ધ નથી.']);
             }
             $product = $products->get($productId);
-            if ($product->stock_quantity < $quantity) {
+
+            // Variant products: gate against the picked variant's stock,
+            // not the (irrelevant) top-level stock_quantity.
+            $available = $variantLabel
+                ? ($product->getVariantStock($variantLabel) ?? 0)
+                : $product->stock_quantity;
+
+            if ($available < $quantity) {
                 return back()->withErrors(['cart' => "{$product->name} માટે પૂરતો સ્ટોક ઉપલબ્ધ નથી."]);
             }
 
@@ -403,7 +417,13 @@ class StoreWebController extends Controller
                         'unit_price' => $item['unit_price'],
                         'subtotal' => $item['subtotal'],
                     ]);
-                    $product->decrementStock($item['quantity']);
+                    // Decrement variant-specific stock for variable
+                    // products; top-level stock_quantity for the rest.
+                    if ($product->has_variants && $item['variant_label']) {
+                        $product->decrementVariantStock($item['variant_label'], $item['quantity']);
+                    } else {
+                        $product->decrementStock($item['quantity']);
+                    }
                 }
 
                 return [
@@ -481,7 +501,13 @@ class StoreWebController extends Controller
                         'unit_price' => $item['unit_price'],
                         'subtotal' => $item['subtotal'],
                     ]);
-                    $product->decrementStock($item['quantity']);
+                    // Decrement variant-specific stock for variable
+                    // products; top-level stock_quantity for the rest.
+                    if ($product->has_variants && $item['variant_label']) {
+                        $product->decrementVariantStock($item['variant_label'], $item['quantity']);
+                    } else {
+                        $product->decrementStock($item['quantity']);
+                    }
                 }
 
                 return ['order' => $order, 'payment' => $payment];

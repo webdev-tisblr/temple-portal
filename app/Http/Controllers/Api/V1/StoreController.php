@@ -290,6 +290,20 @@ class StoreController extends BaseApiController
 
     private function mapProduct(Product $p): array
     {
+        // Variant payload — every variant carries label, price AND
+        // stock for variable products. The mobile app uses these to
+        // gate the picker (greyed-out / "Out of stock" per option)
+        // and to show "n left" badges.
+        $variants = null;
+        if ($p->has_variants && ! empty($p->variants)) {
+            $variants = collect($p->variants)->map(fn ($v) => [
+                'label' => $v['label'] ?? '',
+                'price' => (float) ($v['price'] ?? 0),
+                'stock' => (int) ($v['stock'] ?? 0),
+                'in_stock' => (int) ($v['stock'] ?? 0) > 0,
+            ])->all();
+        }
+
         return [
             'id' => $p->id,
             'name' => $p->name,
@@ -300,12 +314,17 @@ class StoreController extends BaseApiController
             'slug' => $p->slug,
             'category_id' => $p->category_id,
             'price' => (float) $p->price,
-            'stock_quantity' => $p->stock_quantity,
+            // For variable products `stock_quantity` is the SUM across
+            // all variants — display only; the source of truth for
+            // ordering is the per-variant `stock` field above.
+            'stock_quantity' => $p->has_variants
+                ? collect($p->variants ?? [])->sum(fn ($v) => (int) ($v['stock'] ?? 0))
+                : $p->stock_quantity,
             'in_stock' => $p->inStock(),
             'image_url' => $p->image_path ? image_url($p->image_path) : null,
             'is_featured' => $p->is_featured,
             'has_variants' => $p->has_variants,
-            'variants' => $p->variants,
+            'variants' => $variants,
         ];
     }
 }

@@ -20,8 +20,24 @@ class NotificationTemplatesSeeder extends Seeder
 {
     public function run(): void
     {
+        // CRITICAL: firstOrCreate, NOT updateOrCreate. The deploy
+        // pipeline (.github/workflows/deploy.yml) runs this seeder
+        // on every push. With updateOrCreate any existing row gets
+        // every field overwritten with the seeded values, which
+        // silently flips admin-enabled `auth.otp` email back to
+        // is_enabled=false (its seeded default), reverts subject/
+        // body edits made via the Filament UI, and clobbers any
+        // recipient strategy adjustments. The admin's report was
+        // "templates getting disabled automatically after one time"
+        // — that's exactly the seeder running on the next deploy.
+        //
+        // With firstOrCreate, existing rows stay untouched forever
+        // after the first seed. Fresh installs still get the
+        // bundled defaults. If we ever need to push a template
+        // change to existing installs in the future, do it via a
+        // one-off migration, not by reverting this method.
         foreach ($this->templates() as $tpl) {
-            NotificationTemplate::updateOrCreate(
+            NotificationTemplate::firstOrCreate(
                 ['key' => $tpl['key'], 'channel' => $tpl['channel']],
                 $tpl,
             );

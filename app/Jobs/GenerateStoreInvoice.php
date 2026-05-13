@@ -42,47 +42,59 @@ class GenerateStoreInvoice implements ShouldQueue
             return;
         }
 
-        if ($devotee->email && $path) {
-            $this->sendInvoiceEmail($devotee, $path);
-        }
+        // ALWAYS dispatch the trigger, regardless of whether the buyer
+        // has an email on file. Each enabled NotificationTemplate
+        // handles its own recipient strategy: email uses devotee.email
+        // (skips when null), WhatsApp / SMS use devotee.phone, etc.
+        // Earlier this was gated on `$devotee->email && $path` which
+        // meant a phone-only buyer never got WhatsApp / SMS even when
+        // those templates were enabled by admin.
+        $this->dispatchOrderConfirmed($devotee, $path);
     }
 
-    private function sendInvoiceEmail($devotee, string $path): void
+    private function dispatchOrderConfirmed($devotee, ?string $path): void
     {
         try {
-            // R2 has no local filesystem path — pull the PDF bytes and
-            // attach as data so Symfony Mailer sends it inline.
-            $pdfBytes = Storage::disk('r2_private')->get($path);
-            $order = $this->order;
+            // Attach the invoice PDF when available; email driver uses
+            // _attachments, other channels ignore it.
+            $attachments = [];
+            if ($path) {
+                try {
+                    $attachments[] = [
+                        'data' => Storage::disk('r2_private')->get($path),
+                        'name' => "Invoice_{$this->order->order_number}.pdf",
+                        'mime' => 'application/pdf',
+                    ];
+                } catch (\Throwable $e) {
+                    Log::warning('Store invoice PDF unreadable, dispatching without attachment', [
+                        'order_id' => $this->order->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
 
-            // Single dispatch — every enabled NotificationTemplate for
-            // 'store.order.confirmed' fires (email today; WhatsApp /
-            // push when the admin enables them).
             app(NotificationService::class)->dispatch(
                 'store.order.confirmed',
                 [
                     'devotee' => $devotee,
-                    'order' => array_merge($order->toArray(), [
-                        'total_amount_formatted' => number_format((float) $order->total_amount, 2),
-                        'items_count' => $order->items->count(),
+                    'order' => array_merge($this->order->toArray(), [
+                        'total_amount_formatted' => number_format((float) $this->order->total_amount, 2),
+                        'items_count' => $this->order->items->count(),
                     ]),
                     'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
-                    '_attachments' => [[
-                        'data' => $pdfBytes,
-                        'name' => "Invoice_{$order->order_number}.pdf",
-                        'mime' => 'application/pdf',
-                    ]],
+                    '_attachments' => $attachments,
                 ],
             );
 
-            Log::info('Store invoice dispatched via NotificationService', [
+            Log::info('Store order dispatched via NotificationService', [
                 'order_id' => $this->order->id,
                 'email' => $devotee->email,
+                'phone' => $devotee->phone,
+                'has_pdf' => $attachments !== [],
             ]);
         } catch (\Exception $e) {
-            Log::error('Store invoice dispatch failed', [
+            Log::error('Store order dispatch failed', [
                 'order_id' => $this->order->id,
-                'email' => $devotee->email ?? 'unknown',
                 'error' => $e->getMessage(),
             ]);
         }

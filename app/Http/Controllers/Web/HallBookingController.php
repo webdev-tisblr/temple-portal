@@ -354,10 +354,16 @@ class HallBookingController extends Controller
 
             $booking->update(['invoice_path' => $path]);
 
-            // Email invoice only on the initial confirmation path. Self-heal
-            // regeneration calls this with $sendEmail=false to avoid emailing
-            // the customer every time they redownload the PDF.
-            if ($sendEmail && $booking->contact_email) {
+            // Fire notification trigger only on the initial confirmation
+            // path. Self-heal regeneration calls this with $sendEmail=false
+            // to avoid re-notifying the customer every time the PDF is
+            // re-downloaded. The contact_email check is INTENTIONALLY
+            // gone — each enabled NotificationTemplate handles its own
+            // recipient strategy (email reads contact_email and skips
+            // when empty; WhatsApp / SMS use contact_phone). Gating the
+            // whole dispatch on email-presence used to silently skip
+            // WhatsApp / SMS for callers who only left a phone.
+            if ($sendEmail) {
                 $this->emailHallInvoice($booking, $path);
             }
 

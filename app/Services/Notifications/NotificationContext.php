@@ -112,6 +112,20 @@ final class NotificationContext
             return $value->format($hasTime ? 'd M Y H:i' : 'd M Y');
         }
 
+        // PHP enum casts (Eloquent's `'column' => SomeEnum::class`)
+        // need special handling — they're objects with no __toString,
+        // so the generic "object → empty" fallback below would silently
+        // turn every enum-typed column into an empty WhatsApp param.
+        // BackedEnum gets its primitive value; UnitEnum falls back to
+        // the case name. Hit in donations where donation_type is cast
+        // to DonationTypeEnum — see 2026-05-14 debugging session.
+        if ($value instanceof \BackedEnum) {
+            return (string) $value->value;
+        }
+        if ($value instanceof \UnitEnum) {
+            return $value->name;
+        }
+
         // MySQL TIME columns (eg seva_bookings.slot_time) round-trip
         // through PHP as a raw "HH:MM:SS" string with no Eloquent cast.
         // Reformat to a friendly 12-hour clock so messages show

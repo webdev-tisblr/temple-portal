@@ -47,12 +47,13 @@ final class NotificationRegistry
             //   trust_name (string).
             'donation.confirmed' => [
                 'label' => 'Donation — payment confirmed',
-                'description' => 'Fires when a donation payment is captured (before the 80G receipt build).',
+                'description' => 'Fires when a donation payment is captured. The 80G receipt is built AFTER this trigger — for messages that need receipt_number or receipt_pdf_url, use the donation.receipt_80g trigger instead.',
                 'placeholders' => [
                     'donor_name' => 'Devotee name (devotee.name)',
                     'amount' => 'Donation amount in INR (donation.amount)',
-                    'receipt_number' => 'Receipt number, blank until receipt is generated (donation.receipt_number)',
-                    'donation_type' => 'Donation type label (donation.donationType.name_gu)',
+                    'donation_type' => 'Donation type label, Gujarati (donation.donationType.name_gu)',
+                    'donation_type_en' => 'Donation type label, English (donation.donationType.name_en)',
+                    'purpose' => 'Donation purpose if provided by donor (donation.purpose)',
                     'campaign_title' => 'Campaign title if any (donation.campaign.title_gu)',
                     'date' => 'Donation date (donation.created_at)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',

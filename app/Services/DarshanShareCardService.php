@@ -278,9 +278,17 @@ class DarshanShareCardService
     }
 
     /**
-     * Cover-crop the darshan photo into a square the size of the photo
-     * circle's diameter, mask the corners with the burgundy bg so it
-     * reads as a circle, then stamp two concentric gold rings around it.
+     * Cover-crop the darshan photo to a square the size of the photo
+     * circle's diameter, alpha-mask it into a clean circle (Imagick only),
+     * insert onto the canvas, and stamp two concentric gold rings.
+     *
+     * Earlier implementation tried to mask corners by drawing four
+     * burgundy circles AFTER inserting the square photo. The geometry
+     * produced a 4-pointed star (not a circle) AND the masking circles
+     * bled outside the photo bounds, eating into the saffron header.
+     * The Imagick path now masks BEFORE insert — no bleed possible,
+     * crisp circular crop. GD falls back to a square photo because GD's
+     * alpha-mask compositing isn't reachable through Intervention v4.
      */
     private function drawCircularDarshanPhoto(
         ImageInterface $canvas,
@@ -298,6 +306,9 @@ class DarshanShareCardService
                 throw new \RuntimeException('empty photo bytes');
             }
             $img = $this->manager->decodeBinary($bytes)->cover($diameter, $diameter);
+
+            $this->applyCircularMask($img, $diameter);
+
             $canvas->insert($img, $left, $top);
         } catch (\Throwable $e) {
             Log::error('DarshanShareCard: photo load failed', [
@@ -312,32 +323,14 @@ class DarshanShareCardService
             });
         }
 
-        // Mask the four corners of the square photo by drawing burgundy
-        // circles centred at each corner — only their inner quadrant
-        // overlaps the photo, "erasing" everything outside the circle.
-        // Same technique used for the avatar; works on both GD and
-        // Imagick without a real alpha-mask compositor.
-        foreach ([
-            [$left, $top],                          // top-left
-            [$left + $diameter, $top],              // top-right
-            [$left, $top + $diameter],              // bottom-left
-            [$left + $diameter, $top + $diameter],  // bottom-right
-        ] as [$cx, $cy]) {
-            $canvas->drawCircle(function (CircleFactory $c) use ($cx, $cy, $radius) {
-                $c->at($cx, $cy);
-                $c->radius($radius);
-                $c->background(self::C_BURGUNDY);
-            });
-        }
-
         // Inner gold ring — sits right on the photo edge.
         $canvas->drawCircle(function (CircleFactory $c) use ($center, $radius) {
             $c->at($center['x'], $center['y']);
-            $c->radius($radius - 2);
+            $c->radius($radius);
             $c->background('rgba(0,0,0,0)');
             $c->border(self::C_GOLD, 6);
         });
-        // Outer gold ring — a thinner halo offset out by 22px to give the
+        // Outer gold ring — a thinner halo offset out by 24px for the
         // framed-medallion look from the reference design.
         $canvas->drawCircle(function (CircleFactory $c) use ($center, $radius) {
             $c->at($center['x'], $center['y']);
@@ -345,6 +338,53 @@ class DarshanShareCardService
             $c->background('rgba(0,0,0,0)');
             $c->border(self::C_GOLD, 3);
         });
+    }
+
+    /**
+     * Apply a circular alpha mask to a square image. Uses raw Imagick
+     * composite when available (clean, anti-aliased circular crop). On
+     * GD the operation is a no-op — Intervention v4 doesn't expose
+     * GD's alpha-mask compositing, and approximating it with
+     * drawCircle corners produces a 4-pointed star artefact (the bug
+     * this method exists to fix). On GD the photo stays square and
+     * the gold rings around it visually frame it; not as polished as
+     * the Imagick path but legible.
+     */
+    private function applyCircularMask(ImageInterface $img, int $size): void
+    {
+        try {
+            $native = $img->core()->native();
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        if (! ($native instanceof \Imagick) || ! class_exists(\ImagickDraw::class)) {
+            return; // GD or no Imagick — leave the photo square.
+        }
+
+        $radius = intval($size / 2);
+
+        // Build a circular-mask image: transparent canvas with a white
+        // filled circle. The white pixels keep alpha; everything else
+        // becomes transparent in the destination via COMPOSITE_DSTIN.
+        $mask = new \Imagick();
+        $mask->newImage($size, $size, new \ImagickPixel('transparent'));
+        $mask->setImageFormat('png');
+
+        $draw = new \ImagickDraw();
+        $draw->setFillColor('white');
+        // ImagickDraw::circle(centerX, centerY, edgeX, edgeY).
+        $draw->circle($radius, $radius, $size, $radius);
+        $mask->drawImage($draw);
+
+        // Photo native may not have an alpha channel yet (JPEGs don't).
+        // setImageMatte ensures the channel exists before composite.
+        if (method_exists($native, 'setImageMatte')) {
+            $native->setImageMatte(true);
+        }
+        $native->compositeImage($mask, \Imagick::COMPOSITE_DSTIN, 0, 0);
+        $native->setImageFormat('png'); // preserve alpha when re-encoding for insert
+        $mask->clear();
     }
 
     /**
@@ -485,7 +525,7 @@ class DarshanShareCardService
         if ($devotee !== null) {
             $photo = $this->loadDevoteePhoto($devotee, $size);
             if ($photo !== null) {
-                $this->maskCorners($photo, $size);
+                $this->applyCircularMask($photo, $size);
                 $this->stampGoldRing($photo, $size);
                 return $photo;
             }
@@ -498,7 +538,7 @@ class DarshanShareCardService
             ]);
             return null;
         }
-        $this->maskCorners($logo, $size);
+        $this->applyCircularMask($logo, $size);
         $this->stampGoldRing($logo, $size);
         return $logo;
     }
@@ -629,7 +669,7 @@ class DarshanShareCardService
         // produces materially different output (driver swap, layout shift,
         // typography change) — v2 invalidates the pre-Imagick-fallback
         // cards that had tofu boxes for the trust-name header.
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v6"), 0, 12);
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v7"), 0, 12);
 
         return self::STORAGE_PREFIX . "/{$date}/{$devoteeSegment}-{$format}-{$hash}.jpg";
     }

@@ -421,15 +421,38 @@ class DarshanShareCardService
     }
 
     /**
-     * Build a square avatar with a gold ring from the devotee's profile
-     * photo. Returns null when there's no photo or it fails to load.
+     * Build a circular avatar with a gold ring for the devotee block.
      *
-     * A proper circular alpha-mask in GD requires per-pixel blitting
-     * that's slow and fragile; the gold ring + cover-crop reads as
-     * "circular avatar with frame" at the size we render (≤ 96px) and
-     * keeps the rendering pipeline fast.
+     * Source priority:
+     *   1. devotee->profile_photo_path on R2 (user's own selfie)
+     *   2. The temple logo bundled at public/images/shree-pataliya-hanumanji-logo.png
+     *      (so every logged-in user gets a personal-looking card even
+     *       without uploading a photo)
+     *   3. null only when both fail to load (defensive — caller falls
+     *      back to centred name)
+     *
+     * The visible "round" shape comes from masking the four corners
+     * with the footer cream colour AFTER the cover-crop. Imagick handles
+     * this beautifully via alpha; GD's imagettftext doesn't expose alpha
+     * masks but corner-fill triangles approximate it well at ≤ 96px.
      */
     private function loadAvatar(Devotee $devotee, int $size): ?ImageInterface
+    {
+        $avatar = $this->loadDevoteePhoto($devotee, $size)
+            ?? $this->loadTempleLogo($size);
+
+        if ($avatar === null) {
+            return null;
+        }
+
+        $this->maskCorners($avatar, $size);
+        $this->stampGoldRing($avatar, $size);
+
+        return $avatar;
+    }
+
+    /** Load the devotee's uploaded profile photo from R2, cover-cropped. */
+    private function loadDevoteePhoto(Devotee $devotee, int $size): ?ImageInterface
     {
         $path = $devotee->profile_photo_path;
         if (empty($path)) {
@@ -441,32 +464,75 @@ class DarshanShareCardService
             if ($bytes === null || $bytes === '') {
                 return null;
             }
-            $avatar = $this->manager->decodeBinary($bytes)->cover($size, $size);
+            return $this->manager->decodeBinary($bytes)->cover($size, $size);
         } catch (\Throwable $e) {
-            Log::info('DarshanShareCard: avatar load skipped', [
+            Log::info('DarshanShareCard: devotee photo load skipped', [
                 'devotee_id' => $devotee->getKey(),
                 'error' => $e->getMessage(),
             ]);
             return null;
         }
+    }
 
-        // 4px gold border ring stamped on top by re-rendering the four
-        // edges as thin rectangles. Cheap, GD-friendly, and reads well.
-        $b = 4;
-        foreach ([
-            [0, 0, $size, $b],
-            [0, $size - $b, $size, $b],
-            [0, 0, $b, $size],
-            [$size - $b, 0, $b, $size],
-        ] as [$sx, $sy, $sw, $sh]) {
-            $avatar->drawRectangle(function (RectangleFactory $r) use ($sx, $sy, $sw, $sh) {
-                $r->at($sx, $sy);
-                $r->size($sw, $sh);
-                $r->background(self::C_GOLD);
+    /** Load the bundled temple logo as the avatar fallback. */
+    private function loadTempleLogo(int $size): ?ImageInterface
+    {
+        $logoPath = public_path('images/shree-pataliya-hanumanji-logo.png');
+        if (! file_exists($logoPath)) {
+            Log::warning('DarshanShareCard: temple logo file missing', ['path' => $logoPath]);
+            return null;
+        }
+        try {
+            return $this->manager->decodePath($logoPath)->cover($size, $size);
+        } catch (\Throwable $e) {
+            Log::warning('DarshanShareCard: temple logo decode failed', [
+                'path' => $logoPath,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Approximate a circular crop by overdrawing the four corners with
+     * the footer cream colour. Cheap, works with both Imagick and GD.
+     * Visually indistinguishable from a real alpha mask at ≤ 96px.
+     *
+     * Geometry: for each corner, an opaque triangular wedge is faked by
+     * a quarter-circle drawn at the inverted corner with a radius equal
+     * to half the avatar size. drawCircle fills the entire ellipse so we
+     * stamp it OUTSIDE the avatar bounds (offset by -r/2) — only the
+     * inner quadrant overlaps the avatar.
+     */
+    private function maskCorners(ImageInterface $avatar, int $size): void
+    {
+        $r = intval($size / 2);
+        // (cx, cy) for each corner-quadrant circle centered just outside
+        // the avatar at that corner.
+        $corners = [
+            [0, 0],            // top-left
+            [$size, 0],        // top-right
+            [0, $size],        // bottom-left
+            [$size, $size],    // bottom-right
+        ];
+        foreach ($corners as [$cx, $cy]) {
+            $avatar->drawCircle(function (CircleFactory $c) use ($cx, $cy, $r) {
+                $c->at($cx, $cy);
+                $c->radius($r);
+                $c->background(self::C_CREAM);
             });
         }
+    }
 
-        return $avatar;
+    /** Gold ring along the circular edge — the framed-avatar look. */
+    private function stampGoldRing(ImageInterface $avatar, int $size): void
+    {
+        $avatar->drawCircle(function (CircleFactory $c) use ($size) {
+            $c->at(intval($size / 2), intval($size / 2));
+            $c->radius(intval($size / 2) - 2);
+            $c->background('rgba(0,0,0,0)');
+            $c->border(self::C_GOLD, 4);
+        });
     }
 
     /** Deterministic R2 path so identical inputs collapse to one file. */
@@ -481,7 +547,7 @@ class DarshanShareCardService
         // produces materially different output (driver swap, layout shift,
         // typography change) — v2 invalidates the pre-Imagick-fallback
         // cards that had tofu boxes for the trust-name header.
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v2"), 0, 12);
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v3"), 0, 12);
 
         return self::STORAGE_PREFIX . "/{$date}/{$devoteeSegment}-{$format}-{$hash}.jpg";
     }

@@ -136,6 +136,14 @@ class Generate80GReceipt implements ShouldQueue
                         'amount_formatted' => number_format((float) $this->donation->amount, 2),
                     ]),
                     'donation' => $this->donation,
+                    // Publish the devotee name under BOTH top-level keys
+                    // so any admin-chosen token resolves: `name` (the
+                    // ergonomic short form that auth.otp and
+                    // devotee.birthday also use) AND `donor_name` (the
+                    // legacy/explicit form). Without the `name` alias
+                    // templates that use {{ name }} resolve to empty
+                    // and Meta rejects them with (#131008).
+                    'name' => $devotee->name,
                     'donor_name' => $devotee->name,
                     'amount' => (string) $this->donation->amount,
                     'amount_formatted' => number_format((float) $this->donation->amount, 2),

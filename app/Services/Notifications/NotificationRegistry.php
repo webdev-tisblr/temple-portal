@@ -68,7 +68,8 @@ final class NotificationRegistry
                 'label' => 'Donation — 80G receipt ready',
                 'description' => 'Fires when the 80G receipt PDF is generated. For WhatsApp, point the Header (DOCUMENT) link at {{ receipt_pdf_url }} to attach the PDF; for email the PDF is already attached automatically.',
                 'placeholders' => [
-                    'donor_name' => 'Devotee name (donor_name)',
+                    'name' => 'Devotee name (name)',
+                    'donor_name' => 'Devotee name — alias of name (donor_name)',
                     'receipt_number' => 'Receipt number (receipt.receipt_number)',
                     'amount' => 'Donation amount in INR (amount)',
                     'amount_formatted' => 'Amount with thousands separator (amount_formatted)',

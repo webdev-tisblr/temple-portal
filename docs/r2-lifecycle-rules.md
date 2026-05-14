@@ -26,17 +26,19 @@ Without these backstop rules, any of the above scenarios silently rebuild the un
 
 ## Recommended rules
 
-R2 lifecycle values are intentionally **3-7x longer** than the Laravel cron values. They're a safety net, not a duplicate of the primary sweep.
+R2 lifecycle values **match the Laravel sweep windows exactly**. Both layers operate on the same age threshold and produce the same outcome (file deleted, regenerable on next download). No defensive multiplier is needed — there's no race condition to design around, just two redundant deletion paths that converge on the same result.
 
-| Bucket | Prefix | R2 expiry | Laravel sweep | Why this multiple |
-|---|---|---|---|---|
-| `temple-private` | `receipts/` | 30 days | 7 days | Tolerates ~3 weeks of cron downtime |
-| `temple-private` | `invoices/` | 30 days | 7 days | Same as receipts (same generator cost) |
-| `temple-private` | `hall-invoices/` | 30 days | 7 days | Separate prefix from store invoices |
-| `temple-private` | `greeting-cards/` | 7 days | 1 day | 7× the cron window; donations rarely re-viewed past a week |
-| `temple-public` | `daily-darshan-cards/` | 30 days | 1 day | Matches Cloudflare CDN `max-age=2592000` so URLs cached at the edge naturally outlive R2 deletion |
+| Bucket | Prefix | R2 expiry | Why |
+|---|---|---|---|
+| `temple-private` | `receipts/` | 7 days | Matches `receipts:clean-generated` |
+| `temple-private` | `invoices/` | 7 days | Matches `invoices:clean-generated` |
+| `temple-private` | `hall-invoices/` | 7 days | Same command sweeps both invoice prefixes |
+| `temple-private` | `greeting-cards/` | 1 day | Matches `greeting-cards:clean-generated` |
+| `temple-public` | `daily-darshan-cards/` | 1 day | Matches `darshan:clean-share-cards` |
 
-**Do NOT add lifecycle rules for any other prefix in `temple-public`.** Product images, gallery photos, event banners, profile photos, donation extras — all live on `temple-public` and must be retained indefinitely. Cascade-deletion is handled at the application layer via `HasManagedImages` trait when the parent DB row is deleted.
+The CDN edge-cache (`Cache-Control: max-age=2592000` on darshan cards) is independent of R2 retention — Cloudflare's edge servers continue serving already-cached URLs even after R2 expires the origin object. So even with 1-day R2 retention, devotees who shared a WhatsApp link from yesterday keep working from CDN cache until natural edge eviction (~30 days).
+
+**Do NOT add lifecycle rules for any other prefix in `temple-public`.** Product images, gallery photos, event banners, profile photos, donation extras — all live on `temple-public` and must be retained indefinitely. Cascade-deletion for those is handled at the application layer via `HasManagedImages` trait when the parent DB row is deleted.
 
 ---
 
@@ -53,22 +55,22 @@ R2 lifecycle values are intentionally **3-7x longer** than the Laravel cron valu
 ### 2. Add the first rule (example: receipts)
 
 1. Click **Add rule**.
-2. **Rule name:** `expire-receipts-30d` (free-form; just for your reference).
+2. **Rule name:** `expire-receipts-7d` (free-form; just for your reference).
 3. **Apply to objects with prefix:** `receipts/`
    - ⚠️ Include the trailing slash. Without it, a future prefix like `receipts-archive/` would also match.
 4. **Lifecycle action:** Select **Delete objects after N days**.
-5. **Days:** `30`
-6. (Optional) **Also enable: "Abort incomplete multipart uploads after N days"** with `7` days. This sweeps any partial uploads that never completed (failed PDF writes mid-stream). Free hygiene.
+5. **Days:** `7`
+6. (Optional) **Also enable: "Abort incomplete multipart uploads after N days"** with `1` day. This sweeps any partial uploads that never completed (failed PDF writes mid-stream). Free hygiene.
 7. Save the rule.
 
 ### 3. Repeat for the other private-bucket prefixes
 
 | Rule name | Prefix | Days |
 |---|---|---|
-| `expire-receipts-30d` | `receipts/` | 30 |
-| `expire-invoices-30d` | `invoices/` | 30 |
-| `expire-hall-invoices-30d` | `hall-invoices/` | 30 |
-| `expire-greeting-cards-7d` | `greeting-cards/` | 7 |
+| `expire-receipts-7d` | `receipts/` | 7 |
+| `expire-invoices-7d` | `invoices/` | 7 |
+| `expire-hall-invoices-7d` | `hall-invoices/` | 7 |
+| `expire-greeting-cards-1d` | `greeting-cards/` | 1 |
 
 You should end up with 4 rules on `temple-private`.
 
@@ -79,7 +81,7 @@ You should end up with 4 rules on `temple-private`.
 
 | Rule name | Prefix | Days |
 |---|---|---|
-| `expire-daily-darshan-cards-30d` | `daily-darshan-cards/` | 30 |
+| `expire-daily-darshan-cards-1d` | `daily-darshan-cards/` | 1 |
 
 **Just this one rule on the public bucket. Nothing else.**
 
@@ -111,29 +113,25 @@ Pick any file you know is older than the R2 expiry window:
 # From production SSH
 cd ~/domains/patadiyahanumanji.com/public_html
 php artisan tinker --execute="
-  // Look for any receipt path that's more than 30 days old according to DB
+  // Look for any receipt path that's more than 8 days old according to DB
   \$old = App\\Models\\Receipt80G::whereNotNull('pdf_path')
-    ->where('created_at', '<', now()->subDays(31))
+    ->where('created_at', '<', now()->subDays(8))
     ->first();
   if (\$old) {
     \$path = \$old->pdf_path;
     dump('Path: '.\$path);
     dump('Still exists on R2? '.(Storage::disk('r2_private')->exists(\$path) ? 'yes' : 'NO - R2 swept it'));
   } else {
-    dump('No receipts >31 days old in DB yet. Try again next month.');
+    dump('No receipts >8 days old in DB yet. Try again next week.');
   }
 "
 ```
 
-If a >30-day-old path no longer exists on R2 → backstop is working.
+If a >8-day-old path no longer exists on R2 → backstop is working. (Note: Laravel cron probably already deleted it via `receipts:clean-generated` at 03:45 — that's fine. You're just confirming files do get cleaned up.)
 
 ---
 
 ## Edge cases and warnings
-
-### Don't shorten R2 expiry to match Laravel exactly
-
-A 7-day R2 rule with a 7-day Laravel cron is fragile — if Cloudflare expires slightly earlier than the cron runs, you get sporadic regenerate-on-download events for no reason. The 3-7× multiple gives clean separation: Laravel always wins under normal conditions; R2 only fires when Laravel has been gone for weeks.
 
 ### Don't add a rule with an empty prefix
 

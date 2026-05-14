@@ -238,11 +238,19 @@ final class NotificationService
         }
 
         if ($log !== null) {
+            // Pull the provider message_id off the driver if it exposes
+            // one (WhatsApp does; email/sms/push don't yet). This is the
+            // join key for inbound delivery webhook events.
+            $providerMessageId = method_exists($driver, 'lastMessageId')
+                ? $driver->lastMessageId()
+                : null;
+
             $log->forceFill([
                 'status' => $ok ? NotificationLog::STATUS_SENT : NotificationLog::STATUS_FAILED,
                 'attempts' => $log->attempts + 1,
                 'sent_at' => $ok ? now() : null,
                 'error_message' => $ok ? null : ($errorMessage ?? 'driver returned false'),
+                'provider_message_id' => $ok ? $providerMessageId : null,
             ])->save();
         }
 

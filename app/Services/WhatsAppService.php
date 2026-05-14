@@ -33,6 +33,19 @@ class WhatsAppService
             && $this->accessToken !== '';
     }
 
+    /**
+     * The Meta-issued `wamid.XXX` from the most recent successful send.
+     * NotificationService reads this via lastMessageId() to persist into
+     * temple_notification_logs.provider_message_id, which the inbound
+     * WhatsAppWebhookController later uses to correlate delivery events.
+     */
+    private ?string $lastMessageId = null;
+
+    public function lastMessageId(): ?string
+    {
+        return $this->lastMessageId;
+    }
+
     public function sendTemplateMessage(string $phone, string $templateName, string $languageCode, array $components = []): bool
     {
         $payload = [
@@ -88,6 +101,10 @@ class WhatsAppService
 
     private function send(array $payload): bool
     {
+        // Reset on every call — a previous send's message_id must never
+        // leak into a subsequent failed send's audit log.
+        $this->lastMessageId = null;
+
         if (empty($this->phoneNumberId) || empty($this->accessToken)) {
             Log::warning('WhatsApp: credentials not configured, skipping message', [
                 'to' => $payload['to'] ?? 'unknown',
@@ -115,11 +132,15 @@ class WhatsAppService
                     ->post($url, $payload);
 
                 if ($response->successful()) {
+                    // Cache the Meta wamid so the calling driver can stash
+                    // it on temple_notification_logs.provider_message_id.
+                    // Webhook delivery events later JOIN back on this id.
+                    $this->lastMessageId = $response->json('messages.0.id');
                     Log::info('WhatsApp message sent', [
                         'to' => $payload['to'],
                         'type' => $payload['type'],
                         'attempt' => $attempt,
-                        'message_id' => $response->json('messages.0.id'),
+                        'message_id' => $this->lastMessageId,
                     ]);
                     return true;
                 }

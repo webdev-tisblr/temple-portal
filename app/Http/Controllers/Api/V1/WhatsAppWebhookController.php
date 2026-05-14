@@ -1,0 +1,311 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Api\V1;
+
+use App\Http\Controllers\Controller;
+use App\Models\NotificationLog;
+use App\Models\SystemSetting;
+use App\Models\WhatsAppWebhookEvent;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+
+/**
+ * Inbound WhatsApp delivery webhook handler — Meta Cloud API format.
+ *
+ * The BSP ("The Internet Store") relays Meta's webhook payload verbatim
+ * to our /api/v1/webhooks/whatsapp endpoint. We:
+ *   1. Optionally verify a configured shared-secret token via the
+ *      `X-Webhook-Token` header (set whatsapp_webhook_token in
+ *      SystemSetting or .env). If empty we accept all callers — the
+ *      worst case is an outsider POSTing a fake "delivered" status,
+ *      which only affects an admin's view of an already-sent message.
+ *   2. Decompose Meta's "entry → changes → value" structure into one
+ *      atomic row per (message_id, status) in temple_whatsapp_webhook_events.
+ *      Composite-unique key dedupes BSP retries (we sometimes 200 slowly).
+ *   3. For status events that match a `provider_message_id` on
+ *      temple_notification_logs, propagate the live state up onto the
+ *      log row (delivery_status / delivery_status_at / failure_reason)
+ *      so admins reading the Notifications page see the actual
+ *      delivery outcome, not just the upstream-API-accepted outcome.
+ *
+ * Meta payload shapes we handle:
+ *   • value.statuses[]  — sent / delivered / read / failed status updates
+ *   • value.messages[]  — inbound replies from devotees (logged but not
+ *                          yet routed anywhere; future feature)
+ *
+ * Everything else (template approval updates, account quality, phone
+ * number metadata) is logged with event_kind='unknown' or the matching
+ * category so support can still see them, but no behaviour is wired.
+ *
+ * GET requests respond to Meta's verification handshake (some BSPs
+ * forward it). The hub.verify_token query param is compared against
+ * the configured token; matching tokens echo hub.challenge back.
+ */
+class WhatsAppWebhookController extends Controller
+{
+    public function handle(Request $request): JsonResponse
+    {
+        // 1. Optional shared-secret check. Configurable so the user can
+        // tighten this later by setting whatsapp_webhook_token in
+        // SystemSetting / .env. Until then we log "auth not verified"
+        // and process anyway — getting visibility on failures is the
+        // primary goal of wiring this endpoint at all.
+        $configuredToken = SystemSetting::getValue(
+            'whatsapp_webhook_token',
+            config('whatsapp.webhook_token', ''),
+        );
+        if ($configuredToken) {
+            $providedToken = $request->header('X-Webhook-Token', '');
+            if (! hash_equals($configuredToken, (string) $providedToken)) {
+                Log::warning('WhatsApp webhook: invalid X-Webhook-Token');
+                return response()->json(['status' => 'invalid_token'], 401);
+            }
+        }
+
+        $payload = $request->all();
+        if (! is_array($payload) || empty($payload)) {
+            Log::warning('WhatsApp webhook: empty or non-JSON payload');
+            return response()->json(['status' => 'invalid_payload'], 400);
+        }
+
+        // Meta wraps everything in entry[].changes[].value{}. Each
+        // change carries either `messages` (inbound), `statuses`
+        // (delivery updates), or one of the metadata fields.
+        $entries = $payload['entry'] ?? [];
+        if (! is_array($entries) || empty($entries)) {
+            // Some BSPs flatten — try processing the payload itself as
+            // a single change-value before declaring it malformed.
+            return $this->processValue($payload);
+        }
+
+        $totals = ['processed' => 0, 'duplicates' => 0, 'errors' => 0];
+
+        foreach ($entries as $entry) {
+            foreach (($entry['changes'] ?? []) as $change) {
+                $value = $change['value'] ?? [];
+                if (! is_array($value)) {
+                    continue;
+                }
+                try {
+                    $result = $this->processValue($value);
+                    $data = $result->getData(true);
+                    $totals['processed'] += $data['processed'] ?? 0;
+                    $totals['duplicates'] += $data['duplicates'] ?? 0;
+                } catch (\Throwable $e) {
+                    Log::error('WhatsApp webhook: change handler threw', [
+                        'error' => $e->getMessage(),
+                        'field' => $change['field'] ?? null,
+                    ]);
+                    $totals['errors']++;
+                }
+            }
+        }
+
+        return response()->json(['status' => 'ok'] + $totals);
+    }
+
+    /**
+     * Meta's verification handshake (GET). Some BSPs / direct Meta
+     * webhook setups send `hub.mode=subscribe&hub.verify_token=<token>
+     * &hub.challenge=<challenge>` and expect the challenge echoed back
+     * verbatim with 200 OK.
+     */
+    public function verify(Request $request)
+    {
+        $configuredToken = SystemSetting::getValue(
+            'whatsapp_webhook_token',
+            config('whatsapp.webhook_token', ''),
+        );
+
+        $mode = $request->query('hub_mode');
+        $token = $request->query('hub_verify_token');
+        $challenge = $request->query('hub_challenge');
+
+        if ($mode === 'subscribe'
+            && $configuredToken !== ''
+            && hash_equals($configuredToken, (string) $token)) {
+            return response((string) $challenge, 200);
+        }
+
+        return response('forbidden', 403);
+    }
+
+    /**
+     * Process a single `value{}` object from Meta's payload. Routes to
+     * status / inbound / metadata handlers based on which keys are
+     * present. Returns a JSON response with per-handler counts so the
+     * top-level handle() can aggregate across multiple changes.
+     */
+    private function processValue(array $value): JsonResponse
+    {
+        $processed = 0;
+        $duplicates = 0;
+
+        // Status events — sent / delivered / read / failed for messages
+        // we originally sent. This is the 95% case in practice.
+        foreach (($value['statuses'] ?? []) as $status) {
+            $result = $this->recordStatus($status, $value);
+            if ($result === 'processed') $processed++;
+            if ($result === 'duplicate') $duplicates++;
+        }
+
+        // Inbound replies. Logged but not yet routed to any handler;
+        // template-fired notifications generally don't expect replies.
+        foreach (($value['messages'] ?? []) as $message) {
+            $this->recordInbound($message, $value);
+            $processed++;
+        }
+
+        // Template approval / rejection / account / phone updates etc.
+        // Logged so support can see them; no business logic wired.
+        if (! empty($value['message_template_status_update'])) {
+            $this->recordMetadata(WhatsAppWebhookEvent::KIND_TEMPLATE_STATUS, $value);
+            $processed++;
+        }
+        if (! empty($value['account_review_update']) || ! empty($value['account_update'])) {
+            $this->recordMetadata(WhatsAppWebhookEvent::KIND_ACCOUNT_UPDATE, $value);
+            $processed++;
+        }
+        if (! empty($value['phone_number_quality_update']) || ! empty($value['phone_number_name_update'])) {
+            $this->recordMetadata(WhatsAppWebhookEvent::KIND_PHONE_UPDATE, $value);
+            $processed++;
+        }
+
+        // Anything else gets logged as unknown so the BSP control-panel
+        // event "Outgoing Messages" (and any future field Meta adds)
+        // shows up in the audit trail rather than disappearing.
+        if ($processed === 0 && $duplicates === 0) {
+            $this->recordMetadata(WhatsAppWebhookEvent::KIND_UNKNOWN, $value);
+            $processed++;
+        }
+
+        return response()->json(['processed' => $processed, 'duplicates' => $duplicates]);
+    }
+
+    /**
+     * Persist a single status event and propagate it onto the matching
+     * notification log row if we have one.
+     *
+     * Meta status object shape:
+     *   { id: "wamid.XXX", status: "delivered", timestamp: "1234567890",
+     *     recipient_id: "919876543210", errors: [{code, title, message}] }
+     */
+    private function recordStatus(array $status, array $valueContext): string
+    {
+        $messageId = $status['id'] ?? null;
+        $statusName = $status['status'] ?? null;
+        if (! $messageId || ! $statusName) {
+            Log::warning('WhatsApp webhook: status event missing id or status', $status);
+            return 'invalid';
+        }
+
+        $errors = $status['errors'] ?? [];
+        $firstError = is_array($errors) && ! empty($errors) ? $errors[0] : null;
+        $errorCode = isset($firstError['code']) ? (int) $firstError['code'] : null;
+        $errorMessage = $firstError['message']
+            ?? $firstError['title']
+            ?? $firstError['error_data']['details']
+            ?? null;
+
+        // insertOrIgnore on the (message_id, status) unique key — a
+        // retry-delivered status that we've already processed becomes a
+        // no-op without touching the notification log row again.
+        $now = now();
+        $inserted = WhatsAppWebhookEvent::query()->insertOrIgnore([
+            'event_kind' => WhatsAppWebhookEvent::KIND_MESSAGE_STATUS,
+            'message_id' => $messageId,
+            'status' => $statusName,
+            'recipient_id' => $status['recipient_id'] ?? ($valueContext['metadata']['display_phone_number'] ?? null),
+            'error_code' => $errorCode,
+            'error_message' => is_string($errorMessage) ? substr($errorMessage, 0, 1000) : null,
+            'payload' => json_encode($status),
+            'received_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        if ($inserted === 0) {
+            return 'duplicate';
+        }
+
+        // Propagate the latest status onto the notification log row, if
+        // the original send recorded a provider_message_id. Multiple
+        // statuses arrive for the same message (sent → delivered →
+        // read), so we update last-write-wins — but only if the new
+        // status is "later" in the lifecycle so a late-arriving "sent"
+        // never overwrites a "delivered". `failed` is terminal and
+        // overrides everything for support visibility.
+        $log = NotificationLog::where('provider_message_id', $messageId)->first();
+        if ($log) {
+            $shouldOverwrite = $this->isStatusProgression($log->delivery_status, $statusName);
+            if ($shouldOverwrite) {
+                $log->forceFill([
+                    'delivery_status' => $statusName,
+                    'delivery_status_at' => isset($status['timestamp'])
+                        ? \Carbon\Carbon::createFromTimestamp((int) $status['timestamp'])
+                        : $now,
+                    'failure_reason' => $statusName === 'failed' && $errorMessage
+                        ? substr((string) $errorMessage, 0, 1000)
+                        : $log->failure_reason,
+                ])->save();
+            }
+        }
+
+        Log::info('WhatsApp webhook: status recorded', [
+            'message_id' => $messageId,
+            'status' => $statusName,
+            'error_code' => $errorCode,
+            'matched_log' => $log?->id,
+        ]);
+
+        return 'processed';
+    }
+
+    /**
+     * Lifecycle progression: sent (0) → delivered (1) → read (2).
+     * `failed` (terminal) and `undelivered` (transient) override anything
+     * less terminal because admins care about failures over progress.
+     */
+    private function isStatusProgression(?string $current, string $incoming): bool
+    {
+        $rank = [
+            'sent' => 0,
+            'undelivered' => 1,
+            'delivered' => 2,
+            'read' => 3,
+            'failed' => 100, // always wins; terminal
+        ];
+        $currentRank = $rank[$current] ?? -1;
+        $incomingRank = $rank[$incoming] ?? 0;
+        return $incomingRank >= $currentRank;
+    }
+
+    private function recordInbound(array $message, array $valueContext): void
+    {
+        WhatsAppWebhookEvent::query()->create([
+            'event_kind' => WhatsAppWebhookEvent::KIND_INBOUND_MESSAGE,
+            'message_id' => $message['id'] ?? null,
+            'status' => null,
+            'recipient_id' => $message['from'] ?? null,
+            'payload' => json_encode($message),
+            'received_at' => now(),
+        ]);
+        Log::info('WhatsApp webhook: inbound message received', [
+            'from' => $message['from'] ?? null,
+            'type' => $message['type'] ?? null,
+        ]);
+    }
+
+    private function recordMetadata(string $kind, array $value): void
+    {
+        WhatsAppWebhookEvent::query()->create([
+            'event_kind' => $kind,
+            'payload' => json_encode($value),
+            'received_at' => now(),
+        ]);
+        Log::info("WhatsApp webhook: {$kind} event recorded");
+    }
+}

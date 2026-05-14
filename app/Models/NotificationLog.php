@@ -26,6 +26,16 @@ class NotificationLog extends Model
     public const STATUS_FAILED = 'failed';
     public const STATUS_SKIPPED = 'skipped';
 
+    // Delivery-status lifecycle (populated from WhatsApp delivery webhooks).
+    // The base $status column tracks send-attempt outcome; these constants
+    // are the SEPARATE column delivery_status that tracks what happened
+    // downstream after the upstream API accepted the message.
+    public const DELIVERY_SENT = 'sent';                // accepted by Meta
+    public const DELIVERY_DELIVERED = 'delivered';      // reached handset
+    public const DELIVERY_READ = 'read';                // recipient opened
+    public const DELIVERY_FAILED = 'failed';            // permanent failure
+    public const DELIVERY_UNDELIVERED = 'undelivered';  // transient failure
+
     protected $table = 'temple_notification_logs';
 
     protected $fillable = [
@@ -39,6 +49,10 @@ class NotificationLog extends Model
         'skip_reason',
         'error_message',
         'provider_response_code',
+        'provider_message_id',
+        'delivery_status',
+        'delivery_status_at',
+        'failure_reason',
         'attempts',
         'dispatched_at',
         'sent_at',
@@ -50,6 +64,7 @@ class NotificationLog extends Model
         'context_snapshot' => 'array',
         'dispatched_at' => 'datetime',
         'sent_at' => 'datetime',
+        'delivery_status_at' => 'datetime',
         'attempts' => 'integer',
     ];
 

@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\PaymentVerificationController;
 use App\Http\Controllers\Api\V1\PaymentWebhookController;
 use App\Http\Controllers\Api\V1\SevaController;
 use App\Http\Controllers\Api\V1\StoreController;
+use App\Http\Controllers\Api\V1\WhatsAppWebhookController;
 use App\Http\Resources\DevoteeResource;
 use App\Services\PanValidationService;
 use Illuminate\Http\Request;
@@ -61,6 +62,14 @@ Route::prefix('v1')->group(function () {
 
     // Webhooks (no auth)
     Route::post('/webhooks/razorpay', [PaymentWebhookController::class, 'handle']);
+    // WhatsApp delivery webhook. POST is the live event stream from
+    // Meta Cloud API (relayed by "The Internet Store" BSP) — sent /
+    // delivered / read / failed status events match against
+    // notification_logs.provider_message_id and propagate the real
+    // delivery state up. GET handles Meta's hub.challenge verification
+    // handshake if/when the BSP forwards it during setup.
+    Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'handle']);
+    Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify']);
 
     // Public auth routes
     Route::post('/auth/otp/send', [AuthController::class, 'sendOtp']);

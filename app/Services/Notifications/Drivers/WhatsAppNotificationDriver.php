@@ -45,6 +45,16 @@ final class WhatsAppNotificationDriver implements NotificationDriver
         return NotificationTemplate::CHANNEL_WHATSAPP;
     }
 
+    /**
+     * Surface the Meta wamid from the most recent successful send.
+     * NotificationService::deliver() calls this via method_exists() to
+     * persist provider_message_id onto the notification log row.
+     */
+    public function lastMessageId(): ?string
+    {
+        return $this->whatsapp->lastMessageId();
+    }
+
     public function send(NotificationTemplate $template, NotificationContext $context): bool
     {
         if (empty($template->wa_template_name)) {

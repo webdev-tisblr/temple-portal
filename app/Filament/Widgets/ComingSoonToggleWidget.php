@@ -24,6 +24,11 @@ class ComingSoonToggleWidget extends Widget
     // Full-width single row.
     protected int|string|array $columnSpan = 'full';
 
+    public static function canView(): bool
+    {
+        return auth('admin')->user()?->can('widget_ComingSoonToggleWidget') ?? false;
+    }
+
     public bool $enabled = false;
 
     public function mount(): void

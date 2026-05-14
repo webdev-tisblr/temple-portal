@@ -10,14 +10,12 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Set;
 use Filament\Resources\Resource;
-use App\Filament\Concerns\HiddenFromPujari;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
 
 class ProductResource extends Resource
 {
-    use HiddenFromPujari;
 
     protected static ?string $model = Product::class;
 

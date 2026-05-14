@@ -28,6 +28,11 @@ class FinancialReports extends Page implements HasForms, HasTable
 
     protected static string $view = 'filament.pages.financial-reports';
 
+    public static function canAccess(): bool
+    {
+        return auth('admin')->user()?->can('page_FinancialReports') ?? false;
+    }
+
     public ?string $date_from = null;
     public ?string $date_to = null;
     public ?string $donation_type = null;

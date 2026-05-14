@@ -29,28 +29,10 @@ class SevaBookingResource extends Resource
     public static function canCreate(): bool
     {
         // Bookings come in via the app/web; admin should never create one manually.
+        // Belt-and-braces: SevaBookingPolicy::create() ALSO denies (no role has
+        // create_seva::booking by default). Leave this hard return so even a
+        // super admin can't accidentally insert a booking with no payment.
         return false;
-    }
-
-    /**
-     * Pujari role is view-only. Block edits + deletes for that role
-     * so a priest can browse the upcoming sevas without accidentally
-     * mutating booking state. Other roles fall through to defaults.
-     */
-    public static function canEdit($record): bool
-    {
-        if (auth('admin')->user()?->hasRole('pujari')) {
-            return false;
-        }
-        return parent::canEdit($record);
-    }
-
-    public static function canDelete($record): bool
-    {
-        if (auth('admin')->user()?->hasRole('pujari')) {
-            return false;
-        }
-        return parent::canDelete($record);
     }
 
     public static function form(Form $form): Form

@@ -11,13 +11,11 @@ use Filament\Forms\Form;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
-use App\Filament\Concerns\HiddenFromPujari;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class DonationResource extends Resource
 {
-    use HiddenFromPujari;
 
     protected static ?string $model = Donation::class;
 

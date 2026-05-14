@@ -27,6 +27,11 @@ class SystemSettings extends Page implements HasForms
 
     protected static string $view = 'filament.pages.system-settings';
 
+    public static function canAccess(): bool
+    {
+        return auth('admin')->user()?->can('page_SystemSettings') ?? false;
+    }
+
     public ?array $data = [];
 
     public function mount(): void

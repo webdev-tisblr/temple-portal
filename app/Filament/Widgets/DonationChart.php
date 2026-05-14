@@ -14,6 +14,11 @@ class DonationChart extends ChartWidget
 
     protected static ?int $sort = 2;
 
+    public static function canView(): bool
+    {
+        return auth('admin')->user()?->can('widget_DonationChart') ?? false;
+    }
+
     protected function getData(): array
     {
         $days = collect(CarbonPeriod::create(now()->subDays(29), now()));

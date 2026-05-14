@@ -11,14 +11,12 @@ use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Resources\Resource;
-use App\Filament\Concerns\HiddenFromPujari;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
 
 class DonationTypeResource extends Resource
 {
-    use HiddenFromPujari;
 
     protected static ?string $model = DonationType::class;
 

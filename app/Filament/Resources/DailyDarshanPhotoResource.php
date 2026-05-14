@@ -9,13 +9,11 @@ use App\Models\DailyDarshanPhoto;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use App\Filament\Concerns\HiddenFromPujari;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class DailyDarshanPhotoResource extends Resource
 {
-    use HiddenFromPujari;
 
     protected static ?string $model = DailyDarshanPhoto::class;
     protected static ?string $navigationIcon = 'heroicon-o-camera';

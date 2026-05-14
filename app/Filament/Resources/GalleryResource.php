@@ -9,13 +9,11 @@ use App\Models\GalleryImage;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use App\Filament\Concerns\HiddenFromPujari;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class GalleryResource extends Resource
 {
-    use HiddenFromPujari;
 
     protected static ?string $model = GalleryImage::class;
     protected static ?string $navigationIcon = 'heroicon-o-photo';

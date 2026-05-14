@@ -17,6 +17,11 @@ class RecentDonationsTable extends BaseWidget
 
     protected int|string|array $columnSpan = 'full';
 
+    public static function canView(): bool
+    {
+        return auth('admin')->user()?->can('widget_RecentDonationsTable') ?? false;
+    }
+
     public function table(Table $table): Table
     {
         return $table

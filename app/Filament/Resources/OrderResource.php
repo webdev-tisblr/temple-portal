@@ -12,13 +12,11 @@ use Filament\Forms\Form;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
-use App\Filament\Concerns\HiddenFromPujari;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class OrderResource extends Resource
 {
-    use HiddenFromPujari;
 
     protected static ?string $model = Order::class;
 

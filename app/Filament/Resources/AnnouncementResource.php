@@ -9,13 +9,11 @@ use App\Models\Announcement;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use App\Filament\Concerns\HiddenFromPujari;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class AnnouncementResource extends Resource
 {
-    use HiddenFromPujari;
 
     protected static ?string $model = Announcement::class;
     protected static ?string $navigationIcon = 'heroicon-o-megaphone';

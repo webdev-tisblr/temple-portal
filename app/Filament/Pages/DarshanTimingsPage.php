@@ -25,6 +25,16 @@ class DarshanTimingsPage extends Page implements HasForms
 
     protected static string $view = 'filament.pages.darshan-timings';
 
+    /**
+     * Gate navigation + direct URL access through the Shield-seeded
+     * `page_DarshanTimingsPage` permission. Super admin auto-passes via
+     * Gate::before in AuthServiceProvider.
+     */
+    public static function canAccess(): bool
+    {
+        return auth('admin')->user()?->can('page_DarshanTimingsPage') ?? false;
+    }
+
     public ?array $regular = [];
     public ?array $sunday = [];
     public ?string $temple_rules = '';

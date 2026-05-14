@@ -12,6 +12,11 @@ class SevaBookingOverview extends StatsOverviewWidget
 {
     protected static ?int $sort = 3;
 
+    public static function canView(): bool
+    {
+        return auth('admin')->user()?->can('widget_SevaBookingOverview') ?? false;
+    }
+
     protected function getStats(): array
     {
         return [

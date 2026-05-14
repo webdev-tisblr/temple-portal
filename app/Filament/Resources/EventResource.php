@@ -10,13 +10,11 @@ use App\Models\Event;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use App\Filament\Concerns\HiddenFromPujari;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class EventResource extends Resource
 {
-    use HiddenFromPujari;
 
     protected static ?string $model = Event::class;
 

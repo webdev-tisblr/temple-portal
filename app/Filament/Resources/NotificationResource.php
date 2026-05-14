@@ -7,13 +7,11 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\NotificationResource\Pages;
 use App\Models\Notification;
 use Filament\Resources\Resource;
-use App\Filament\Concerns\HiddenFromPujari;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class NotificationResource extends Resource
 {
-    use HiddenFromPujari;
 
     protected static ?string $model = Notification::class;
     protected static ?string $navigationIcon = 'heroicon-o-megaphone';

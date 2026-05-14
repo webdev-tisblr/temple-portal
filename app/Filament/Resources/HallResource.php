@@ -9,13 +9,11 @@ use App\Models\Hall;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use App\Filament\Concerns\HiddenFromPujari;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class HallResource extends Resource
 {
-    use HiddenFromPujari;
 
     protected static ?string $model = Hall::class;
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';

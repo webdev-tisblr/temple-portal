@@ -10,6 +10,7 @@
         "artesaos/seotools": "^1.4",
         "awcodes/filament-tiptap-editor": "^3.0",
         "barryvdh/laravel-dompdf": "^3.1",
+        "bezhansalleh/filament-shield": "^3.9",
         "filament/filament": "^3.3",
         "filament/spatie-laravel-media-library-plugin": "^3.3",
         "intervention/image": "^4.0",

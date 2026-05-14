@@ -13,6 +13,11 @@ class DonationStatsOverview extends StatsOverviewWidget
 {
     protected static ?int $sort = 1;
 
+    public static function canView(): bool
+    {
+        return auth('admin')->user()?->can('widget_DonationStatsOverview') ?? false;
+    }
+
     protected function getStats(): array
     {
         $fy = now()->month >= 4

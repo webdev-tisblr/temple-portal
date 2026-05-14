@@ -57,8 +57,12 @@ class DarshanShareCardService
     /** Brand palette — derived from the temple's saffron-and-gold identity. */
     private const C_SAFFRON_DEEP = '#d4711c';
     private const C_SAFFRON = '#e87a1a';
-    private const C_GOLD = '#d4a017';
-    private const C_CREAM = '#fff8e7';
+    private const C_GOLD = '#c89030';      // body accent
+    private const C_GOLD_BRIGHT = '#e6b948'; // blessing / highlight text
+    private const C_BURGUNDY = '#4a1a22';  // main card background
+    private const C_BURGUNDY_DEEP = '#37121a'; // ornamental shadows
+    private const C_CREAM = '#fff8e7';     // (legacy — used for footer band, retained for fallback paths)
+    private const C_CREAM_BODY = '#e8d8b8'; // text colour on burgundy
     private const C_INK = '#1a1a1a';
     private const C_INK_MUTED = '#5a4a3a';
     private const C_WHITE = '#ffffff';
@@ -172,32 +176,38 @@ class DarshanShareCardService
         int $width,
         int $height,
     ): ImageInterface {
-        // 1. Cream canvas (warm devotional base, never pure white).
-        $canvas = $this->manager->createImage($width, $height)->fill(self::C_CREAM);
+        // 1. Deep burgundy canvas — the new devotional base. Replaces the
+        //    earlier cream so the gold ornaments + saffron header pop.
+        $canvas = $this->manager->createImage($width, $height)
+            ->fill(self::C_BURGUNDY);
 
-        // 2. Saffron top band + cream footer band — the photo sits inside
-        //    a framed "card within a card". Story format gets taller bands.
+        // 2. Saffron top band (trust branding).
         $headerHeight = $format === self::FORMAT_STORY ? 180 : 130;
-        $footerHeight = $format === self::FORMAT_STORY ? 460 : 320;
-
         $this->drawHeaderBand($canvas, $width, $headerHeight);
-        $this->drawFooterBand($canvas, $width, $height, $footerHeight);
 
-        // 3. Photo composite — cover-cropped + framed.
-        $photoArea = [
-            'x' => 36,
-            'y' => $headerHeight + 24,
-            'w' => $width - 72,
-            'h' => $height - $headerHeight - $footerHeight - 48,
-        ];
-        $this->drawDarshanPhoto($canvas, $photo, $photoArea);
-
-        // 4. Trust branding in the header band.
-        $trustName = SystemSetting::getValue('trust_name', 'શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ');
+        $trustName = SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust');
         $this->drawHeaderText($canvas, $width, $headerHeight, $trustName);
 
-        // 5. Footer composition — blessing, optional devotee, date, URL.
-        $this->drawFooter($canvas, $devotee, $width, $height, $footerHeight, $format);
+        // 3. Circular darshan photo with concentric gold rings — replaces
+        //    the rectangular gold-frame layout.
+        $photoRadius = $format === self::FORMAT_STORY ? 430 : 290;
+        $photoCenter = [
+            'x' => intval($width / 2),
+            'y' => $headerHeight + 60 + $photoRadius,
+        ];
+        $this->drawCircularDarshanPhoto($canvas, $photo, $photoCenter, $photoRadius);
+
+        // 4. "જય શ્રી રામ" blessing in gold, with a decorative divider.
+        $blessingY = $photoCenter['y'] + $photoRadius
+            + ($format === self::FORMAT_STORY ? 140 : 90);
+        $this->drawBlessing($canvas, $width, $blessingY, $format);
+
+        // 5. Devotee block (avatar on the left + multiline text on the right).
+        $devoteeBlockY = $blessingY + ($format === self::FORMAT_STORY ? 200 : 140);
+        $this->drawDevoteeBlock($canvas, $devotee, $width, $devoteeBlockY, $format);
+
+        // 6. Footer meta — date + URL.
+        $this->drawFooterMeta($canvas, $width, $height);
 
         return $canvas;
     }
@@ -219,21 +229,10 @@ class DarshanShareCardService
         });
     }
 
-    private function drawFooterBand(ImageInterface $canvas, int $width, int $height, int $bandHeight): void
-    {
-        $top = $height - $bandHeight;
-        $canvas->drawRectangle(function (RectangleFactory $r) use ($top, $width, $bandHeight) {
-            $r->at(0, $top);
-            $r->size($width, $bandHeight);
-            $r->background(self::C_CREAM);
-        });
-        // Gold separator stripe between photo and footer.
-        $canvas->drawRectangle(function (RectangleFactory $r) use ($top, $width) {
-            $r->at(0, $top - 4);
-            $r->size($width, 4);
-            $r->background(self::C_GOLD);
-        });
-    }
+    // drawFooterBand removed in the burgundy redesign — the body is now
+    // a single continuous burgundy field. The earlier cream footer band
+    // was needed only when the canvas was split into header / cream
+    // photo area / cream footer.
 
     private function drawHeaderText(ImageInterface $canvas, int $width, int $headerHeight, string $trustName): void
     {
@@ -279,181 +278,229 @@ class DarshanShareCardService
     }
 
     /**
-     * Cover-crops the daily darshan photo into the target rectangle and
-     * inserts it. A 6px gold frame around the inserted image gives a
-     * framed-poster feel.
+     * Cover-crop the darshan photo into a square the size of the photo
+     * circle's diameter, mask the corners with the burgundy bg so it
+     * reads as a circle, then stamp two concentric gold rings around it.
      */
-    private function drawDarshanPhoto(ImageInterface $canvas, DailyDarshanPhoto $photo, array $area): void
-    {
+    private function drawCircularDarshanPhoto(
+        ImageInterface $canvas,
+        DailyDarshanPhoto $photo,
+        array $center,
+        int $radius,
+    ): void {
+        $diameter = $radius * 2;
+        $left = $center['x'] - $radius;
+        $top = $center['y'] - $radius;
+
         try {
             $bytes = Storage::disk('r2')->get($photo->image_path);
             if ($bytes === null || $bytes === '') {
-                $this->drawPhotoFallback($canvas, $area);
-                return;
+                throw new \RuntimeException('empty photo bytes');
             }
-            $img = $this->manager->decodeBinary($bytes)->cover($area['w'], $area['h']);
-            $canvas->insert($img, $area['x'], $area['y']);
+            $img = $this->manager->decodeBinary($bytes)->cover($diameter, $diameter);
+            $canvas->insert($img, $left, $top);
         } catch (\Throwable $e) {
             Log::error('DarshanShareCard: photo load failed', [
                 'image_path' => $photo->image_path,
                 'error' => $e->getMessage(),
             ]);
-            $this->drawPhotoFallback($canvas, $area);
-            return;
-        }
-
-        // Inner gold border — 4 thin rectangles around the image perimeter.
-        $b = 6;
-        $strokes = [
-            [$area['x'], $area['y'], $area['w'], $b],                          // top
-            [$area['x'], $area['y'] + $area['h'] - $b, $area['w'], $b],        // bottom
-            [$area['x'], $area['y'], $b, $area['h']],                          // left
-            [$area['x'] + $area['w'] - $b, $area['y'], $b, $area['h']],        // right
-        ];
-        foreach ($strokes as [$sx, $sy, $sw, $sh]) {
-            $canvas->drawRectangle(function (RectangleFactory $r) use ($sx, $sy, $sw, $sh) {
-                $r->at($sx, $sy);
-                $r->size($sw, $sh);
-                $r->background(self::C_GOLD);
+            // Fallback — a saffron-coloured disk in place of the photo.
+            $canvas->drawCircle(function (CircleFactory $c) use ($center, $radius) {
+                $c->at($center['x'], $center['y']);
+                $c->radius($radius);
+                $c->background(self::C_SAFFRON_DEEP);
             });
         }
+
+        // Mask the four corners of the square photo by drawing burgundy
+        // circles centred at each corner — only their inner quadrant
+        // overlaps the photo, "erasing" everything outside the circle.
+        // Same technique used for the avatar; works on both GD and
+        // Imagick without a real alpha-mask compositor.
+        foreach ([
+            [$left, $top],                          // top-left
+            [$left + $diameter, $top],              // top-right
+            [$left, $top + $diameter],              // bottom-left
+            [$left + $diameter, $top + $diameter],  // bottom-right
+        ] as [$cx, $cy]) {
+            $canvas->drawCircle(function (CircleFactory $c) use ($cx, $cy, $radius) {
+                $c->at($cx, $cy);
+                $c->radius($radius);
+                $c->background(self::C_BURGUNDY);
+            });
+        }
+
+        // Inner gold ring — sits right on the photo edge.
+        $canvas->drawCircle(function (CircleFactory $c) use ($center, $radius) {
+            $c->at($center['x'], $center['y']);
+            $c->radius($radius - 2);
+            $c->background('rgba(0,0,0,0)');
+            $c->border(self::C_GOLD, 6);
+        });
+        // Outer gold ring — a thinner halo offset out by 22px to give the
+        // framed-medallion look from the reference design.
+        $canvas->drawCircle(function (CircleFactory $c) use ($center, $radius) {
+            $c->at($center['x'], $center['y']);
+            $c->radius($radius + 24);
+            $c->background('rgba(0,0,0,0)');
+            $c->border(self::C_GOLD, 3);
+        });
     }
 
-    private function drawPhotoFallback(ImageInterface $canvas, array $area): void
+    /**
+     * Render the centrepiece blessing ("જય શ્રી રામ") in gold + a small
+     * gold-dash divider underneath. Kept as its own method so the
+     * orchestration in render() reads top-to-bottom.
+     */
+    private function drawBlessing(ImageInterface $canvas, int $width, int $y, string $format): void
     {
-        $canvas->drawRectangle(function (RectangleFactory $r) use ($area) {
-            $r->at($area['x'], $area['y']);
-            $r->size($area['w'], $area['h']);
-            $r->background(self::C_SAFFRON_DEEP);
-        });
-        $cx = intval($area['x'] + $area['w'] / 2);
-        $cy = intval($area['y'] + $area['h'] / 2);
-        $canvas->text('🕉', $cx, $cy, function (FontFactory $font) {
-            $font->filename($this->englishFont());
-            $font->size(220);
-            $font->color(self::C_GOLD);
-            $font->align('center', 'center');
-        });
-    }
-
-    private function drawFooter(
-        ImageInterface $canvas,
-        ?Devotee $devotee,
-        int $width,
-        int $height,
-        int $footerHeight,
-        string $format,
-    ): void {
-        $footerTop = $height - $footerHeight;
         $cx = intval($width / 2);
 
-        // 1. "જય શ્રી રામ" — the centrepiece blessing.
-        $blessingY = $footerTop + ($format === self::FORMAT_STORY ? 110 : 80);
-        $canvas->text('જય શ્રી રામ', $cx, $blessingY, function (FontFactory $font) use ($format) {
+        $canvas->text('જય શ્રી રામ', $cx, $y, function (FontFactory $font) use ($format) {
             $font->filename($this->gujaratiFont(bold: true));
-            $font->size($format === self::FORMAT_STORY ? 110 : 80);
-            $font->color(self::C_SAFFRON_DEEP);
+            $font->size($format === self::FORMAT_STORY ? 120 : 88);
+            $font->color(self::C_GOLD_BRIGHT);
             $font->align('center', 'center');
         });
 
-        // 2. Decorative divider — gold dashes on either side of a centred dot.
-        $divY = $blessingY + ($format === self::FORMAT_STORY ? 80 : 55);
-        $divLen = 200;
-        $canvas->drawRectangle(function (RectangleFactory $r) use ($cx, $divLen, $divY) {
-            $r->at($cx - $divLen - 30, $divY);
-            $r->size($divLen, 3);
+        $divY = $y + ($format === self::FORMAT_STORY ? 95 : 65);
+        $halfLen = 130;
+        $canvas->drawRectangle(function (RectangleFactory $r) use ($cx, $halfLen, $divY) {
+            $r->at($cx - $halfLen - 24, $divY);
+            $r->size($halfLen, 2);
             $r->background(self::C_GOLD);
         });
-        $canvas->drawRectangle(function (RectangleFactory $r) use ($cx, $divLen, $divY) {
-            $r->at($cx + 30, $divY);
-            $r->size($divLen, 3);
+        $canvas->drawRectangle(function (RectangleFactory $r) use ($cx, $halfLen, $divY) {
+            $r->at($cx + 24, $divY);
+            $r->size($halfLen, 2);
             $r->background(self::C_GOLD);
         });
         $canvas->drawCircle(function (CircleFactory $c) use ($cx, $divY) {
             $c->at($cx, $divY + 1);
-            $c->radius(8);
+            $c->radius(7);
             $c->background(self::C_GOLD);
         });
+    }
 
-        // 3. Devotee personalisation — name + optional circular avatar.
-        $personalY = $divY + ($format === self::FORMAT_STORY ? 90 : 65);
-        $this->drawDevoteeBlock($canvas, $devotee, $cx, $personalY, $format);
-
-        // 4. Footer meta — date + URL.
-        $metaY = $height - 60;
+    /**
+     * Date • URL at the very bottom of the card, in muted cream so it
+     * sits quietly under the bigger content above.
+     */
+    private function drawFooterMeta(ImageInterface $canvas, int $width, int $height): void
+    {
+        $cx = intval($width / 2);
+        $metaY = $height - 70;
         $today = Carbon::now()->locale('en')->translatedFormat('d M Y');
         $canvas->text($today . '  •  patadiyahanumanji.com', $cx, $metaY, function (FontFactory $font) {
             $font->filename($this->englishFont());
             $font->size(28);
-            $font->color(self::C_INK_MUTED);
+            $font->color(self::C_CREAM_BODY);
             $font->align('center', 'center');
         });
     }
 
+    // drawFooter() removed — broken into drawBlessing + drawDevoteeBlock +
+    // drawFooterMeta to give render() a clear top-to-bottom orchestration.
+
+    /**
+     * Left-aligned avatar (devotee photo OR temple-logo fallback) paired
+     * with two/three lines of text on the right:
+     *
+     *   [ Avatar ]   {Devotee Name}                    ← only if logged in
+     *                Sending Daily Blessings from
+     *                Pataliya Hanumanji Temple
+     *
+     * For anonymous callers the name line is omitted but the avatar
+     * (temple logo) + the two-line "Sending Daily Blessings..." text
+     * still render so every card carries the same temple branding.
+     */
     private function drawDevoteeBlock(
         ImageInterface $canvas,
         ?Devotee $devotee,
-        int $cx,
+        int $width,
         int $y,
         string $format,
     ): void {
-        if ($devotee === null || empty($devotee->name)) {
-            // Anonymous variant — a soft "With prayers" line keeps the
-            // footer balanced for non-logged-in users.
-            $canvas->text('પ્રાર્થના સહિત', $cx, $y, function (FontFactory $font) use ($format) {
-                $font->filename($this->gujaratiFont(bold: false));
-                $font->size($format === self::FORMAT_STORY ? 38 : 30);
-                $font->color(self::C_INK);
-                $font->align('center', 'center');
-            });
-            return;
+        $avatarSize = $format === self::FORMAT_STORY ? 150 : 110;
+        $marginX = $format === self::FORMAT_STORY ? 70 : 50;
+        $gap = 30;
+
+        // Always render an avatar — devotee photo → temple logo fallback.
+        // The fake-Devotee path in loadAvatar's logo branch needs us to
+        // hand it any Devotee-or-null; null falls through to logo-only.
+        $avatar = $this->loadAvatarOrLogo($devotee, $avatarSize);
+        if ($avatar !== null) {
+            $canvas->insert($avatar, $marginX, $y - intval($avatarSize / 2));
         }
 
-        $avatarSize = $format === self::FORMAT_STORY ? 96 : 72;
-        $avatar = $this->loadAvatar($devotee, $avatarSize);
-        $name = $devotee->name;
-        $fontSize = $format === self::FORMAT_STORY ? 44 : 34;
+        $textStartX = $marginX + $avatarSize + $gap;
+        $textY = $y;
 
-        // Script-aware font for the name — same fix as the header. Most
-        // devotees register with a Latin-spelled name ("Harsh", "Meet")
-        // and the Gujarati font has no Latin glyphs, so those previously
-        // rendered as nothing.
-        $nameFont = $this->pickFontForText($name, bold: true);
+        // Top line: devotee name (only when logged in). Pushes the
+        // "Sending Daily Blessings..." block down by one line height.
+        if ($devotee !== null && ! empty($devotee->name)) {
+            $name = $devotee->name;
+            $nameFont = $this->pickFontForText($name, bold: true);
+            $nameFontSize = $format === self::FORMAT_STORY ? 46 : 34;
 
-        // GD's font subsystem has no boundary-box accessor exposed
-        // through Intervention v4, so we estimate name width at
-        // 0.55× pt size per glyph. Close enough to centre the
-        // (avatar + name) pair without visible drift.
-        $estimatedNameWidth = (int) (mb_strlen($name) * $fontSize * 0.55);
-
-        if ($avatar !== null) {
-            $totalWidth = $avatarSize + 24 + $estimatedNameWidth;
-            $startX = $cx - intval($totalWidth / 2);
-            $canvas->insert($avatar, $startX, $y - intval($avatarSize / 2));
-
-            $canvas->text($name, $startX + $avatarSize + 24, $y, function (FontFactory $font) use ($fontSize, $nameFont) {
+            $nameY = $textY - ($format === self::FORMAT_STORY ? 50 : 35);
+            $canvas->text($name, $textStartX, $nameY, function (FontFactory $font) use ($nameFont, $nameFontSize) {
                 $font->filename($nameFont);
-                $font->size($fontSize);
-                $font->color(self::C_INK);
+                $font->size($nameFontSize);
+                $font->color(self::C_GOLD_BRIGHT);
                 $font->align('left', 'center');
             });
-        } else {
-            // Defensive log — drawDevoteeBlock fell back to centred-name
-            // only path, which means loadAvatar returned null even
-            // though we have a devotee. Should never happen now that
-            // the temple-logo fallback is in place. If it logs, the
-            // logo file is missing on disk.
-            Log::warning('DarshanShareCard: avatar null despite devotee — both photo + logo failed to load', [
-                'devotee_id' => $devotee->getKey(),
-                'has_profile_photo' => ! empty($devotee->profile_photo_path),
-            ]);
-            $canvas->text($name, $cx, $y, function (FontFactory $font) use ($fontSize, $nameFont) {
-                $font->filename($nameFont);
-                $font->size($fontSize);
-                $font->color(self::C_INK);
-                $font->align('center', 'center');
-            });
         }
+
+        // Two-line "Sending Daily Blessings from / Pataliya Hanumanji Temple"
+        // — the constant branding the user asked to sit below the name.
+        $bodyFontSize = $format === self::FORMAT_STORY ? 32 : 24;
+        $lineGap = $format === self::FORMAT_STORY ? 44 : 32;
+        $line1 = 'Sending Daily Blessings from';
+        $line2 = 'Pataliya Hanumanji Temple';
+
+        $canvas->text($line1, $textStartX, $textY, function (FontFactory $font) use ($bodyFontSize) {
+            $font->filename($this->englishFont());
+            $font->size($bodyFontSize);
+            $font->color(self::C_CREAM_BODY);
+            $font->align('left', 'center');
+        });
+        $canvas->text($line2, $textStartX, $textY + $lineGap, function (FontFactory $font) use ($bodyFontSize) {
+            $font->filename($this->englishFont());
+            $font->size($bodyFontSize);
+            $font->color(self::C_CREAM_BODY);
+            $font->align('left', 'center');
+        });
+    }
+
+    /**
+     * Avatar loader for the devotee block. Always returns something
+     * (either the devotee's photo or the temple logo), so the new
+     * left-aligned layout never has an empty avatar slot. Null
+     * only when even the logo can't load — operations sees the
+     * Log::warning in that case.
+     */
+    private function loadAvatarOrLogo(?Devotee $devotee, int $size): ?ImageInterface
+    {
+        if ($devotee !== null) {
+            $photo = $this->loadDevoteePhoto($devotee, $size);
+            if ($photo !== null) {
+                $this->maskCorners($photo, $size);
+                $this->stampGoldRing($photo, $size);
+                return $photo;
+            }
+        }
+
+        $logo = $this->loadTempleLogo($size);
+        if ($logo === null) {
+            Log::warning('DarshanShareCard: temple-logo avatar fallback failed', [
+                'devotee_id' => $devotee?->getKey(),
+            ]);
+            return null;
+        }
+        $this->maskCorners($logo, $size);
+        $this->stampGoldRing($logo, $size);
+        return $logo;
     }
 
     /**
@@ -531,20 +578,19 @@ class DarshanShareCardService
 
     /**
      * Approximate a circular crop by overdrawing the four corners with
-     * the footer cream colour. Cheap, works with both Imagick and GD.
-     * Visually indistinguishable from a real alpha mask at ≤ 96px.
+     * the card-body colour. Cheap, works with both Imagick and GD.
+     * Visually indistinguishable from a real alpha mask at ≤ 150px.
      *
      * Geometry: for each corner, an opaque triangular wedge is faked by
      * a quarter-circle drawn at the inverted corner with a radius equal
      * to half the avatar size. drawCircle fills the entire ellipse so we
-     * stamp it OUTSIDE the avatar bounds (offset by -r/2) — only the
-     * inner quadrant overlaps the avatar.
+     * stamp it OUTSIDE the avatar bounds — only the inner quadrant
+     * overlaps the avatar. Bg colour matches C_BURGUNDY (the redesigned
+     * canvas) so the masked-out corners blend invisibly into the card.
      */
     private function maskCorners(ImageInterface $avatar, int $size): void
     {
         $r = intval($size / 2);
-        // (cx, cy) for each corner-quadrant circle centered just outside
-        // the avatar at that corner.
         $corners = [
             [0, 0],            // top-left
             [$size, 0],        // top-right
@@ -555,7 +601,7 @@ class DarshanShareCardService
             $avatar->drawCircle(function (CircleFactory $c) use ($cx, $cy, $r) {
                 $c->at($cx, $cy);
                 $c->radius($r);
-                $c->background(self::C_CREAM);
+                $c->background(self::C_BURGUNDY);
             });
         }
     }
@@ -583,7 +629,7 @@ class DarshanShareCardService
         // produces materially different output (driver swap, layout shift,
         // typography change) — v2 invalidates the pre-Imagick-fallback
         // cards that had tofu boxes for the trust-name header.
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v5"), 0, 12);
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v6"), 0, 12);
 
         return self::STORAGE_PREFIX . "/{$date}/{$devoteeSegment}-{$format}-{$hash}.jpg";
     }

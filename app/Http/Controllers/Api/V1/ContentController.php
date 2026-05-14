@@ -140,19 +140,6 @@ class ContentController extends BaseApiController
             'height' => $result['height'],
             'cached' => $result['cached'],
             'share_text' => $this->shareText($photo, $devotee),
-            // Debug: exposes whether the server saw an authenticated
-            // devotee on this call. Helps diagnose "card shows
-            // anonymous" reports without server-side log access.
-            // TODO: remove once Sanctum auth on this route is verified
-            // working in production.
-            '_debug_auth' => [
-                'has_bearer_header' => $request->bearerToken() !== null,
-                'sanctum_user_id' => auth('sanctum')->id(),
-                'devotee_guard_user_id' => auth('devotee')->id(),
-                'resolved_devotee_id' => $devotee?->getKey(),
-                'resolved_devotee_name' => $devotee?->name,
-                'has_profile_photo' => ! empty($devotee?->profile_photo_path),
-            ],
         ]);
     }
 

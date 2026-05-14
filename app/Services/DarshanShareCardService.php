@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
+use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Intervention\Image\Encoders\JpegEncoder;
 use Intervention\Image\Geometry\Factories\CircleFactory;
 use Intervention\Image\Geometry\Factories\RectangleFactory;
@@ -66,6 +67,22 @@ class DarshanShareCardService
 
     public function __construct()
     {
+        // Imagick gives full HarfBuzz shaping for complex Gujarati
+        // conjuncts (શ્રી, ્ય, ્ર). GD's imagettftext renders Indic glyphs
+        // in raw sequence without OpenType shaping — small text with many
+        // conjuncts shows up as tofu boxes. We prefer Imagick when it's
+        // installed and fall back to GD if not (Hostinger shared hosting
+        // doesn't always ship the imagick extension).
+        if (extension_loaded('imagick')) {
+            try {
+                $this->manager = new ImageManager(new ImagickDriver());
+                return;
+            } catch (\Throwable $e) {
+                Log::warning('DarshanShareCard: Imagick driver init failed — falling back to GD', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
         $this->manager = new ImageManager(new GdDriver());
     }
 
@@ -459,8 +476,12 @@ class DarshanShareCardService
         $date = $photo->captured_on?->format('Y-m-d') ?? now()->format('Y-m-d');
 
         // Hash includes the photo's updated_at so re-uploading the source
-        // image invalidates the cached card automatically.
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}"), 0, 12);
+        // image invalidates the cached card automatically. The trailing
+        // version suffix is bumped manually whenever the rendering pipeline
+        // produces materially different output (driver swap, layout shift,
+        // typography change) — v2 invalidates the pre-Imagick-fallback
+        // cards that had tofu boxes for the trust-name header.
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v2"), 0, 12);
 
         return self::STORAGE_PREFIX . "/{$date}/{$devoteeSegment}-{$format}-{$hash}.jpg";
     }

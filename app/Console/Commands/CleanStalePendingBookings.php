@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\Donation;
 use App\Models\HallBooking;
 use App\Models\Order;
 use App\Models\Payment;
@@ -32,9 +33,9 @@ use Illuminate\Support\Facades\Log;
  */
 class CleanStalePendingBookings extends Command
 {
-    protected $signature = 'bookings:clean-stale {--minutes=30 : Minutes after which pending orders / bookings are cancelled}';
+    protected $signature = 'bookings:clean-stale {--minutes=30 : Minutes after which pending orders / bookings / donations are cancelled}';
 
-    protected $description = 'Cancel pending seva bookings, hall bookings, and store orders whose Razorpay payment window has lapsed';
+    protected $description = 'Cancel pending seva bookings, hall bookings, store orders, and donations whose Razorpay payment window has lapsed';
 
     public function handle(): int
     {
@@ -45,6 +46,7 @@ class CleanStalePendingBookings extends Command
         $totalCancelled += $this->cleanSevaBookings($cutoff, $minutes);
         $totalCancelled += $this->cleanHallBookings($cutoff, $minutes);
         $totalCancelled += $this->cleanOrders($cutoff, $minutes);
+        $totalCancelled += $this->cleanDonations($cutoff, $minutes);
 
         if ($totalCancelled === 0) {
             $this->info('No stale pending records found.');
@@ -109,6 +111,41 @@ class CleanStalePendingBookings extends Command
             $this->info("  • Store orders cancelled: {$stale->count()}");
         }
         return $stale->count();
+    }
+
+    /**
+     * Donations have no status field of their own — their lifecycle is
+     * inferred from the related Payment.status. So "stale donation"
+     * means: Donation row exists, Payment row is still 'created' past
+     * the cutoff. We flip the Payment to 'failed'; the dashboard +
+     * Filament + campaign-totals queries already filter on
+     * payment.status='captured', so the donation immediately stops
+     * counting toward anything visible.
+     *
+     * The Donation row itself stays in the DB for audit. A separate
+     * retention sweep can prune very old failed-payment donations
+     * later if storage becomes an issue.
+     */
+    private function cleanDonations(\Illuminate\Support\Carbon $cutoff, int $minutes): int
+    {
+        $stalePaymentIds = Donation::query()
+            ->whereNotNull('payment_id')
+            ->where('created_at', '<', $cutoff)
+            ->whereHas('payment', fn ($q) => $q->where('status', 'created'))
+            ->pluck('payment_id');
+
+        if ($stalePaymentIds->isEmpty()) {
+            return 0;
+        }
+
+        $affected = Payment::whereIn('id', $stalePaymentIds)
+            ->where('status', 'created')
+            ->update(['status' => 'failed']);
+
+        if ($affected > 0) {
+            $this->info("  • Stale donations marked failed: {$affected}");
+        }
+        return $affected;
     }
 
     /**

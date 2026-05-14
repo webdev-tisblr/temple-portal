@@ -38,7 +38,12 @@ class ListDonations extends ListRecords
                         ->required(),
                 ])
                 ->action(function (array $data) {
+                    // Captured-only export, matching the list-view
+                    // default filter. Including uncaptured donations
+                    // in CSV/PDF exports historically inflated revenue
+                    // when admins shared the export with auditors.
                     $donations = Donation::with('devotee', 'receipt', 'payment')
+                        ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
                         ->whereDate('created_at', '>=', $data['date_from'])
                         ->whereDate('created_at', '<=', $data['date_to'])
                         ->orderBy('created_at', 'desc')

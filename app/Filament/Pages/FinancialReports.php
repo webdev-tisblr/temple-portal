@@ -74,14 +74,7 @@ class FinancialReports extends Page implements HasForms, HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->query(
-                Donation::query()
-                    ->with('devotee', 'receipt')
-                    ->when($this->date_from, fn (Builder $q) => $q->whereDate('created_at', '>=', $this->date_from))
-                    ->when($this->date_to, fn (Builder $q) => $q->whereDate('created_at', '<=', $this->date_to))
-                    ->when($this->donation_type, fn (Builder $q) => $q->where('donation_type', $this->donation_type))
-                    ->when($this->financial_year, fn (Builder $q) => $q->where('financial_year', $this->financial_year))
-            )
+            ->query($this->baseQuery()->with('devotee', 'receipt'))
             ->columns([
                 Tables\Columns\TextColumn::make('receipt.receipt_number')->label('Receipt No.')->default('-'),
                 Tables\Columns\TextColumn::make('created_at')->date('d/m/Y')->label('Date')->sortable(),
@@ -96,17 +89,32 @@ class FinancialReports extends Page implements HasForms, HasTable
 
     public function getSummary(): array
     {
-        $query = Donation::query()
-            ->when($this->date_from, fn (Builder $q) => $q->whereDate('created_at', '>=', $this->date_from))
-            ->when($this->date_to, fn (Builder $q) => $q->whereDate('created_at', '<=', $this->date_to))
-            ->when($this->donation_type, fn (Builder $q) => $q->where('donation_type', $this->donation_type))
-            ->when($this->financial_year, fn (Builder $q) => $q->where('financial_year', $this->financial_year));
+        $query = $this->baseQuery();
 
         return [
             'total' => number_format((float) $query->sum('amount'), 2),
             'count' => $query->count(),
             'average' => $query->count() > 0 ? number_format((float) $query->avg('amount'), 2) : '0.00',
         ];
+    }
+
+    /**
+     * Single source of truth for "donations the trust actually received".
+     * Captured-only filter is mandatory here — this page drives the
+     * total / count / average / CSV / PDF that the trust shares with
+     * auditors. Earlier each of the three call sites (table, summary,
+     * export) built the query independently and ALL three forgot the
+     * payment.status filter, so revenue numbers silently included
+     * abandoned Razorpay handshakes.
+     */
+    private function baseQuery(): Builder
+    {
+        return Donation::query()
+            ->whereHas('payment', fn (Builder $q) => $q->where('status', 'captured'))
+            ->when($this->date_from, fn (Builder $q) => $q->whereDate('created_at', '>=', $this->date_from))
+            ->when($this->date_to, fn (Builder $q) => $q->whereDate('created_at', '<=', $this->date_to))
+            ->when($this->donation_type, fn (Builder $q) => $q->where('donation_type', $this->donation_type))
+            ->when($this->financial_year, fn (Builder $q) => $q->where('financial_year', $this->financial_year));
     }
 
     public function exportCsv()
@@ -159,11 +167,8 @@ class FinancialReports extends Page implements HasForms, HasTable
 
     private function getFilteredDonations(): \Illuminate\Support\Collection
     {
-        return Donation::with('devotee', 'receipt', 'payment')
-            ->when($this->date_from, fn (Builder $q) => $q->whereDate('created_at', '>=', $this->date_from))
-            ->when($this->date_to, fn (Builder $q) => $q->whereDate('created_at', '<=', $this->date_to))
-            ->when($this->donation_type, fn (Builder $q) => $q->where('donation_type', $this->donation_type))
-            ->when($this->financial_year, fn (Builder $q) => $q->where('financial_year', $this->financial_year))
+        return $this->baseQuery()
+            ->with('devotee', 'receipt', 'payment')
             ->orderBy('created_at', 'desc')
             ->get();
     }

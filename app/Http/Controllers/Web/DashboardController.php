@@ -20,19 +20,35 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
+    /**
+     * Every user-facing list on the dashboard is filtered to records
+     * whose Payment row has captured. Pending / created / failed records
+     * are intentionally hidden — they exist only as scratch state during
+     * the Razorpay handoff and showing them confuses the devotee ("did
+     * I donate or not?"). The mobile API enforces the same filter via
+     * each /api/v1 controller; this brings the web dashboard in line.
+     */
     public function index(): View
     {
         $devotee = Auth::guard('devotee')->user();
 
-        // Only count donations whose payment captured. Pending/failed entries
-        // shouldn't inflate "total donated" or surface on the dashboard.
         $capturedDonations = Donation::where('devotee_id', $devotee->id)
+            ->whereHas('payment', fn ($q) => $q->where('status', 'captured'));
+
+        $capturedBookings = SevaBooking::where('devotee_id', $devotee->id)
             ->whereHas('payment', fn ($q) => $q->where('status', 'captured'));
 
         $stats = [
             'total_donations' => (clone $capturedDonations)->sum('amount'),
-            'total_bookings' => SevaBooking::where('devotee_id', $devotee->id)->count(),
-            'pending_bookings' => SevaBooking::where('devotee_id', $devotee->id)->where('status', 'pending')->count(),
+            'total_bookings' => (clone $capturedBookings)->count(),
+            // 'pending_bookings' now means upcoming-confirmed-but-not-completed
+            // (i.e. paid sevas whose ritual day is still ahead). The earlier
+            // count silently included abandoned-cart bookings, which made
+            // the metric meaningless.
+            'pending_bookings' => (clone $capturedBookings)
+                ->where('status', 'confirmed')
+                ->where('booking_date', '>=', now()->toDateString())
+                ->count(),
         ];
 
         $recentDonations = (clone $capturedDonations)
@@ -41,7 +57,7 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        $recentBookings = SevaBooking::where('devotee_id', $devotee->id)
+        $recentBookings = (clone $capturedBookings)
             ->with('seva')->orderByDesc('created_at')->take(5)->get();
 
         SEOMeta::setTitle('ડેશબોર્ડ');
@@ -52,9 +68,6 @@ class DashboardController extends Controller
     public function donations(): View
     {
         $devotee = Auth::guard('devotee')->user();
-        // Only show donations whose payment was captured. Pending/failed
-        // entries clutter the list and have no download button anyway.
-        // Mirrors the mobile API DonationController::history filter.
         $donations = Donation::where('devotee_id', $devotee->id)
             ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
             ->with(['receipt', 'payment'])
@@ -69,7 +82,13 @@ class DashboardController extends Controller
     public function bookings(): View
     {
         $devotee = Auth::guard('devotee')->user();
+        // Captured-only — was previously returning ALL bookings, so a user
+        // who exited the Razorpay modal saw their abandoned booking sit
+        // in the list as "પ્રતીક્ષા" (pending) forever. The mobile API
+        // (SevaController::bookings) already filtered correctly; this
+        // closes the parity gap.
         $bookings = SevaBooking::where('devotee_id', $devotee->id)
+            ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
             ->with('seva')->orderByDesc('created_at')->paginate(20);
 
         SEOMeta::setTitle('મારી બુકિંગ');
@@ -80,7 +99,11 @@ class DashboardController extends Controller
     public function orders(): View
     {
         $devotee = Auth::guard('devotee')->user();
+        // Same captured-only filter as bookings(). The mobile API
+        // (StoreController::orders) already does this; web was leaking
+        // pending checkouts to the user's "My Orders" page.
         $orders = Order::where('devotee_id', $devotee->id)
+            ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
             ->with('items')->orderByDesc('created_at')->paginate(20);
 
         SEOMeta::setTitle('મારા ઓર્ડર');
@@ -91,7 +114,12 @@ class DashboardController extends Controller
     public function receipts(): View
     {
         $devotee = Auth::guard('devotee')->user();
-        $donationIds = Donation::where('devotee_id', $devotee->id)->pluck('id');
+        // Only collect donation ids for captured payments — a receipt should
+        // never exist for an uncaptured donation, but the filter also future-
+        // proofs us if any stray Receipt80G rows are seeded by tests.
+        $donationIds = Donation::where('devotee_id', $devotee->id)
+            ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
+            ->pluck('id');
         $receipts = Receipt80G::whereIn('donation_id', $donationIds)
             ->orderByDesc('created_at')->paginate(20);
 

@@ -198,23 +198,24 @@ class SevaWebController extends Controller
             if ($verified) {
                 $payment = Payment::where('razorpay_order_id', $orderId)->first();
                 if ($payment) {
-                    $payment->update([
-                        'status' => 'captured',
-                        'razorpay_payment_id' => $paymentId,
-                        'paid_at' => $payment->paid_at ?? now(),
-                    ]);
+                    // Delegate the entire capture flow to the central
+                    // service — same code path as the API
+                    // /payments/verify endpoint and the Razorpay webhook.
+                    // markCaptured is idempotent (Payment::lockForUpdate
+                    // + status check), so a duplicate hit from this
+                    // callback after the webhook already fired is a
+                    // no-op. Web flows used to do a partial capture
+                    // here (just flip payment + booking status), which
+                    // silently skipped notifications and other side
+                    // effects.
+                    app(\App\Services\PaymentCaptureService::class)->markCaptured(
+                        $payment,
+                        $paymentId,
+                    );
 
-                    $booking = SevaBooking::where('payment_id', $payment->id)->with('seva.assignee', 'selectedProduct')->first();
-
-                    // Confirm the booking after payment verification
-                    if ($booking && $booking->status !== 'confirmed') {
-                        $booking->update(['status' => 'confirmed']);
-                    }
-
-                    // No Donation / 80G dispatch for seva bookings — seva
-                    // payments aren't 80G eligible. seva.booking.confirmed
-                    // already fired from the webhook / verify endpoint
-                    // path via PaymentCaptureService.
+                    $booking = SevaBooking::where('payment_id', $payment->id)
+                        ->with('seva.assignee', 'selectedProduct')
+                        ->first();
                 }
             }
         }

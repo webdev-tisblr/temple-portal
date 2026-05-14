@@ -13,6 +13,7 @@ use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class DonationResource extends Resource
 {
@@ -29,6 +30,7 @@ class DonationResource extends Resource
     {
         return false;
     }
+
 
     public static function form(Form $form): Form
     {
@@ -78,6 +80,17 @@ class DonationResource extends Resource
                     'construction' => 'Construction', 'festival' => 'Festival', 'campaign' => 'Campaign',
                 ]),
                 Tables\Filters\SelectFilter::make('financial_year')->options(fn () => Donation::distinct()->pluck('financial_year', 'financial_year')->toArray()),
+                // Captured-only filter, ON by default. Hides
+                // pending/created/failed donation rows from the admin
+                // list + the column summariser (which used to silently
+                // include uncaptured rows in the revenue ₹ total).
+                // Operators can toggle this off to debug abandoned
+                // donations or audit the full pipeline.
+                Tables\Filters\Filter::make('captured_only')
+                    ->label('Captured payments only')
+                    ->default()
+                    ->query(fn (Builder $query): Builder => $query
+                        ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

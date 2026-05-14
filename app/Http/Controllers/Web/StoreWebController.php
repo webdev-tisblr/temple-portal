@@ -545,25 +545,22 @@ class StoreWebController extends Controller
             if ($verified) {
                 $payment = Payment::where('razorpay_order_id', $orderId)->first();
                 if ($payment) {
-                    $payment->update([
-                        'status' => 'captured',
-                        'razorpay_payment_id' => $paymentId,
-                        'paid_at' => $payment->paid_at ?? now(),
-                    ]);
+                    // Single-source-of-truth capture path — handles
+                    // payment status, order confirmation, stock
+                    // decrement, GenerateStoreInvoice dispatch, and
+                    // notification fan-out atomically. Web used to do a
+                    // partial update here that SKIPPED STOCK DECREMENT
+                    // entirely — real inventory bug.
+                    app(\App\Services\PaymentCaptureService::class)->markCaptured(
+                        $payment,
+                        $paymentId,
+                    );
 
                     $order = Order::where('payment_id', $payment->id)->with('items')->first();
 
-                    if ($order && $order->status->value !== 'confirmed') {
-                        $order->update(['status' => 'confirmed']);
-                    }
-
-                    // Clear cart
+                    // Cart cleared regardless of pre-existing state so
+                    // the user lands on a fresh checkout next time.
                     session()->forget('cart');
-
-                    // Generate invoice
-                    if ($order) {
-                        GenerateStoreInvoice::dispatchSync($order);
-                    }
                 }
             }
         }

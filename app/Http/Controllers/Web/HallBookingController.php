@@ -281,22 +281,21 @@ class HallBookingController extends Controller
             if ($verified) {
                 $payment = Payment::where('razorpay_order_id', $orderId)->first();
                 if ($payment) {
-                    $payment->update([
-                        'status' => 'captured',
-                        'razorpay_payment_id' => $paymentId,
-                        'paid_at' => $payment->paid_at ?? now(),
-                    ]);
+                    // Single-source-of-truth capture path — flips
+                    // payment + booking status, dispatches the
+                    // GenerateHallInvoice job (PDF + email), and runs
+                    // the hall.booking.confirmed notification. Web
+                    // used to do a partial capture here and call
+                    // generateHallInvoice() inline; both now route
+                    // through markCaptured so API + web are identical.
+                    app(\App\Services\PaymentCaptureService::class)->markCaptured(
+                        $payment,
+                        $paymentId,
+                    );
 
-                    $booking = HallBooking::where('payment_id', $payment->id)->with('hall')->first();
-
-                    if ($booking && $booking->status !== 'confirmed') {
-                        $booking->update(['status' => 'confirmed']);
-                    }
-
-                    // Generate invoice
-                    if ($booking) {
-                        $this->generateHallInvoice($booking);
-                    }
+                    $booking = HallBooking::where('payment_id', $payment->id)
+                        ->with('hall')
+                        ->first();
                 }
             }
         }

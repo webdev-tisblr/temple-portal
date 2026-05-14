@@ -154,19 +154,20 @@ class DonationWebController extends Controller
             if ($verified) {
                 $payment = Payment::where('razorpay_order_id', $orderId)->first();
                 if ($payment) {
-                    $payment->update([
-                        'status' => 'captured',
-                        'razorpay_payment_id' => $paymentId,
-                        'paid_at' => $payment->paid_at ?? now(),
-                    ]);
+                    // Delegate to the central capture path. It flips
+                    // payment status under a row lock, syncs pan_verified,
+                    // dispatches donation.confirmed, and runs
+                    // Generate80GReceipt — all in one place. Earlier the
+                    // web flow did a partial capture inline that skipped
+                    // the donation.confirmed notification entirely.
+                    app(\App\Services\PaymentCaptureService::class)->markCaptured(
+                        $payment,
+                        $paymentId,
+                    );
 
-                    $donation = Donation::where('payment_id', $payment->id)->with('receipt', 'donationType')->first();
-
-                    // Auto-generate 80G receipt
-                    if ($donation && ! $donation->receipt_generated) {
-                        Generate80GReceipt::dispatchSync($donation);
-                        $donation->refresh();
-                    }
+                    $donation = Donation::where('payment_id', $payment->id)
+                        ->with('receipt', 'donationType')
+                        ->first();
                 }
             }
         }

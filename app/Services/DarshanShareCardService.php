@@ -203,12 +203,9 @@ class DarshanShareCardService
         $this->drawBlessing($canvas, $width, $blessingY, $format);
 
         // 5. Devotee block — big side-by-side, whole composition centred
-        //    horizontally on the canvas:
-        //       [ Big Avatar ]   Name (gold)
-        //                        Sending Daily Blessings from
-        //                        Pataliya Hanumanji Temple
-        //    Caller passes the avatar centerline y.
-        $rowY = $blessingY + ($format === self::FORMAT_STORY ? 200 : 140);
+        //    horizontally on the canvas. Avatar is 280px so the block
+        //    needs more breathing room below the blessing.
+        $rowY = $blessingY + ($format === self::FORMAT_STORY ? 250 : 175);
         $this->drawDevoteeBlock($canvas, $devotee, $width, $rowY, $format);
 
         // 6. Footer meta — pulled close to the row so no empty burgundy
@@ -460,17 +457,17 @@ class DarshanShareCardService
         int $y,
         string $format,
     ): void {
-        // Bigger sizes per user feedback ('I want bigger… full width').
-        $avatarSize  = $format === self::FORMAT_STORY ? 200 : 150;
-        $nameSize    = $format === self::FORMAT_STORY ? 52 : 38;
-        $bodySize    = $format === self::FORMAT_STORY ? 30 : 22;
-        $gap         = $format === self::FORMAT_STORY ? 36 : 26;
+        // Bigger again per user feedback — height growing is fine.
+        $avatarSize  = $format === self::FORMAT_STORY ? 280 : 200;
+        $nameSize    = $format === self::FORMAT_STORY ? 72 : 52;
+        $bodySize    = $format === self::FORMAT_STORY ? 42 : 30;
+        $gap         = $format === self::FORMAT_STORY ? 50 : 36;
         // Width estimate for the longest body line — used to centre the
         // whole avatar+text composition on the canvas. The tagline is
         // a fixed English string so the estimate is stable enough; if
         // a future caller localises the lines, swap to a measured
         // bounding box via Imagick's queryFontMetrics.
-        $textWidthEstimate = $format === self::FORMAT_STORY ? 460 : 330;
+        $textWidthEstimate = $format === self::FORMAT_STORY ? 620 : 450;
 
         $blockWidth = $avatarSize + $gap + $textWidthEstimate;
         $blockLeftX = intval(($width - $blockWidth) / 2);
@@ -491,9 +488,10 @@ class DarshanShareCardService
             $name = (string) $devotee->name;
             $nameFont = $this->pickFontForText($name, bold: true);
 
-            // 3 stacked text lines centred vertically against the avatar.
-            $nameToBody = $format === self::FORMAT_STORY ? 56 : 40;
-            $bodyLineGap = $format === self::FORMAT_STORY ? 44 : 32;
+            // 3 stacked text lines centred vertically against the (much
+            // bigger) avatar. Gaps scale with the name + body sizes.
+            $nameToBody = $format === self::FORMAT_STORY ? 80 : 58;
+            $bodyLineGap = $format === self::FORMAT_STORY ? 62 : 44;
 
             $nameY = $y - $nameToBody;
             $body1Y = $y + intval($bodyLineGap / 4);
@@ -521,7 +519,7 @@ class DarshanShareCardService
         }
 
         // Anonymous — just two tagline lines, centred against the avatar.
-        $bodyLineGap = $format === self::FORMAT_STORY ? 48 : 36;
+        $bodyLineGap = $format === self::FORMAT_STORY ? 66 : 48;
         $line1Y = $y - intval($bodyLineGap / 2);
         $line2Y = $y + intval($bodyLineGap / 2);
 
@@ -695,7 +693,7 @@ class DarshanShareCardService
         // produces materially different output (driver swap, layout shift,
         // typography change) — v2 invalidates the pre-Imagick-fallback
         // cards that had tofu boxes for the trust-name header.
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v12"), 0, 12);
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v13"), 0, 12);
 
         return self::STORAGE_PREFIX . "/{$date}/{$devoteeSegment}-{$format}-{$hash}.jpg";
     }

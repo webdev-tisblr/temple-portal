@@ -46,8 +46,20 @@ use Illuminate\Support\Facades\Log;
  */
 class WhatsAppWebhookController extends Controller
 {
-    public function handle(Request $request): JsonResponse
+    public function handle(Request $request)
     {
+        // CHALLENGE VERIFICATION (POST variant). Some BSPs ("The Internet
+        // Store" among them, per the "Failed to verify challenge" UI
+        // toast) POST a tiny payload with just a `challenge` field at
+        // setup time and expect it echoed back before they'll save the
+        // webhook. Detect that BEFORE the auth check + JSON parsing so
+        // we never reject our own setup probe.
+        $payload = $request->all();
+        $challengeResponse = $this->maybeEchoChallenge($request, $payload);
+        if ($challengeResponse !== null) {
+            return $challengeResponse;
+        }
+
         // 1. Optional shared-secret check. Configurable so the user can
         // tighten this later by setting whatsapp_webhook_token in
         // SystemSetting / .env. Until then we log "auth not verified"
@@ -65,7 +77,6 @@ class WhatsAppWebhookController extends Controller
             }
         }
 
-        $payload = $request->all();
         if (! is_array($payload) || empty($payload)) {
             Log::warning('WhatsApp webhook: empty or non-JSON payload');
             return response()->json(['status' => 'invalid_payload'], 400);
@@ -108,29 +119,93 @@ class WhatsAppWebhookController extends Controller
     }
 
     /**
-     * Meta's verification handshake (GET). Some BSPs / direct Meta
-     * webhook setups send `hub.mode=subscribe&hub.verify_token=<token>
-     * &hub.challenge=<challenge>` and expect the challenge echoed back
-     * verbatim with 200 OK.
+     * Verification handshake (GET). Different BSPs use different challenge
+     * patterns at setup time:
+     *   • Meta direct:       ?hub.mode=subscribe&hub.verify_token=X&hub.challenge=Y
+     *   • Generic GET:       ?challenge=Y  (no token check)
+     *   • Setup probe:       (no params)   — accept any GET as 200 OK
+     *
+     * Token verification is enforced only when both sides have one set;
+     * with no token configured the endpoint accepts all handshakes
+     * (which is fine for first-time wire-up where the BSP just wants
+     * to confirm reachability + correct response shape).
      */
     public function verify(Request $request)
+    {
+        $challengeResponse = $this->maybeEchoChallenge($request, []);
+        if ($challengeResponse !== null) {
+            return $challengeResponse;
+        }
+
+        // No challenge param at all — most BSPs accept any 200 here.
+        Log::info('WhatsApp webhook: GET with no challenge param', [
+            'query' => $request->query(),
+        ]);
+        return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Echo back the BSP's verification challenge in whichever shape it
+     * was sent. Returns null when no recognisable challenge is present,
+     * letting the caller continue with normal request handling.
+     *
+     * Covers:
+     *   - Meta-style GET:  ?hub.mode=subscribe&hub.verify_token=X&hub.challenge=Y
+     *   - Generic GET:     ?challenge=Y
+     *   - JSON POST body:  {"challenge": "Y"}  (also "hub.challenge", "verifyToken")
+     *
+     * If a token is configured AND the BSP supplied one, both must match
+     * (hash_equals) before we echo. If no token is configured, we accept
+     * the challenge — first-time setup typically can't authenticate yet.
+     */
+    private function maybeEchoChallenge(Request $request, array $payload): ?\Symfony\Component\HttpFoundation\Response
     {
         $configuredToken = SystemSetting::getValue(
             'whatsapp_webhook_token',
             config('whatsapp.webhook_token', ''),
         );
 
-        $mode = $request->query('hub_mode');
-        $token = $request->query('hub_verify_token');
-        $challenge = $request->query('hub_challenge');
+        // ---- Meta-style: ?hub.mode=subscribe&hub.verify_token=X&hub.challenge=Y
+        // Laravel coerces "hub.mode" → "hub_mode" in $request->query(); both
+        // forms are accepted via the raw query string fallback.
+        $mode = $request->query('hub_mode') ?? $request->input('hub.mode');
+        $hubToken = $request->query('hub_verify_token') ?? $request->input('hub.verify_token');
+        $hubChallenge = $request->query('hub_challenge') ?? $request->input('hub.challenge');
 
-        if ($mode === 'subscribe'
-            && $configuredToken !== ''
-            && hash_equals($configuredToken, (string) $token)) {
-            return response((string) $challenge, 200);
+        if ($mode === 'subscribe' && $hubChallenge !== null) {
+            if ($configuredToken !== '' && ! hash_equals($configuredToken, (string) $hubToken)) {
+                Log::warning('WhatsApp webhook: Meta hub.verify_token mismatch');
+                return response('forbidden', 403);
+            }
+            Log::info('WhatsApp webhook: Meta-style verification ok');
+            return response((string) $hubChallenge, 200);
         }
 
-        return response('forbidden', 403);
+        // ---- Generic challenge in GET query (?challenge=X)
+        $genericChallenge = $request->query('challenge');
+        if ($genericChallenge !== null) {
+            Log::info('WhatsApp webhook: generic GET challenge ok');
+            return response((string) $genericChallenge, 200);
+        }
+
+        // ---- POST body { "challenge": "X" } — BSPs that wrap their probe
+        // as JSON. Some send { "verifyToken": "X" }; mirror that too.
+        $bodyChallenge = $payload['challenge']
+            ?? $payload['hub.challenge']
+            ?? $payload['verifyToken']
+            ?? $payload['verify_token']
+            ?? null;
+        if ($bodyChallenge !== null && (count($payload) <= 3)) {
+            Log::info('WhatsApp webhook: POST-body challenge ok', [
+                'payload_keys' => array_keys($payload),
+            ]);
+            // Echo as JSON because that's what most JSON-body BSPs expect
+            // when they posted JSON. Plain-text body also accepted by all
+            // BSPs that send JSON challenges, so we lose nothing.
+            return response()->json(['challenge' => (string) $bodyChallenge]);
+        }
+
+        return null;
     }
 
     /**

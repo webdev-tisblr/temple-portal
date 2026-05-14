@@ -87,35 +87,43 @@ Schedule::command('sitemap:generate')
 // the first day or two.
 // ────────────────────────────────────────────────────────────────
 
-// Daily Darshan personalised share cards: 1-day retention. Admin
-// uploads a new darshan photo each morning, so yesterday's cards
-// are functionally dead. CDN edge-cache (30 days max-age) keeps
-// already-shared URLs working past R2 deletion until natural
-// expiry; new shares always render fresh.
+// Daily Darshan personalised share cards: 1-day retention, swept
+// HOURLY. Admin uploads a new darshan photo each morning, so
+// yesterday's cards are functionally dead. With expected scale of
+// 5K+ devotees and ~1000+ shares/day, an hourly sweep keeps the
+// effective retention tight at 24-25h (vs 24-48h with a daily
+// sweep). CDN edge-cache (30 days max-age) keeps already-shared
+// URLs working past R2 deletion until natural eviction. Minute :30
+// chosen to stagger off the queue:work pulse at *:00 and *:05.
 Schedule::command('darshan:clean-share-cards')
-    ->dailyAt('03:30')
+    ->hourlyAt(30)
     ->withoutOverlapping();
 
-// 80G receipt PDFs: 7-day retention. Regenerated via
+// 80G receipt PDFs: 7-day retention, daily sweep. Regenerated via
 // ReceiptService::generateReceipt() on next download (~1s DomPDF).
+// Hourly would be overkill at a 7-day window — the storage delta
+// between "swept hourly" and "swept daily" is one day's worth of
+// PDFs at 100-150 KB each, which is noise.
 Schedule::command('receipts:clean-generated')
     ->dailyAt('03:45')
     ->withoutOverlapping();
 
-// Store + Hall invoice PDFs: 7-day retention. Regenerated via
-// InvoiceService::generateInvoice() / GenerateHallInvoice job
-// (run synchronously with $sendNotification=false) on next
-// download (~1s DomPDF).
+// Store + Hall invoice PDFs: 7-day retention, daily sweep. Same
+// reasoning as receipts. Regenerated via InvoiceService::generateInvoice()
+// / GenerateHallInvoice job (run synchronously with $sendNotification=false)
+// on next download (~1s DomPDF).
 Schedule::command('invoices:clean-generated')
     ->dailyAt('04:00')
     ->withoutOverlapping();
 
-// Donation greeting card PNGs: 1-day retention. Devotees share on
-// WhatsApp within minutes-hours of donation; long-tail re-views
-// trigger transparent regenerate via GreetingCardService (~500ms
-// GD), so 24h covers the entire natural usage window.
+// Donation greeting card PNGs: 1-day retention, swept HOURLY for
+// the same scale reason as darshan cards. Devotees share on
+// WhatsApp within minutes-hours of donation. Long-tail re-views
+// trigger a transparent ~500ms GD regenerate via GreetingCardService.
+// Minute :45 staggers off the receipts sweep at 03:45 (which only
+// fires once a day, but no harm having distinct slots).
 Schedule::command('greeting-cards:clean-generated')
-    ->dailyAt('04:15')
+    ->hourlyAt(45)
     ->withoutOverlapping();
 
 // Update campaign raised_amount and donor_count totals hourly

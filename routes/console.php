@@ -66,6 +66,13 @@ Schedule::command('backup:run --only-db')
 Schedule::command('sitemap:generate')
     ->weekly();
 
+// Daily Darshan personalised share cards live on R2 with a 30-day
+// retention. Cards regenerate on demand when a devotee re-shares an
+// older photo, so the sweep is purely a storage-cost ceiling.
+Schedule::command('darshan:clean-share-cards')
+    ->dailyAt('03:30')
+    ->withoutOverlapping();
+
 // Update campaign raised_amount and donor_count totals hourly
 Schedule::call(function () {
     DonationCampaign::query()

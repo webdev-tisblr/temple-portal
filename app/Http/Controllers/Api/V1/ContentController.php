@@ -9,11 +9,13 @@ use App\Models\BlogPost;
 use App\Models\ContactSubmission;
 use App\Models\DailyDarshanPhoto;
 use App\Models\DarshanTiming;
+use App\Models\Devotee;
 use App\Models\DonationCampaign;
 use App\Models\DonationType;
 use App\Models\Event;
 use App\Models\GalleryImage;
 use App\Models\SystemSetting;
+use App\Services\DarshanShareCardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -79,6 +81,82 @@ class ContentController extends BaseApiController
             'caption_en' => $photo->caption_en,
             'captured_on' => $photo->captured_on?->toDateString(),
         ]);
+    }
+
+    /**
+     * Build (or fetch from cache) a personalised share card image for
+     * today's darshan photo. The card is uploaded to R2 once per
+     * (photo × devotee × format) and the URL is returned for the client
+     * to share via WhatsApp / Instagram / etc.
+     *
+     * Anonymous callers get a non-personalised version. Sanctum-auth'd
+     * devotees get their name (and avatar if profile_photo_path is set)
+     * baked into the footer.
+     *
+     * Rate limited per IP + per devotee to prevent abuse — generation is
+     * cheap once cached but the first render is a 1–2s GD pass.
+     */
+    public function dailyDarshanShareCard(Request $request, DarshanShareCardService $service): JsonResponse
+    {
+        $photo = DailyDarshanPhoto::query()
+            ->where('is_active', true)
+            ->orderByDesc('captured_on')
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $photo) {
+            return $this->error('No darshan photo available yet.', 404);
+        }
+
+        $format = $request->input('format', DarshanShareCardService::FORMAT_STORY);
+
+        // Auth-optional: the route is registered without middleware so
+        // anonymous calls work. We accept both auth surfaces:
+        //   • Sanctum bearer token (Flutter app)
+        //   • Devotee session cookie (web — when a logged-in donor uses
+        //     the share button on /darshan from a browser)
+        // Whichever resolves first wins.
+        /** @var Devotee|null $devotee */
+        $devotee = auth('sanctum')->user() ?? auth('devotee')->user();
+
+        // Rate limit: 20 renders / hour per actor (devotee id or IP). The
+        // cached path is free, so this only kicks in on a flood of new
+        // permutations.
+        $bucketKey = 'darshan-card:' . ($devotee
+            ? 'dev:' . $devotee->getKey()
+            : 'ip:' . sha1((string) $request->ip()));
+        if (RateLimiter::tooManyAttempts($bucketKey, 20)) {
+            $retry = RateLimiter::availableIn($bucketKey);
+            return $this->error("Too many requests. Try again in {$retry}s.", 429);
+        }
+        RateLimiter::hit($bucketKey, 3600);
+
+        $result = $service->generate($photo, $devotee, $format);
+
+        return $this->success([
+            'url' => $result['url'],
+            'format' => $result['format'],
+            'width' => $result['width'],
+            'height' => $result['height'],
+            'cached' => $result['cached'],
+            'share_text' => $this->shareText($photo, $devotee),
+        ]);
+    }
+
+    /**
+     * Build the default WhatsApp/SMS body the Flutter share sheet
+     * pre-fills. Keeps the temple URL in every share so non-logged-in
+     * recipients land back on the site.
+     */
+    private function shareText(DailyDarshanPhoto $photo, ?Devotee $devotee): string
+    {
+        $caption = $photo->caption_gu ?: 'જય શ્રી રામ 🙏';
+        $url = 'https://patadiyahanumanji.com';
+        $name = $devotee?->name;
+
+        return $name
+            ? "{$caption}\n\n— {$name}\n{$url}"
+            : "{$caption}\n\n{$url}";
     }
 
     /**
@@ -378,10 +456,14 @@ class ContentController extends BaseApiController
             'is_read' => false,
         ]));
 
-        app(\App\Services\Notifications\NotificationService::class)->dispatch('contact.submitted', [
-            'submission' => $submission,
-            'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
-        ]);
+        app(\App\Services\Notifications\NotificationService::class)->dispatch(
+            'contact.submitted',
+            [
+                'submission' => $submission,
+                'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+            ],
+            idempotencyKey: "contact-submission:{$submission->id}",
+        );
 
         return $this->success(null, 'તમારો સંદેશ સફળતાપૂર્વક મોકલાયો.');
     }

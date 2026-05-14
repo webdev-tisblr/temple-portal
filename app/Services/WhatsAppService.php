@@ -40,10 +40,19 @@ class WhatsAppService
      * WhatsAppWebhookController later uses to correlate delivery events.
      */
     private ?string $lastMessageId = null;
+    private ?string $lastQueueId = null;
 
     public function lastMessageId(): ?string
     {
-        return $this->lastMessageId;
+        // Prefer Meta wamid; fall back to BSP queue_id. The webhook
+        // event matcher in WhatsAppWebhookController also tries both
+        // columns, so either value here can be correlated back.
+        return $this->lastMessageId ?? $this->lastQueueId;
+    }
+
+    public function lastQueueId(): ?string
+    {
+        return $this->lastQueueId;
     }
 
     public function sendTemplateMessage(string $phone, string $templateName, string $languageCode, array $components = []): bool
@@ -104,6 +113,7 @@ class WhatsAppService
         // Reset on every call — a previous send's message_id must never
         // leak into a subsequent failed send's audit log.
         $this->lastMessageId = null;
+        $this->lastQueueId = null;
 
         if (empty($this->phoneNumberId) || empty($this->accessToken)) {
             Log::warning('WhatsApp: credentials not configured, skipping message', [
@@ -137,16 +147,30 @@ class WhatsAppService
                     // Webhook delivery events later JOIN back on this id.
                     //
                     // Try Meta's standard shape first ({messages: [{id}]}),
-                    // then common BSP wrappers. The Internet Store BSP
-                    // proxies our send calls and re-wraps Meta's response —
-                    // their exact envelope is logged in 'WhatsApp send raw
-                    // response' below the first time it differs.
+                    // then known BSP wrappers. 1automations.com (the BSP
+                    // currently configured via SystemSetting whatsapp_api_url)
+                    // wraps the Meta response under a `response` key and
+                    // adds their own queue_id alongside. Their webhook
+                    // events use the same envelope — see Problem 1 in
+                    // the 2026-05-14 WhatsApp debugging session.
                     $this->lastMessageId = $response->json('messages.0.id')           // Meta direct
-                        ?? $response->json('data.messages.0.id')                       // common BSP wrap #1
-                        ?? $response->json('result.messages.0.id')                     // common BSP wrap #2
+                        ?? $response->json('response.messages.0.id')                   // 1automations BSP wrap
+                        ?? $response->json('data.messages.0.id')                       // generic BSP wrap #1
+                        ?? $response->json('result.messages.0.id')                     // generic BSP wrap #2
                         ?? $response->json('data.message_id')                          // flat BSP shape
                         ?? $response->json('message_id')                               // flat BSP shape root
                         ?? $response->json('id')                                        // ultra-flat
+                        ?? null;
+
+                    // BSPs that issue their own queue_id (1automations, Wati,
+                    // some AiSensy plans) deliver webhook status events keyed
+                    // on the queue_id, NOT Meta's wamid — and on failure they
+                    // never return Meta's wamid at all. Cache the queue_id
+                    // too so the calling driver/service can store it as a
+                    // fallback correlation key.
+                    $this->lastQueueId = $response->json('message.queue_id')          // 1automations wrap
+                        ?? $response->json('queue_id')                                  // flat
+                        ?? $response->json('data.queue_id')
                         ?? null;
 
                     if ($this->lastMessageId === null) {

@@ -82,6 +82,22 @@ class WhatsAppWebhookController extends Controller
             return response()->json(['status' => 'invalid_payload'], 400);
         }
 
+        // 1automations.com BSP shape (and similar wrappers — Wati,
+        // some AiSensy plans) sends one event per HTTP POST, NOT the
+        // Meta entry[].changes[] structure:
+        //
+        //   { "messaging_channel": "whatsapp",
+        //     "message":  { "queue_id": "<bsp-uuid>", "message_status": "sent|delivered|read|failed" },
+        //     "response": { "messages": [{ "id": "wamid..." }] }  // on success
+        //                   OR { "error": { "code": N, "message": "..." } } } // on failure
+        //
+        // Detect this shape FIRST and route to a dedicated handler — the
+        // Meta entry[]/changes[] code path doesn't recognise the wrapper
+        // so every event would otherwise be classified `unknown`.
+        if (isset($payload['messaging_channel']) && isset($payload['message'])) {
+            return $this->processBspWrappedEvent($payload);
+        }
+
         // Meta wraps everything in entry[].changes[].value{}. Each
         // change carries either `messages` (inbound), `statuses`
         // (delivery updates), or one of the metadata fields.
@@ -215,6 +231,109 @@ class WhatsAppWebhookController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Handle the 1automations.com BSP wrapper shape (see handle() for
+     * the example). Translate it into the same {message_id, status,
+     * error_code, error_message} fields the Meta-format path produces,
+     * then write the audit row + propagate onto the matching
+     * notification_log.
+     *
+     * Important quirk for FAILED events: the BSP omits Meta's wamid
+     * (because Meta never accepted the message), so the only id we
+     * can correlate against is the BSP's own `queue_id`. We store the
+     * queue_id in temple_notification_logs.provider_message_id at send
+     * time so failure events match by it.
+     */
+    private function processBspWrappedEvent(array $payload): JsonResponse
+    {
+        $bspMessage = $payload['message'] ?? [];
+        $bspResponse = $payload['response'] ?? [];
+        $queueId = $bspMessage['queue_id'] ?? null;
+        $status = $bspMessage['message_status'] ?? null;
+
+        if (! $queueId || ! $status) {
+            Log::warning('WhatsApp webhook: BSP event missing queue_id or status', [
+                'keys' => array_keys($payload),
+            ]);
+            $this->recordMetadata(WhatsAppWebhookEvent::KIND_UNKNOWN, $payload);
+            return response()->json(['status' => 'invalid_bsp_event'], 200);
+        }
+
+        // Map BSP's 'message_status' values to our enum. 'sent' from the
+        // BSP means Meta-accepted (which is our 'sent'); their 'failed'
+        // is our 'failed', etc. They sometimes also emit 'accepted'
+        // which is pre-Meta-accept — treat as our 'sent'.
+        $normalisedStatus = match ($status) {
+            'accepted', 'sent', 'submitted' => 'sent',
+            'delivered' => 'delivered',
+            'read' => 'read',
+            'failed', 'rejected' => 'failed',
+            'undelivered' => 'undelivered',
+            default => $status,
+        };
+
+        // Extract Meta wamid (success) OR Meta error (failure) from the
+        // wrapper's `response` field. Both come from Meta verbatim.
+        $metaWamid = $bspResponse['messages'][0]['id'] ?? null;
+        $error = $bspResponse['error'] ?? null;
+        $errorCode = isset($error['code']) ? (int) $error['code'] : null;
+        $errorMessage = $error['message']
+            ?? $error['error_data']['details']
+            ?? null;
+
+        // Dedup on (queue_id, status) — same delivery retried by BSP
+        // is a no-op. Use queue_id because Meta wamid may be absent
+        // (on failure) but queue_id always present.
+        $now = now();
+        $inserted = WhatsAppWebhookEvent::query()->insertOrIgnore([
+            'event_kind' => WhatsAppWebhookEvent::KIND_MESSAGE_STATUS,
+            'message_id' => $metaWamid ?? $queueId,
+            'status' => $normalisedStatus,
+            'recipient_id' => null, // BSP doesn't include recipient in this envelope
+            'error_code' => $errorCode,
+            'error_message' => is_string($errorMessage) ? substr($errorMessage, 0, 1000) : null,
+            'payload' => json_encode($payload),
+            'received_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        if ($inserted === 0) {
+            return response()->json(['status' => 'duplicate']);
+        }
+
+        // Match the notification_log by EITHER the Meta wamid (success
+        // path) OR the BSP queue_id (failure path). WhatsAppService
+        // stores whichever is available into provider_message_id at
+        // send time, so this lookup catches both.
+        $log = NotificationLog::query()
+            ->where(function ($q) use ($metaWamid, $queueId) {
+                if ($metaWamid) $q->orWhere('provider_message_id', $metaWamid);
+                if ($queueId)   $q->orWhere('provider_message_id', $queueId);
+            })
+            ->first();
+
+        if ($log && $this->isStatusProgression($log->delivery_status, $normalisedStatus)) {
+            $log->forceFill([
+                'delivery_status' => $normalisedStatus,
+                'delivery_status_at' => $now,
+                'failure_reason' => $normalisedStatus === 'failed' && $errorMessage
+                    ? substr((string) $errorMessage, 0, 1000)
+                    : $log->failure_reason,
+            ])->save();
+        }
+
+        Log::info('WhatsApp webhook: BSP-wrapped event recorded', [
+            'queue_id' => $queueId,
+            'meta_wamid' => $metaWamid,
+            'status' => $normalisedStatus,
+            'error_code' => $errorCode,
+            'matched_log' => $log?->id,
+        ]);
+
+        return response()->json(['status' => 'processed']);
     }
 
     /**

@@ -65,6 +65,22 @@ class NotificationLogResource extends Resource
                 Forms\Components\Textarea::make('error_message')->disabled()->rows(3),
                 Forms\Components\TextInput::make('provider_response_code')->disabled(),
             ]),
+            // Delivery-status section is populated from the WhatsApp
+            // webhook event stream (and any future SMS/email provider
+            // webhooks). status above = "did the upstream API accept
+            // our request"; delivery_status here = "did the recipient
+            // device actually receive it". The two diverge whenever
+            // Meta returns 200 to our send call but then fails to
+            // deliver the message — exactly the scenario we built the
+            // webhook integration to surface.
+            Forms\Components\Section::make('Delivery (via provider webhook)')
+                ->description('Populated by WhatsAppWebhookController when Meta reports back. Empty here means we have not yet received a delivery status event for this message — either the message has not progressed beyond "accepted by upstream API" yet, or no webhook was wired at the time the send happened.')
+                ->schema([
+                    Forms\Components\TextInput::make('provider_message_id')->disabled()->label('Provider message ID (Meta wamid)')->columnSpan(2),
+                    Forms\Components\TextInput::make('delivery_status')->disabled()->label('Delivery status'),
+                    Forms\Components\DateTimePicker::make('delivery_status_at')->disabled()->label('Status updated at'),
+                    Forms\Components\Textarea::make('failure_reason')->disabled()->rows(3)->label('Failure reason (Meta error)')->columnSpanFull(),
+                ])->columns(3),
             Forms\Components\Section::make('Context snapshot')->schema([
                 Forms\Components\KeyValue::make('context_snapshot')
                     ->disabled()
@@ -111,6 +127,7 @@ class NotificationLogResource extends Resource
                     ->placeholder('—'),
 
                 Tables\Columns\TextColumn::make('status')
+                    ->label('Send')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         NotificationLog::STATUS_SENT => 'success',
@@ -125,9 +142,40 @@ class NotificationLogResource extends Resource
                         default => 'heroicon-m-clock',
                     }),
 
+                // Delivery status from the provider webhook stream.
+                // Showed alongside `Send` so admins can see "we sent
+                // it but recipient never got it" at a glance — the
+                // exact scenario that motivated wiring the webhook.
+                Tables\Columns\TextColumn::make('delivery_status')
+                    ->label('Delivery')
+                    ->badge()
+                    ->placeholder('—')
+                    ->color(fn (?string $state): string => match ($state) {
+                        NotificationLog::DELIVERY_READ => 'success',
+                        NotificationLog::DELIVERY_DELIVERED => 'info',
+                        NotificationLog::DELIVERY_SENT => 'gray',
+                        NotificationLog::DELIVERY_FAILED => 'danger',
+                        NotificationLog::DELIVERY_UNDELIVERED => 'warning',
+                        default => 'gray',
+                    })
+                    ->icon(fn (?string $state): string => match ($state) {
+                        NotificationLog::DELIVERY_READ => 'heroicon-m-eye',
+                        NotificationLog::DELIVERY_DELIVERED => 'heroicon-m-check-badge',
+                        NotificationLog::DELIVERY_SENT => 'heroicon-m-paper-airplane',
+                        NotificationLog::DELIVERY_FAILED => 'heroicon-m-exclamation-triangle',
+                        NotificationLog::DELIVERY_UNDELIVERED => 'heroicon-m-clock',
+                        default => '',
+                    }),
+
                 Tables\Columns\TextColumn::make('attempts')
                     ->label('#')
                     ->toggleable(),
+
+                Tables\Columns\TextColumn::make('failure_reason')
+                    ->label('Why failed')
+                    ->limit(80)
+                    ->wrap()
+                    ->placeholder('—'),
 
                 Tables\Columns\TextColumn::make('skip_reason')
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -168,9 +216,27 @@ class NotificationLogResource extends Resource
 
                 Tables\Filters\Filter::make('failed_today')
                     ->label('Failed today')
-                    ->query(fn ($query) => $query
+                    ->query(fn (\Illuminate\Database\Eloquent\Builder $query) => $query
                         ->where('status', NotificationLog::STATUS_FAILED)
                         ->whereDate('created_at', today())),
+
+                // Catches the "send went out but never arrived" case — the
+                // exact pattern the user reported on donation messages.
+                // Includes both terminal delivery failures and 'sent' rows
+                // that have been stuck without a follow-up status > N min.
+                Tables\Filters\Filter::make('delivery_failed_today')
+                    ->label('Undelivered today')
+                    ->query(fn (\Illuminate\Database\Eloquent\Builder $query) => $query
+                        ->whereDate('created_at', today())
+                        ->where(function (\Illuminate\Database\Eloquent\Builder $q) {
+                            $q->whereIn('delivery_status', [NotificationLog::DELIVERY_FAILED, NotificationLog::DELIVERY_UNDELIVERED])
+                                ->orWhere(function (\Illuminate\Database\Eloquent\Builder $q2) {
+                                    $q2->where('channel', 'whatsapp')
+                                        ->where('status', NotificationLog::STATUS_SENT)
+                                        ->whereNull('delivery_status')
+                                        ->where('sent_at', '<', now()->subMinutes(5));
+                                });
+                        })),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

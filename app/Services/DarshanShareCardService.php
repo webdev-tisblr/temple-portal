@@ -412,22 +412,27 @@ class DarshanShareCardService
         });
 
         // Gold divider underneath — short dashes either side of a centred
-        // dot. Re-added per user request after the minimal pass dropped it.
-        $divY = $y + ($format === self::FORMAT_STORY ? 78 : 56);
-        $halfLen = $format === self::FORMAT_STORY ? 120 : 84;
-        $canvas->drawRectangle(function (RectangleFactory $r) use ($cx, $halfLen, $divY) {
-            $r->at($cx - $halfLen - 24, $divY);
-            $r->size($halfLen, 2);
+        // dot. Earlier 2px stroke was too thin to read at full size; now
+        // 5px tall + 160px wide per side + 10px centre dot.
+        $divY = $y + ($format === self::FORMAT_STORY ? 88 : 62);
+        $halfLen   = $format === self::FORMAT_STORY ? 160 : 110;
+        $thickness = $format === self::FORMAT_STORY ? 5 : 4;
+        $dotR      = $format === self::FORMAT_STORY ? 10 : 7;
+        $gapToDot  = $format === self::FORMAT_STORY ? 28 : 20;
+
+        $canvas->drawRectangle(function (RectangleFactory $r) use ($cx, $halfLen, $divY, $thickness, $gapToDot) {
+            $r->at($cx - $halfLen - $gapToDot, $divY - intval($thickness / 2));
+            $r->size($halfLen, $thickness);
             $r->background(self::C_GOLD);
         });
-        $canvas->drawRectangle(function (RectangleFactory $r) use ($cx, $halfLen, $divY) {
-            $r->at($cx + 24, $divY);
-            $r->size($halfLen, 2);
+        $canvas->drawRectangle(function (RectangleFactory $r) use ($cx, $halfLen, $divY, $thickness, $gapToDot) {
+            $r->at($cx + $gapToDot, $divY - intval($thickness / 2));
+            $r->size($halfLen, $thickness);
             $r->background(self::C_GOLD);
         });
-        $canvas->drawCircle(function (CircleFactory $c) use ($cx, $divY) {
-            $c->at($cx, $divY + 1);
-            $c->radius(6);
+        $canvas->drawCircle(function (CircleFactory $c) use ($cx, $divY, $dotR) {
+            $c->at($cx, $divY);
+            $c->radius($dotR);
             $c->background(self::C_GOLD);
         });
     }
@@ -712,7 +717,7 @@ class DarshanShareCardService
         // produces materially different output (driver swap, layout shift,
         // typography change) — v2 invalidates the pre-Imagick-fallback
         // cards that had tofu boxes for the trust-name header.
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v14"), 0, 12);
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v15"), 0, 12);
 
         return self::STORAGE_PREFIX . "/{$date}/{$devoteeSegment}-{$format}-{$hash}.jpg";
     }

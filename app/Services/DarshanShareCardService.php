@@ -197,19 +197,17 @@ class DarshanShareCardService
         ];
         $this->drawCircularDarshanPhoto($canvas, $photo, $photoCenter, $photoRadius);
 
-        // 4. Blessing + thin gold divider underneath.
+        // 4. 'જય શ્રી રામ' blessing — promoted to the dominant element.
         $blessingY = $photoCenter['y'] + $photoRadius
-            + ($format === self::FORMAT_STORY ? 100 : 70);
+            + ($format === self::FORMAT_STORY ? 120 : 80);
         $this->drawBlessing($canvas, $width, $blessingY, $format);
 
         // 5. Devotee block — avatar (left) + 3-line text (right):
-        //       [Devotee Name]                    ← bigger, bold, gold (only if logged in)
+        //       [Devotee Name]                    ← bold gold (only if logged in)
         //       Sending Daily Blessings from
         //       Pataliya Hanumanji Temple
-        //    Anonymous callers skip the name line; the avatar +
-        //    two-line tagline still render so every card carries
-        //    the same temple branding.
-        $rowY = $blessingY + ($format === self::FORMAT_STORY ? 200 : 140);
+        //    Anonymous callers skip the name line.
+        $rowY = $blessingY + ($format === self::FORMAT_STORY ? 160 : 110);
         $this->drawDevoteeBlock($canvas, $devotee, $width, $rowY, $format);
 
         // 6. Footer meta — pulled close to the row so no empty burgundy
@@ -331,20 +329,13 @@ class DarshanShareCardService
             });
         }
 
-        // Inner gold ring — sits right on the photo edge.
+        // Single thin gold ring on the edge — the concentric outer halo
+        // is dropped in this iteration to match the minimal mockup.
         $canvas->drawCircle(function (CircleFactory $c) use ($center, $radius) {
             $c->at($center['x'], $center['y']);
             $c->radius($radius);
             $c->background('rgba(0,0,0,0)');
-            $c->border(self::C_GOLD, 6);
-        });
-        // Outer gold ring — a thinner halo offset out by 24px for the
-        // framed-medallion look from the reference design.
-        $canvas->drawCircle(function (CircleFactory $c) use ($center, $radius) {
-            $c->at($center['x'], $center['y']);
-            $c->radius($radius + 24);
-            $c->background('rgba(0,0,0,0)');
-            $c->border(self::C_GOLD, 3);
+            $c->border(self::C_GOLD, 4);
         });
     }
 
@@ -414,33 +405,14 @@ class DarshanShareCardService
     {
         $cx = intval($width / 2);
 
-        // 'જય શ્રી રામ' — 60% of the previous size per user feedback.
+        // Promoted back to the dominant text on the card — the mockup
+        // shows the blessing as the largest single element.
         $canvas->text('જય શ્રી રામ', $cx, $y, function (FontFactory $font) use ($format) {
             $font->filename($this->gujaratiFont(bold: true));
-            $font->size($format === self::FORMAT_STORY ? 72 : 52);
+            $font->size($format === self::FORMAT_STORY ? 100 : 72);
             $font->color(self::C_GOLD_BRIGHT);
             $font->align('center', 'center');
         });
-
-        // Thin gold divider underneath.
-        $divY = $y + ($format === self::FORMAT_STORY ? 80 : 55);
-        $halfLen = 110;
-        $canvas->drawRectangle(function (RectangleFactory $r) use ($cx, $halfLen, $divY) {
-            $r->at($cx - $halfLen - 22, $divY);
-            $r->size($halfLen, 2);
-            $r->background(self::C_GOLD);
-        });
-        $canvas->drawRectangle(function (RectangleFactory $r) use ($cx, $halfLen, $divY) {
-            $r->at($cx + 22, $divY);
-            $r->size($halfLen, 2);
-            $r->background(self::C_GOLD);
-        });
-        $canvas->drawCircle(function (CircleFactory $c) use ($cx, $divY) {
-            $c->at($cx, $divY + 1);
-            $c->radius(6);
-            $c->background(self::C_GOLD);
-        });
-
     }
 
     /**
@@ -454,9 +426,10 @@ class DarshanShareCardService
     {
         $cx = intval($width / 2);
         $today = Carbon::now()->locale('en')->translatedFormat('d M Y');
-        $canvas->text($today . '  •  patadiyahanumanji.com', $cx, $metaY, function (FontFactory $font) {
+        // Separator switched from bullet to pipe per the new mockup.
+        $canvas->text($today . '   |   patadiyahanumanji.com', $cx, $metaY, function (FontFactory $font) {
             $font->filename($this->englishFont());
-            $font->size(28);
+            $font->size(26);
             $font->color(self::C_CREAM_BODY);
             $font->align('center', 'center');
         });
@@ -483,9 +456,12 @@ class DarshanShareCardService
         int $y,
         string $format,
     ): void {
-        $avatarSize = $format === self::FORMAT_STORY ? 150 : 110;
-        $marginX = $format === self::FORMAT_STORY ? 70 : 50;
-        $gap = 30;
+        // Smaller avatar + tighter typographic hierarchy per the new
+        // mockup. Avatar shrinks from 150 → 90 (Story) so the photo
+        // and blessing dominate the layout.
+        $avatarSize = $format === self::FORMAT_STORY ? 100 : 76;
+        $marginX = $format === self::FORMAT_STORY ? 90 : 60;
+        $gap = 24;
 
         // Avatar — devotee photo first, temple logo fallback otherwise.
         $avatar = $this->loadAvatarOrLogo($devotee, $avatarSize);
@@ -496,13 +472,13 @@ class DarshanShareCardService
         $textStartX = $marginX + $avatarSize + $gap;
         $hasName = $devotee !== null && ! empty($devotee->name);
 
-        // Tagline font sizes.
-        $bodyFontSize = $format === self::FORMAT_STORY ? 30 : 22;
-        $bodyLineGap = $format === self::FORMAT_STORY ? 42 : 30;
+        // Closer-spaced typographic hierarchy: name only slightly larger
+        // than body, both bold-ish — matches the wireframe proportions.
+        $bodyFontSize = $format === self::FORMAT_STORY ? 26 : 20;
+        $bodyLineGap = $format === self::FORMAT_STORY ? 36 : 28;
 
-        // Name font (bigger, bold, gold) — only when logged in.
-        $nameFontSize = $format === self::FORMAT_STORY ? 44 : 32;
-        $nameToBodyGap = $format === self::FORMAT_STORY ? 50 : 36;
+        $nameFontSize = $format === self::FORMAT_STORY ? 36 : 28;
+        $nameToBodyGap = $format === self::FORMAT_STORY ? 42 : 32;
 
         $line1 = 'Sending Daily Blessings from';
         $line2 = 'Pataliya Hanumanji Temple';
@@ -713,7 +689,7 @@ class DarshanShareCardService
         // produces materially different output (driver swap, layout shift,
         // typography change) — v2 invalidates the pre-Imagick-fallback
         // cards that had tofu boxes for the trust-name header.
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v9"), 0, 12);
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v10"), 0, 12);
 
         return self::STORAGE_PREFIX . "/{$date}/{$devoteeSegment}-{$format}-{$hash}.jpg";
     }

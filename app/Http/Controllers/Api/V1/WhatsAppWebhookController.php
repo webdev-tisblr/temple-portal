@@ -181,16 +181,25 @@ class WhatsAppWebhookController extends Controller
             return response((string) $hubChallenge, 200);
         }
 
-        // ---- Generic challenge in GET query (?challenge=X)
-        $genericChallenge = $request->query('challenge');
+        // ---- Generic challenge in GET query (?challenge=X) — and the
+        // typo'd variant ?challange=X used by The Internet Store BSP
+        // (per their documentation; the misspelling is consistent in
+        // their UI's error toast, their docs, and their PHP/Node code
+        // samples, so we honour the misspelling verbatim).
+        $genericChallenge = $request->query('challenge') ?? $request->query('challange');
         if ($genericChallenge !== null) {
             Log::info('WhatsApp webhook: generic GET challenge ok');
+            // Plain text body. BSPs that expect text/html and BSPs that
+            // expect text/plain both accept this — only the body
+            // content matters for the challenge-response check.
             return response((string) $genericChallenge, 200);
         }
 
         // ---- POST body { "challenge": "X" } — BSPs that wrap their probe
         // as JSON. Some send { "verifyToken": "X" }; mirror that too.
+        // Include the "challange" misspelling here too for completeness.
         $bodyChallenge = $payload['challenge']
+            ?? $payload['challange']
             ?? $payload['hub.challenge']
             ?? $payload['verifyToken']
             ?? $payload['verify_token']

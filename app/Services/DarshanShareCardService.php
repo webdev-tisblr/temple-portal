@@ -247,14 +247,35 @@ class DarshanShareCardService
             $font->align('left', 'center');
         });
 
-        // Trust name centred across the band.
-        $canvas->text($trustName, intval($width / 2) + 30, $centerY, function (FontFactory $font) {
-            $font->filename($this->gujaratiFont(bold: true));
+        // Trust name centred across the band. Font is picked by script
+        // — NotoSansGujarati doesn't carry Latin glyphs, so the English
+        // SystemSetting value (e.g. "Shree Pataliya Hanumanji Seva Trust")
+        // rendered as nothing when forced through the Gujarati font.
+        // Earlier bug: blank saffron header on production until this fix.
+        $headerFont = $this->pickFontForText($trustName, bold: true);
+        $canvas->text($trustName, intval($width / 2) + 30, $centerY, function (FontFactory $font) use ($headerFont) {
+            $font->filename($headerFont);
             $font->size(40);
             $font->color(self::C_WHITE);
             $font->align('center', 'center');
             $font->lineHeight(1.2);
         });
+    }
+
+    /**
+     * Pick a font file whose glyph coverage matches the script in $text.
+     *
+     * NotoSansGujarati supports only the Gujarati Unicode block. DejaVuSans
+     * covers Latin + extended punctuation but nothing Indic. A real
+     * font-fallback chain would need Imagick's font config; we approximate
+     * by detecting the first Gujarati codepoint and routing accordingly.
+     */
+    private function pickFontForText(string $text, bool $bold): string
+    {
+        if (preg_match('/[\x{0A80}-\x{0AFF}]/u', $text)) {
+            return $this->gujaratiFont(bold: $bold);
+        }
+        return $this->englishFont();
     }
 
     /**

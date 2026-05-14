@@ -19,6 +19,23 @@ class Receipt80G extends Model
         return ['pdf_path' => 'r2_private'];
     }
 
+    /**
+     * Surface `fiscal_year` as a virtual attribute aliasing `financial_year`.
+     * NotificationRegistry advertises the placeholder as `receipt.fiscal_year`
+     * (common Indian accounting term), but the actual DB column is named
+     * `financial_year`. The Generate80GReceipt job dispatches receipt via
+     * toArray(), so an accessor alone won't appear unless explicitly
+     * $appended — without this, every donation 80G WhatsApp template
+     * resolves fiscal_year to an empty string and Meta rejects the send
+     * with (#131008) Required parameter is missing.
+     */
+    protected $appends = ['fiscal_year'];
+
+    public function getFiscalYearAttribute(): ?string
+    {
+        return $this->financial_year;
+    }
+
     protected $fillable = [
         'donation_id',
         'receipt_number',

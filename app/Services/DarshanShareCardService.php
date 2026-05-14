@@ -203,9 +203,9 @@ class DarshanShareCardService
         $this->drawBlessing($canvas, $width, $blessingY, $format);
 
         // 5. Devotee block — big side-by-side, whole composition centred
-        //    horizontally on the canvas. Avatar is 280px so the block
-        //    needs more breathing room below the blessing.
-        $rowY = $blessingY + ($format === self::FORMAT_STORY ? 250 : 175);
+        //    horizontally on the canvas. Extra offset below the blessing
+        //    accommodates the divider that drawBlessing renders.
+        $rowY = $blessingY + ($format === self::FORMAT_STORY ? 280 : 195);
         $this->drawDevoteeBlock($canvas, $devotee, $width, $rowY, $format);
 
         // 6. Footer meta — pulled close to the row so no empty burgundy
@@ -403,13 +403,32 @@ class DarshanShareCardService
     {
         $cx = intval($width / 2);
 
-        // Promoted back to the dominant text on the card — the mockup
-        // shows the blessing as the largest single element.
+        // 'જય શ્રી રામ' — dominant centred element.
         $canvas->text('જય શ્રી રામ', $cx, $y, function (FontFactory $font) use ($format) {
             $font->filename($this->gujaratiFont(bold: true));
             $font->size($format === self::FORMAT_STORY ? 100 : 72);
             $font->color(self::C_GOLD_BRIGHT);
             $font->align('center', 'center');
+        });
+
+        // Gold divider underneath — short dashes either side of a centred
+        // dot. Re-added per user request after the minimal pass dropped it.
+        $divY = $y + ($format === self::FORMAT_STORY ? 78 : 56);
+        $halfLen = $format === self::FORMAT_STORY ? 120 : 84;
+        $canvas->drawRectangle(function (RectangleFactory $r) use ($cx, $halfLen, $divY) {
+            $r->at($cx - $halfLen - 24, $divY);
+            $r->size($halfLen, 2);
+            $r->background(self::C_GOLD);
+        });
+        $canvas->drawRectangle(function (RectangleFactory $r) use ($cx, $halfLen, $divY) {
+            $r->at($cx + 24, $divY);
+            $r->size($halfLen, 2);
+            $r->background(self::C_GOLD);
+        });
+        $canvas->drawCircle(function (CircleFactory $c) use ($cx, $divY) {
+            $c->at($cx, $divY + 1);
+            $c->radius(6);
+            $c->background(self::C_GOLD);
         });
     }
 
@@ -693,7 +712,7 @@ class DarshanShareCardService
         // produces materially different output (driver swap, layout shift,
         // typography change) — v2 invalidates the pre-Imagick-fallback
         // cards that had tofu boxes for the trust-name header.
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v13"), 0, 12);
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v14"), 0, 12);
 
         return self::STORAGE_PREFIX . "/{$date}/{$devoteeSegment}-{$format}-{$hash}.jpg";
     }

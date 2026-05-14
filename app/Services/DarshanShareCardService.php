@@ -227,7 +227,7 @@ class DarshanShareCardService
             $font->filename($this->gujaratiFont(bold: true));
             $font->size(72);
             $font->color(self::C_WHITE);
-            $font->align('left', 'middle');
+            $font->align('left', 'center');
         });
 
         // Trust name centred across the band.
@@ -235,7 +235,7 @@ class DarshanShareCardService
             $font->filename($this->gujaratiFont(bold: true));
             $font->size(40);
             $font->color(self::C_WHITE);
-            $font->align('center', 'middle');
+            $font->align('center', 'center');
             $font->lineHeight(1.2);
         });
     }
@@ -294,7 +294,7 @@ class DarshanShareCardService
             $font->filename($this->englishFont());
             $font->size(220);
             $font->color(self::C_GOLD);
-            $font->align('center', 'middle');
+            $font->align('center', 'center');
         });
     }
 
@@ -315,7 +315,7 @@ class DarshanShareCardService
             $font->filename($this->gujaratiFont(bold: true));
             $font->size($format === self::FORMAT_STORY ? 110 : 80);
             $font->color(self::C_SAFFRON_DEEP);
-            $font->align('center', 'middle');
+            $font->align('center', 'center');
         });
 
         // 2. Decorative divider — gold dashes on either side of a centred dot.
@@ -348,7 +348,7 @@ class DarshanShareCardService
             $font->filename($this->englishFont());
             $font->size(28);
             $font->color(self::C_INK_MUTED);
-            $font->align('center', 'middle');
+            $font->align('center', 'center');
         });
     }
 
@@ -366,7 +366,7 @@ class DarshanShareCardService
                 $font->filename($this->gujaratiFont(bold: false));
                 $font->size($format === self::FORMAT_STORY ? 38 : 30);
                 $font->color(self::C_INK);
-                $font->align('center', 'middle');
+                $font->align('center', 'center');
             });
             return;
         }
@@ -391,14 +391,14 @@ class DarshanShareCardService
                 $font->filename($this->gujaratiFont(bold: true));
                 $font->size($fontSize);
                 $font->color(self::C_INK);
-                $font->align('left', 'middle');
+                $font->align('left', 'center');
             });
         } else {
             $canvas->text($name, $cx, $y, function (FontFactory $font) use ($fontSize) {
                 $font->filename($this->gujaratiFont(bold: true));
                 $font->size($fontSize);
                 $font->color(self::C_INK);
-                $font->align('center', 'middle');
+                $font->align('center', 'center');
             });
         }
     }

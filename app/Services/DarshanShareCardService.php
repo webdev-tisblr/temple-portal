@@ -202,15 +202,14 @@ class DarshanShareCardService
             + ($format === self::FORMAT_STORY ? 110 : 75);
         $this->drawBlessing($canvas, $width, $blessingY, $format);
 
-        // 5. Devotee block — big, full-width, centre-stacked:
-        //       [ Big Avatar centred ]
-        //       Name (big gold)
-        //       Sending Daily Blessings from
-        //       Pataliya Hanumanji Temple
-        //    Caller passes the TOP y of the block; drawDevoteeBlock
-        //    cascades each element downward from there.
-        $devoteeTopY = $blessingY + ($format === self::FORMAT_STORY ? 80 : 55);
-        $this->drawDevoteeBlock($canvas, $devotee, $width, $devoteeTopY, $format);
+        // 5. Devotee block — big side-by-side, whole composition centred
+        //    horizontally on the canvas:
+        //       [ Big Avatar ]   Name (gold)
+        //                        Sending Daily Blessings from
+        //                        Pataliya Hanumanji Temple
+        //    Caller passes the avatar centerline y.
+        $rowY = $blessingY + ($format === self::FORMAT_STORY ? 200 : 140);
+        $this->drawDevoteeBlock($canvas, $devotee, $width, $rowY, $format);
 
         // 6. Footer meta — pulled close to the row so no empty burgundy
         //    gap shows below the avatar.
@@ -441,81 +440,102 @@ class DarshanShareCardService
     // drawFooterMeta to give render() a clear top-to-bottom orchestration.
 
     /**
-     * Big, full-width, centre-aligned devotee block. Everything stacks
-     * vertically and centres on the card horizontally:
+     * Big side-by-side devotee block, the whole composition centred
+     * horizontally on the canvas:
      *
-     *           [ Big Avatar ]
-     *           {Devotee Name}                    ← bold gold (logged-in only)
-     *           Sending Daily Blessings from
-     *           Pataliya Hanumanji Temple
+     *        [ Big Avatar ]   Name                       ← bold gold
+     *                         Sending Daily Blessings from
+     *                         Pataliya Hanumanji Temple
      *
-     * Anonymous callers skip the name; the centred avatar + two-line
-     * tagline still render so every card carries the temple branding.
+     * Anonymous callers omit the name; the two-line tagline is
+     * vertically centred against the avatar.
      *
-     * $topY is the TOP edge of the block (not the centerline). The
-     * caller computes block height to know how far below the blessing
-     * to anchor it.
+     * $y is the centerline of the block (avatar vertical centre and
+     * the midpoint of the text stack).
      */
     private function drawDevoteeBlock(
         ImageInterface $canvas,
         ?Devotee $devotee,
         int $width,
-        int $topY,
+        int $y,
         string $format,
     ): void {
-        $cx = intval($width / 2);
+        // Bigger sizes per user feedback ('I want bigger… full width').
+        $avatarSize  = $format === self::FORMAT_STORY ? 200 : 150;
+        $nameSize    = $format === self::FORMAT_STORY ? 52 : 38;
+        $bodySize    = $format === self::FORMAT_STORY ? 30 : 22;
+        $gap         = $format === self::FORMAT_STORY ? 36 : 26;
+        // Width estimate for the longest body line — used to centre the
+        // whole avatar+text composition on the canvas. The tagline is
+        // a fixed English string so the estimate is stable enough; if
+        // a future caller localises the lines, swap to a measured
+        // bounding box via Imagick's queryFontMetrics.
+        $textWidthEstimate = $format === self::FORMAT_STORY ? 460 : 330;
 
-        // Sizes — meaningfully bigger now. Avatar dominates the block
-        // visually; name + body are both prominent and scale together.
-        $avatarSize     = $format === self::FORMAT_STORY ? 220 : 160;
-        $nameSize       = $format === self::FORMAT_STORY ? 60 : 44;
-        $bodySize       = $format === self::FORMAT_STORY ? 34 : 26;
-        $gapAfterAvatar = $format === self::FORMAT_STORY ? 36 : 26;
-        $gapAfterName   = $format === self::FORMAT_STORY ? 26 : 20;
-        $bodyLineGap    = $format === self::FORMAT_STORY ? 14 : 10;
+        $blockWidth = $avatarSize + $gap + $textWidthEstimate;
+        $blockLeftX = intval(($width - $blockWidth) / 2);
 
         $hasName = $devotee !== null && ! empty($devotee->name);
 
-        // 1. Avatar — centred horizontally.
+        // Avatar — positioned so its vertical centre is at $y.
         $avatar = $this->loadAvatarOrLogo($devotee, $avatarSize);
         if ($avatar !== null) {
-            $canvas->insert($avatar, $cx - intval($avatarSize / 2), $topY);
+            $canvas->insert($avatar, $blockLeftX, $y - intval($avatarSize / 2));
         }
 
-        $cursorY = $topY + $avatarSize + $gapAfterAvatar;
-
-        // 2. Name — centred below avatar (only when logged in).
-        if ($hasName) {
-            $nameCenterY = $cursorY + intval($nameSize / 2);
-            $name = (string) $devotee->name;
-            $nameFont = $this->pickFontForText($name, bold: true);
-            $canvas->text($name, $cx, $nameCenterY, function (FontFactory $font) use ($nameFont, $nameSize) {
-                $font->filename($nameFont);
-                $font->size($nameSize);
-                $font->color(self::C_GOLD_BRIGHT);
-                $font->align('center', 'center');
-            });
-            $cursorY = $nameCenterY + intval($nameSize / 2) + $gapAfterName;
-        }
-
-        // 3. Tagline — two centred body lines.
+        $textStartX = $blockLeftX + $avatarSize + $gap;
         $line1 = 'Sending Daily Blessings from';
         $line2 = 'Pataliya Hanumanji Temple';
 
-        $line1CenterY = $cursorY + intval($bodySize / 2);
-        $line2CenterY = $line1CenterY + $bodySize + $bodyLineGap;
+        if ($hasName) {
+            $name = (string) $devotee->name;
+            $nameFont = $this->pickFontForText($name, bold: true);
 
-        $canvas->text($line1, $cx, $line1CenterY, function (FontFactory $font) use ($bodySize) {
+            // 3 stacked text lines centred vertically against the avatar.
+            $nameToBody = $format === self::FORMAT_STORY ? 56 : 40;
+            $bodyLineGap = $format === self::FORMAT_STORY ? 44 : 32;
+
+            $nameY = $y - $nameToBody;
+            $body1Y = $y + intval($bodyLineGap / 4);
+            $body2Y = $body1Y + $bodyLineGap;
+
+            $canvas->text($name, $textStartX, $nameY, function (FontFactory $font) use ($nameFont, $nameSize) {
+                $font->filename($nameFont);
+                $font->size($nameSize);
+                $font->color(self::C_GOLD_BRIGHT);
+                $font->align('left', 'center');
+            });
+            $canvas->text($line1, $textStartX, $body1Y, function (FontFactory $font) use ($bodySize) {
+                $font->filename($this->englishFont());
+                $font->size($bodySize);
+                $font->color(self::C_CREAM_BODY);
+                $font->align('left', 'center');
+            });
+            $canvas->text($line2, $textStartX, $body2Y, function (FontFactory $font) use ($bodySize) {
+                $font->filename($this->englishFont());
+                $font->size($bodySize);
+                $font->color(self::C_CREAM_BODY);
+                $font->align('left', 'center');
+            });
+            return;
+        }
+
+        // Anonymous — just two tagline lines, centred against the avatar.
+        $bodyLineGap = $format === self::FORMAT_STORY ? 48 : 36;
+        $line1Y = $y - intval($bodyLineGap / 2);
+        $line2Y = $y + intval($bodyLineGap / 2);
+
+        $canvas->text($line1, $textStartX, $line1Y, function (FontFactory $font) use ($bodySize) {
             $font->filename($this->englishFont());
             $font->size($bodySize);
             $font->color(self::C_CREAM_BODY);
-            $font->align('center', 'center');
+            $font->align('left', 'center');
         });
-        $canvas->text($line2, $cx, $line2CenterY, function (FontFactory $font) use ($bodySize) {
+        $canvas->text($line2, $textStartX, $line2Y, function (FontFactory $font) use ($bodySize) {
             $font->filename($this->englishFont());
             $font->size($bodySize);
             $font->color(self::C_CREAM_BODY);
-            $font->align('center', 'center');
+            $font->align('left', 'center');
         });
     }
 
@@ -675,7 +695,7 @@ class DarshanShareCardService
         // produces materially different output (driver swap, layout shift,
         // typography change) — v2 invalidates the pre-Imagick-fallback
         // cards that had tofu boxes for the trust-name header.
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v11"), 0, 12);
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v12"), 0, 12);
 
         return self::STORAGE_PREFIX . "/{$date}/{$devoteeSegment}-{$format}-{$hash}.jpg";
     }

@@ -66,11 +66,44 @@ Schedule::command('backup:run --only-db')
 Schedule::command('sitemap:generate')
     ->weekly();
 
-// Daily Darshan personalised share cards live on R2 with a 30-day
-// retention. Cards regenerate on demand when a devotee re-shares an
-// older photo, so the sweep is purely a storage-cost ceiling.
+// ────────────────────────────────────────────────────────────────
+// R2 lifecycle: cached generated artefacts (receipts, invoices,
+// greeting cards, darshan share cards) are reproducible from DB
+// rows + service code, so we sweep them on a retention window
+// rather than storing forever. Download controllers all call
+// `Storage::exists()` + regenerate-if-missing, so deletion is
+// transparent to the devotee (1–2 sec one-time render cost on
+// re-download). User uploads (profile photos, donation extras,
+// admin-curated Filament images) are NEVER touched by these
+// sweeps — only DB-reproducible artefacts.
+//
+// Times are staggered across the small hours (Asia/Kolkata server
+// time) so we don't burst R2 API requests in a single minute.
+// ────────────────────────────────────────────────────────────────
+
+// Daily Darshan personalised share cards: 30-day retention.
 Schedule::command('darshan:clean-share-cards')
     ->dailyAt('03:30')
+    ->withoutOverlapping();
+
+// 80G receipt PDFs: 7-day retention. Regenerated via
+// ReceiptService::generateReceipt() on next download.
+Schedule::command('receipts:clean-generated')
+    ->dailyAt('03:45')
+    ->withoutOverlapping();
+
+// Store + Hall invoice PDFs: 15-day retention. Regenerated via
+// InvoiceService::generateInvoice() / GenerateHallInvoice job
+// (run synchronously with $sendNotification=false) on next download.
+Schedule::command('invoices:clean-generated')
+    ->dailyAt('04:00')
+    ->withoutOverlapping();
+
+// Donation greeting card PNGs: 3-day retention. Most cards are
+// shared within hours of donation; longer-tail re-shares trigger
+// transparent regenerate via GreetingCardService::generate().
+Schedule::command('greeting-cards:clean-generated')
+    ->dailyAt('04:15')
     ->withoutOverlapping();
 
 // Update campaign raised_amount and donor_count totals hourly

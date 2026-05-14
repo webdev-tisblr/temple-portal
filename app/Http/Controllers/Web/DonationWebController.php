@@ -179,13 +179,32 @@ class DonationWebController extends Controller
     {
         $donation = Donation::findOrFail($donationId);
 
-        if (empty($donation->greeting_card_path) || ! \Illuminate\Support\Facades\Storage::disk('r2_private')->exists($donation->greeting_card_path)) {
-            abort(404);
+        // Regenerate-if-missing: greeting cards live on r2_private with
+        // an aggressive retention (3 days) since they're reproducible
+        // from the donation row + donation_type template/config. If the
+        // file is gone — cleanup swept it, or it was never generated
+        // because GD was unavailable on the original request — try once
+        // to rebuild it on the fly. Devotees should never see a broken
+        // share link as long as their donation row exists.
+        $disk = \Illuminate\Support\Facades\Storage::disk('r2_private');
+        $needsRegen = empty($donation->greeting_card_path)
+            || ! $disk->exists($donation->greeting_card_path);
+
+        if ($needsRegen) {
+            $regeneratedPath = app(\App\Services\GreetingCardService::class)->generate($donation);
+            $donation->refresh();
+            // generate() returns null when the donation_type has no
+            // template configured at all — that's not a missing-file
+            // situation, it's "no card was ever supposed to exist for
+            // this donation type". 404 is the right response.
+            if (! $regeneratedPath || empty($donation->greeting_card_path) || ! $disk->exists($donation->greeting_card_path)) {
+                abort(404);
+            }
         }
 
         // Stream the PNG from R2 inline (Content-Disposition: inline) so it
         // renders in-browser when shared via WhatsApp etc.
-        return \Illuminate\Support\Facades\Storage::disk('r2_private')->response(
+        return $disk->response(
             $donation->greeting_card_path,
             null,
             ['Content-Type' => 'image/png'],

@@ -8,14 +8,17 @@ use App\Models\AdminUser;
 use App\Models\NotificationTemplate;
 use App\Models\SystemSetting;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Translates a template's recipient_strategy + recipient_value into a
  * concrete address (email or phone) given the dispatch context.
  *
- * Returns null if the strategy cannot be satisfied — the caller should
- * skip delivery and log; missing recipients are normal during testing
- * and in environments where credentials aren't configured yet.
+ * Returns null when the strategy cannot be satisfied — callers (drivers
+ * and NotificationService) treat null as "skip + log". Every null path
+ * also writes a Log::warning so admins can spot misconfigured templates
+ * in production logs even when the notification_logs row only says
+ * "skipped: no recipient".
  */
 final class RecipientResolver
 {
@@ -26,22 +29,17 @@ final class RecipientResolver
         string $expectedType,
     ): ?array {
         $value = match ($template->recipient_strategy) {
-            NotificationTemplate::RECIPIENT_DEVOTEE => $this->fromDevotee($context, $expectedType),
-            NotificationTemplate::RECIPIENT_TRUST_ADMIN => $this->fromTrustAdmin($expectedType),
-            NotificationTemplate::RECIPIENT_FIXED_EMAIL => $expectedType === 'email'
-                ? $template->recipient_value
-                : null,
-            NotificationTemplate::RECIPIENT_FIXED_PHONE => $expectedType === 'phone'
-                ? $template->recipient_value
-                : null,
-            NotificationTemplate::RECIPIENT_CONTEXT_PATH => $template->recipient_value
-                ? $context->get($template->recipient_value)
-                : null,
+            NotificationTemplate::RECIPIENT_DEVOTEE => $this->fromDevotee($template, $context, $expectedType),
+            NotificationTemplate::RECIPIENT_TRUST_ADMIN => $this->fromTrustAdmin($template, $expectedType),
+            NotificationTemplate::RECIPIENT_FIXED_EMAIL => $this->fromFixedEmail($template, $expectedType),
+            NotificationTemplate::RECIPIENT_FIXED_PHONE => $this->fromFixedPhone($template, $expectedType),
+            NotificationTemplate::RECIPIENT_CONTEXT_PATH => $this->fromContextPath($template, $context),
             NotificationTemplate::RECIPIENT_ADMIN_USER => $this->fromAdminUser(
+                $template,
                 $template->recipient_value,
                 $expectedType,
             ),
-            default => null,
+            default => $this->warnUnknownStrategy($template),
         };
 
         if (! is_string($value) || trim($value) === '') {
@@ -51,23 +49,94 @@ final class RecipientResolver
         return ['type' => $expectedType, 'value' => trim($value)];
     }
 
-    private function fromDevotee(NotificationContext $context, string $expectedType): ?string
+    private function fromDevotee(NotificationTemplate $template, NotificationContext $context, string $expectedType): ?string
     {
         $devotee = $context->get('devotee');
         if ($devotee instanceof Model) {
-            return $expectedType === 'email'
+            $value = $expectedType === 'email'
                 ? ($devotee->getAttribute('email') ?: null)
                 : ($devotee->getAttribute('phone') ?: null);
+
+            if ($value === null) {
+                Log::warning('Notification: devotee has no ' . $expectedType, [
+                    'template_key' => $template->key,
+                    'channel' => $template->channel,
+                    'devotee_id' => $devotee->getKey(),
+                ]);
+            }
+            return $value;
         }
+
         // Fallback to top-level convenience keys: $context['email'] / ['phone'].
-        return $context->get($expectedType);
+        $value = $context->get($expectedType);
+        if (! is_string($value) || trim($value) === '') {
+            Log::warning('Notification: recipient_strategy=devotee but no devotee/' . $expectedType . ' in context', [
+                'template_key' => $template->key,
+                'channel' => $template->channel,
+            ]);
+            return null;
+        }
+        return $value;
     }
 
-    private function fromTrustAdmin(string $expectedType): ?string
+    private function fromTrustAdmin(NotificationTemplate $template, string $expectedType): ?string
     {
         $key = $expectedType === 'email' ? 'trust_email' : 'trust_phone';
         $value = SystemSetting::getValue($key, '');
-        return $value !== '' ? $value : null;
+        if ($value === '') {
+            Log::warning('Notification: trust_admin strategy but ' . $key . ' SystemSetting is blank', [
+                'template_key' => $template->key,
+                'channel' => $template->channel,
+            ]);
+            return null;
+        }
+        return $value;
+    }
+
+    private function fromFixedEmail(NotificationTemplate $template, string $expectedType): ?string
+    {
+        if ($expectedType !== 'email') {
+            Log::warning('Notification: fixed_email strategy used on non-email channel', [
+                'template_key' => $template->key,
+                'channel' => $template->channel,
+            ]);
+            return null;
+        }
+        return $template->recipient_value;
+    }
+
+    private function fromFixedPhone(NotificationTemplate $template, string $expectedType): ?string
+    {
+        if ($expectedType !== 'phone') {
+            Log::warning('Notification: fixed_phone strategy used on non-phone channel', [
+                'template_key' => $template->key,
+                'channel' => $template->channel,
+            ]);
+            return null;
+        }
+        return $template->recipient_value;
+    }
+
+    private function fromContextPath(NotificationTemplate $template, NotificationContext $context): ?string
+    {
+        $path = $template->recipient_value;
+        if ($path === null || $path === '') {
+            Log::warning('Notification: context_path strategy has empty recipient_value', [
+                'template_key' => $template->key,
+                'channel' => $template->channel,
+            ]);
+            return null;
+        }
+        $value = $context->get($path);
+        if (! is_string($value) || trim($value) === '') {
+            Log::warning('Notification: context_path resolved to empty/non-string value', [
+                'template_key' => $template->key,
+                'channel' => $template->channel,
+                'path' => $path,
+            ]);
+            return null;
+        }
+        return $value;
     }
 
     /**
@@ -78,13 +147,46 @@ final class RecipientResolver
      *   • the user has no email / phone for the requested channel
      * — same null-returns-skip contract the rest of the resolver uses.
      */
-    private function fromAdminUser(?string $userId, string $expectedType): ?string
+    private function fromAdminUser(NotificationTemplate $template, ?string $userId, string $expectedType): ?string
     {
-        if ($userId === null || $userId === '') return null;
+        if ($userId === null || $userId === '') {
+            Log::warning('Notification: admin_user strategy has empty recipient_value', [
+                'template_key' => $template->key,
+                'channel' => $template->channel,
+            ]);
+            return null;
+        }
+
         $user = AdminUser::find($userId);
-        if (! $user) return null;
+        if (! $user) {
+            Log::warning('Notification: admin_user id not found (deleted?)', [
+                'template_key' => $template->key,
+                'channel' => $template->channel,
+                'admin_user_id' => $userId,
+            ]);
+            return null;
+        }
+
         $field = $expectedType === 'email' ? 'email' : 'phone';
         $value = $user->{$field};
-        return is_string($value) && trim($value) !== '' ? $value : null;
+        if (! is_string($value) || trim($value) === '') {
+            Log::warning('Notification: admin_user has no ' . $expectedType, [
+                'template_key' => $template->key,
+                'channel' => $template->channel,
+                'admin_user_id' => $userId,
+            ]);
+            return null;
+        }
+        return $value;
+    }
+
+    private function warnUnknownStrategy(NotificationTemplate $template): ?string
+    {
+        Log::warning('Notification: unknown recipient_strategy', [
+            'template_key' => $template->key,
+            'channel' => $template->channel,
+            'strategy' => $template->recipient_strategy,
+        ]);
+        return null;
     }
 }

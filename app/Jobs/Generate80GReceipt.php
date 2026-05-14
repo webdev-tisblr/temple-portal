@@ -144,6 +144,7 @@ class Generate80GReceipt implements ShouldQueue
                     'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
                     '_attachments' => $attachments,
                 ],
+                idempotencyKey: "donation:{$this->donation->id}:receipt_80g",
             );
 
             $receipt->update([

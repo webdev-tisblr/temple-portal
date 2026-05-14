@@ -55,6 +55,12 @@ class PaymentCaptureService
                     'devotee' => $booking->devotee,
                     'trust_name' => \App\Models\SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
                 ],
+                // Idempotency: a webhook + verify race that somehow slipped
+                // past the payment.status check above (e.g. if both paths
+                // ran in parallel before status hit captured) would otherwise
+                // dispatch the same booking confirmation twice. The 5-min
+                // dedup window in NotificationService skips the second one.
+                idempotencyKey: "payment:{$payment->id}:seva.booking.confirmed",
             );
             Log::info("Seva booking {$booking->id} confirmed via payment capture");
         }
@@ -134,6 +140,7 @@ class PaymentCaptureService
                     'devotee' => $donation->devotee,
                     'trust_name' => \App\Models\SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
                 ],
+                idempotencyKey: "payment:{$payment->id}:donation.confirmed",
             );
 
             // Hostinger has no queue worker — run inline so the receipt is

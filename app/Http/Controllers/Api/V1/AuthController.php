@@ -60,6 +60,7 @@ class AuthController extends BaseApiController
             app(\App\Services\Notifications\NotificationService::class)->dispatch(
                 'devotee.registered',
                 ['devotee' => $devotee],
+                idempotencyKey: "devotee:{$devotee->id}:registered",
             );
         }
 

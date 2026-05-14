@@ -78,7 +78,25 @@ final class SmsNotificationDriver implements NotificationDriver
             if (! is_string($key) || ! str_starts_with($key, 'var')) continue;
             $value = $context->get((string) $path, '');
             // MSG91 expects scalar values — never inline a structure.
+            // If a context lookup landed on an Eloquent collection or
+            // a nested array the previous code silently sent an empty
+            // string. Log it so the admin can see they picked the wrong
+            // dot-path (e.g. "donation.devotee" instead of
+            // "donation.devotee.name").
             if (is_array($value) || is_object($value)) {
+                Log::warning('Notification: SMS variable resolved to non-scalar — sending empty', [
+                    'template_key' => $template->key,
+                    'sms_variable' => $key,
+                    'context_path' => $path,
+                    'value_type' => is_object($value) ? get_class($value) : 'array',
+                ]);
+                $value = '';
+            } elseif ($value === '' || $value === null) {
+                Log::warning('Notification: SMS variable resolved to empty', [
+                    'template_key' => $template->key,
+                    'sms_variable' => $key,
+                    'context_path' => $path,
+                ]);
                 $value = '';
             }
             $variables[$key] = (string) $value;

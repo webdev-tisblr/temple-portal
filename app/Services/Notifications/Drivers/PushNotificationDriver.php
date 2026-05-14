@@ -92,8 +92,31 @@ final class PushNotificationDriver implements NotificationDriver
         // aren't configured (Phase 5 wires up service-account auth), so
         // this driver is safe to call from Phase 1.
         try {
-            $this->firebase->sendToMultiple($tokens, $title, $body, $payload);
-            return true;
+            $results = $this->firebase->sendToMultiple($tokens, $title, $body, $payload);
+
+            // Token cleanup — FCM tells us which tokens are dead
+            // ("UnregisteredDevice", "InvalidRegistration"). Deactivate
+            // them so the next per-trigger push doesn't waste an API call
+            // and so the temple_device_tokens table stays clean over time.
+            //
+            // Without this, an uninstalled app's token sticks around
+            // forever and every push silently fails for that record.
+            $invalid = $results['invalid_tokens'] ?? [];
+            if (! empty($invalid)) {
+                DB::table('temple_device_tokens')
+                    ->whereIn('token', $invalid)
+                    ->update(['is_active' => false, 'updated_at' => now()]);
+                Log::info('Notification: deactivated invalid device tokens', [
+                    'template_key' => $template->key,
+                    'devotee_id' => $devotee->getKey(),
+                    'invalid_count' => count($invalid),
+                ]);
+            }
+
+            // Treat the dispatch as successful when at least one device
+            // received the push. If every token failed we surface the
+            // failure so NotificationLog records it as such.
+            return (int) ($results['success'] ?? 0) > 0;
         } catch (\Throwable $e) {
             Log::error('Notification: push send failed', [
                 'template_key' => $template->key,

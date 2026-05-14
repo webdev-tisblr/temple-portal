@@ -51,10 +51,14 @@ class ContactController extends Controller
 
         // Notify admin via every enabled channel (email + WhatsApp once
         // the admin enables those templates from /admin/system).
-        app(NotificationService::class)->dispatch('contact.submitted', [
-            'submission' => $submission,
-            'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
-        ]);
+        app(NotificationService::class)->dispatch(
+            'contact.submitted',
+            [
+                'submission' => $submission,
+                'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+            ],
+            idempotencyKey: "contact-submission:{$submission->id}",
+        );
 
         return back()->with('success', 'તમારો સંદેશ મોકલવામાં આવ્યો છે. અમે ટૂંક સમયમાં સંપર્ક કરીશું.');
     }

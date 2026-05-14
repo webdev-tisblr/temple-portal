@@ -59,7 +59,10 @@ final class EmailNotificationDriver implements NotificationDriver
         // Optional attachments — pass via context['_attachments'] as
         //   [['data' => bytes, 'name' => '…pdf', 'mime' => 'application/pdf']]
         // — keeps the attachment story consistent across triggers.
-        $attachments = $context->get('_attachments', []);
+        $attachments = $this->sanitizeAttachments(
+            $context->get('_attachments', []),
+            $template->key,
+        );
 
         // Retry up to 3 times with linear backoff to absorb transient
         // SMTP failures (Hostinger's relay sometimes refuses the first
@@ -126,5 +129,86 @@ final class EmailNotificationDriver implements NotificationDriver
             'final_error' => $lastError?->getMessage(),
         ]);
         return false;
+    }
+
+    /**
+     * Whitelist + size-cap attachments before handing them to Mail.
+     *
+     * Limits:
+     *   • Max 5 attachments per message
+     *   • Max 5 MB per attachment
+     *   • Max 15 MB total (most SMTP relays reject above ~25 MB; we leave
+     *     headroom for base64 encoding overhead)
+     *
+     * Without these, a leaky context that included a giant binary in
+     * `_attachments` would either hang Hostinger's SMTP relay or fill the
+     * mail queue with rejected sends.
+     *
+     * @param  mixed   $raw         Whatever the caller put in context['_attachments']
+     * @param  string  $templateKey For log correlation
+     */
+    private function sanitizeAttachments(mixed $raw, string $templateKey): array
+    {
+        if (! is_array($raw) || empty($raw)) {
+            return [];
+        }
+
+        $perFileLimit = 5 * 1024 * 1024;   // 5 MB
+        $totalLimit = 15 * 1024 * 1024;    // 15 MB
+        $maxCount = 5;
+
+        $allowedMimes = [
+            'application/pdf', 'application/zip', 'application/octet-stream',
+            'image/jpeg', 'image/png', 'image/webp',
+            'text/plain', 'text/csv',
+        ];
+
+        $clean = [];
+        $totalSize = 0;
+        foreach ($raw as $att) {
+            if (count($clean) >= $maxCount) {
+                Log::warning('Notification: email attachment count cap reached', [
+                    'template_key' => $templateKey,
+                    'cap' => $maxCount,
+                ]);
+                break;
+            }
+            if (! is_array($att) || empty($att['data']) || empty($att['name'])) {
+                continue;
+            }
+
+            $size = strlen((string) $att['data']);
+            if ($size > $perFileLimit) {
+                Log::warning('Notification: email attachment exceeds per-file size cap', [
+                    'template_key' => $templateKey,
+                    'name' => $att['name'],
+                    'size_bytes' => $size,
+                ]);
+                continue;
+            }
+            if (($totalSize + $size) > $totalLimit) {
+                Log::warning('Notification: email attachments exceed total size cap', [
+                    'template_key' => $templateKey,
+                    'total_so_far' => $totalSize,
+                    'next_file' => $att['name'],
+                ]);
+                break;
+            }
+
+            $mime = (string) ($att['mime'] ?? 'application/octet-stream');
+            if (! in_array($mime, $allowedMimes, true)) {
+                Log::warning('Notification: email attachment mime not in allowlist', [
+                    'template_key' => $templateKey,
+                    'name' => $att['name'],
+                    'mime' => $mime,
+                ]);
+                continue;
+            }
+
+            $clean[] = $att;
+            $totalSize += $size;
+        }
+
+        return $clean;
     }
 }

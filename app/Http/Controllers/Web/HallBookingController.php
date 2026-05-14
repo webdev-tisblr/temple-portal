@@ -437,6 +437,7 @@ class HallBookingController extends Controller
                         'mime' => 'application/pdf',
                     ]],
                 ],
+                idempotencyKey: "hall-booking:{$booking->id}:confirmed",
             );
 
             Log::info('Hall booking invoice dispatched via NotificationService', [

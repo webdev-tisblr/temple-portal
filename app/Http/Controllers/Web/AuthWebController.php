@@ -71,6 +71,7 @@ class AuthWebController extends Controller
             app(\App\Services\Notifications\NotificationService::class)->dispatch(
                 'devotee.registered',
                 ['devotee' => $devotee],
+                idempotencyKey: "devotee:{$devotee->id}:registered",
             );
         }
 

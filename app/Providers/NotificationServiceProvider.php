@@ -10,6 +10,7 @@ use App\Services\Notifications\Drivers\PushNotificationDriver;
 use App\Services\Notifications\Drivers\SmsNotificationDriver;
 use App\Services\Notifications\Drivers\WhatsAppNotificationDriver;
 use App\Services\Notifications\NotificationService;
+use App\Services\Notifications\RecipientResolver;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 
@@ -38,7 +39,10 @@ class NotificationServiceProvider extends ServiceProvider
         ], NotificationDriver::class);
 
         $this->app->singleton(NotificationService::class, function (Application $app) {
-            return new NotificationService($app->tagged(NotificationDriver::class));
+            return new NotificationService(
+                $app->tagged(NotificationDriver::class),
+                $app->make(RecipientResolver::class),
+            );
         });
     }
 }

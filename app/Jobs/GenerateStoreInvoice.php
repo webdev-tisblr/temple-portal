@@ -84,6 +84,7 @@ class GenerateStoreInvoice implements ShouldQueue
                     'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
                     '_attachments' => $attachments,
                 ],
+                idempotencyKey: "order:{$this->order->id}:confirmed",
             );
 
             Log::info('Store order dispatched via NotificationService', [

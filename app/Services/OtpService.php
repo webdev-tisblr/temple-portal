@@ -8,10 +8,34 @@ use App\Models\Devotee;
 use App\Models\OtpCode;
 use App\Services\Notifications\NotificationService;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
+/**
+ * OTP generation + verification.
+ *
+ * Two distinct rate limits guard this surface:
+ *
+ *   1. **Verify lockout** — 5 failed verify attempts in 15 minutes locks
+ *      both verify AND generation for the phone. Pre-existing behaviour.
+ *
+ *   2. **Send rate limit** (this addition) — caps how often we send a new
+ *      OTP to the same phone:
+ *
+ *        • 1 send per 60 seconds (prevents the "user mashed Send again"
+ *          loop from spamming SMS / WhatsApp)
+ *        • 5 sends per hour (prevents an attacker rotating through the
+ *          15-min lockout window to bomb a victim's phone via Send OTP)
+ *
+ *      The rate limiter uses RateLimiter::attempt with hash-keyed buckets;
+ *      survives without Redis (uses cache.driver). Bypass: the limits do
+ *      NOT trigger when an admin uses dispatchNow from Tinker.
+ */
 class OtpService
 {
+    private const SEND_LIMIT_PER_MINUTE = 1;
+    private const SEND_LIMIT_PER_HOUR = 5;
+
     public function generate(string $phone, string $purpose = 'login'): string
     {
         if ($this->isLockedOut($phone)) {
@@ -20,6 +44,10 @@ class OtpService
                 'Too many OTP attempts. Please try again after 15 minutes.'
             );
         }
+
+        // Per-recipient send rate limit. Both buckets must clear; the
+        // tighter (60s) one trips first under normal misuse.
+        $this->enforceSendRateLimit($phone);
 
         OtpCode::where('phone', $phone)
             ->where('purpose', $purpose)
@@ -53,14 +81,23 @@ class OtpService
         // Every enabled NotificationTemplate for 'auth.otp' fires — nothing
         // sends unless the admin has explicitly created and enabled a
         // template row for the channel they want (WhatsApp / email / SMS).
-        app(NotificationService::class)->dispatch('auth.otp', [
-            'phone' => $phone,
-            'otp' => $code,
-            'expires_in_minutes' => 10,
-            'devotee' => $devotee,
-            'email' => $devotee?->email,
-            'name' => $devotee?->name,
-        ]);
+        //
+        // Idempotency key includes both phone and OTP code so a quick
+        // retry from the same client with a fresh code still sends, but
+        // an accidental double-tap that re-enters generate() with the
+        // SAME code (cache race) doesn't fire two SMS.
+        app(NotificationService::class)->dispatch(
+            'auth.otp',
+            [
+                'phone' => $phone,
+                'otp' => $code,
+                'expires_in_minutes' => 10,
+                'devotee' => $devotee,
+                'email' => $devotee?->email,
+                'name' => $devotee?->name,
+            ],
+            idempotencyKey: 'otp:' . sha1($phone . ':' . $code),
+        );
 
         return $code;
     }
@@ -114,5 +151,38 @@ class OtpService
     public function cleanup(): void
     {
         OtpCode::where('created_at', '<', now()->subDay())->delete();
+    }
+
+    /**
+     * Throws TooManyRequestsHttpException if EITHER the per-minute or
+     * per-hour send cap is exceeded. Buckets are keyed by phone hash so
+     * the cache key doesn't expose the raw phone number.
+     */
+    private function enforceSendRateLimit(string $phone): void
+    {
+        $phoneHash = sha1($phone);
+
+        $minuteKey = "otp-send:1m:{$phoneHash}";
+        if (RateLimiter::tooManyAttempts($minuteKey, self::SEND_LIMIT_PER_MINUTE)) {
+            $retryAfter = RateLimiter::availableIn($minuteKey);
+            throw new TooManyRequestsHttpException(
+                $retryAfter,
+                "Please wait {$retryAfter}s before requesting another OTP.",
+            );
+        }
+
+        $hourKey = "otp-send:1h:{$phoneHash}";
+        if (RateLimiter::tooManyAttempts($hourKey, self::SEND_LIMIT_PER_HOUR)) {
+            $retryAfter = RateLimiter::availableIn($hourKey);
+            throw new TooManyRequestsHttpException(
+                $retryAfter,
+                'Hourly OTP limit reached. Try again later.',
+            );
+        }
+
+        // Increment AFTER both gates pass so a tripped longer-window
+        // bucket doesn't also consume the short-window quota.
+        RateLimiter::hit($minuteKey, 60);
+        RateLimiter::hit($hourKey, 3600);
     }
 }

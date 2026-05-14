@@ -123,9 +123,29 @@ final class WhatsAppNotificationDriver implements NotificationDriver
                     // 2026-05-13 commit).
                     $token = $p['value_token'] ?? null;
                     $literal = $p['value'] ?? null;
-                    $resolved = $token !== null
-                        ? $context->getForDisplay($placeholderMap[$token] ?? $token, '')
-                        : $context->render((string) ($literal ?? ''), $placeholderMap);
+
+                    if ($token !== null) {
+                        // Warn when admin forgot to map a token. Meta's API
+                        // will reject template messages with empty params,
+                        // so a silent empty here used to manifest as cryptic
+                        // "Invalid parameter value" errors hours later.
+                        if (! array_key_exists($token, $placeholderMap)) {
+                            Log::warning('Notification: WhatsApp value_token has no placeholder_map entry — falling back to dot-path', [
+                                'token' => $token,
+                                'fallback_path' => $token,
+                            ]);
+                        }
+                        $resolved = $context->getForDisplay($placeholderMap[$token] ?? $token, '');
+                        if ($resolved === '') {
+                            Log::warning('Notification: WhatsApp text parameter resolved to empty string', [
+                                'token' => $token,
+                                'mapped_path' => $placeholderMap[$token] ?? $token,
+                            ]);
+                        }
+                    } else {
+                        $resolved = $context->render((string) ($literal ?? ''), $placeholderMap);
+                    }
+
                     $params[] = ['type' => 'text', 'text' => $resolved];
                 } elseif (in_array($type, ['image', 'document', 'video'], true)) {
                     // Media param — URLs / filenames are always strings,

@@ -205,12 +205,19 @@ class AuditNotificationPlaceholders extends Command
                 $receipt = Receipt80G::with('donation.devotee')->latest('id')->first();
                 if (! $receipt) return ['__no_data' => true];
                 $donation = $receipt->donation;
+                // Mirror Generate80GReceipt::handle()'s dispatch context
+                // EXACTLY — every key here must match what the real job
+                // publishes, otherwise this audit becomes a lying oracle
+                // (reports empty for fields production resolves correctly,
+                // or vice-versa). When changing this list, also update
+                // the real dispatch site.
                 return [
                     'devotee' => $donation->devotee,
-                    'receipt' => $receipt,
+                    'receipt' => $receipt->toArray(),
                     'donation' => $donation,
+                    'name' => $donation->devotee?->name,
                     'donor_name' => $donation->devotee?->name,
-                    'amount' => $donation->amount,
+                    'amount' => (string) $donation->amount,
                     'amount_formatted' => number_format((float) $donation->amount, 2),
                     'receipt_pdf_url' => '(presigned URL — generated at dispatch)',
                     'greeting_card_url' => $donation->greeting_card_path ? route('donation.greeting-card', $donation) : '',

@@ -332,11 +332,27 @@ class SevaSlotService
             return "Seva unavailable on this date: {$blackoutReason}";
         }
 
-        if (! $seva->requires_booking || empty($slotTime)) {
+        if (! $seva->requires_booking) {
+            // Free-form seva (no booking system), nothing to validate.
             return null;
         }
 
         $configuredSlots = $this->getSlotsForDate($seva, $date);
+
+        if (empty($slotTime)) {
+            // Empty slot_time was previously accepted unconditionally —
+            // that caused production bookings to persist with NULL
+            // slot_time, then WhatsApp confirmation templates that map
+            // {{ slot_time }} → booking.slot_time rendered empty and
+            // got rejected by Meta with (#131008) Required parameter
+            // is missing. Reject empty slot_time when the seva has any
+            // slots configured for the date.
+            if (! empty($configuredSlots)) {
+                return 'Please select a slot time.';
+            }
+            return null; // seva genuinely has no slots configured for this date
+        }
+
         if (! in_array($slotTime, $configuredSlots, true)) {
             return 'Invalid slot time for this date.';
         }

@@ -414,6 +414,12 @@ class DarshanShareCardService
         $name = $devotee->name;
         $fontSize = $format === self::FORMAT_STORY ? 44 : 34;
 
+        // Script-aware font for the name — same fix as the header. Most
+        // devotees register with a Latin-spelled name ("Harsh", "Meet")
+        // and the Gujarati font has no Latin glyphs, so those previously
+        // rendered as nothing.
+        $nameFont = $this->pickFontForText($name, bold: true);
+
         // GD's font subsystem has no boundary-box accessor exposed
         // through Intervention v4, so we estimate name width at
         // 0.55× pt size per glyph. Close enough to centre the
@@ -425,15 +431,24 @@ class DarshanShareCardService
             $startX = $cx - intval($totalWidth / 2);
             $canvas->insert($avatar, $startX, $y - intval($avatarSize / 2));
 
-            $canvas->text($name, $startX + $avatarSize + 24, $y, function (FontFactory $font) use ($fontSize) {
-                $font->filename($this->gujaratiFont(bold: true));
+            $canvas->text($name, $startX + $avatarSize + 24, $y, function (FontFactory $font) use ($fontSize, $nameFont) {
+                $font->filename($nameFont);
                 $font->size($fontSize);
                 $font->color(self::C_INK);
                 $font->align('left', 'center');
             });
         } else {
-            $canvas->text($name, $cx, $y, function (FontFactory $font) use ($fontSize) {
-                $font->filename($this->gujaratiFont(bold: true));
+            // Defensive log — drawDevoteeBlock fell back to centred-name
+            // only path, which means loadAvatar returned null even
+            // though we have a devotee. Should never happen now that
+            // the temple-logo fallback is in place. If it logs, the
+            // logo file is missing on disk.
+            Log::warning('DarshanShareCard: avatar null despite devotee — both photo + logo failed to load', [
+                'devotee_id' => $devotee->getKey(),
+                'has_profile_photo' => ! empty($devotee->profile_photo_path),
+            ]);
+            $canvas->text($name, $cx, $y, function (FontFactory $font) use ($fontSize, $nameFont) {
+                $font->filename($nameFont);
                 $font->size($fontSize);
                 $font->color(self::C_INK);
                 $font->align('center', 'center');
@@ -568,7 +583,7 @@ class DarshanShareCardService
         // produces materially different output (driver swap, layout shift,
         // typography change) — v2 invalidates the pre-Imagick-fallback
         // cards that had tofu boxes for the trust-name header.
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v4"), 0, 12);
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v5"), 0, 12);
 
         return self::STORAGE_PREFIX . "/{$date}/{$devoteeSegment}-{$format}-{$hash}.jpg";
     }

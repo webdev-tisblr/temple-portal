@@ -132,10 +132,34 @@ class WhatsAppService
                     ->post($url, $payload);
 
                 if ($response->successful()) {
-                    // Cache the Meta wamid so the calling driver can stash
+                    // Cache the message id so the calling driver can stash
                     // it on temple_notification_logs.provider_message_id.
                     // Webhook delivery events later JOIN back on this id.
-                    $this->lastMessageId = $response->json('messages.0.id');
+                    //
+                    // Try Meta's standard shape first ({messages: [{id}]}),
+                    // then common BSP wrappers. The Internet Store BSP
+                    // proxies our send calls and re-wraps Meta's response —
+                    // their exact envelope is logged in 'WhatsApp send raw
+                    // response' below the first time it differs.
+                    $this->lastMessageId = $response->json('messages.0.id')           // Meta direct
+                        ?? $response->json('data.messages.0.id')                       // common BSP wrap #1
+                        ?? $response->json('result.messages.0.id')                     // common BSP wrap #2
+                        ?? $response->json('data.message_id')                          // flat BSP shape
+                        ?? $response->json('message_id')                               // flat BSP shape root
+                        ?? $response->json('id')                                        // ultra-flat
+                        ?? null;
+
+                    if ($this->lastMessageId === null) {
+                        // First-time recon: dump the full JSON so we can
+                        // see the BSP's exact response shape and extend
+                        // the lookup chain above. Truncated to 4KB to
+                        // keep the log readable.
+                        Log::warning('WhatsApp send: response 2xx but message_id not found in any known shape', [
+                            'to' => $payload['to'],
+                            'response_body' => substr($response->body(), 0, 4096),
+                        ]);
+                    }
+
                     Log::info('WhatsApp message sent', [
                         'to' => $payload['to'],
                         'type' => $payload['type'],

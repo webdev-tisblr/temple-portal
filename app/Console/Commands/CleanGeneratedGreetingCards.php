@@ -17,17 +17,14 @@ use Illuminate\Support\Facades\Storage;
  *   • The donation_type's greeting_card_template + greeting_card_config
  *
  * Most cards are shared on WhatsApp / social within an hour or two of
- * the donation completing. The 3-day default catches the long tail of
- * "let me share my card again next morning" without retaining a PNG
- * forever for a one-time share.
- *
- * DonationWebController::greetingCard() regenerates on miss via
- * GreetingCardService::generate(), so deletion is transparent to the
- * devotee (~500ms GD render on re-share).
+ * the donation completing. 1-day retention catches that natural usage
+ * window without holding files for one-time shares. Long-tail re-views
+ * trigger an automatic ~500ms GD regenerate via
+ * DonationWebController::greetingCard() — devotee sees no broken link.
  */
 class CleanGeneratedGreetingCards extends Command
 {
-    protected $signature = 'greeting-cards:clean-generated {--days=3 : Cards older than this are deleted (regenerated on next view)}';
+    protected $signature = 'greeting-cards:clean-generated {--days=1 : Cards older than this are deleted (regenerated on next view)}';
 
     protected $description = 'Delete cached donation greeting card PNGs older than retention — regenerated on demand from DB';
 

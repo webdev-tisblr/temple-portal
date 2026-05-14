@@ -67,41 +67,53 @@ Schedule::command('sitemap:generate')
     ->weekly();
 
 // ────────────────────────────────────────────────────────────────
-// R2 lifecycle: cached generated artefacts (receipts, invoices,
-// greeting cards, darshan share cards) are reproducible from DB
-// rows + service code, so we sweep them on a retention window
-// rather than storing forever. Download controllers all call
-// `Storage::exists()` + regenerate-if-missing, so deletion is
-// transparent to the devotee (1–2 sec one-time render cost on
-// re-download). User uploads (profile photos, donation extras,
-// admin-curated Filament images) are NEVER touched by these
-// sweeps — only DB-reproducible artefacts.
+// R2 lifecycle: every cached file under these sweeps is fully
+// reproducible from DB + service code, so we treat r2_private as a
+// short-lived cache rather than archival storage. Download
+// controllers all call `Storage::exists()` + regenerate-if-missing,
+// so deletion is invisible to the devotee — they pay a ~1s
+// re-render on the first download after a sweep, then it's cached
+// again until the next sweep.
+//
+// User uploads (profile photos, donation extras, all admin-curated
+// Filament images on r2 public bucket) are NEVER touched here —
+// they have no DB-only source of truth and must be retained.
 //
 // Times are staggered across the small hours (Asia/Kolkata server
 // time) so we don't burst R2 API requests in a single minute.
+// Aggressive retention values are deliberate: regeneration is cheap
+// (1-2 seconds), and storage cost is the only reason to hold these
+// files at all. Stretching retention provides no UX benefit beyond
+// the first day or two.
 // ────────────────────────────────────────────────────────────────
 
-// Daily Darshan personalised share cards: 30-day retention.
+// Daily Darshan personalised share cards: 1-day retention. Admin
+// uploads a new darshan photo each morning, so yesterday's cards
+// are functionally dead. CDN edge-cache (30 days max-age) keeps
+// already-shared URLs working past R2 deletion until natural
+// expiry; new shares always render fresh.
 Schedule::command('darshan:clean-share-cards')
     ->dailyAt('03:30')
     ->withoutOverlapping();
 
 // 80G receipt PDFs: 7-day retention. Regenerated via
-// ReceiptService::generateReceipt() on next download.
+// ReceiptService::generateReceipt() on next download (~1s DomPDF).
 Schedule::command('receipts:clean-generated')
     ->dailyAt('03:45')
     ->withoutOverlapping();
 
-// Store + Hall invoice PDFs: 15-day retention. Regenerated via
+// Store + Hall invoice PDFs: 7-day retention. Regenerated via
 // InvoiceService::generateInvoice() / GenerateHallInvoice job
-// (run synchronously with $sendNotification=false) on next download.
+// (run synchronously with $sendNotification=false) on next
+// download (~1s DomPDF).
 Schedule::command('invoices:clean-generated')
     ->dailyAt('04:00')
     ->withoutOverlapping();
 
-// Donation greeting card PNGs: 3-day retention. Most cards are
-// shared within hours of donation; longer-tail re-shares trigger
-// transparent regenerate via GreetingCardService::generate().
+// Donation greeting card PNGs: 1-day retention. Devotees share on
+// WhatsApp within minutes-hours of donation; long-tail re-views
+// trigger transparent regenerate via GreetingCardService (~500ms
+// GD), so 24h covers the entire natural usage window.
 Schedule::command('greeting-cards:clean-generated')
     ->dailyAt('04:15')
     ->withoutOverlapping();

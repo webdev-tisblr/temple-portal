@@ -27,15 +27,15 @@ use Illuminate\Support\Facades\Storage;
  * counterparts) all already call exists() + regenerate inline if
  * missing. So deleting cached PDFs is transparent to the devotee.
  *
- * 15-day default is intentionally longer than the 7-day receipt
- * window: order/booking-related support questions (delivery,
- * cancellation, refund, reschedule) cluster more tightly around the
- * transaction date than 80G receipt requests (which spike at tax
- * season for old donations).
+ * 7-day default matches the 80G receipt window. Both PDF classes are
+ * cheap to regenerate (~1s DomPDF), so longer caching only burns
+ * storage without UX benefit. Operator support requests beyond 7 days
+ * (refund queries, audit copies) trigger a single one-off regenerate
+ * on download.
  */
 class CleanGeneratedInvoices extends Command
 {
-    protected $signature = 'invoices:clean-generated {--days=15 : Cached PDFs older than this are deleted (regenerated on next download)}';
+    protected $signature = 'invoices:clean-generated {--days=7 : Cached PDFs older than this are deleted (regenerated on next download)}';
 
     protected $description = 'Delete cached store + hall invoice PDFs older than retention — regenerated on demand from DB';
 

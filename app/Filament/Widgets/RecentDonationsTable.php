@@ -8,6 +8,7 @@ use App\Models\Donation;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Illuminate\Database\Eloquent\Builder;
 
 class RecentDonationsTable extends BaseWidget
 {
@@ -25,7 +26,17 @@ class RecentDonationsTable extends BaseWidget
     public function table(Table $table): Table
     {
         return $table
-            ->query(Donation::with('devotee')->latest()->limit(10))
+            // Captured-only — the dashboard's "Recent Donations" panel
+            // must show actual receipts, not Razorpay handshakes that
+            // never completed. Operators monitoring the dashboard in
+            // real-time should only see donations the trust received.
+            ->query(
+                Donation::query()
+                    ->whereHas('payment', fn (Builder $q) => $q->where('status', 'captured'))
+                    ->with('devotee')
+                    ->latest()
+                    ->limit(10),
+            )
             ->columns([
                 Tables\Columns\TextColumn::make('devotee.name')->label('Devotee')->default('Anonymous'),
                 Tables\Columns\TextColumn::make('amount')->prefix('₹')->sortable(),

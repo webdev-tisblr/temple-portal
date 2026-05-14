@@ -11,6 +11,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class SevaBookingResource extends Resource
 {
@@ -213,7 +214,11 @@ class SevaBookingResource extends Resource
                     }),
                 Tables\Filters\Filter::make('upcoming')
                     ->label('Upcoming only')
-                    ->query(fn ($q) => $q->where('booking_date', '>=', now()->toDateString())),
+                    // Type-hint Builder so Filament's container can
+                    // inject the query — without it, Filament 3 tries
+                    // to resolve "$q" by name and throws
+                    // BindingResolutionException on the AJAX call.
+                    ->query(fn (Builder $query) => $query->where('booking_date', '>=', now()->toDateString())),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

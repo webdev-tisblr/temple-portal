@@ -7,6 +7,7 @@ namespace App\Filament\Widgets;
 use App\Models\Donation;
 use Carbon\CarbonPeriod;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Database\Eloquent\Builder;
 
 class DonationChart extends ChartWidget
 {
@@ -23,7 +24,11 @@ class DonationChart extends ChartWidget
     {
         $days = collect(CarbonPeriod::create(now()->subDays(29), now()));
 
+        // Captured-only — see DonationStatsOverview for the rationale.
+        // Without this filter the daily bars include abandoned Razorpay
+        // handshakes and the line graph misrepresents real receipts.
         $donations = Donation::selectRaw('DATE(created_at) as date, SUM(amount) as total')
+            ->whereHas('payment', fn (Builder $q) => $q->where('status', 'captured'))
             ->where('created_at', '>=', now()->subDays(30))
             ->groupByRaw('DATE(created_at)')
             ->pluck('total', 'date');

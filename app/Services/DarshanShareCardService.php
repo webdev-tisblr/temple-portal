@@ -203,9 +203,12 @@ class DarshanShareCardService
         $this->drawBlessing($canvas, $width, $blessingY, $format);
 
         // 5. Devotee block — big side-by-side, whole composition centred
-        //    horizontally on the canvas. Extra offset below the blessing
-        //    accommodates the divider that drawBlessing renders.
-        $rowY = $blessingY + ($format === self::FORMAT_STORY ? 280 : 195);
+        //    horizontally. Offset chosen so the avatar has roughly equal
+        //    breathing room above (to the divider) and below (to the
+        //    footer meta). Story math: divider at blessing+88, footer at
+        //    height-100, avatar 280px tall → centerline at blessing+349
+        //    puts a ~120px margin both sides.
+        $rowY = $blessingY + ($format === self::FORMAT_STORY ? 349 : 215);
         $this->drawDevoteeBlock($canvas, $devotee, $width, $rowY, $format);
 
         // 6. Footer meta — pulled close to the row so no empty burgundy
@@ -717,7 +720,7 @@ class DarshanShareCardService
         // produces materially different output (driver swap, layout shift,
         // typography change) — v2 invalidates the pre-Imagick-fallback
         // cards that had tofu boxes for the trust-name header.
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v15"), 0, 12);
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v16"), 0, 12);
 
         return self::STORAGE_PREFIX . "/{$date}/{$devoteeSegment}-{$format}-{$hash}.jpg";
     }

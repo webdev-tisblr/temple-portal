@@ -88,8 +88,7 @@
         },
         "platform": {
             "php": "8.3.30",
-            "ext-redis": false,
-            "ext-sodium": false
+            "ext-redis": false
         }
     },
     "minimum-stability": "stable",

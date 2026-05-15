@@ -15,7 +15,9 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: mbstring, xml, curl, gd, zip, intl, bcmath
+          # sodium is required by kreait/firebase-php (via lcobucci/jwt) for
+          # signing the FCM HTTP v1 JWTs that authenticate to Cloud Messaging.
+          extensions: mbstring, xml, curl, gd, zip, intl, bcmath, sodium
 
       - name: Cache Composer dependencies
         uses: actions/cache@v4

@@ -230,6 +230,8 @@ class NotificationResource extends Resource
             ->columns([
                 Tables\Columns\ImageColumn::make('image_url')
                     ->label('')
+                    ->disk('r2')
+                    ->visibility('public')
                     ->circular()
                     ->size(40)
                     ->defaultImageUrl(asset('images/shree-pataliya-hanumanji-logo.png')),

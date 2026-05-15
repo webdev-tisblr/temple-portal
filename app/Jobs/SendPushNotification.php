@@ -71,12 +71,17 @@ class SendPushNotification implements ShouldQueue
                     : null,
             ], fn ($v) => $v !== null && $v !== '');
 
+            // image_url column stores the relative R2 path (e.g. 'notifications/xyz.jpg').
+            // FCM needs a full https URL, so resolve via the image_url() helper
+            // which is idempotent (passes through if already absolute).
+            $imageUrl = $notification->image_url ? image_url($notification->image_url) : null;
+
             $results = $firebaseService->sendToMultiple(
                 $tokenValues,
                 $title,
                 $body,
                 $data,
-                $notification->image_url,
+                $imageUrl,
             );
 
             if (!empty($results['invalid_tokens'])) {

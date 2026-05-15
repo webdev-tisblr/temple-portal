@@ -15,10 +15,12 @@ class NotificationRead extends Model
         'devotee_id',
         'notification_id',
         'read_at',
+        'dismissed_at',
     ];
 
     protected $casts = [
         'read_at' => 'datetime',
+        'dismissed_at' => 'datetime',
     ];
 
     public function devotee(): BelongsTo

@@ -169,7 +169,87 @@ class NotificationInboxController extends BaseApiController
     }
 
     /**
-     * Builder for broadcasts visible to a specific devotee.
+     * DELETE /api/v1/me/notifications/{notification}
+     *
+     * Dismiss a single notification from the devotee's inbox. The
+     * underlying broadcast row stays — only this devotee's view of it
+     * is hidden. Idempotent: dismissing an already-dismissed row is a
+     * no-op via updateOrCreate.
+     */
+    public function dismiss(Request $request, int $notificationId): JsonResponse
+    {
+        $devotee = $request->user();
+        if (! $devotee) {
+            return $this->error('Unauthorised', 401);
+        }
+
+        // Defensive visibility check before recording state.
+        $exists = $this->visibleQuery((string) $devotee->getKey())
+            ->whereKey($notificationId)
+            ->exists();
+
+        if (! $exists) {
+            return $this->error('Notification not found', 404);
+        }
+
+        NotificationRead::query()->updateOrCreate(
+            [
+                'devotee_id' => $devotee->getKey(),
+                'notification_id' => $notificationId,
+            ],
+            [
+                'dismissed_at' => now(),
+                // Auto-mark as read too — a dismissed row is implicitly read.
+                'read_at' => now(),
+            ],
+        );
+
+        return $this->success(['dismissed' => true]);
+    }
+
+    /**
+     * DELETE /api/v1/me/notifications
+     *
+     * Dismiss every currently-visible notification in one call.
+     * Powers the inbox "Clear all" header action.
+     */
+    public function dismissAll(Request $request): JsonResponse
+    {
+        $devotee = $request->user();
+        if (! $devotee) {
+            return $this->error('Unauthorised', 401);
+        }
+
+        $visibleIds = $this->visibleQuery((string) $devotee->getKey())->pluck('id');
+
+        if ($visibleIds->isEmpty()) {
+            return $this->success(['dismissed' => 0]);
+        }
+
+        // Upsert in one pass: existing rows get dismissed_at touched,
+        // missing rows get created. Using a loop because Eloquent's
+        // upsert helper doesn't play well with the unique compound key
+        // across all drivers.
+        $now = now();
+        foreach ($visibleIds as $id) {
+            NotificationRead::query()->updateOrCreate(
+                [
+                    'devotee_id' => $devotee->getKey(),
+                    'notification_id' => $id,
+                ],
+                [
+                    'dismissed_at' => $now,
+                    'read_at' => $now,
+                ],
+            );
+        }
+
+        return $this->success(['dismissed' => $visibleIds->count()]);
+    }
+
+    /**
+     * Builder for broadcasts visible to a specific devotee. Excludes
+     * rows the devotee has already dismissed.
      */
     private function visibleQuery(string $devoteeId): Builder
     {
@@ -181,6 +261,10 @@ class NotificationInboxController extends BaseApiController
                         $q2->where('segment', 'custom')
                             ->whereJsonContains('custom_filter->devotee_ids', $devoteeId);
                     });
+            })
+            ->whereDoesntHave('reads', function (Builder $q) use ($devoteeId) {
+                $q->where('devotee_id', $devoteeId)
+                    ->whereNotNull('dismissed_at');
             });
     }
 }

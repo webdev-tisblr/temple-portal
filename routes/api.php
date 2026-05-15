@@ -96,6 +96,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/me/notifications/unread-count', [\App\Http\Controllers\Api\V1\NotificationInboxController::class, 'unreadCount']);
         Route::post('/me/notifications/read-all', [\App\Http\Controllers\Api\V1\NotificationInboxController::class, 'markAllRead']);
         Route::post('/me/notifications/{notification}/read', [\App\Http\Controllers\Api\V1\NotificationInboxController::class, 'markRead']);
+        // Soft-dismiss — hides from inbox without affecting the underlying broadcast.
+        Route::delete('/me/notifications/{notification}', [\App\Http\Controllers\Api\V1\NotificationInboxController::class, 'dismiss']);
+        Route::delete('/me/notifications', [\App\Http\Controllers\Api\V1\NotificationInboxController::class, 'dismissAll']);
 
         Route::get('/me', function (Request $request) {
             return response()->json([

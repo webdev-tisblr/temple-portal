@@ -97,7 +97,6 @@ class GenerateHallInvoice implements ShouldQueue
                         'booking_type_label' => $bookingTypeLabel,
                         'booking_date' => $this->booking->booking_date?->format('d M Y'),
                         'total_amount_formatted' => number_format((float) $this->booking->total_amount, 2),
-                        'contact_email' => $this->booking->contact_email,
                         'contact_phone' => $this->booking->contact_phone,
                         'contact_name' => $this->booking->contact_name,
                         'hall' => $this->booking->hall ? $this->booking->hall->toArray() : null,

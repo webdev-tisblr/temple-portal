@@ -245,7 +245,7 @@ class NotificationTemplateResource extends Resource
                         NotificationTemplate::RECIPIENT_FIXED_PHONE,
                         NotificationTemplate::RECIPIENT_CONTEXT_PATH,
                     ], true))
-                    ->helperText('Email address, phone number, or — for the advanced option — a dot-path like booking.contact_email.'),
+                    ->helperText('Email address, phone number, or — for the advanced option — a dot-path like booking.contact_phone.'),
             ])->columns(2),
         ]);
     }

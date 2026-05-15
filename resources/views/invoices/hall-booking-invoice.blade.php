@@ -125,24 +125,6 @@
                     <td class="label">Phone</td>
                     <td class="value">{{ $booking->contact_phone }}</td>
                 </tr>
-                @if($booking->contact_email)
-                <tr>
-                    <td class="label">Email</td>
-                    <td class="value">{{ $booking->contact_email }}</td>
-                </tr>
-                @endif
-                @if($booking->aadhaar_number)
-                <tr>
-                    <td class="label">Aadhaar Number</td>
-                    <td class="value">{{ $booking->aadhaar_number }}</td>
-                </tr>
-                @endif
-                @if($booking->contact_address)
-                <tr>
-                    <td class="label">Address</td>
-                    <td class="value">{{ $booking->contact_address }}</td>
-                </tr>
-                @endif
                 <tr>
                     <td class="label">Purpose</td>
                     <td class="value">{{ $booking->purpose }}</td>

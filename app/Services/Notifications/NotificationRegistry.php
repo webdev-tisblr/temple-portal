@@ -102,16 +102,15 @@ final class NotificationRegistry
             // ── Hall flow ─────────────────────────────────────────────
             // Context: booking (array of HallBooking->toArray() merged
             //   with: booking_number, booking_type_label, booking_date
-            //   formatted, total_amount_formatted, contact_email,
-            //   contact_phone, contact_name, hall (array)),
-            //   devotee, trust_name, _attachments.
+            //   formatted, total_amount_formatted, contact_phone,
+            //   contact_name, hall (array)), devotee, trust_name,
+            //   _attachments.
             // Hall.name (not localized).
             'hall.booking.confirmed' => [
                 'label' => 'Hall — booking confirmed',
                 'description' => 'Fires when a hall booking payment is captured.',
                 'placeholders' => [
                     'contact_name' => 'Contact name (booking.contact_name)',
-                    'contact_email' => 'Contact email (booking.contact_email)',
                     'contact_phone' => 'Contact phone (booking.contact_phone)',
                     'hall_name' => 'Hall name (booking.hall.name)',
                     'booking_date' => 'Booking date, pre-formatted (booking.booking_date)',

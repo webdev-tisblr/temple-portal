@@ -232,31 +232,6 @@
                         class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
                 </div>
 
-                {{-- Email --}}
-                <div>
-                    <label class="block text-sm font-medium text-amber-600 mb-1">ઇમેઇલ <span class="text-amber-100/30 text-xs">(વૈકલ્પિક)</span></label>
-                    <input type="email" name="contact_email" value="{{ old('contact_email', auth('devotee')->user()?->email) }}"
-                        placeholder="ઇમેઇલ એડ્રેસ"
-                        class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
-                </div>
-
-                {{-- Aadhaar Number --}}
-                <div>
-                    <label class="block text-sm font-medium text-amber-600 mb-1">આધાર નંબર <span class="text-red-400">*</span></label>
-                    <input type="text" name="aadhaar_number" value="{{ old('aadhaar_number') }}" required
-                        inputmode="numeric" pattern="[0-9]{12}" maxlength="12"
-                        placeholder="12 અંકનો આધાર નંબર"
-                        class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
-                </div>
-
-                {{-- Full Address --}}
-                <div>
-                    <label class="block text-sm font-medium text-amber-600 mb-1">સંપૂર્ણ સરનામું <span class="text-red-400">*</span></label>
-                    <textarea name="contact_address" rows="3" required
-                        placeholder="તમારું સંપૂર્ણ સરનામું"
-                        class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">{{ old('contact_address') }}</textarea>
-                </div>
-
                 {{-- Purpose --}}
                 <div>
                     <label class="block text-sm font-medium text-amber-600 mb-1">હેતુ <span class="text-red-400">*</span></label>

@@ -255,7 +255,6 @@ class AuditNotificationPlaceholders extends Command
                         'booking_type_label' => $bookingTypeLabel,
                         'booking_date' => $booking->booking_date?->format('d M Y'),
                         'total_amount_formatted' => number_format((float) $booking->total_amount, 2),
-                        'contact_email' => $booking->contact_email,
                         'contact_phone' => $booking->contact_phone,
                         'contact_name' => $booking->contact_name,
                         'hall' => $booking->hall?->toArray(),

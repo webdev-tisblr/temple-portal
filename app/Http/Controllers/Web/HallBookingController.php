@@ -116,9 +116,6 @@ class HallBookingController extends Controller
             'expected_guests' => ['nullable', 'integer'],
             'contact_name' => ['required', 'string', 'max:255'],
             'contact_phone' => ['required', 'string', 'max:20'],
-            'contact_email' => ['nullable', 'email'],
-            'aadhaar_number' => ['required', 'string', 'size:12'],
-            'contact_address' => ['required', 'string', 'max:500'],
         ]);
 
         $devotee = Auth::guard('devotee')->user();
@@ -176,9 +173,6 @@ class HallBookingController extends Controller
                     'expected_guests' => $validated['expected_guests'] ?? null,
                     'contact_name' => $validated['contact_name'],
                     'contact_phone' => $validated['contact_phone'],
-                    'contact_email' => $validated['contact_email'] ?? null,
-                    'aadhaar_number' => $validated['aadhaar_number'],
-                    'contact_address' => $validated['contact_address'],
                     'total_amount' => $totalAmount,
                     'status' => 'pending',
                     'payment_id' => $payment->id,
@@ -237,9 +231,6 @@ class HallBookingController extends Controller
                     'expected_guests' => $validated['expected_guests'] ?? null,
                     'contact_name' => $validated['contact_name'],
                     'contact_phone' => $validated['contact_phone'],
-                    'contact_email' => $validated['contact_email'] ?? null,
-                    'aadhaar_number' => $validated['aadhaar_number'],
-                    'contact_address' => $validated['contact_address'],
                     'total_amount' => $totalAmount,
                     'status' => 'confirmed',
                     'payment_id' => $payment->id,
@@ -381,12 +372,10 @@ class HallBookingController extends Controller
             // Fire notification trigger only on the initial confirmation
             // path. Self-heal regeneration calls this with $sendEmail=false
             // to avoid re-notifying the customer every time the PDF is
-            // re-downloaded. The contact_email check is INTENTIONALLY
-            // gone — each enabled NotificationTemplate handles its own
-            // recipient strategy (email reads contact_email and skips
-            // when empty; WhatsApp / SMS use contact_phone). Gating the
-            // whole dispatch on email-presence used to silently skip
-            // WhatsApp / SMS for callers who only left a phone.
+            // re-downloaded. Notifications are dispatched via configured
+            // NotificationTemplate rows (WhatsApp / SMS / push). Hall
+            // booking no longer collects contact_email; the trust can
+            // wire email via the devotee's profile email if needed.
             if ($sendEmail) {
                 $this->emailHallInvoice($booking, $path);
             }
@@ -423,7 +412,6 @@ class HallBookingController extends Controller
                         'booking_type_label' => $bookingTypeLabel,
                         'booking_date' => $booking->booking_date?->format('d M Y'),
                         'total_amount_formatted' => number_format((float) $booking->total_amount, 2),
-                        'contact_email' => $booking->contact_email,
                         'contact_phone' => $booking->contact_phone,
                         'contact_name' => $booking->contact_name,
                         'hall' => $booking->hall ? $booking->hall->toArray() : null,
@@ -441,12 +429,10 @@ class HallBookingController extends Controller
 
             Log::info('Hall booking invoice dispatched via NotificationService', [
                 'booking_id' => $booking->id,
-                'email' => $booking->contact_email,
             ]);
         } catch (\Exception $e) {
             Log::error('Hall invoice dispatch failed', [
                 'booking_id' => $booking->id,
-                'email' => $booking->contact_email ?? 'unknown',
                 'error' => $e->getMessage(),
             ]);
         }

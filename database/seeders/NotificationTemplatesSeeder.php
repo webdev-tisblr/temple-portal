@@ -48,28 +48,11 @@ class NotificationTemplatesSeeder extends Seeder
     private function templates(): array
     {
         return [
-            // ── HALL BOOKING — email ───────────────────────────────────────
-            [
-                'key' => 'hall.booking.confirmed',
-                'channel' => NotificationTemplate::CHANNEL_EMAIL,
-                'label' => 'Hall booking — confirmation email',
-                'description' => 'Sent to the booking contact when a hall booking payment is captured.',
-                'is_enabled' => true,
-                'subject' => 'Hall Booking Confirmation — {{ booking_number }}',
-                'body' => $this->hallBookingHtml(),
-                'recipient_strategy' => NotificationTemplate::RECIPIENT_CONTEXT_PATH,
-                'recipient_value' => 'booking.contact_email',
-                'placeholder_map' => [
-                    'contact_name' => 'booking.contact_name',
-                    'hall_name' => 'booking.hall.name',
-                    'booking_date' => 'booking.booking_date',
-                    'booking_type' => 'booking.booking_type_label',
-                    'purpose' => 'booking.purpose',
-                    'amount' => 'booking.total_amount_formatted',
-                    'booking_number' => 'booking.booking_number',
-                    'trust_name' => 'trust_name',
-                ],
-            ],
+            // Hall booking email template was removed when contact_email
+            // was dropped from temple_hall_bookings (2026-05-15 cleanup).
+            // Hall confirmations now go via WhatsApp / SMS / push only.
+            // If the trust wants email later, wire it via the devotee's
+            // profile email (RECIPIENT_DEVOTEE strategy).
 
             // ── 80G RECEIPT — email ────────────────────────────────────────
             [

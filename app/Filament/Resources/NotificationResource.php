@@ -285,54 +285,51 @@ class NotificationResource extends Resource
                 ]),
             ])
             ->actions([
+                // Send-now works on every status except 'sending' (mid-flight).
+                // For draft/scheduled/failed we dispatch the existing row in
+                // place. For 'sent' we clone the row first so the original
+                // sent-record + its delivery counts stay intact as an audit
+                // trail; the resend lives as a new row.
                 Tables\Actions\Action::make('send_now')
                     ->label('Send now')
                     ->icon('heroicon-o-paper-airplane')
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Send notification now')
-                    ->modalDescription(fn (Model $record) => "This will dispatch \"{$record->title_gu}\" to every targeted device immediately. Continue?")
-                    ->visible(fn (Model $record) => in_array($record->status, ['draft', 'scheduled', 'failed'], true))
+                    ->modalDescription(function (Model $record): string {
+                        $verb = $record->status === 'sent' ? 'resend' : 'dispatch';
+                        return "This will {$verb} \"{$record->title_gu}\" to every targeted device immediately. Continue?";
+                    })
+                    ->modalSubmitActionLabel('Send now')
+                    ->modalCancelActionLabel('Cancel')
+                    ->visible(fn (Model $record) => $record->status !== 'sending')
                     ->action(function (Model $record) {
-                        $record->update([
-                            'status' => 'sending',
-                            'scheduled_at' => null,
-                        ]);
-                        SendPushNotification::dispatch($record);
+                        if ($record->status === 'sent') {
+                            // Clone so the original audit trail stays intact.
+                            $target = $record->replicate([
+                                'sent_at',
+                                'total_recipients',
+                                'delivered_count',
+                                'opened_count',
+                            ]);
+                            $target->status = 'sending';
+                            $target->scheduled_at = null;
+                            $target->created_by = auth()->id();
+                            $target->save();
+                        } else {
+                            $record->update([
+                                'status' => 'sending',
+                                'scheduled_at' => null,
+                            ]);
+                            $target = $record;
+                        }
+
+                        SendPushNotification::dispatch($target);
 
                         FilamentNotification::make()
                             ->title('Notification dispatched')
                             ->success()
                             ->send();
-                    }),
-
-                // Clone any existing notification as a fresh draft. Useful for
-                // resending past announcements, or tweaking + scheduling a
-                // version of one that already went out.
-                Tables\Actions\Action::make('duplicate')
-                    ->label('Duplicate')
-                    ->icon('heroicon-o-document-duplicate')
-                    ->color('gray')
-                    ->visible(fn (Model $record) => $record->status !== 'sending')
-                    ->action(function (Model $record) {
-                        $clone = $record->replicate([
-                            'sent_at',
-                            'total_recipients',
-                            'delivered_count',
-                            'opened_count',
-                        ]);
-                        $clone->status = 'draft';
-                        $clone->scheduled_at = null;
-                        $clone->created_by = auth()->id();
-                        $clone->save();
-
-                        FilamentNotification::make()
-                            ->title('Duplicated as draft')
-                            ->body('Edit the draft and choose "Send right now" or schedule it.')
-                            ->success()
-                            ->send();
-
-                        return redirect(NotificationResource::getUrl('edit', ['record' => $clone]));
                     }),
 
                 Tables\Actions\EditAction::make(),

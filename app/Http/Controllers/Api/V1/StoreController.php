@@ -98,12 +98,15 @@ class StoreController extends BaseApiController
             'items.*.product_id' => 'required|integer|exists:temple_products,id',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.variant_label' => 'nullable|string|max:100',
+            // Keep these limits in lockstep with StoreCheckoutRequest (web)
+            // and cart_screen.dart (mobile). See that request class for
+            // the rationale behind each cap.
             'shipping_name' => 'required|string|max:255',
             'shipping_phone' => 'required|string|max:15',
-            'shipping_address' => 'required|string|max:1000',
+            'shipping_address' => 'required|string|max:500',
             'shipping_city' => 'required|string|max:100',
             'shipping_state' => 'required|string|max:100',
-            'shipping_pincode' => 'required|string|max:10',
+            'shipping_pincode' => 'required|string|max:6',
             'notes' => 'nullable|string|max:500',
         ]);
 

@@ -94,43 +94,49 @@ class NotificationResource extends Resource
                         ->options(self::intentOptions())
                         ->placeholder('— Just open the app (home) —')
                         ->live()
-                        ->afterStateUpdated(fn (Forms\Set $set) => $set('intent_params', null))
+                        ->afterStateUpdated(function (Forms\Set $set) {
+                            // Reset both the synthetic UI picker and the
+                            // persisted JSON whenever the intent changes,
+                            // so stale IDs don't leak across intents.
+                            $set('intent_target', null);
+                            $set('intent_params', null);
+                        })
                         ->columnSpanFull(),
 
-                    // Each picker reads/writes the same `intent_params` JSON column,
-                    // but only one is visible per intent value. Setting intent_params
-                    // to null on intent-change above keeps stale IDs from leaking.
-                    Forms\Components\Select::make('intent_params.id')
-                        ->label('Seva')
-                        ->options(fn () => Seva::query()->orderBy('name_gu')->pluck('name_gu', 'id')->all())
+                    // One shared picker. Its label, options, and required-ness
+                    // all derive from the current intent. Dehydrated false so
+                    // it doesn't land in the DB directly — the Create/Edit
+                    // pages hydrate it from / store it back into intent_params.
+                    Forms\Components\Select::make('intent_target')
+                        ->label(fn (Get $get): string => match ($get('intent')) {
+                            'seva-detail' => 'Seva',
+                            'campaign-detail' => 'Campaign',
+                            'event-detail' => 'Event',
+                            'blog-detail' => 'Blog post',
+                            default => 'Target',
+                        })
+                        ->options(function (Get $get): array {
+                            return match ($get('intent')) {
+                                'seva-detail' => Seva::query()->orderBy('name_gu')->pluck('name_gu', 'id')->all(),
+                                'campaign-detail' => DonationCampaign::query()->orderBy('title_gu')->pluck('title_gu', 'id')->all(),
+                                'event-detail' => Event::query()->orderByDesc('start_date')->pluck('title_gu', 'id')->all(),
+                                'blog-detail' => BlogPost::query()->orderBy('title_gu')->pluck('title_gu', 'slug')->all(),
+                                default => [],
+                            };
+                        })
                         ->searchable()
                         ->preload()
-                        ->required()
-                        ->visible(fn (Get $get) => $get('intent') === 'seva-detail'),
-
-                    Forms\Components\Select::make('intent_params.id')
-                        ->label('Campaign')
-                        ->options(fn () => DonationCampaign::query()->orderBy('title_gu')->pluck('title_gu', 'id')->all())
-                        ->searchable()
-                        ->preload()
-                        ->required()
-                        ->visible(fn (Get $get) => $get('intent') === 'campaign-detail'),
-
-                    Forms\Components\Select::make('intent_params.id')
-                        ->label('Event')
-                        ->options(fn () => Event::query()->orderByDesc('start_date')->pluck('title_gu', 'id')->all())
-                        ->searchable()
-                        ->preload()
-                        ->required()
-                        ->visible(fn (Get $get) => $get('intent') === 'event-detail'),
-
-                    Forms\Components\Select::make('intent_params.slug')
-                        ->label('Blog post')
-                        ->options(fn () => BlogPost::query()->orderBy('title_gu')->pluck('title_gu', 'slug')->all())
-                        ->searchable()
-                        ->preload()
-                        ->required()
-                        ->visible(fn (Get $get) => $get('intent') === 'blog-detail'),
+                        ->dehydrated(false)
+                        ->required(fn (Get $get): bool => in_array(
+                            $get('intent'),
+                            ['seva-detail', 'campaign-detail', 'event-detail', 'blog-detail'],
+                            true,
+                        ))
+                        ->visible(fn (Get $get): bool => in_array(
+                            $get('intent'),
+                            ['seva-detail', 'campaign-detail', 'event-detail', 'blog-detail'],
+                            true,
+                        )),
                 ]),
 
             Forms\Components\Section::make('Audience')

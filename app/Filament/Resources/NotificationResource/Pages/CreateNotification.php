@@ -30,6 +30,21 @@ class CreateNotification extends CreateRecord
             $data['status'] = 'scheduled';
         }
 
+        // Translate the synthetic `intent_target` picker (dehydrated=false in
+        // the form) into the persisted `intent_params` JSON column.
+        $target = $this->data['intent_target'] ?? null;
+        $intent = $data['intent'] ?? null;
+
+        if ($target !== null && $target !== '' && $intent !== null) {
+            $data['intent_params'] = match ($intent) {
+                'blog-detail' => ['slug' => $target],
+                'seva-detail', 'campaign-detail', 'event-detail' => ['id' => $target],
+                default => null,
+            };
+        } else {
+            $data['intent_params'] = null;
+        }
+
         $data['created_by'] = Auth::id();
 
         return $data;

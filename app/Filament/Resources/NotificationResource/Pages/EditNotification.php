@@ -42,13 +42,35 @@ class EditNotification extends EditRecord
     }
 
     /**
-     * Pre-fill the send_mode radio from the saved row so the form
-     * round-trips correctly on Edit (otherwise it always shows "Send now"
-     * even for a row that was originally scheduled).
+     * Pre-fill synthetic form fields from the persisted state so Edit
+     * round-trips correctly: send_mode (from scheduled_at presence) and
+     * intent_target (from intent_params).
      */
     protected function mutateFormDataBeforeFill(array $data): array
     {
         $data['send_mode'] = $this->record->scheduled_at ? 'schedule' : 'now';
+
+        $params = $this->record->intent_params ?? [];
+        $data['intent_target'] = $params['slug'] ?? $params['id'] ?? null;
+
+        return $data;
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $target = $this->data['intent_target'] ?? null;
+        $intent = $data['intent'] ?? null;
+
+        if ($target !== null && $target !== '' && $intent !== null) {
+            $data['intent_params'] = match ($intent) {
+                'blog-detail' => ['slug' => $target],
+                'seva-detail', 'campaign-detail', 'event-detail' => ['id' => $target],
+                default => null,
+            };
+        } else {
+            $data['intent_params'] = null;
+        }
+
         return $data;
     }
 }

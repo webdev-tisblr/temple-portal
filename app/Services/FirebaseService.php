@@ -87,6 +87,18 @@ class FirebaseService
 
                 foreach ($report->failures()->getItems() as $failure) {
                     $errorMessage = $failure->error()?->getMessage() ?? '';
+                    $errorClass = $failure->error() ? get_class($failure->error()) : 'unknown';
+                    $tokenTail = substr((string) $failure->target()->value(), -8);
+
+                    // Surface every per-message failure with full detail so
+                    // we can diagnose project mismatches, invalid args,
+                    // permission errors, etc. without re-deploying.
+                    Log::warning('FCM message rejected', [
+                        'token_tail' => $tokenTail,
+                        'error_class' => $errorClass,
+                        'error_message' => $errorMessage,
+                    ]);
+
                     if (
                         str_contains($errorMessage, 'not-registered')
                         || str_contains($errorMessage, 'invalid-registration')
@@ -100,6 +112,7 @@ class FirebaseService
                 $results['failure'] += count($chunk);
                 Log::warning('FCM batch send failed', [
                     'error' => $e->getMessage(),
+                    'error_class' => get_class($e),
                     'batch_size' => count($chunk),
                 ]);
             }
@@ -124,9 +137,8 @@ class FirebaseService
             ? FcmNotification::create($title, $body, $imageUrl)
             : FcmNotification::create($title, $body);
 
-        return CloudMessage::new()
+        $message = CloudMessage::new()
             ->withNotification($notification)
-            ->withData($data)
             ->withAndroidConfig(AndroidConfig::fromArray([
                 'priority' => 'high',
                 'notification' => array_filter([
@@ -135,25 +147,41 @@ class FirebaseService
                     'image' => $imageUrl,
                 ], fn ($v) => $v !== null),
             ]))
-            ->withApnsConfig(ApnsConfig::fromArray([
+            ->withApnsConfig(ApnsConfig::fromArray(array_filter([
                 'headers' => [
                     'apns-priority' => '10',
                 ],
                 'payload' => [
                     'aps' => array_filter([
                         'sound' => 'default',
-                        'mutable-content' => $imageUrl ? 1 : 0,
-                    ]),
+                        // mutable-content is only required for image-bearing
+                        // notifications. Omitting the key entirely (vs setting
+                        // it to 0) keeps the APNs payload smaller and avoids
+                        // some FCM validators flagging an empty fcm_options.
+                        'mutable-content' => $imageUrl ? 1 : null,
+                    ], fn ($v) => $v !== null),
                 ],
-                'fcm_options' => array_filter([
-                    'image' => $imageUrl,
-                ], fn ($v) => $v !== null),
-            ]))
-            ->withWebPushConfig(WebPushConfig::fromArray([
-                'notification' => array_filter([
-                    'icon' => $imageUrl,
-                ], fn ($v) => $v !== null),
+                // Only attach fcm_options when there's actually an image —
+                // FCM rejects an empty fcm_options object on some paths.
+                'fcm_options' => $imageUrl ? ['image' => $imageUrl] : null,
+            ], fn ($v) => $v !== null)));
+
+        // WebPushConfig only matters for browser push; only attach when we
+        // actually have an icon to set.
+        if ($imageUrl) {
+            $message = $message->withWebPushConfig(WebPushConfig::fromArray([
+                'notification' => ['icon' => $imageUrl],
             ]));
+        }
+
+        // Attach the data payload only if there's actually something to send.
+        // kreait accepts withData([]) but some FCM intermediates have been
+        // observed rejecting it.
+        if (! empty($data)) {
+            $message = $message->withData($data);
+        }
+
+        return $message;
     }
 
     /**

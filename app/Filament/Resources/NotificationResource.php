@@ -78,7 +78,6 @@ class NotificationResource extends Resource
                     Forms\Components\FileUpload::make('image_url')
                         ->label('Image (optional)')
                         ->image()
-                        ->imageEditor()
                         ->disk('r2')
                         ->visibility('public')
                         ->directory('notifications')

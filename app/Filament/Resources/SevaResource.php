@@ -184,51 +184,43 @@ class SevaResource extends Resource
                 ->icon('heroicon-o-bell')
                 ->collapsed()
                 ->schema([
-                    Forms\Components\Toggle::make('notification_config.notify_on_booking')
-                        ->label('Notify assignee on new booking')
-                        ->default(true),
-                    Forms\Components\CheckboxList::make('notification_config.booking_channels')
-                        ->label('Booking notification via')
-                        ->options(['whatsapp' => 'WhatsApp', 'email' => 'Email'])
-                        ->default(['whatsapp'])
-                        ->columns(2),
+                    Forms\Components\Placeholder::make('booking_alerts_note')
+                        ->label('Booking-time alerts')
+                        ->content('Booking confirmation messages and staff alerts are managed centrally in Communication → Notification Templates (seva.booking.confirmed for devotees, seva.booking.staff_alert for the pujari role).')
+                        ->columnSpanFull(),
 
-                    Forms\Components\Repeater::make('notification_config.reminders')
-                        ->label('Seva Reminders')
+                    Forms\Components\Repeater::make('reminders')
+                        ->label('Reminders before this seva')
                         ->schema([
-                            Forms\Components\Select::make('timing_type')
+                            Forms\Components\Select::make('offset')
                                 ->label('When to remind')
                                 ->options([
-                                    'days_before' => 'Days before seva',
-                                    'hours_before' => 'Hours before seva',
+                                    '3h' => '3 hours before',
+                                    '6h' => '6 hours before',
+                                    '12h' => '12 hours before',
+                                    '24h' => '24 hours before',
+                                    '48h' => '2 days before',
+                                    '72h' => '3 days before',
+                                    '168h' => '7 days before',
                                 ])
-                                ->required()
-                                ->default('days_before')
-                                ->live(),
-                            Forms\Components\Select::make('timing_value')
-                                ->label('Value')
-                                ->options(fn (Get $get) => match ($get('timing_type')) {
-                                    'days_before' => [1 => '1 day', 2 => '2 days', 3 => '3 days', 7 => '7 days'],
-                                    'hours_before' => [1 => '1 hour', 2 => '2 hours', 4 => '4 hours', 6 => '6 hours', 12 => '12 hours'],
-                                    default => [],
-                                })
                                 ->required(),
                             Forms\Components\CheckboxList::make('recipients')
                                 ->label('Notify')
-                                ->options(['assignee' => 'Assignee (Admin)', 'devotee' => 'Devotee'])
-                                ->required()
-                                ->columns(2),
-                            Forms\Components\CheckboxList::make('channels')
-                                ->label('Via')
-                                ->options(['whatsapp' => 'WhatsApp', 'email' => 'Email'])
-                                ->required()
-                                ->columns(2),
+                                ->options([
+                                    'devotee' => 'Devotee',
+                                    'staff' => 'Staff (pujari role)',
+                                ])
+                                ->default(['devotee'])
+                                ->required(),
                         ])
                         ->columns(2)
                         ->defaultItems(0)
-                        ->addActionLabel('Add Reminder')
+                        ->addActionLabel('Add reminder')
                         ->collapsible()
-                        ->helperText('Configure reminders before the seva. Actual sending will be handled by a scheduled job.'),
+                        ->itemLabel(fn (array $state): ?string => isset($state['offset'])
+                            ? "Reminder — {$state['offset']} before"
+                            : null)
+                        ->helperText('Reminder message text + channels are managed in Communication → Notification Templates (seva.booking.reminder.devotee and seva.booking.reminder.staff). This section only controls WHEN reminders fire and WHO they go to.'),
                 ]),
 
             Forms\Components\Section::make('Product Selection for Devotee')

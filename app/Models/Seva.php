@@ -39,7 +39,7 @@ class Seva extends Model
         'is_active',
         'sort_order',
         'assignee_id',
-        'notification_config',
+        'reminders',
         'linked_products',
     ];
 
@@ -49,7 +49,7 @@ class Seva extends Model
         'min_price' => 'decimal:2',
         'is_variable_price' => 'boolean',
         'slot_config' => 'array',
-        'notification_config' => 'array',
+        'reminders' => 'array',
         'linked_products' => 'array',
         'requires_booking' => 'boolean',
         'is_active' => 'boolean',

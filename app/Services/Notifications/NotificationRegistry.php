@@ -87,13 +87,72 @@ final class NotificationRegistry
             // Seva model exposes name_gu/hi/en — no plain `name` column.
             'seva.booking.confirmed' => [
                 'label' => 'Seva — booking confirmed',
-                'description' => 'Fires when a seva booking payment is captured.',
+                'description' => 'Fires when a seva booking payment is captured. Devotee recipient.',
                 'placeholders' => [
                     'devotee_name' => 'Devotee name (devotee.name)',
                     'seva_name' => 'Seva name in Gujarati (booking.seva.name_gu)',
                     'booking_date' => 'Booking date (booking.booking_date)',
                     'slot_time' => 'Slot time (booking.slot_time)',
                     'amount' => 'Total amount (booking.total_amount)',
+                    'booking_id' => 'Booking ID (booking.id)',
+                    'trust_name' => 'Trust name from System Settings (trust_name)',
+                ],
+            ],
+
+            // Fires alongside seva.booking.confirmed (same payment-capture
+            // moment) — once per admin user holding the `pujari` role.
+            // PaymentCaptureService enumerates the role members and
+            // dispatches per-admin with `admin` injected into context.
+            // Configure the template's recipient_strategy=context_path
+            // with recipient_value=admin.email or admin.phone.
+            'seva.booking.staff_alert' => [
+                'label' => 'Seva — staff alert on new booking',
+                'description' => 'Fires when a seva booking is confirmed — once per pujari-role admin user.',
+                'placeholders' => [
+                    'admin_name' => 'Staff admin name (admin.name)',
+                    'devotee_name' => 'Devotee who booked (devotee.name)',
+                    'devotee_phone' => 'Devotee phone (devotee.phone)',
+                    'seva_name' => 'Seva name in Gujarati (booking.seva.name_gu)',
+                    'booking_date' => 'Booking date (booking.booking_date)',
+                    'slot_time' => 'Slot time (booking.slot_time)',
+                    'booking_id' => 'Booking ID (booking.id)',
+                    'trust_name' => 'Trust name from System Settings (trust_name)',
+                ],
+            ],
+
+            // Fires from the seva:dispatch-reminders cron at each
+            // reminder offset configured on the seva, when that
+            // reminder's recipients array includes 'devotee'.
+            'seva.booking.reminder.devotee' => [
+                'label' => 'Seva — reminder to devotee',
+                'description' => 'Fires N hours before the booking date for each reminder configured on the seva that targets the devotee.',
+                'placeholders' => [
+                    'devotee_name' => 'Devotee name (devotee.name)',
+                    'seva_name' => 'Seva name in Gujarati (booking.seva.name_gu)',
+                    'booking_date' => 'Booking date (booking.booking_date)',
+                    'slot_time' => 'Slot time (booking.slot_time)',
+                    'hours_remaining' => 'Hours remaining until seva (hours_remaining)',
+                    'time_remaining_label' => 'Human label like "24 hours" or "3 days" (time_remaining_label)',
+                    'booking_id' => 'Booking ID (booking.id)',
+                    'trust_name' => 'Trust name from System Settings (trust_name)',
+                ],
+            ],
+
+            // Same as above but for the pujari-role staff. Cron fans
+            // out one dispatch per pujari-role admin user, just like
+            // seva.booking.staff_alert.
+            'seva.booking.reminder.staff' => [
+                'label' => 'Seva — reminder to staff',
+                'description' => 'Fires N hours before each booking — once per pujari-role admin user, when the reminder is configured to target staff.',
+                'placeholders' => [
+                    'admin_name' => 'Staff admin name (admin.name)',
+                    'devotee_name' => 'Devotee who booked (devotee.name)',
+                    'devotee_phone' => 'Devotee phone (devotee.phone)',
+                    'seva_name' => 'Seva name in Gujarati (booking.seva.name_gu)',
+                    'booking_date' => 'Booking date (booking.booking_date)',
+                    'slot_time' => 'Slot time (booking.slot_time)',
+                    'hours_remaining' => 'Hours remaining until seva (hours_remaining)',
+                    'time_remaining_label' => 'Human label like "24 hours" or "3 days" (time_remaining_label)',
                     'booking_id' => 'Booking ID (booking.id)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],

@@ -55,6 +55,15 @@ Schedule::command('bookings:clean-stale')
     ->everyFiveMinutes()
     ->withoutOverlapping();
 
+// Seva reminders — every 30 min. Each Seva resource carries its own
+// reminders[] array; this command fans out per-booking × per-reminder
+// dispatches to devotee + pujari-role admins. The 35-min window in
+// the command default leaves 5 min slack for clock drift.
+Schedule::command('seva:dispatch-reminders')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping()
+    ->runInBackground();
+
 // Prune expired OTP codes daily
 Schedule::command('model:prune', ['--model' => [OtpCode::class]])
     ->daily();

@@ -88,24 +88,29 @@ class FirebaseService
                 foreach ($report->failures()->getItems() as $failure) {
                     $errorMessage = $failure->error()?->getMessage() ?? '';
                     $errorClass = $failure->error() ? get_class($failure->error()) : 'unknown';
-                    $tokenTail = substr((string) $failure->target()->value(), -8);
+                    $tokenValue = (string) $failure->target()->value();
+                    $tokenTail = substr($tokenValue, -8);
 
-                    // Surface every per-message failure with full detail so
-                    // we can diagnose project mismatches, invalid args,
-                    // permission errors, etc. without re-deploying.
                     Log::warning('FCM message rejected', [
                         'token_tail' => $tokenTail,
                         'error_class' => $errorClass,
                         'error_message' => $errorMessage,
                     ]);
 
-                    if (
-                        str_contains($errorMessage, 'not-registered')
+                    // Detect dead tokens by EXCEPTION CLASS (most reliable
+                    // signal — kreait normalises this) and a broader set of
+                    // message strings as a fallback for older versions.
+                    $isDead =
+                        str_contains($errorClass, 'NotFound')
+                        || str_contains($errorClass, 'InvalidArgument')
+                        || str_contains($errorMessage, 'not-registered')
                         || str_contains($errorMessage, 'invalid-registration')
                         || str_contains($errorMessage, 'NOT_FOUND')
                         || str_contains($errorMessage, 'UNREGISTERED')
-                    ) {
-                        $results['invalid_tokens'][] = $failure->target()->value();
+                        || str_contains($errorMessage, 'Requested entity was not found');
+
+                    if ($isDead) {
+                        $results['invalid_tokens'][] = $tokenValue;
                     }
                 }
             } catch (Throwable $e) {

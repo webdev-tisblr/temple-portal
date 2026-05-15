@@ -143,13 +143,14 @@ class NotificationResource extends Resource
                     Forms\Components\Select::make('segment')
                         ->label('Who receives this')
                         ->options([
-                            'all' => 'All devotees with the app installed',
+                            'all' => 'Everyone with the app (logged in or browsing)',
                             'donors' => 'Donors only',
                             'active_users' => 'Active users (logged in within 30 days)',
                             'inactive_users' => 'Inactive users (no login in 30+ days)',
                             'birthday_today' => 'Devotees with birthday today',
                             'custom' => 'Specific devotees',
                         ])
+                        ->helperText('"Everyone" includes devotees who installed the app but haven\'t logged in yet. The other segments only target logged-in devotees.')
                         ->required()
                         ->default('all')
                         ->live(),

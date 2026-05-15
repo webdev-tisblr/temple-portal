@@ -75,12 +75,18 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/otp/send', [AuthController::class, 'sendOtp']);
     Route::post('/auth/otp/verify', [AuthController::class, 'verifyOtp']);
 
+    // Device tokens — public registration so anonymous installs (no OTP
+    // login yet) can still receive admin broadcasts. Auth-optional: if a
+    // Sanctum token is present, the row is attached to that devotee.
+    Route::post('/device-tokens', [DeviceTokenController::class, 'registerPublic']);
+
     // Authenticated routes
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::post('/auth/refresh', [AuthController::class, 'refreshToken']);
 
-        // Device tokens — register on login + token refresh, deactivate on logout
+        // Device tokens — legacy auth-required register (still used by the
+        // older app version) and deactivate-on-logout.
         Route::post('/me/device-tokens', [DeviceTokenController::class, 'register']);
         Route::delete('/me/device-tokens', [DeviceTokenController::class, 'deactivate']);
 

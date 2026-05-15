@@ -37,12 +37,6 @@
                     <span class="font-medium text-amber-100/70">{{ $booking->devotee_name_for_seva }}</span>
                 </div>
                 @endif
-                @if($booking->gotra)
-                <div class="flex justify-between py-2.5 border-b border-amber-900/20">
-                    <span class="text-amber-100/40">ગોત્ર</span>
-                    <span class="font-medium text-amber-100/70">{{ $booking->gotra }}</span>
-                </div>
-                @endif
                 @if($booking->sankalp)
                 <div class="flex justify-between py-2.5 border-b border-amber-900/20">
                     <span class="text-amber-100/40">સંકલ્પ</span>

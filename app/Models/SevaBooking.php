@@ -25,7 +25,6 @@ class SevaBooking extends Model
         'status',
         'payment_id',
         'devotee_name_for_seva',
-        'gotra',
         'sankalp',
         'selected_product_id',
         'notes',

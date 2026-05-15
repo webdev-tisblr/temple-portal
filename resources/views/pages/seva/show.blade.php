@@ -166,11 +166,6 @@
                                 class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-amber-600 mb-1">ગોત્ર (વૈકલ્પિક)</label>
-                            <input type="text" x-model="gotra" placeholder="ગોત્ર"
-                                class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
-                        </div>
-                        <div>
                             <label class="block text-sm font-medium text-amber-600 mb-1">સંકલ્પ (વૈકલ્પિક)</label>
                             <textarea x-model="sankalp" rows="2" placeholder="તમારી મનોકામના / સંકલ્પ"
                                 class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20"></textarea>
@@ -186,7 +181,6 @@
                                 <input type="hidden" name="slot_time" :value="selectedSlot">
                                 <input type="hidden" name="quantity" value="1">
                                 <input type="hidden" name="devotee_name_for_seva" :value="devoteeName">
-                                <input type="hidden" name="gotra" :value="gotra">
                                 <input type="hidden" name="sankalp" :value="sankalp">
                                 <input type="hidden" name="selected_product_id" :value="selectedProductId">
                                 <button type="submit"
@@ -236,7 +230,6 @@ function slotPicker(sevaId) {
         slotDuration: config.slot_duration_minutes || 0,
         selectedProductId: null,
         devoteeName: '',
-        gotra: '',
         sankalp: '',
 
         // Date carousel state — populated from the

@@ -119,7 +119,6 @@ class SevaController extends BaseApiController
             'total_amount' => (float) $booking->total_amount,
             'status' => $booking->status->value,
             'devotee_name_for_seva' => $booking->devotee_name_for_seva,
-            'gotra' => $booking->gotra,
             'sankalp' => $booking->sankalp,
             'selected_product' => $booking->selectedProduct ? [
                 'id' => $booking->selectedProduct->id,
@@ -204,7 +203,6 @@ class SevaController extends BaseApiController
                     'status' => 'pending',
                     'payment_id' => $payment->id,
                     'devotee_name_for_seva' => $validated['devotee_name_for_seva'] ?? $devotee->name,
-                    'gotra' => $validated['gotra'] ?? null,
                     'sankalp' => $validated['sankalp'] ?? null,
                     'selected_product_id' => $validated['selected_product_id'] ?? null,
                 ]);

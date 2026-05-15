@@ -102,7 +102,6 @@ class SevaWebController extends Controller
                     'status' => 'pending',
                     'payment_id' => $payment->id,
                     'devotee_name_for_seva' => $validated['devotee_name_for_seva'] ?? $devotee->name,
-                    'gotra' => $validated['gotra'] ?? null,
                     'sankalp' => $validated['sankalp'] ?? null,
                     'selected_product_id' => $validated['selected_product_id'] ?? null,
                 ]);
@@ -159,7 +158,6 @@ class SevaWebController extends Controller
                     'status' => 'confirmed',
                     'payment_id' => $payment->id,
                     'devotee_name_for_seva' => $validated['devotee_name_for_seva'] ?? $devotee->name,
-                    'gotra' => $validated['gotra'] ?? null,
                     'sankalp' => $validated['sankalp'] ?? null,
                     'selected_product_id' => $validated['selected_product_id'] ?? null,
                 ]);

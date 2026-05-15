@@ -76,9 +76,6 @@ class SevaBookingResource extends Resource
                 Forms\Components\Placeholder::make('devotee_name_for_seva_label')
                     ->label('Name for Seva')
                     ->content(fn ($record) => $record?->devotee_name_for_seva ?? '—'),
-                Forms\Components\Placeholder::make('gotra_label')
-                    ->label('Gotra')
-                    ->content(fn ($record) => $record?->gotra ?? '—'),
                 Forms\Components\Placeholder::make('sankalp_label')
                     ->label('Sankalp')
                     ->content(fn ($record) => $record?->sankalp ?? '—')

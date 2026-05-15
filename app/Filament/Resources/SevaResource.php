@@ -180,17 +180,12 @@ class SevaResource extends Resource
                         ->addActionLabel('Add Blackout Date'),
                 ])->collapsible(),
 
-            Forms\Components\Section::make('Notification Configuration')
+            Forms\Components\Section::make('Reminders')
                 ->icon('heroicon-o-bell')
                 ->collapsed()
                 ->schema([
-                    Forms\Components\Placeholder::make('notification_note')
-                        ->label('How notifications work')
-                        ->content(view('filament.seva.notification-help'))
-                        ->columnSpanFull(),
-
                     Forms\Components\Repeater::make('reminder_offsets')
-                        ->label('Reminders before this seva')
+                        ->hiddenLabel()
                         ->simple(
                             Forms\Components\Select::make('offset')
                                 ->options([
@@ -206,8 +201,7 @@ class SevaResource extends Resource
                         )
                         ->defaultItems(0)
                         ->addActionLabel('Add reminder')
-                        ->reorderable(false)
-                        ->helperText('Each row schedules one reminder. The cron fires seva.booking.reminder at each offset; every enabled template for that trigger receives the dispatch (devotee, admin role, whichever you have configured).'),
+                        ->reorderable(false),
                 ]),
 
             Forms\Components\Section::make('Product Selection for Devotee')

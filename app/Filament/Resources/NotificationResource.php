@@ -5,14 +5,24 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\NotificationResource\Pages;
+use App\Jobs\SendPushNotification;
+use App\Models\BlogPost;
+use App\Models\Devotee;
+use App\Models\DonationCampaign;
+use App\Models\Event;
 use App\Models\Notification;
+use App\Models\Seva;
+use Filament\Forms;
+use Filament\Forms\Form;
+use Filament\Forms\Get;
+use Filament\Notifications\Notification as FilamentNotification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class NotificationResource extends Resource
 {
-
     protected static ?string $model = Notification::class;
     protected static ?string $navigationIcon = 'heroicon-o-megaphone';
     protected static ?string $navigationGroup = 'Communication';
@@ -21,32 +31,275 @@ class NotificationResource extends Resource
     protected static ?string $modelLabel = 'Push notification';
     protected static ?string $pluralModelLabel = 'Push notifications';
 
-    public static function canCreate(): bool
+    // Once a notification is sent or actively sending, it becomes read-only.
+    public static function canEdit(Model $record): bool
     {
-        return false;
+        return in_array($record->status, ['draft', 'scheduled', 'failed'], true);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return $record->status !== 'sending';
+    }
+
+    public static function form(Form $form): Form
+    {
+        return $form->schema([
+
+            Forms\Components\Section::make('Notification content')
+                ->columns(1)
+                ->schema([
+                    Forms\Components\Tabs::make('locale')
+                        ->tabs([
+                            Forms\Components\Tabs\Tab::make('ગુજરાતી')
+                                ->schema([
+                                    Forms\Components\TextInput::make('title_gu')
+                                        ->label('Title')
+                                        ->required()
+                                        ->maxLength(120),
+                                    Forms\Components\Textarea::make('body_gu')
+                                        ->label('Message')
+                                        ->required()
+                                        ->rows(3)
+                                        ->maxLength(500),
+                                ]),
+                            Forms\Components\Tabs\Tab::make('हिन्दी')
+                                ->schema([
+                                    Forms\Components\TextInput::make('title_hi')->label('Title')->maxLength(120),
+                                    Forms\Components\Textarea::make('body_hi')->label('Message')->rows(3)->maxLength(500),
+                                ]),
+                            Forms\Components\Tabs\Tab::make('English')
+                                ->schema([
+                                    Forms\Components\TextInput::make('title_en')->label('Title')->maxLength(120),
+                                    Forms\Components\Textarea::make('body_en')->label('Message')->rows(3)->maxLength(500),
+                                ]),
+                        ])
+                        ->columnSpanFull(),
+                    Forms\Components\FileUpload::make('image_url')
+                        ->label('Image (optional)')
+                        ->image()
+                        ->imageEditor()
+                        ->disk('r2')
+                        ->visibility('public')
+                        ->directory('notifications')
+                        ->maxSize(2048)
+                        ->helperText('JPG or PNG, max 2 MB. Renders alongside the title/body on Android. iOS needs a Notification Service Extension to display the image — see FIREBASE_SETUP.md.'),
+                ]),
+
+            Forms\Components\Section::make('Open in app on tap')
+                ->description("Choose what the devotee sees when they tap the notification. Leave blank to just open the home screen.")
+                ->schema([
+                    Forms\Components\Select::make('intent')
+                        ->label('Open')
+                        ->options(self::intentOptions())
+                        ->placeholder('— Just open the app (home) —')
+                        ->live()
+                        ->afterStateUpdated(fn (Forms\Set $set) => $set('intent_params', null))
+                        ->columnSpanFull(),
+
+                    // Each picker reads/writes the same `intent_params` JSON column,
+                    // but only one is visible per intent value. Setting intent_params
+                    // to null on intent-change above keeps stale IDs from leaking.
+                    Forms\Components\Select::make('intent_params.id')
+                        ->label('Seva')
+                        ->options(fn () => Seva::query()->orderBy('name_gu')->pluck('name_gu', 'id')->all())
+                        ->searchable()
+                        ->preload()
+                        ->required()
+                        ->visible(fn (Get $get) => $get('intent') === 'seva-detail'),
+
+                    Forms\Components\Select::make('intent_params.id')
+                        ->label('Campaign')
+                        ->options(fn () => DonationCampaign::query()->orderBy('title_gu')->pluck('title_gu', 'id')->all())
+                        ->searchable()
+                        ->preload()
+                        ->required()
+                        ->visible(fn (Get $get) => $get('intent') === 'campaign-detail'),
+
+                    Forms\Components\Select::make('intent_params.id')
+                        ->label('Event')
+                        ->options(fn () => Event::query()->orderByDesc('start_date')->pluck('title_gu', 'id')->all())
+                        ->searchable()
+                        ->preload()
+                        ->required()
+                        ->visible(fn (Get $get) => $get('intent') === 'event-detail'),
+
+                    Forms\Components\Select::make('intent_params.slug')
+                        ->label('Blog post')
+                        ->options(fn () => BlogPost::query()->orderBy('title_gu')->pluck('title_gu', 'slug')->all())
+                        ->searchable()
+                        ->preload()
+                        ->required()
+                        ->visible(fn (Get $get) => $get('intent') === 'blog-detail'),
+                ]),
+
+            Forms\Components\Section::make('Audience')
+                ->schema([
+                    Forms\Components\Select::make('segment')
+                        ->label('Who receives this')
+                        ->options([
+                            'all' => 'All devotees with the app installed',
+                            'donors' => 'Donors only',
+                            'active_users' => 'Active users (logged in within 30 days)',
+                            'inactive_users' => 'Inactive users (no login in 30+ days)',
+                            'birthday_today' => 'Devotees with birthday today',
+                            'custom' => 'Specific devotees',
+                        ])
+                        ->required()
+                        ->default('all')
+                        ->live(),
+
+                    Forms\Components\Select::make('custom_filter.devotee_ids')
+                        ->label('Pick devotees')
+                        ->multiple()
+                        ->searchable()
+                        ->preload(false)
+                        ->getSearchResultsUsing(function (string $search): array {
+                            return Devotee::query()
+                                ->where(function ($q) use ($search) {
+                                    $q->where('name', 'like', "%{$search}%")
+                                        ->orWhere('phone', 'like', "%{$search}%");
+                                })
+                                ->limit(50)
+                                ->get()
+                                ->mapWithKeys(fn (Devotee $d) => [$d->id => "{$d->name} ({$d->phone})"])
+                                ->all();
+                        })
+                        ->getOptionLabelsUsing(function (array $values): array {
+                            return Devotee::query()
+                                ->whereIn('id', $values)
+                                ->get()
+                                ->mapWithKeys(fn (Devotee $d) => [$d->id => "{$d->name} ({$d->phone})"])
+                                ->all();
+                        })
+                        ->visible(fn (Get $get) => $get('segment') === 'custom')
+                        ->required(fn (Get $get) => $get('segment') === 'custom')
+                        ->helperText('Type a name or phone number to search.'),
+                ]),
+
+            Forms\Components\Section::make('When to send')
+                ->schema([
+                    Forms\Components\Radio::make('send_mode')
+                        ->options([
+                            'now' => 'Send right now',
+                            'schedule' => 'Schedule for later',
+                        ])
+                        ->default('now')
+                        ->inline()
+                        ->dehydrated(false)
+                        ->live(),
+
+                    Forms\Components\DateTimePicker::make('scheduled_at')
+                        ->label('Scheduled time')
+                        ->seconds(false)
+                        ->minDate(fn () => now())
+                        ->visible(fn (Get $get) => $get('send_mode') === 'schedule')
+                        ->required(fn (Get $get) => $get('send_mode') === 'schedule')
+                        ->helperText('The dispatcher checks every 5 minutes — actual send may be up to ~5 min after this time.'),
+                ]),
+
+            Forms\Components\Section::make('Delivery')
+                ->hiddenOn('create')
+                ->schema([
+                    Forms\Components\Placeholder::make('status_view')
+                        ->label('Status')
+                        ->content(fn (?Model $record) => $record?->status ?? '—'),
+                    Forms\Components\Placeholder::make('total_recipients_view')
+                        ->label('Total recipients')
+                        ->content(fn (?Model $record) => (string) ($record?->total_recipients ?? 0)),
+                    Forms\Components\Placeholder::make('delivered_count_view')
+                        ->label('Delivered')
+                        ->content(fn (?Model $record) => (string) ($record?->delivered_count ?? 0)),
+                    Forms\Components\Placeholder::make('sent_at_view')
+                        ->label('Sent at')
+                        ->content(fn (?Model $record) => $record?->sent_at?->format('d M Y, H:i') ?? '—'),
+                ])
+                ->columns(4),
+        ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('title_gu')->label('Title')->searchable()->limit(40),
-                Tables\Columns\TextColumn::make('segment')->badge(),
-                Tables\Columns\TextColumn::make('status')->badge()->color(fn ($state) => match ($state) {
-                    'sent' => 'success', 'scheduled' => 'info', 'sending' => 'warning',
-                    'failed' => 'danger', default => 'gray',
-                }),
-                Tables\Columns\TextColumn::make('scheduled_at')->dateTime('d M Y H:i'),
-                Tables\Columns\TextColumn::make('sent_at')->dateTime('d M Y H:i'),
-                Tables\Columns\TextColumn::make('total_recipients')->label('Recipients'),
-                Tables\Columns\TextColumn::make('delivered_count')->label('Delivered'),
+                Tables\Columns\ImageColumn::make('image_url')
+                    ->label('')
+                    ->circular()
+                    ->size(40)
+                    ->defaultImageUrl(asset('images/shree-pataliya-hanumanji-logo.png')),
+                Tables\Columns\TextColumn::make('title_gu')
+                    ->label('Title')
+                    ->searchable()
+                    ->limit(40)
+                    ->wrap(),
+                Tables\Columns\TextColumn::make('intent')
+                    ->label('Opens')
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('home'),
+                Tables\Columns\TextColumn::make('segment')
+                    ->badge()
+                    ->color('info'),
+                Tables\Columns\TextColumn::make('status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'sent' => 'success',
+                        'scheduled' => 'info',
+                        'sending' => 'warning',
+                        'failed' => 'danger',
+                        default => 'gray',
+                    }),
+                Tables\Columns\TextColumn::make('scheduled_at')
+                    ->dateTime('d M, H:i')
+                    ->placeholder('—'),
+                Tables\Columns\TextColumn::make('sent_at')
+                    ->dateTime('d M, H:i')
+                    ->placeholder('—'),
+                Tables\Columns\TextColumn::make('delivered_count')
+                    ->label('Delivered / Total')
+                    ->formatStateUsing(fn ($state, Model $record) => "{$state} / {$record->total_recipients}"),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('status')->options([
-                    'draft' => 'Draft', 'scheduled' => 'Scheduled', 'sending' => 'Sending',
-                    'sent' => 'Sent', 'failed' => 'Failed',
+                    'draft' => 'Draft',
+                    'scheduled' => 'Scheduled',
+                    'sending' => 'Sending',
+                    'sent' => 'Sent',
+                    'failed' => 'Failed',
                 ]),
+                Tables\Filters\SelectFilter::make('segment')->options([
+                    'all' => 'All',
+                    'donors' => 'Donors',
+                    'active_users' => 'Active',
+                    'inactive_users' => 'Inactive',
+                    'birthday_today' => 'Birthday today',
+                    'custom' => 'Custom',
+                ]),
+            ])
+            ->actions([
+                Tables\Actions\Action::make('send_now')
+                    ->label('Send now')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Send notification now')
+                    ->modalDescription(fn (Model $record) => "This will dispatch \"{$record->title_gu}\" to every targeted device immediately. Continue?")
+                    ->visible(fn (Model $record) => in_array($record->status, ['draft', 'scheduled', 'failed'], true))
+                    ->action(function (Model $record) {
+                        $record->update([
+                            'status' => 'sending',
+                            'scheduled_at' => null,
+                        ]);
+                        SendPushNotification::dispatch($record);
+
+                        FilamentNotification::make()
+                            ->title('Notification dispatched')
+                            ->success()
+                            ->send();
+                    }),
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
             ]);
     }
 
@@ -54,6 +307,30 @@ class NotificationResource extends Resource
     {
         return [
             'index' => Pages\ListNotifications::route('/'),
+            'create' => Pages\CreateNotification::route('/create'),
+            'edit' => Pages\EditNotification::route('/{record}/edit'),
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function intentOptions(): array
+    {
+        return [
+            'home' => 'Home',
+            'donate' => 'Donate (free amount)',
+            'campaigns' => 'Campaigns list',
+            'campaign-detail' => 'Specific campaign',
+            'seva-detail' => 'Specific seva',
+            'events' => 'Events list',
+            'event-detail' => 'Specific event',
+            'blog' => 'Blog',
+            'blog-detail' => 'Specific blog post',
+            'halls' => 'Halls list',
+            'store' => 'Store',
+            'profile' => 'Profile',
+            'contact' => 'Contact us',
         ];
     }
 }

@@ -226,7 +226,7 @@ class RolePermissionSeeder extends Seeder
 
                 // Communication
                 $crud('notification::template'),
-                $readOnly('notification'),
+                $crud('notification', ['view_any', 'view', 'create', 'update', 'delete', 'delete_any']),
                 $readOnly('notification::log'),
                 $readOnly('contact::submission'),
 

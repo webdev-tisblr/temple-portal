@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\DeviceToken;
-use App\Models\Donation;
 use App\Models\Notification;
 use App\Services\FirebaseService;
 use Illuminate\Bus\Queueable;
@@ -30,7 +29,14 @@ class SendPushNotification implements ShouldQueue
 
     public function handle(FirebaseService $firebaseService): void
     {
-        $notification = $this->notification;
+        $notification = $this->notification->fresh() ?? $this->notification;
+
+        // Idempotency: don't re-send something that's already sent.
+        if (in_array($notification->status, ['sent', 'failed'], true)) {
+            return;
+        }
+
+        $notification->update(['status' => 'sending']);
 
         try {
             $tokens = $this->resolveTokens($notification);
@@ -52,22 +58,32 @@ class SendPushNotification implements ShouldQueue
             $tokenValues = array_column($tokens, 'token');
             $totalRecipients = count($tokenValues);
 
-            $title = $notification->title_gu ?? $notification->title_en ?? 'શ્રી પાતળિયા હનુમાનજી';
-            $body = $notification->body_gu ?? $notification->body_en ?? '';
+            $title = $notification->title_gu ?: ($notification->title_en ?: 'શ્રી પાતળિયા હનુમાનજી');
+            $body = $notification->body_gu ?: ($notification->body_en ?: '');
 
+            // FCM `data` payload values must all be strings — the Flutter
+            // side json-decodes intent_params when navigating.
             $data = array_filter([
                 'notification_id' => (string) $notification->id,
-                'image_url' => $notification->image_url ?? null,
-            ]);
+                'intent' => $notification->intent,
+                'intent_params' => $notification->intent_params
+                    ? json_encode($notification->intent_params, JSON_UNESCAPED_UNICODE)
+                    : null,
+            ], fn ($v) => $v !== null && $v !== '');
 
-            $results = $firebaseService->sendToMultiple($tokenValues, $title, $body, $data);
+            $results = $firebaseService->sendToMultiple(
+                $tokenValues,
+                $title,
+                $body,
+                $data,
+                $notification->image_url,
+            );
 
-            // Mark invalid tokens as inactive
             if (!empty($results['invalid_tokens'])) {
                 DeviceToken::whereIn('token', $results['invalid_tokens'])
                     ->update(['is_active' => false]);
 
-                Log::info('SendPushNotification: marked invalid tokens as inactive', [
+                Log::info('SendPushNotification: deactivated invalid tokens', [
                     'count' => count($results['invalid_tokens']),
                 ]);
             }
@@ -86,7 +102,7 @@ class SendPushNotification implements ShouldQueue
                 'failure' => $results['failure'],
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('SendPushNotification: job failed', [
                 'notification_id' => $notification->id,
                 'error' => $e->getMessage(),
@@ -101,7 +117,7 @@ class SendPushNotification implements ShouldQueue
     /**
      * Resolve FCM device tokens based on notification segment.
      *
-     * @return array<int, array{token: string, devotee_id: mixed}>
+     * @return array<int, array{token: string, devotee_id: string|null}>
      */
     private function resolveTokens(Notification $notification): array
     {
@@ -129,6 +145,16 @@ class SendPushNotification implements ShouldQueue
                 ->get()
                 ->toArray(),
 
+            'inactive_users' => $query
+                ->whereHas('devotee', function ($q) {
+                    $q->where(function ($sub) {
+                        $sub->whereNull('last_login_at')
+                            ->orWhere('last_login_at', '<', now()->subDays(30));
+                    });
+                })
+                ->get()
+                ->toArray(),
+
             'birthday_today' => $query
                 ->whereHas('devotee', function ($q) {
                     $q->whereMonth('date_of_birth', now()->month)
@@ -144,9 +170,7 @@ class SendPushNotification implements ShouldQueue
     }
 
     /**
-     * Resolve tokens for custom-filtered segments.
-     *
-     * @return array<int, array{token: string, devotee_id: mixed}>
+     * @return array<int, array{token: string, devotee_id: string|null}>
      */
     private function resolveCustomTokens(Notification $notification, \Illuminate\Database\Eloquent\Builder $query): array
     {

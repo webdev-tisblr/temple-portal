@@ -18,6 +18,8 @@ class Notification extends Model
         'body_hi',
         'body_en',
         'image_url',
+        'intent',
+        'intent_params',
         'segment',
         'custom_filter',
         'scheduled_at',
@@ -30,6 +32,7 @@ class Notification extends Model
     ];
 
     protected $casts = [
+        'intent_params' => 'array',
         'custom_filter' => 'array',
         'scheduled_at' => 'datetime',
         'sent_at' => 'datetime',

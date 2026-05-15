@@ -35,16 +35,17 @@ Schedule::command('queue:retry all')
 Schedule::command('temple:send-birthday-blessings')
     ->dailyAt('07:00');
 
-// Dispatch scheduled push notifications every 5 minutes
+// Dispatch scheduled push notifications every 5 minutes.
+// Status flow: draft → scheduled → sending → sent | failed
 Schedule::call(function () {
     $due = Notification::query()
-        ->where('status', 'pending')
+        ->where('status', 'scheduled')
         ->whereNotNull('scheduled_at')
         ->where('scheduled_at', '<=', now())
         ->get();
 
     foreach ($due as $notification) {
-        $notification->update(['status' => 'processing']);
+        $notification->update(['status' => 'sending']);
         SendPushNotification::dispatch($notification);
     }
 })->everyFiveMinutes()->name('dispatch-scheduled-notifications')->withoutOverlapping();

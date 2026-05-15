@@ -5,10 +5,16 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Notification extends Model
 {
     protected $table = 'temple_notifications';
+
+    public function reads(): HasMany
+    {
+        return $this->hasMany(NotificationRead::class, 'notification_id');
+    }
 
     protected $fillable = [
         'title_gu',

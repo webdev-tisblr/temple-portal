@@ -90,6 +90,13 @@ Route::prefix('v1')->group(function () {
         Route::post('/me/device-tokens', [DeviceTokenController::class, 'register']);
         Route::delete('/me/device-tokens', [DeviceTokenController::class, 'deactivate']);
 
+        // Notification inbox — paginated history of broadcast pushes
+        // visible to this devotee, with per-devotee read state.
+        Route::get('/me/notifications', [\App\Http\Controllers\Api\V1\NotificationInboxController::class, 'index']);
+        Route::get('/me/notifications/unread-count', [\App\Http\Controllers\Api\V1\NotificationInboxController::class, 'unreadCount']);
+        Route::post('/me/notifications/read-all', [\App\Http\Controllers\Api\V1\NotificationInboxController::class, 'markAllRead']);
+        Route::post('/me/notifications/{notification}/read', [\App\Http\Controllers\Api\V1\NotificationInboxController::class, 'markRead']);
+
         Route::get('/me', function (Request $request) {
             return response()->json([
                 'success' => true,

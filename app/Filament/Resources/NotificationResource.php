@@ -392,6 +392,7 @@ class NotificationResource extends Resource
             'store' => 'Store',
             'profile' => 'Profile',
             'contact' => 'Contact us',
+            'inbox' => 'Notification inbox',
         ];
     }
 }

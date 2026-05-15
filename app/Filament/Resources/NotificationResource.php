@@ -305,8 +305,64 @@ class NotificationResource extends Resource
                             ->success()
                             ->send();
                     }),
+
+                // Clone any existing notification as a fresh draft. Useful for
+                // resending past announcements, or tweaking + scheduling a
+                // version of one that already went out.
+                Tables\Actions\Action::make('duplicate')
+                    ->label('Duplicate')
+                    ->icon('heroicon-o-document-duplicate')
+                    ->color('gray')
+                    ->visible(fn (Model $record) => $record->status !== 'sending')
+                    ->action(function (Model $record) {
+                        $clone = $record->replicate([
+                            'sent_at',
+                            'total_recipients',
+                            'delivered_count',
+                            'opened_count',
+                        ]);
+                        $clone->status = 'draft';
+                        $clone->scheduled_at = null;
+                        $clone->created_by = auth()->id();
+                        $clone->save();
+
+                        FilamentNotification::make()
+                            ->title('Duplicated as draft')
+                            ->body('Edit the draft and choose "Send right now" or schedule it.')
+                            ->success()
+                            ->send();
+
+                        return redirect(NotificationResource::getUrl('edit', ['record' => $clone]));
+                    }),
+
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    // Block bulk-delete on rows currently being dispatched —
+                    // deleting mid-send would orphan the queued job.
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->before(function ($records) {
+                            $inFlight = $records->filter(fn (Model $r) => $r->status === 'sending');
+                            if ($inFlight->isNotEmpty()) {
+                                FilamentNotification::make()
+                                    ->title('Skipped rows currently sending')
+                                    ->body("{$inFlight->count()} row(s) are mid-dispatch and were not deleted.")
+                                    ->warning()
+                                    ->send();
+                            }
+                        })
+                        ->action(function ($records) {
+                            $deletable = $records->filter(fn (Model $r) => $r->status !== 'sending');
+                            $deletable->each->delete();
+
+                            FilamentNotification::make()
+                                ->title("Deleted {$deletable->count()} notification(s)")
+                                ->success()
+                                ->send();
+                        }),
+                ]),
             ]);
     }
 

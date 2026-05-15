@@ -195,14 +195,9 @@ class PaymentCaptureService
                 ->lockForUpdate()
                 ->first();
             if ($donation !== null) {
-                $devotee = $donation->devotee;
-                if ($devotee && $devotee->pan_encrypted) {
-                    $donation->update([
-                        'pan_verified' => true,
-                        'pan_number_encrypted' => $devotee->pan_encrypted,
-                    ]);
-                }
-
+                // PAN is intentionally NOT snapshotted onto the donation
+                // row — its canonical home is temple_devotees.pan_encrypted
+                // and the receipt-generation path reads from there.
                 app(\App\Services\Notifications\NotificationService::class)->dispatch(
                     'donation.confirmed',
                     [

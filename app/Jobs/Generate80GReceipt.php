@@ -43,7 +43,6 @@ class Generate80GReceipt implements ShouldQueue
 
         $this->donation->update([
             'receipt_generated' => true,
-            'receipt_id' => $receipt->id,
         ]);
 
         Log::info('80G receipt generated', [

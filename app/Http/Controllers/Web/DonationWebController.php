@@ -106,8 +106,6 @@ class DonationWebController extends Controller
                     'campaign_id' => $validated['campaign_id'] ?? null,
                     'extra_data' => $extraData,
                     'is_80g_eligible' => true,
-                    'pan_verified' => !empty($devotee->pan_encrypted),
-                    'pan_number_encrypted' => $devotee->pan_encrypted,
                     'anonymous' => $validated['anonymous'] ?? false,
                     'financial_year' => $fy,
                 ]);
@@ -155,11 +153,11 @@ class DonationWebController extends Controller
                 $payment = Payment::where('razorpay_order_id', $orderId)->first();
                 if ($payment) {
                     // Delegate to the central capture path. It flips
-                    // payment status under a row lock, syncs pan_verified,
-                    // dispatches donation.confirmed, and runs
-                    // Generate80GReceipt — all in one place. Earlier the
-                    // web flow did a partial capture inline that skipped
-                    // the donation.confirmed notification entirely.
+                    // payment status under a row lock, dispatches
+                    // donation.confirmed, and runs Generate80GReceipt —
+                    // all in one place. Earlier the web flow did a
+                    // partial capture inline that skipped the
+                    // donation.confirmed notification entirely.
                     app(\App\Services\PaymentCaptureService::class)->markCaptured(
                         $payment,
                         $paymentId,

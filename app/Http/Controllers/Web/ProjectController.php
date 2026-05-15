@@ -42,19 +42,19 @@ class ProjectController extends Controller
         SEOMeta::setTitle("{$project->title} — પ્રોજેક્ટ્સ — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ");
         SEOMeta::setDescription($project->description ?? '');
 
-        // First page of donors (non-anonymous, paid)
+        // First page of donors (paid only). Anonymous donations (Gupt
+        // Daan) are INCLUDED but the donor's name + city are masked —
+        // see the mapping closure below.
         $donors = Donation::where('campaign_id', $project->id)
-            ->where('anonymous', false)
             ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
             ->with('devotee:id,name,city')
             ->orderByDesc('created_at')
             ->paginate(20);
 
-        // Pre-build JS-ready donor data (avoid arrow functions in Blade @json)
         $donorsJs = $donors->getCollection()->map(function ($d) {
             return [
-                'name' => $d->devotee?->name ?? 'ભક્ત',
-                'city' => $d->devotee?->city ?? '',
+                'name' => $d->anonymous ? 'રામ ભરોસે' : ($d->devotee?->name ?? 'ભક્ત'),
+                'city' => $d->anonymous ? '' : ($d->devotee?->city ?? ''),
                 'amount' => (float) $d->amount,
             ];
         })->values()->toArray();
@@ -73,7 +73,6 @@ class ProjectController extends Controller
             ->firstOrFail();
 
         $donors = Donation::where('campaign_id', $project->id)
-            ->where('anonymous', false)
             ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
             ->with('devotee:id,name,city')
             ->orderByDesc('created_at')
@@ -81,8 +80,8 @@ class ProjectController extends Controller
 
         return response()->json([
             'data' => $donors->getCollection()->map(fn ($d) => [
-                'name' => $d->devotee?->name ?? 'ભક્ત',
-                'city' => $d->devotee?->city ?? '',
+                'name' => $d->anonymous ? 'રામ ભરોસે' : ($d->devotee?->name ?? 'ભક્ત'),
+                'city' => $d->anonymous ? '' : ($d->devotee?->city ?? ''),
                 'amount' => (float) $d->amount,
                 'date' => $d->created_at->format('d/m/Y'),
             ])->values(),

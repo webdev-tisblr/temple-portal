@@ -20,7 +20,9 @@ class DonationResource extends JsonResource
             'purpose' => $this->purpose,
             'financial_year' => $this->financial_year,
             'is_80g_eligible' => (bool) $this->is_80g_eligible,
-            'pan_verified' => (bool) $this->pan_verified,
+            // Surface PAN status from the canonical home (devotee profile)
+            // instead of a stale per-donation snapshot.
+            'pan_verified' => $this->devotee && ! empty($this->devotee->pan_encrypted),
             'receipt_generated' => (bool) $this->receipt_generated,
             'anonymous' => (bool) $this->anonymous,
             'receipt' => $this->when($this->receipt_generated && $this->relationLoaded('receipt') && $this->receipt, function () {

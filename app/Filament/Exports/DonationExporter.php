@@ -26,8 +26,8 @@ class DonationExporter extends Exporter
             ExportColumn::make('purpose')->label('Purpose'),
             ExportColumn::make('financial_year')->label('Financial Year'),
             ExportColumn::make('receipt.receipt_number')->label('Receipt No.'),
-            ExportColumn::make('pan_verified')->label('PAN Verified')
-                ->formatStateUsing(fn ($state) => $state ? 'Yes' : 'No'),
+            ExportColumn::make('devotee.pan_last_four')->label('PAN (last 4)')
+                ->formatStateUsing(fn ($state) => $state ? "***{$state}" : 'Not on file'),
             ExportColumn::make('anonymous')->label('Anonymous')
                 ->formatStateUsing(fn ($state) => $state ? 'Yes' : 'No'),
             ExportColumn::make('payment.status')->label('Payment Status'),

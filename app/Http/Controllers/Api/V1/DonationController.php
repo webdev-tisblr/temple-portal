@@ -60,8 +60,6 @@ class DonationController extends BaseApiController
                     'purpose' => $validated['purpose'] ?? null,
                     'campaign_id' => $validated['campaign_id'] ?? null,
                     'is_80g_eligible' => true,
-                    'pan_verified' => !empty($devotee->pan_encrypted),
-                    'pan_number_encrypted' => $devotee->pan_encrypted,
                     'anonymous' => $validated['anonymous'] ?? false,
                     'extra_data' => $validated['extra_data'] ?? null,
                     'financial_year' => $fy,

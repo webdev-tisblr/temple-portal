@@ -35,6 +35,15 @@ class NotificationTemplate extends Model
     // particular staff member (eg. the pujari for seva confirmations).
     public const RECIPIENT_ADMIN_USER = 'admin_user';
 
+    // Send to EVERY active AdminUser holding a given Spatie role —
+    // recipient_value stores the role name (eg "pujari", "trustee",
+    // "store_admin"). NotificationService expands one delivery per
+    // role-holder, injecting `admin` into the per-dispatch context so
+    // templates can render `{{ admin.name }}` etc. Lets the trust
+    // create a single template that broadcasts to a whole audience
+    // without naming individual users.
+    public const RECIPIENT_ADMIN_ROLE = 'admin_role';
+
     protected $fillable = [
         'key',
         'label',

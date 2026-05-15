@@ -198,6 +198,7 @@ class NotificationTemplateResource extends Resource
                         NotificationTemplate::RECIPIENT_DEVOTEE => 'Devotee in the event (email or phone)',
                         NotificationTemplate::RECIPIENT_TRUST_ADMIN => 'Trust admin (trust_email / trust_phone)',
                         NotificationTemplate::RECIPIENT_ADMIN_USER => 'A specific admin user (pick below)',
+                        NotificationTemplate::RECIPIENT_ADMIN_ROLE => 'Every admin holding a role (eg pujari, trustee)',
                         NotificationTemplate::RECIPIENT_FIXED_EMAIL => 'A specific email address',
                         NotificationTemplate::RECIPIENT_FIXED_PHONE => 'A specific phone number',
                         NotificationTemplate::RECIPIENT_CONTEXT_PATH => 'Look up from the event data (advanced)',
@@ -233,11 +234,29 @@ class NotificationTemplateResource extends Resource
                     ->helperText('Email channel will use this admin\'s email; WhatsApp / SMS will use their phone. Channel sends are skipped if the matching field is empty on the chosen user.')
                     ->visible(fn (Forms\Get $get) => $get('recipient_strategy') === NotificationTemplate::RECIPIENT_ADMIN_USER),
 
+                // Role picker — visible only when "Every admin holding a
+                // role" is chosen. recipient_value stores the role name;
+                // NotificationService fans the dispatch out across every
+                // active AdminUser with that role at send time.
+                Forms\Components\Select::make('recipient_value')
+                    ->label('Admin role')
+                    ->options(function () {
+                        return \Spatie\Permission\Models\Role::query()
+                            ->where('guard_name', 'admin')
+                            ->orderBy('name')
+                            ->pluck('name', 'name')
+                            ->all();
+                    })
+                    ->searchable()
+                    ->required()
+                    ->helperText('All active admin users with this role get the notification. Email channel reads admin_users.email; WhatsApp / SMS read admin_users.phone. Channel sends are skipped for users missing the matching field.')
+                    ->visible(fn (Forms\Get $get) => $get('recipient_strategy') === NotificationTemplate::RECIPIENT_ADMIN_ROLE),
+
                 // Free-text input — shown for the remaining strategies
                 // that need a literal value (fixed email / fixed phone /
                 // context dot-path). Devotee + trust-admin + admin-user
-                // strategies all resolve from elsewhere, so this stays
-                // hidden in those cases.
+                // + admin-role strategies all resolve from elsewhere, so
+                // this stays hidden in those cases.
                 Forms\Components\TextInput::make('recipient_value')
                     ->label('Value')
                     ->visible(fn (Forms\Get $get) => in_array($get('recipient_strategy'), [

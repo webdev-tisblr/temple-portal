@@ -163,6 +163,49 @@ final class NotificationService
                 ? "{$idempotencyKey}:{$template->channel}"
                 : null;
 
+            // admin_role strategy fans out across every active admin
+            // user holding the configured role. Each gets its own
+            // delivery with an `admin` key in context (so templates can
+            // render {{ admin.name }} per recipient). Idempotency key
+            // is suffixed with admin id so cron re-runs are no-ops per
+            // recipient.
+            if ($template->recipient_strategy === NotificationTemplate::RECIPIENT_ADMIN_ROLE) {
+                $role = trim((string) $template->recipient_value);
+                if ($role === '') {
+                    Log::warning('Notification: admin_role template missing recipient_value', [
+                        'template_id' => $template->id, 'template_key' => $template->key,
+                    ]);
+                    continue;
+                }
+
+                $admins = \App\Models\AdminUser::role($role)->where('is_active', true)->get();
+                if ($admins->isEmpty()) {
+                    Log::info('Notification: no active admins with role — skipping', [
+                        'template_id' => $template->id, 'template_key' => $template->key, 'role' => $role,
+                    ]);
+                    continue;
+                }
+
+                foreach ($admins as $admin) {
+                    $perAdminCtx = $ctx->with(['admin' => $admin]);
+                    $perAdminKey = $perChannelKey !== null
+                        ? "{$perChannelKey}:admin:{$admin->getKey()}"
+                        : null;
+                    try {
+                        if ($this->deliver($template, $perAdminCtx, $perAdminKey)) {
+                            $delivered++;
+                        }
+                    } catch (\Throwable $e) {
+                        Log::error('Notification: deliver wrapper threw (admin_role fan-out)', [
+                            'template_id' => $template->id,
+                            'admin_user_id' => $admin->getKey(),
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+                continue;
+            }
+
             try {
                 if ($this->deliver($template, $ctx, $perChannelKey)) {
                     $delivered++;

@@ -184,16 +184,15 @@ class SevaResource extends Resource
                 ->icon('heroicon-o-bell')
                 ->collapsed()
                 ->schema([
-                    Forms\Components\Placeholder::make('booking_alerts_note')
-                        ->label('Booking-time alerts')
-                        ->content('Booking confirmation messages and staff alerts are managed centrally in Communication → Notification Templates (seva.booking.confirmed for devotees, seva.booking.staff_alert for the pujari role).')
+                    Forms\Components\Placeholder::make('notification_note')
+                        ->label('How notifications work')
+                        ->content(view('filament.seva.notification-help'))
                         ->columnSpanFull(),
 
-                    Forms\Components\Repeater::make('reminders')
+                    Forms\Components\Repeater::make('reminder_offsets')
                         ->label('Reminders before this seva')
-                        ->schema([
+                        ->simple(
                             Forms\Components\Select::make('offset')
-                                ->label('When to remind')
                                 ->options([
                                     '3h' => '3 hours before',
                                     '6h' => '6 hours before',
@@ -204,23 +203,11 @@ class SevaResource extends Resource
                                     '168h' => '7 days before',
                                 ])
                                 ->required(),
-                            Forms\Components\CheckboxList::make('recipients')
-                                ->label('Notify')
-                                ->options([
-                                    'devotee' => 'Devotee',
-                                    'staff' => 'Staff (pujari role)',
-                                ])
-                                ->default(['devotee'])
-                                ->required(),
-                        ])
-                        ->columns(2)
+                        )
                         ->defaultItems(0)
                         ->addActionLabel('Add reminder')
-                        ->collapsible()
-                        ->itemLabel(fn (array $state): ?string => isset($state['offset'])
-                            ? "Reminder — {$state['offset']} before"
-                            : null)
-                        ->helperText('Reminder message text + channels are managed in Communication → Notification Templates (seva.booking.reminder.devotee and seva.booking.reminder.staff). This section only controls WHEN reminders fire and WHO they go to.'),
+                        ->reorderable(false)
+                        ->helperText('Each row schedules one reminder. The cron fires seva.booking.reminder at each offset; every enabled template for that trigger receives the dispatch (devotee, admin role, whichever you have configured).'),
                 ]),
 
             Forms\Components\Section::make('Product Selection for Devotee')

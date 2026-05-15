@@ -108,39 +108,24 @@ class PaymentCaptureService
             if ($booking !== null) {
                 $booking->update(['status' => 'confirmed']);
                 $booking->loadMissing('devotee', 'seva');
-                $trustName = \App\Models\SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust');
                 // dispatch() uses DB::afterCommit internally → safe to
                 // call inside the transaction; the actual driver work
                 // fires once the transaction commits.
+                //
+                // NotificationService dispatches ALL enabled templates
+                // for the key — so admin-role templates (for pujari /
+                // staff / etc.) fire alongside the devotee template
+                // here. No caller-side fan-out needed; the service
+                // expands admin_role strategy internally.
                 app(\App\Services\Notifications\NotificationService::class)->dispatch(
                     'seva.booking.confirmed',
                     [
                         'booking' => $booking,
                         'devotee' => $booking->devotee,
-                        'trust_name' => $trustName,
+                        'trust_name' => \App\Models\SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
                     ],
                     idempotencyKey: "payment:{$payment->id}:seva.booking.confirmed",
                 );
-
-                // Fan-out staff alert — one dispatch per admin user
-                // holding the 'pujari' role. Each gets its own per-admin
-                // context (so the template's recipient_strategy=context_path
-                // with recipient_value=admin.email / admin.phone resolves
-                // correctly). If no pujaris are configured, this loop is
-                // a no-op — the template existing+enabled isn't enough,
-                // there has to be at least one role-holder.
-                foreach (\App\Models\AdminUser::role('pujari')->where('is_active', true)->get() as $admin) {
-                    app(\App\Services\Notifications\NotificationService::class)->dispatch(
-                        'seva.booking.staff_alert',
-                        [
-                            'booking' => $booking,
-                            'devotee' => $booking->devotee,
-                            'admin' => $admin,
-                            'trust_name' => $trustName,
-                        ],
-                        idempotencyKey: "payment:{$payment->id}:seva.booking.staff_alert:{$admin->getKey()}",
-                    );
-                }
                 $captured['booking'] = $booking;
             }
 

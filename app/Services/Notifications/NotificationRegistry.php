@@ -99,55 +99,22 @@ final class NotificationRegistry
                 ],
             ],
 
-            // Fires alongside seva.booking.confirmed (same payment-capture
-            // moment) — once per admin user holding the `pujari` role.
-            // PaymentCaptureService enumerates the role members and
-            // dispatches per-admin with `admin` injected into context.
-            // Configure the template's recipient_strategy=context_path
-            // with recipient_value=admin.email or admin.phone.
-            'seva.booking.staff_alert' => [
-                'label' => 'Seva — staff alert on new booking',
-                'description' => 'Fires when a seva booking is confirmed — once per pujari-role admin user.',
-                'placeholders' => [
-                    'admin_name' => 'Staff admin name (admin.name)',
-                    'devotee_name' => 'Devotee who booked (devotee.name)',
-                    'devotee_phone' => 'Devotee phone (devotee.phone)',
-                    'seva_name' => 'Seva name in Gujarati (booking.seva.name_gu)',
-                    'booking_date' => 'Booking date (booking.booking_date)',
-                    'slot_time' => 'Slot time (booking.slot_time)',
-                    'booking_id' => 'Booking ID (booking.id)',
-                    'trust_name' => 'Trust name from System Settings (trust_name)',
-                ],
-            ],
-
             // Fires from the seva:dispatch-reminders cron at each
-            // reminder offset configured on the seva, when that
-            // reminder's recipients array includes 'devotee'.
-            'seva.booking.reminder.devotee' => [
-                'label' => 'Seva — reminder to devotee',
-                'description' => 'Fires N hours before the booking date for each reminder configured on the seva that targets the devotee.',
+            // reminder_offset configured on the seva. ALL enabled
+            // templates for this key fire on every dispatch — admin
+            // creates one template per audience (devotee, admin role
+            // for pujari/staff/whoever) and each gets the notification.
+            //
+            // Context note: when a template uses recipient_strategy
+            // `admin_role`, NotificationService injects an `admin` key
+            // into the context per role-holder so the template can
+            // render {{ admin.name }} for each.
+            'seva.booking.reminder' => [
+                'label' => 'Seva — reminder before booking',
+                'description' => 'Fires N hours before each confirmed booking based on the per-seva reminder_offsets list. Every enabled template for this trigger fires (devotee, admin role, etc.).',
                 'placeholders' => [
                     'devotee_name' => 'Devotee name (devotee.name)',
-                    'seva_name' => 'Seva name in Gujarati (booking.seva.name_gu)',
-                    'booking_date' => 'Booking date (booking.booking_date)',
-                    'slot_time' => 'Slot time (booking.slot_time)',
-                    'hours_remaining' => 'Hours remaining until seva (hours_remaining)',
-                    'time_remaining_label' => 'Human label like "24 hours" or "3 days" (time_remaining_label)',
-                    'booking_id' => 'Booking ID (booking.id)',
-                    'trust_name' => 'Trust name from System Settings (trust_name)',
-                ],
-            ],
-
-            // Same as above but for the pujari-role staff. Cron fans
-            // out one dispatch per pujari-role admin user, just like
-            // seva.booking.staff_alert.
-            'seva.booking.reminder.staff' => [
-                'label' => 'Seva — reminder to staff',
-                'description' => 'Fires N hours before each booking — once per pujari-role admin user, when the reminder is configured to target staff.',
-                'placeholders' => [
-                    'admin_name' => 'Staff admin name (admin.name)',
-                    'devotee_name' => 'Devotee who booked (devotee.name)',
-                    'devotee_phone' => 'Devotee phone (devotee.phone)',
+                    'admin_name' => 'Admin name — only when recipient is admin_role (admin.name)',
                     'seva_name' => 'Seva name in Gujarati (booking.seva.name_gu)',
                     'booking_date' => 'Booking date (booking.booking_date)',
                     'slot_time' => 'Slot time (booking.slot_time)',

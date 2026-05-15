@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\AdminUser;
-use App\Models\NotificationLog;
 use App\Models\Seva;
 use App\Models\SevaBooking;
 use App\Models\SystemSetting;
@@ -15,40 +13,33 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Fires reminder notifications for confirmed seva bookings based on the
- * per-seva `reminders` array. Designed to run on a schedule (default
- * every 30 minutes — see routes/console.php).
+ * Fires reminder notifications for confirmed seva bookings based on
+ * the per-seva `reminder_offsets` list. Runs on a 30-minute cron tick
+ * (see routes/console.php).
  *
- * Reminder shape (stored as JSON on temple_sevas.reminders):
+ * Offsets are a flat list of strings, eg:
+ *   ["168h", "72h", "24h", "12h", "3h"]
  *
- *   [
- *     {"offset": "24h", "recipients": ["devotee", "staff"]},
- *     {"offset": "3h",  "recipients": ["devotee"]}
- *   ]
+ * For each (booking × offset), the command dispatches the trigger key
+ * `seva.booking.reminder` ONCE. NotificationService then fires every
+ * enabled template for that key — admin creates one template per
+ * audience (devotee, admin role, etc.) and each one decides its own
+ * recipient + channel + body. The admin_role strategy fans out across
+ * role-holders automatically at the service level.
  *
- * Algorithm:
- *   1. Find sevas that have a non-empty reminders array.
- *   2. For each, find confirmed bookings whose booking_date is in the
- *      future. (Cancelled / completed / refunded are ignored.)
- *   3. For each (booking × reminder entry), compute fire_at =
- *      booking_date - offset. If fire_at falls inside the current
- *      dispatch window (now - $window, now], dispatch to each recipient
- *      in the reminder's recipients array.
- *   4. Idempotency key per (booking, offset, recipient) so cron runs
- *      that overlap windows can't double-send. (Cron re-runs are also
- *      no-ops because the temple_notification_logs row with the
- *      key already exists.)
+ * Idempotency: NotificationLog stores `seva-reminder:{booking_id}:{offset}`
+ * (plus per-channel and per-admin suffixes added downstream) — cron
+ * re-runs are no-ops because the log row already exists.
  *
- * Window sizing rule of thumb: the window MUST be >= the cron cadence,
- * or some reminders will fall through the cracks. Default cadence is
- * 30 minutes, so we use a 35-minute window (5 min slack for clock
- * drift / staggered execution).
+ * Window sizing: must be >= cron cadence or some reminders fall through
+ * the cracks. Default window is 35 min for a 30-min cadence (5 min
+ * slack for clock drift / staggered runs).
  */
 class DispatchSevaReminders extends Command
 {
     protected $signature = 'seva:dispatch-reminders {--window=35 : Window minutes — bookings whose fire_at falls in (now-window, now] get reminded}';
 
-    protected $description = 'Dispatch reminder notifications for confirmed seva bookings based on per-seva reminder offsets';
+    protected $description = 'Dispatch seva.booking.reminder for confirmed bookings based on per-seva reminder_offsets';
 
     public function handle(NotificationService $notifier): int
     {
@@ -58,15 +49,12 @@ class DispatchSevaReminders extends Command
 
         $trustName = SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust');
 
-        // Cache pujari-role admins once per run — query is the same for every booking.
-        $pujariAdmins = AdminUser::role('pujari')->where('is_active', true)->get();
-
-        $stats = ['considered' => 0, 'dispatched' => 0, 'skipped_duplicate' => 0];
+        $stats = ['considered' => 0, 'dispatched' => 0];
 
         $sevas = Seva::query()
-            ->whereNotNull('reminders')
+            ->whereNotNull('reminder_offsets')
             ->get()
-            ->filter(fn (Seva $s) => is_array($s->reminders) && count($s->reminders) > 0);
+            ->filter(fn (Seva $s) => is_array($s->reminder_offsets) && count($s->reminder_offsets) > 0);
 
         foreach ($sevas as $seva) {
             $bookings = SevaBooking::query()
@@ -77,10 +65,10 @@ class DispatchSevaReminders extends Command
                 ->get();
 
             foreach ($bookings as $booking) {
-                foreach ($seva->reminders as $reminder) {
+                foreach ($seva->reminder_offsets as $offset) {
                     $stats['considered']++;
 
-                    $offsetMinutes = self::parseOffset($reminder['offset'] ?? null);
+                    $offsetMinutes = self::parseOffset($offset);
                     if ($offsetMinutes === null) continue;
 
                     $fireAt = $this->bookingMoment($booking)->copy()->subMinutes($offsetMinutes);
@@ -89,69 +77,33 @@ class DispatchSevaReminders extends Command
                         continue;
                     }
 
-                    $recipients = (array) ($reminder['recipients'] ?? []);
                     $hoursRemaining = max(0, (int) round($offsetMinutes / 60));
                     $timeRemainingLabel = self::humanLabel($offsetMinutes);
 
-                    foreach ($recipients as $recipient) {
-                        $idempotencyKey = "seva-reminder:{$booking->id}:{$reminder['offset']}:{$recipient}";
-
-                        // Pre-check log to avoid even doing the dispatch
-                        // work when the row already exists (cheap optimisation;
-                        // NotificationService also catches duplicates internally
-                        // via its 5-min window but our window is longer).
-                        $alreadySent = NotificationLog::where('idempotency_key', $idempotencyKey)
-                            ->where('status', '!=', NotificationLog::STATUS_SKIPPED)
-                            ->exists();
-                        if ($alreadySent) {
-                            $stats['skipped_duplicate']++;
-                            continue;
-                        }
-
-                        if ($recipient === 'devotee') {
-                            $notifier->dispatch(
-                                'seva.booking.reminder.devotee',
-                                [
-                                    'booking' => $booking,
-                                    'devotee' => $booking->devotee,
-                                    'hours_remaining' => $hoursRemaining,
-                                    'time_remaining_label' => $timeRemainingLabel,
-                                    'trust_name' => $trustName,
-                                ],
-                                idempotencyKey: $idempotencyKey,
-                            );
-                            $stats['dispatched']++;
-                        } elseif ($recipient === 'staff') {
-                            // Fan-out across all pujari admins, just like
-                            // seva.booking.staff_alert. Use admin id in the
-                            // idempotency key so each admin gets one nudge.
-                            foreach ($pujariAdmins as $admin) {
-                                $perAdminKey = "{$idempotencyKey}:{$admin->getKey()}";
-                                $notifier->dispatch(
-                                    'seva.booking.reminder.staff',
-                                    [
-                                        'booking' => $booking,
-                                        'devotee' => $booking->devotee,
-                                        'admin' => $admin,
-                                        'hours_remaining' => $hoursRemaining,
-                                        'time_remaining_label' => $timeRemainingLabel,
-                                        'trust_name' => $trustName,
-                                    ],
-                                    idempotencyKey: $perAdminKey,
-                                );
-                                $stats['dispatched']++;
-                            }
-                        }
-                    }
+                    // ONE dispatch per (booking × offset). NotificationService
+                    // expands across every enabled template (devotee +
+                    // admin-role audiences) and per-admin role fan-out
+                    // happens inside the service.
+                    $notifier->dispatch(
+                        'seva.booking.reminder',
+                        [
+                            'booking' => $booking,
+                            'devotee' => $booking->devotee,
+                            'hours_remaining' => $hoursRemaining,
+                            'time_remaining_label' => $timeRemainingLabel,
+                            'trust_name' => $trustName,
+                        ],
+                        idempotencyKey: "seva-reminder:{$booking->id}:{$offset}",
+                    );
+                    $stats['dispatched']++;
                 }
             }
         }
 
         $this->info(sprintf(
-            'Seva reminders run complete — considered=%d dispatched=%d skipped_duplicate=%d window=%dmin',
+            'Seva reminders run complete — considered=%d dispatched=%d window=%dmin',
             $stats['considered'],
             $stats['dispatched'],
-            $stats['skipped_duplicate'],
             $windowMinutes,
         ));
 
@@ -162,8 +114,8 @@ class DispatchSevaReminders extends Command
 
     /**
      * Build the actual seva moment as a Carbon — combines booking_date
-     * with slot_time when present, otherwise treats the date as the
-     * start of day. This is what we count back from for each reminder.
+     * with slot_time when present, otherwise treats the date as start
+     * of day. Reminders count back from this moment.
      */
     private function bookingMoment(SevaBooking $booking): Carbon
     {
@@ -180,9 +132,8 @@ class DispatchSevaReminders extends Command
     }
 
     /**
-     * Parse a reminder offset string ("3h", "24h", "168h", "30m", "7d")
-     * into minutes. Returns null for malformed input — the caller skips
-     * the entry rather than dispatching at the wrong time.
+     * "3h" → 180, "24h" → 1440, "7d" → 10080, "30m" → 30. Returns null
+     * for malformed input — caller skips rather than misfiring.
      */
     private static function parseOffset(?string $offset): ?int
     {
@@ -199,8 +150,7 @@ class DispatchSevaReminders extends Command
     }
 
     /**
-     * Render an offset in minutes back into a human label for templates
-     * — '{{ time_remaining_label }}' renders as e.g. "24 hours" or "3 days".
+     * Render an offset as "{{ time_remaining_label }}", eg "24 hours" or "3 days".
      */
     private static function humanLabel(int $minutes): string
     {

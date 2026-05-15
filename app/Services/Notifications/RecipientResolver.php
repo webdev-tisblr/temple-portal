@@ -39,6 +39,7 @@ final class RecipientResolver
                 $template->recipient_value,
                 $expectedType,
             ),
+            NotificationTemplate::RECIPIENT_ADMIN_ROLE => $this->fromAdminInContext($template, $context, $expectedType),
             default => $this->warnUnknownStrategy($template),
         };
 
@@ -174,6 +175,38 @@ final class RecipientResolver
                 'template_key' => $template->key,
                 'channel' => $template->channel,
                 'admin_user_id' => $userId,
+            ]);
+            return null;
+        }
+        return $value;
+    }
+
+    /**
+     * Resolve the email/phone of the `admin` injected into the context
+     * by NotificationService's admin_role fan-out. The service has
+     * already expanded the role into N per-admin deliveries — at this
+     * point we just need to read from the current delivery's context.
+     */
+    private function fromAdminInContext(NotificationTemplate $template, NotificationContext $context, string $expectedType): ?string
+    {
+        $admin = $context->get('admin');
+        if (! $admin instanceof AdminUser) {
+            Log::warning('Notification: admin_role strategy but no admin in context (service-level fan-out misfire?)', [
+                'template_key' => $template->key,
+                'channel' => $template->channel,
+                'role' => $template->recipient_value,
+            ]);
+            return null;
+        }
+
+        $field = $expectedType === 'email' ? 'email' : 'phone';
+        $value = $admin->{$field};
+        if (! is_string($value) || trim($value) === '') {
+            Log::warning('Notification: admin_role member has no ' . $expectedType, [
+                'template_key' => $template->key,
+                'channel' => $template->channel,
+                'admin_user_id' => $admin->getKey(),
+                'role' => $template->recipient_value,
             ]);
             return null;
         }

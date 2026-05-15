@@ -25,6 +25,17 @@ final class NotificationContext
     {
     }
 
+    /**
+     * Build a new context with extra keys merged on top of the current
+     * data. Used by NotificationService's admin_role fan-out to inject
+     * a per-recipient `admin` into the context for each delivery without
+     * mutating the caller's original context.
+     */
+    public function with(array $extras): self
+    {
+        return new self(array_replace($this->data, $extras));
+    }
+
     /** Pull a value at a dot-path, default applied on miss/null. */
     public function get(string $path, mixed $default = null): mixed
     {

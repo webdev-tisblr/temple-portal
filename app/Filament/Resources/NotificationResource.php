@@ -195,25 +195,30 @@ class NotificationResource extends Resource
                         ->dehydrated(false)
                         ->live(),
 
-                    // native(false) swaps in Filament's custom Flatpickr-based
-                    // picker. The browser-native datetime-local input enforces
-                    // step=60s against the `min` value's seconds offset, which
-                    // produced the "nearest valid values are HH:MM:39" errors
-                    // whenever min was now()-with-seconds — and gave no
-                    // 12-hour / AM-PM mode on desktop or a clean mobile UX.
-                    // Aligning minDate to the minute boundary belt-and-braces
-                    // the same problem for any caller that re-enables native.
+                    // Browser-native datetime-local picker:
+                    //   • desktop Chrome/Safari + iOS + Android all render
+                    //     12-hour AM/PM in en-US locale, mobile gets the OS
+                    //     native scrollers
+                    //   • Filament's own non-native picker only exposes a
+                    //     24-hour hour spinner (vendor/filament/forms/.../
+                    //     date-time-picker.blade.php hard-codes max=23) — no
+                    //     AM/PM toggle, and any value < min snaps back to 0
+                    //   • The native input enforces step=60 against the
+                    //     `min` value's SECONDS offset. minDate(now()) has
+                    //     live seconds (eg 10:06:39) so 10:07:00 became
+                    //     invalid — the "nearest valid values are HH:MM:39"
+                    //     error from the original bug. addMinute()
+                    //     ->startOfMinute() gives a clean minute-aligned
+                    //     min that always lies in the FUTURE so the picker
+                    //     doesn't reject the moment the page loads.
                     Forms\Components\DateTimePicker::make('scheduled_at')
                         ->label('Scheduled time')
-                        ->native(false)
                         ->seconds(false)
                         ->minutesStep(1)
-                        ->displayFormat('d/m/Y h:i A')
-                        ->format('Y-m-d H:i:s')
-                        ->minDate(fn () => now()->startOfMinute())
+                        ->minDate(fn () => now()->addMinute()->startOfMinute())
                         ->visible(fn (Get $get) => $get('send_mode') === 'schedule')
                         ->required(fn (Get $get) => $get('send_mode') === 'schedule')
-                        ->helperText('Pick the date and time (12-hour AM/PM). The dispatcher checks every minute, so delivery fires within ~1 min of this time.'),
+                        ->helperText('Pick the date and time. The dispatcher checks every minute, so delivery fires within ~1 min of this time.'),
                 ]),
 
             Forms\Components\Section::make('Delivery')

@@ -31,14 +31,20 @@ use Illuminate\Support\Facades\Log;
  * (plus per-channel and per-admin suffixes added downstream) — cron
  * re-runs are no-ops because the log row already exists.
  *
- * Window sizing: must be >= cron cadence or some reminders fall through
- * the cracks. Default window is 10 min for a 5-min cadence (5 min slack
- * for clock drift / staggered runs). Idempotency at NotificationService
- * dedups any overlap inside that window.
+ * Window sizing: window MUST equal the cron cadence so each fire_at
+ * moment falls inside exactly ONE tick's eligibility band. A window
+ * wider than the cadence makes the same booking×offset eligible across
+ * two consecutive ticks (eg fire_at=13:00 matches both the 13:00 and
+ * 13:05 cron ticks when window=10min, cadence=5min) — which then
+ * relies entirely on idempotency dedup to suppress the duplicate.
+ * That dedup window is 5 min and the second tick lands exactly at
+ * the boundary, so reminders frequently fired twice in production.
+ * Match the cadence exactly; idempotency is the safety net, not the
+ * primary deduplication mechanism.
  */
 class DispatchSevaReminders extends Command
 {
-    protected $signature = 'seva:dispatch-reminders {--window=10 : Window minutes — bookings whose fire_at falls in (now-window, now] get reminded}';
+    protected $signature = 'seva:dispatch-reminders {--window=5 : Window minutes — bookings whose fire_at falls in (now-window, now] get reminded. MUST equal cron cadence in routes/console.php.}';
 
     protected $description = 'Dispatch seva.booking.reminder for confirmed bookings based on per-seva reminder_offsets';
 

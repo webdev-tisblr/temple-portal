@@ -53,8 +53,21 @@ use Illuminate\Support\Facades\Log;
  */
 final class NotificationService
 {
-    /** Window in which a repeat dispatch with the same idempotency key skips. */
-    private const IDEMPOTENCY_WINDOW_SECONDS = 300;
+    /**
+     * Window in which a repeat dispatch with the same idempotency key
+     * skips. Set to 30 min so cron-driven dispatches (which fire on a
+     * fixed cadence) can't slip through a too-narrow boundary —
+     * eg the seva reminder cron at HH:00 and HH:05 used to both fire
+     * the same reminder because the second tick landed 1 second past
+     * a 5-min dedup window.
+     *
+     * 30 min is also well within "no legitimate re-dispatch of the
+     * same key wanted" for every existing trigger (donation receipt,
+     * OTP, booking confirmation, birthday) — re-fires for those flows
+     * happen via a fresh key (new payment id, new OTP, etc), not via
+     * the same key inside the window.
+     */
+    private const IDEMPOTENCY_WINDOW_SECONDS = 1800;
 
     /** @var array<string, NotificationDriver> keyed by channel string */
     private array $drivers = [];

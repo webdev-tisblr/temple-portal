@@ -394,12 +394,19 @@ class NotificationResource extends Resource
 
     /**
      * @return array<string, string>
+     *
+     * NOTE: 'donate' is deliberately omitted — the Flutter app has no
+     * standalone donate route (only /donate-to/:campaignId), so the
+     * DeepLinkRouter falls back to the campaigns list. That made the
+     * option misleading ("Donate (free amount)" actually opened a
+     * list). Admins should pick "Campaigns list" or "Specific campaign"
+     * instead. The router still handles `intent=donate` for backwards
+     * compatibility with any already-sent rows.
      */
     private static function intentOptions(): array
     {
         return [
             'home' => 'Home',
-            'donate' => 'Donate (free amount)',
             'campaigns' => 'Campaigns list',
             'campaign-detail' => 'Specific campaign',
             'seva-detail' => 'Specific seva',

@@ -58,8 +58,11 @@ class EditNotification extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        $target = $this->data['intent_target'] ?? null;
+        // intent_target lands in $data directly now (no dehydrated(false)).
+        // Read + unset here to convert to the persisted intent_params JSON.
+        $target = $data['intent_target'] ?? null;
         $intent = $data['intent'] ?? null;
+        unset($data['intent_target']);
 
         if ($target !== null && $target !== '' && $intent !== null) {
             $data['intent_params'] = match ($intent) {

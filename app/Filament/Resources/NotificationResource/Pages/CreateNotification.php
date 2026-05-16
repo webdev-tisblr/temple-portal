@@ -14,7 +14,7 @@ class CreateNotification extends CreateRecord
     protected static string $resource = NotificationResource::class;
 
     /**
-     * Decide status based on the send_mode radio (which is dehydrated=false, so
+     * Decide status based on the send_mode radio (still dehydrated=false, so
      * we read it from the page's form state, not the $data array Filament
      * passes us). Send now → status=sending and clear scheduled_at; Schedule →
      * status=scheduled and keep scheduled_at.
@@ -30,10 +30,15 @@ class CreateNotification extends CreateRecord
             $data['status'] = 'scheduled';
         }
 
-        // Translate the synthetic `intent_target` picker (dehydrated=false in
-        // the form) into the persisted `intent_params` JSON column.
-        $target = $this->data['intent_target'] ?? null;
+        // Translate the synthetic `intent_target` picker into the persisted
+        // `intent_params` JSON column. intent_target IS dehydrated (lands in
+        // $data) so we read it from there rather than $this->data — fewer
+        // moving parts, no Livewire-state quirks. Notification::$fillable
+        // excludes intent_target so leaving it in $data is harmless, but we
+        // unset it anyway to keep the array clean.
+        $target = $data['intent_target'] ?? null;
         $intent = $data['intent'] ?? null;
+        unset($data['intent_target']);
 
         if ($target !== null && $target !== '' && $intent !== null) {
             $data['intent_params'] = match ($intent) {

@@ -103,9 +103,12 @@ class NotificationResource extends Resource
                         ->columnSpanFull(),
 
                     // One shared picker. Its label, options, and required-ness
-                    // all derive from the current intent. Dehydrated false so
-                    // it doesn't land in the DB directly — the Create/Edit
-                    // pages hydrate it from / store it back into intent_params.
+                    // all derive from the current intent. The value DOES land
+                    // in $data (no dehydrated(false)) so the Create/Edit
+                    // pages can read it reliably from there and convert to
+                    // intent_params — Notification::$fillable excludes
+                    // intent_target so the stray key on the model is a no-op
+                    // even if the unset below ever misses.
                     Forms\Components\Select::make('intent_target')
                         ->label(fn (Get $get): string => match ($get('intent')) {
                             'seva-detail' => 'Seva',
@@ -125,7 +128,6 @@ class NotificationResource extends Resource
                         })
                         ->searchable()
                         ->preload()
-                        ->dehydrated(false)
                         ->required(fn (Get $get): bool => in_array(
                             $get('intent'),
                             ['seva-detail', 'campaign-detail', 'event-detail', 'blog-detail'],

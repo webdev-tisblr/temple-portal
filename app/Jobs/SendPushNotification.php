@@ -76,6 +76,14 @@ class SendPushNotification implements ShouldQueue
             // which is idempotent (passes through if already absolute).
             $imageUrl = $notification->image_url ? image_url($notification->image_url) : null;
 
+            Log::info('SendPushNotification: dispatching to FCM', [
+                'notification_id' => $notification->id,
+                'intent' => $notification->intent,
+                'intent_params' => $notification->intent_params,
+                'data_payload' => $data,
+                'token_count' => $totalRecipients,
+            ]);
+
             $results = $firebaseService->sendToMultiple(
                 $tokenValues,
                 $title,

@@ -14,8 +14,6 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Validation\Rule;
 
 class NotificationTemplateResource extends Resource
 {
@@ -52,23 +50,15 @@ class NotificationTemplateResource extends Resource
                             ])
                             ->required()
                             ->live()
-                            ->columnSpan(1)
-                            // The DB has a unique index on (key, channel) —
-                            // one template per (trigger × channel) pair.
-                            // Validate here so the admin gets a friendly
-                            // form-level message instead of a 500 from the
-                            // MySQL unique-constraint violation. `ignore()`
-                            // is the editing row's id so re-saving the same
-                            // record stays valid.
-                            ->rules([
-                                fn (Forms\Get $get, ?Model $record) =>
-                                    Rule::unique('temple_notification_templates', 'channel')
-                                        ->where(fn ($q) => $q->where('key', $get('key')))
-                                        ->ignore($record?->getKey()),
-                            ])
-                            ->validationMessages([
-                                'unique' => 'A template for this trigger + channel already exists. Edit it instead, or delete it first.',
-                            ]),
+                            ->columnSpan(1),
+                            // Multiple templates per (trigger × channel) are
+                            // intentionally allowed — eg seva.booking.reminder
+                            // PUSH to the devotee AND a separate PUSH to an
+                            // admin role with different body + recipient
+                            // strategy. NotificationService iterates every
+                            // enabled row and fans out independently. The
+                            // matching DB unique index was dropped in
+                            // 2026_05_16_120000.
                     ]),
 
                     Forms\Components\Grid::make(2)->schema([

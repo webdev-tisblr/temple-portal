@@ -6,11 +6,8 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\SevaBookingResource\Pages;
 use App\Models\SevaBooking;
-use App\Models\SystemSetting;
-use App\Services\Notifications\NotificationService;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Notifications\Notification as FilamentNotification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -222,48 +219,6 @@ class SevaBookingResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-
-                // Manual fire of the seva.booking.reminder trigger for this
-                // booking — bypasses cron and the offset/window check so the
-                // admin can verify the template + delivery path (push +
-                // WhatsApp + email + SMS templates that key off
-                // seva.booking.reminder) without waiting for the actual fire
-                // moment. Uses a fresh idempotency key per click so repeated
-                // tests don't dedup-skip inside the 5-minute window.
-                Tables\Actions\Action::make('test_reminder')
-                    ->label('Send test reminder')
-                    ->icon('heroicon-o-bell-alert')
-                    ->color('warning')
-                    ->requiresConfirmation()
-                    ->modalHeading('Send a test reminder?')
-                    ->modalDescription('Fires seva.booking.reminder for this booking using "3 hours" as a fake time-remaining label. Every enabled template for that trigger (devotee + admin-role) will send immediately to its real recipient.')
-                    ->modalSubmitActionLabel('Send now')
-                    ->visible(fn (SevaBooking $record): bool => in_array(
-                        $record->status instanceof \BackedEnum ? $record->status->value : $record->status,
-                        ['confirmed', 'completed'],
-                        true,
-                    ))
-                    ->action(function (SevaBooking $record) {
-                        $record->loadMissing('devotee', 'seva');
-
-                        app(NotificationService::class)->dispatchNow(
-                            'seva.booking.reminder',
-                            [
-                                'booking' => $record,
-                                'devotee' => $record->devotee,
-                                'hours_remaining' => 3,
-                                'time_remaining_label' => '3 hours',
-                                'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
-                            ],
-                            idempotencyKey: 'seva-reminder-test:' . $record->id . ':' . now()->timestamp,
-                        );
-
-                        FilamentNotification::make()
-                            ->title('Test reminder fired')
-                            ->body('Check Notification Logs for delivery status across each enabled template.')
-                            ->success()
-                            ->send();
-                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

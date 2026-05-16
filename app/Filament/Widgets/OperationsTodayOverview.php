@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\ContactSubmissionResource;
+use App\Filament\Resources\HallBookingResource;
+use App\Filament\Resources\OrderResource;
+use App\Filament\Resources\SevaBookingResource;
 use App\Models\ContactSubmission;
 use App\Models\HallBooking;
 use App\Models\Order;
@@ -65,22 +69,26 @@ class OperationsTodayOverview extends StatsOverviewWidget
             Stat::make('Seva bookings today', $todayServiceBookings)
                 ->description('Confirmed for today')
                 ->descriptionColor('gray')
-                ->color($todayServiceBookings > 0 ? 'warning' : 'gray'),
+                ->color($todayServiceBookings > 0 ? 'warning' : 'gray')
+                ->url(SevaBookingResource::getUrl()),
 
             Stat::make('Hall bookings today', $todayHallBookings)
                 ->description('Confirmed for today')
                 ->descriptionColor('gray')
-                ->color($todayHallBookings > 0 ? 'warning' : 'gray'),
+                ->color($todayHallBookings > 0 ? 'warning' : 'gray')
+                ->url(HallBookingResource::getUrl()),
 
             Stat::make('Store orders today', $todayOrders)
                 ->description('Captured payments')
                 ->descriptionColor('gray')
-                ->color($todayOrders > 0 ? 'primary' : 'gray'),
+                ->color($todayOrders > 0 ? 'primary' : 'gray')
+                ->url(OrderResource::getUrl()),
 
             Stat::make('Unread messages', $unreadContacts)
                 ->description($unreadContacts > 0 ? 'Need a reply' : 'Inbox clear')
                 ->descriptionColor($unreadContacts > 0 ? 'danger' : 'success')
-                ->color($unreadContacts > 0 ? 'danger' : 'success'),
+                ->color($unreadContacts > 0 ? 'danger' : 'success')
+                ->url(ContactSubmissionResource::getUrl()),
         ];
     }
 }

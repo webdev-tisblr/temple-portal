@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\DonationResource;
 use App\Models\Donation;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -49,21 +50,30 @@ class DonationStatsOverview extends StatsOverviewWidget
         // Devotee count was previously here too — moved into the
         // EngagementOverview widget so this row stays purely financial
         // and the dashboard has one logical purpose per row.
+        // All four tiles link to the same Donations list — admin can
+        // refine via the resource's own filters once they get there.
+        // Tile-level URLs make every overview row a navigable index.
+        $url = DonationResource::getUrl();
+
         return [
             Stat::make("Today's Donations", '₹' . number_format((float) $captured()->whereDate('created_at', today())->sum('amount')))
                 ->description("{$todayCount} donations today")
-                ->color('success'),
+                ->color('success')
+                ->url($url),
             Stat::make('This Month', '₹' . number_format((float) $captured()->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->sum('amount')))
                 ->description("{$monthCount} donations · MTD")
-                ->color('primary'),
+                ->color('primary')
+                ->url($url),
             Stat::make("FY {$fy}", '₹' . number_format($fySum))
                 ->description("{$fyCount} donations · YTD")
-                ->color('warning'),
+                ->color('warning')
+                ->url($url),
             Stat::make('Avg this month', '₹' . number_format($monthCount > 0
                 ? (float) $captured()->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->avg('amount')
                 : 0))
                 ->description('Per donation, captured')
-                ->color('info'),
+                ->color('info')
+                ->url($url),
         ];
     }
 }

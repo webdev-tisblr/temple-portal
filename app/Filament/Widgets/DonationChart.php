@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\DonationResource;
 use App\Models\Donation;
 use Carbon\CarbonPeriod;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 
 class DonationChart extends ChartWidget
 {
@@ -15,9 +18,26 @@ class DonationChart extends ChartWidget
 
     protected static ?int $sort = 5;
 
+    // Half-width on the default 2-column dashboard grid so this sits
+    // beside the SevaBookings chart. Filament collapses both to full
+    // width below the md breakpoint.
+    protected int|string|array $columnSpan = 1;
+
     public static function canView(): bool
     {
         return auth('admin')->user()?->can('widget_DonationChart') ?? false;
+    }
+
+    // Override the heading to be an anchor — Filament renders this
+    // string verbatim inside the chart card header, so the whole
+    // title becomes a click-through to the Donations list. Cheaper
+    // than a custom view; matches the click-anywhere stat pattern.
+    public function getHeading(): string | Htmlable | null
+    {
+        $url = e(DonationResource::getUrl());
+        return new HtmlString(
+            "<a href=\"{$url}\" class=\"hover:underline\" style=\"color: inherit;\">Donations · last 30 days →</a>"
+        );
     }
 
     protected function getData(): array

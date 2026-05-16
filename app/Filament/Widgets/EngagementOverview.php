@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\DevoteeResource;
 use App\Models\DeviceToken;
 use App\Models\Devotee;
 use Filament\Widgets\StatsOverviewWidget;
@@ -50,26 +51,35 @@ class EngagementOverview extends StatsOverviewWidget
         // fresh install with no devotees yet.
         $activePct = $total > 0 ? (int) round($active30d / $total * 100) : 0;
 
+        // All four tiles land on the Devotees list — there's no
+        // separate DeviceToken resource so push-reachable also goes
+        // there (devotee → device tokens via the model's relation).
+        $devoteesUrl = DevoteeResource::getUrl();
+
         return [
             Stat::make('Total devotees', number_format($total))
                 ->description('Registered accounts')
                 ->descriptionColor('gray')
-                ->color('info'),
+                ->color('info')
+                ->url($devoteesUrl),
 
             Stat::make('Active · 30 days', number_format($active30d))
                 ->description("{$activePct}% of total")
                 ->descriptionColor('gray')
-                ->color('success'),
+                ->color('success')
+                ->url($devoteesUrl),
 
             Stat::make('New this month', number_format($newThisMonth))
                 ->description('Joined since the 1st')
                 ->descriptionColor('gray')
-                ->color('primary'),
+                ->color('primary')
+                ->url($devoteesUrl),
 
             Stat::make('Push-reachable', number_format($pushReachable))
                 ->description('Devices accepting notifications')
                 ->descriptionColor('gray')
-                ->color('warning'),
+                ->color('warning')
+                ->url($devoteesUrl),
         ];
     }
 }

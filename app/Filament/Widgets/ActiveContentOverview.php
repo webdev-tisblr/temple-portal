@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\DonationCampaignResource;
+use App\Filament\Resources\EventResource;
+use App\Filament\Resources\HallResource;
+use App\Filament\Resources\SevaResource;
 use App\Models\DonationCampaign;
 use App\Models\Event;
 use App\Models\Hall;
@@ -54,22 +58,26 @@ class ActiveContentOverview extends StatsOverviewWidget
                     ? '₹' . number_format($totalRaised) . ' raised · ' . $raisedPct . '%'
                     : 'None published')
                 ->descriptionColor('gray')
-                ->color('success'),
+                ->color('success')
+                ->url(DonationCampaignResource::getUrl()),
 
             Stat::make('Active sevas', number_format($activeSevas))
                 ->description('Bookable now')
                 ->descriptionColor('gray')
-                ->color('primary'),
+                ->color('primary')
+                ->url(SevaResource::getUrl()),
 
             Stat::make('Upcoming events', number_format($upcomingEvents))
                 ->description('Today or later')
                 ->descriptionColor('gray')
-                ->color('warning'),
+                ->color('warning')
+                ->url(EventResource::getUrl()),
 
             Stat::make('Active halls', number_format($activeHalls))
                 ->description('Bookable now')
                 ->descriptionColor('gray')
-                ->color('info'),
+                ->color('info')
+                ->url(HallResource::getUrl()),
         ];
     }
 }

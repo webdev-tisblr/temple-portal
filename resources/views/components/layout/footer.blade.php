@@ -30,10 +30,15 @@
     </div>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+        {{-- 5 columns on desktop: identity, mandir, booking & donation,
+             contact info, darshan + socials. Trust identity gets a
+             wider column-span on lg so the description paragraph stays
+             readable while the four link/info columns sit tighter to
+             its right. --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-10">
 
             {{-- ── 1. Trust identity ───────────────────────────────── --}}
-            <div>
+            <div class="lg:col-span-2">
                 <div class="flex items-center gap-3 mb-4">
                     <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}"
                          alt="{{ $trustName }}"
@@ -54,18 +59,31 @@
                 @endif
             </div>
 
-            {{-- ── 2. Quick links ──────────────────────────────────── --}}
+            {{-- ── 2. Mandir — about / history / people / contact ───── --}}
             <div>
-                <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">ઝડપી લિંક્સ</h3>
+                <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">મંદિર</h3>
                 <ul class="space-y-2.5 text-sm">
-                    <li><a href="{{ route('seva.index') }}"     style="color: #3E3226;" class="hover:underline">સેવા અને પૂજા</a></li>
+                    {{-- /parichay, /itihas, /mahima are CMS pages
+                         served by the catch-all /{slug} route — same
+                         URLs the header dropdown links to. --}}
+                    <li><a href="/parichay"                style="color: #3E3226;" class="hover:underline">પરિચય</a></li>
+                    <li><a href="/itihas"                  style="color: #3E3226;" class="hover:underline">ઇતિહાસ</a></li>
+                    <li><a href="{{ route('trustees') }}"  style="color: #3E3226;" class="hover:underline">ટ્રસ્ટીઓ</a></li>
+                    <li><a href="{{ route('pujari') }}"    style="color: #3E3226;" class="hover:underline">પૂજારી</a></li>
+                    <li><a href="{{ route('gallery') }}"   style="color: #3E3226;" class="hover:underline">ફોટો ગેલેરી</a></li>
+                    <li><a href="{{ route('contact') }}"   style="color: #3E3226;" class="hover:underline">સંપર્ક</a></li>
+                </ul>
+            </div>
+
+            {{-- ── 3. Booking & donation ────────────────────────────── --}}
+            <div>
+                <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">બુકિંગ અને દાન</h3>
+                <ul class="space-y-2.5 text-sm">
                     <li><a href="{{ route('donate') }}"        style="color: #3E3226;" class="hover:underline">ઓનલાઈન દાન</a></li>
-                    <li><a href="{{ route('darshan') }}"       style="color: #3E3226;" class="hover:underline">દર્શન સમય</a></li>
-                    <li><a href="{{ route('events.index') }}"  style="color: #3E3226;" class="hover:underline">કાર્યક્રમો</a></li>
+                    <li><a href="{{ route('seva.index') }}"    style="color: #3E3226;" class="hover:underline">સેવા બુકિંગ</a></li>
+                    <li><a href="{{ route('halls.index') }}"   style="color: #3E3226;" class="hover:underline">હોલ બુકિંગ</a></li>
                     <li><a href="{{ route('projects.index') }}" style="color: #3E3226;" class="hover:underline">સેવા પ્રોજેક્ટ્સ</a></li>
-                    <li><a href="{{ route('gallery') }}"        style="color: #3E3226;" class="hover:underline">ફોટો ગેલેરી</a></li>
-                    <li><a href="{{ route('halls.index') }}"    style="color: #3E3226;" class="hover:underline">હોલ બુકિંગ</a></li>
-                    <li><a href="{{ route('store.index') }}"    style="color: #3E3226;" class="hover:underline">મંદિર સ્ટોર</a></li>
+                    <li><a href="{{ route('store.index') }}"   style="color: #3E3226;" class="hover:underline">મંદિર સ્ટોર</a></li>
                 </ul>
             </div>
 
@@ -134,18 +152,12 @@
                                 <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->evening_open)->format('h:i') }} – {{ \Carbon\Carbon::parse($todayTiming->evening_close)->format('h:i A') }}</span>
                             </li>
                         @endif
-                        @if($todayTiming->aarti_morning)
-                            <li class="flex justify-between gap-3 pt-1 border-t" style="border-color: rgba(122,30,30,0.10);">
-                                <span class="flex items-center gap-1.5"><span>🪔</span> સવારની આરતી</span>
-                                <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->aarti_morning)->format('h:i A') }}</span>
-                            </li>
-                        @endif
-                        @if($todayTiming->aarti_evening)
-                            <li class="flex justify-between gap-3">
-                                <span class="flex items-center gap-1.5"><span>🪔</span> સાંજની આરતી</span>
-                                <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->aarti_evening)->format('h:i A') }}</span>
-                            </li>
-                        @endif
+                        {{-- Morning / evening aarti rows intentionally
+                             omitted from the footer — they live on the
+                             /darshan page where there's room for the
+                             full aarti schedule. The footer only carries
+                             the two open/close windows so the column
+                             stays compact. --}}
                     </ul>
                 @endif
 
@@ -184,7 +196,7 @@
     {{-- ── Bottom bar ──────────────────────────────────────────── --}}
     <div class="border-t" style="border-color: rgba(122,30,30,0.10);">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs" style="color: #5E4F3D;">
-            <p>&copy; {{ date('Y') }} {{ $trustName }} — સર્વ અધિકાર સુરક્ષિત</p>
+            <p>&copy; {{ date('Y') }} {{ $trustName }}</p>
             <p>
                 Crafted with <span style="color: #C45F12;">♥</span> by
                 <a href="https://theinternetstore.in" target="_blank" rel="noopener"

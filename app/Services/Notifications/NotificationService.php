@@ -169,8 +169,22 @@ final class NotificationService
         $delivered = 0;
 
         foreach ($templates as $template) {
-            $perChannelKey = $idempotencyKey !== null
-                ? "{$idempotencyKey}:{$template->channel}"
+            // Idempotency key composition.
+            //
+            // Before multi-template support, (key, channel) was UNIQUE
+            // so {caller-key}:{channel} was enough. Two templates can
+            // now share (key, channel) (eg "Seva reminder — devotee
+            // push" + "Seva reminder — pujari push"), so we suffix the
+            // template id as well — without it, both templates'
+            // per-recipient r0 entries hash to the same dedup row and
+            // the second template's send is logged as
+            // status=skipped/reason=duplicate inside the 5-min window.
+            //
+            // We further suffix with :r{i} per recipient and :admin:{id}
+            // inside the admin_role fan-out so cron re-runs dedup
+            // independently per (template × recipient × admin).
+            $perTemplateKey = $idempotencyKey !== null
+                ? "{$idempotencyKey}:{$template->channel}:t{$template->id}"
                 : null;
 
             $recipientConfigs = $template->resolveRecipients();
@@ -201,8 +215,8 @@ final class NotificationService
                 // entry. Without this, the second recipient's first send
                 // would alias to the first recipient's prior log row and
                 // get skipped as "duplicate".
-                $perRecipientKey = $perChannelKey !== null
-                    ? "{$perChannelKey}:r{$i}"
+                $perRecipientKey = $perTemplateKey !== null
+                    ? "{$perTemplateKey}:r{$i}"
                     : null;
 
                 // admin_role recipient fans out across every active admin

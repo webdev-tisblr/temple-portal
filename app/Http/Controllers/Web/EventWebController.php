@@ -23,7 +23,7 @@ class EventWebController extends Controller
             ->orderByDesc('start_date')
             ->take(6)->get();
 
-        SEOMeta::setTitle('કાર્યક્રમો — શ્રી પાતળિયા હનુમાનજી');
+        SEOMeta::setTitle('કાર્યક્રમો — શ્રી પાતાળિયા હનુમાનજી');
         SEOMeta::setDescription('મંદિરના આગામી ઉત્સવો અને કાર્યક્રમો.');
 
         return view('pages.events.index', compact('upcoming', 'recent'));
@@ -31,7 +31,7 @@ class EventWebController extends Controller
 
     public function show(Event $event): View
     {
-        SEOMeta::setTitle("{$event->title} — શ્રી પાતળિયા હનુમાનજી");
+        SEOMeta::setTitle("{$event->title} — શ્રી પાતાળિયા હનુમાનજી");
         SEOMeta::setDescription(strip_tags($event->description ?? '') ?: '');
 
         return view('pages.events.show', compact('event'));

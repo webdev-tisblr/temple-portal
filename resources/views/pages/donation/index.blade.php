@@ -5,7 +5,7 @@
 
     <div class="text-center mb-8">
         <h1 class="divine-heading text-3xl">દાન કરો</h1>
-        <p class="divine-subtext mt-2">શ્રી પાતળિયા હનુમાનજી મંદિર માટે ઓનલાઈન દાન કરો</p>
+        <p class="divine-subtext mt-2">શ્રી પાતાળિયા હનુમાનજી મંદિર માટે ઓનલાઈન દાન કરો</p>
     </div>
 
     @if($errors->any())

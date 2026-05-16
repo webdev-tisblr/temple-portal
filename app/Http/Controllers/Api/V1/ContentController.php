@@ -476,7 +476,7 @@ class ContentController extends BaseApiController
     {
         $info = Cache::remember('content.temple_info.v1', 1800, function () {
             return [
-                'name' => SystemSetting::getValue('trust_name', 'શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ'),
+                'name' => SystemSetting::getValue('trust_name', 'શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ'),
                 'phone' => SystemSetting::getValue('trust_phone'),
                 'email' => SystemSetting::getValue('trust_email'),
                 'address' => SystemSetting::getValue('trust_address'),

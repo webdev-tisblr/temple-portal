@@ -5,7 +5,7 @@
 <x-page-header
     :breadcrumb="[['label' => 'દર્શન સમય']]"
     title="દર્શન સમય"
-    subtitle="શ્રી પાતળિયા હનુમાનજી મંદિર — દર્શન, આરતી અને સમય" />
+    subtitle="શ્રી પાતાળિયા હનુમાનજી મંદિર — દર્શન, આરતી અને સમય" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
@@ -41,11 +41,11 @@
                             frameborder="0"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                             allowfullscreen
-                            title="શ્રી પાતળિયા હનુમાનજી — લાઇવ દર્શન">
+                            title="શ્રી પાતાળિયા હનુમાનજી — લાઇવ દર્શન">
                         </iframe>
                     </div>
                     <div class="px-5 py-3 bg-amber-900/20 border-t border-amber-800/30">
-                        <p class="text-sm text-gold font-medium text-center">|| જય શ્રી રામ || — લાઇવ દર્શન, શ્રી પાતળિયા હનુમાનજી</p>
+                        <p class="text-sm text-gold font-medium text-center">|| જય શ્રી રામ || — લાઇવ દર્શન, શ્રી પાતાળિયા હનુમાનજી</p>
                     </div>
                 </div>
             @else

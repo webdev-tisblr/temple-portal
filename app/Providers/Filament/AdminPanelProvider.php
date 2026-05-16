@@ -29,7 +29,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->authGuard('admin')
-            ->brandName('શ્રી પાતળિયા હનુમાનજી')
+            ->brandName('શ્રી પાતાળિયા હનુમાનજી')
             ->colors([
                 'primary' => Color::Orange,
                 'danger' => Color::Rose,

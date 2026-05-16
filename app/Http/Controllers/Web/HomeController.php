@@ -64,7 +64,7 @@ class HomeController extends Controller
             return GalleryImage::orderByDesc('id')->take(8)->get();
         });
 
-        SEOMeta::setTitle('શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ | અંતરજાલ, ગાંધીધામ');
+        SEOMeta::setTitle('શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ | અંતરજાળ, ગાંધીધામ');
         SEOMeta::setDescription('ગુજરાતમાં હનુમાનજીનું પ્રસિદ્ધ ધામ. ઓનલાઇન સેવા બુકિંગ, દાન, લાઇવ દર્શન.');
         OpenGraph::setUrl(url('/'));
         OpenGraph::addProperty('type', 'website');

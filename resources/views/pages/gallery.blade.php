@@ -5,7 +5,7 @@
 <x-page-header
     :breadcrumb="[['label' => 'ફોટો ગેલેરી']]"
     title="ફોટો ગેલેરી"
-    subtitle="શ્રી પાતળિયા હનુમાનજી ધામ — ફોટા અને વિડિયો" />
+    subtitle="શ્રી પાતાળિયા હનુમાનજી ધામ — ફોટા અને વિડિયો" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple"
      x-data="{

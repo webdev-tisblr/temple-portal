@@ -4,8 +4,8 @@
     use App\Models\SystemSetting;
     use App\Models\DarshanTiming;
 
-    $trustName    = SystemSetting::getValue('trust_name', 'શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ');
-    $trustAddress = SystemSetting::getValue('trust_address', 'અંતરજાલ, ગાંધીધામ, કચ્છ — 370110');
+    $trustName    = SystemSetting::getValue('trust_name', 'શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
+    $trustAddress = SystemSetting::getValue('trust_address', 'અંતરજાળ, ગાંધીધામ, કચ્છ — 370110');
     $trustPhone   = SystemSetting::getValue('trust_phone');
     $trustEmail   = SystemSetting::getValue('trust_email');
     $trustWhatsApp= SystemSetting::getValue('trust_whatsapp');
@@ -40,8 +40,8 @@
                          class="w-12 h-12 rounded-full border diya-glow object-cover"
                          style="border-color: rgba(200,148,52,0.45); box-shadow: 0 0 14px rgba(196,154,42,0.25);">
                     <div>
-                        <h3 class="text-base font-bold leading-tight" style="color: #7A1E1E;">શ્રી પાતળિયા હનુમાનજી</h3>
-                        <p class="text-[10px] tracking-widest uppercase font-semibold mt-0.5" style="color: #C45F12;">સેવા ટ્રસ્ટ &bull; અંતરજાલ</p>
+                        <h3 class="text-base font-bold leading-tight" style="color: #7A1E1E;">શ્રી પાતાળિયા હનુમાનજી</h3>
+                        <p class="text-[10px] tracking-widest uppercase font-semibold mt-0.5" style="color: #C45F12;">સેવા ટ્રસ્ટ &bull; અંતરજાળ</p>
                     </div>
                 </div>
                 <p class="text-sm leading-relaxed" style="color: #5E4F3D;">

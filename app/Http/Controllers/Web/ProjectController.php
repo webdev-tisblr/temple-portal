@@ -25,8 +25,8 @@ class ProjectController extends Controller
             ->orderByDesc('created_at')
             ->paginate(12);
 
-        SEOMeta::setTitle('પ્રોજેક્ટ્સ — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ');
-        SEOMeta::setDescription('શ્રી પાતળિયા હનુમાનજી મંદિરના ચાલુ પ્રોજેક્ટ્સ અને અભિયાનો. દાન કરીને સહયોગ આપો.');
+        SEOMeta::setTitle('પ્રોજેક્ટ્સ — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
+        SEOMeta::setDescription('શ્રી પાતાળિયા હનુમાનજી મંદિરના ચાલુ પ્રોજેક્ટ્સ અને અભિયાનો. દાન કરીને સહયોગ આપો.');
 
         return view('pages.projects.index', compact('projects'));
     }
@@ -39,7 +39,7 @@ class ProjectController extends Controller
 
         $project->loadCount('donations');
 
-        SEOMeta::setTitle("{$project->title} — પ્રોજેક્ટ્સ — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ");
+        SEOMeta::setTitle("{$project->title} — પ્રોજેક્ટ્સ — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ");
         SEOMeta::setDescription($project->description ?? '');
 
         // First page of donors (paid only). Anonymous donations (Gupt

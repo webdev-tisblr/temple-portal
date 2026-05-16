@@ -17,7 +17,7 @@ class BlogController extends Controller
             ->orderByDesc('published_at')
             ->paginate(10);
 
-        SEOMeta::setTitle('બ્લૉગ — શ્રી પાતળિયા હનુમાનજી');
+        SEOMeta::setTitle('બ્લૉગ — શ્રી પાતાળિયા હનુમાનજી');
 
         return view('pages.blog.index', compact('posts'));
     }

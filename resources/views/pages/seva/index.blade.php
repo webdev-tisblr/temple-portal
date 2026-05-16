@@ -5,7 +5,7 @@
 <x-page-header
     :breadcrumb="[['label' => 'સેવા અને પૂજા']]"
     title="સેવા અને પૂજા"
-    subtitle="શ્રી પાતળિયા હનુમાનજી મંદિરમાં ઓનલાઈન સેવા બુક કરો" />
+    subtitle="શ્રી પાતાળિયા હનુમાનજી મંદિરમાં ઓનલાઈન સેવા બુક કરો" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple" x-data="{ activeCategory: 'all' }">
 

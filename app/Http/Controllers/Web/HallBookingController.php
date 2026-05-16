@@ -32,8 +32,8 @@ class HallBookingController extends Controller
     {
         $halls = Hall::where('is_active', true)->orderBy('name')->get();
 
-        SEOMeta::setTitle('હૉલ બુકિંગ — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ');
-        SEOMeta::setDescription('શ્રી પાતળિયા હનુમાનજી મંદિરના વિશાળ હોલ ઓનલાઈન બુક કરો.');
+        SEOMeta::setTitle('હૉલ બુકિંગ — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
+        SEOMeta::setDescription('શ્રી પાતાળિયા હનુમાનજી મંદિરના વિશાળ હોલ ઓનલાઈન બુક કરો.');
 
         return view('pages.hall-booking.list', compact('halls'));
     }
@@ -45,8 +45,8 @@ class HallBookingController extends Controller
     {
         abort_unless($hall->is_active, 404);
 
-        SEOMeta::setTitle("{$hall->name} — હૉલ બુકિંગ — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ");
-        SEOMeta::setDescription("શ્રી પાતળિયા હનુમાનજી મંદિર {$hall->name} ઓનલાઈન બુક કરો.");
+        SEOMeta::setTitle("{$hall->name} — હૉલ બુકિંગ — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ");
+        SEOMeta::setDescription("શ્રી પાતાળિયા હનુમાનજી મંદિર {$hall->name} ઓનલાઈન બુક કરો.");
 
         return view('pages.hall-booking.index', compact('hall'));
     }

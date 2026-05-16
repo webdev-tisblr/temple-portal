@@ -35,7 +35,7 @@ class TempleController extends Controller
                     ->first();
         });
 
-        SEOMeta::setTitle('દર્શન સમય — શ્રી પાતળિયા હનુમાનજી');
+        SEOMeta::setTitle('દર્શન સમય — શ્રી પાતાળિયા હનુમાનજી');
         SEOMeta::setDescription('મંદિરના દૈનિક દર્શન સમય અને લાઇવ દર્શન.');
 
         return view('pages.darshan', compact('timings', 'youtubeUrl', 'templeRules', 'dailyDarshanPhoto'));
@@ -43,19 +43,19 @@ class TempleController extends Controller
 
     public function trustees(): View
     {
-        SEOMeta::setTitle('ટ્રસ્ટીઓ — શ્રી પાતળિયા હનુમાનજી');
+        SEOMeta::setTitle('ટ્રસ્ટીઓ — શ્રી પાતાળિયા હનુમાનજી');
         return view('pages.trustees');
     }
 
     public function pujari(): View
     {
-        SEOMeta::setTitle('પૂજારી — શ્રી પાતળિયા હનુમાનજી');
+        SEOMeta::setTitle('પૂજારી — શ્રી પાતાળિયા હનુમાનજી');
         return view('pages.pujari');
     }
 
     public function rules(): View
     {
-        SEOMeta::setTitle('નિયમો — શ્રી પાતળિયા હનુમાનજી');
+        SEOMeta::setTitle('નિયમો — શ્રી પાતાળિયા હનુમાનજી');
         return view('pages.rules');
     }
 }

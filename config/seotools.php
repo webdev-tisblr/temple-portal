@@ -12,7 +12,7 @@ return [
         'defaults'       => [
             'title'        => false,
             'titleBefore'  => false,
-            'description'  => 'શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ, અંતરજાલ, ગાંધીધામ',
+            'description'  => 'શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ, અંતરજાળ, ગાંધીધામ',
             'separator'    => ' | ',
             'keywords'     => [],
             'canonical'    => false, // Set to null or 'full' to use Url::full(), set to 'current' to use Url::current(), set false to total remove

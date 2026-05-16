@@ -22,7 +22,7 @@ class ContactController extends Controller
         $trustEmail = SystemSetting::getValue('trust_email');
         $trustAddress = SystemSetting::getValue('trust_address');
 
-        SEOMeta::setTitle('સંપર્ક — શ્રી પાતળિયા હનુમાનજી');
+        SEOMeta::setTitle('સંપર્ક — શ્રી પાતાળિયા હનુમાનજી');
 
         return view('pages.contact', compact('trustPhone', 'trustEmail', 'trustAddress'));
     }

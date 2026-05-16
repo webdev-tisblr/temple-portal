@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>લૉગિન — શ્રી પાતળિયા હનુમાનજી</title>
+    <title>લૉગિન — શ્રી પાતાળિયા હનુમાનજી</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-temple flex items-center justify-center p-4">
@@ -11,8 +11,8 @@
 <div class="w-full max-w-md" x-data="loginForm()">
     {{-- Header --}}
     <div class="text-center mb-8">
-        <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="શ્રી પાતળિયા હનુમાનજી" class="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-amber-600/40 diya-glow" style="box-shadow: 0 0 25px rgba(196,154,42,0.3);">
-        <h1 class="text-2xl font-black text-gold tracking-wide">શ્રી પાતળિયા હનુમાનજી</h1>
+        <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="શ્રી પાતાળિયા હનુમાનજી" class="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-amber-600/40 diya-glow" style="box-shadow: 0 0 25px rgba(196,154,42,0.3);">
+        <h1 class="text-2xl font-black text-gold tracking-wide">શ્રી પાતાળિયા હનુમાનજી</h1>
         <p class="text-amber-200/60 mt-1 text-sm">સેવા ટ્રસ્ટ ડિજિટલ પોર્ટલ</p>
     </div>
 
@@ -134,7 +134,7 @@
     </div>
 
     <p class="text-center text-amber-100/20 text-xs mt-6">
-        &copy; {{ date('Y') }} શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ
+        &copy; {{ date('Y') }} શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ
     </p>
 </div>
 

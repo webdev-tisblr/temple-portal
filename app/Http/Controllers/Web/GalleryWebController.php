@@ -16,7 +16,7 @@ class GalleryWebController extends Controller
         $images = GalleryImage::orderBy('sort_order')->get();
         $categories = $images->pluck('category')->unique()->values();
 
-        SEOMeta::setTitle('ફોટો ગેલેરી — શ્રી પાતળિયા હનુમાનજી');
+        SEOMeta::setTitle('ફોટો ગેલેરી — શ્રી પાતાળિયા હનુમાનજી');
 
         return view('pages.gallery', compact('images', 'categories'));
     }
@@ -26,7 +26,7 @@ class GalleryWebController extends Controller
         $images = GalleryImage::where('category', $category)->orderBy('sort_order')->get();
         $categories = GalleryImage::distinct()->pluck('category');
 
-        SEOMeta::setTitle(ucfirst($category) . ' ગેલેરી — શ્રી પાતળિયા હનુમાનજી');
+        SEOMeta::setTitle(ucfirst($category) . ' ગેલેરી — શ્રી પાતાળિયા હનુમાનજી');
 
         return view('pages.gallery', compact('images', 'categories', 'category'));
     }

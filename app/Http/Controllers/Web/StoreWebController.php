@@ -47,8 +47,8 @@ class StoreWebController extends Controller
                 ->get();
         });
 
-        SEOMeta::setTitle('મંદિર સ્ટોર — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ');
-        SEOMeta::setDescription('શ્રી પાતળિયા હનુમાનજી મંદિર સ્ટોરમાંથી પૂજા સામગ્રી અને ધાર્મિક ચીજો ખરીદો.');
+        SEOMeta::setTitle('મંદિર સ્ટોર — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
+        SEOMeta::setDescription('શ્રી પાતાળિયા હનુમાનજી મંદિર સ્ટોરમાંથી પૂજા સામગ્રી અને ધાર્મિક ચીજો ખરીદો.');
 
         return view('pages.store.index', compact('categories', 'featured'));
     }
@@ -89,7 +89,7 @@ class StoreWebController extends Controller
 
         $products = $query->paginate(12)->withQueryString();
 
-        SEOMeta::setTitle("{$category->name} — મંદિર સ્ટોર — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ");
+        SEOMeta::setTitle("{$category->name} — મંદિર સ્ટોર — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ");
         SEOMeta::setDescription($category->description ?? '');
 
         return view('pages.store.category', compact('category', 'products'));
@@ -107,7 +107,7 @@ class StoreWebController extends Controller
             abort(404);
         }
 
-        SEOMeta::setTitle("{$product->name} — મંદિર સ્ટોર — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ");
+        SEOMeta::setTitle("{$product->name} — મંદિર સ્ટોર — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ");
         SEOMeta::setDescription($product->description ?? '');
 
         return view('pages.store.show', compact('product'));
@@ -222,7 +222,7 @@ class StoreWebController extends Controller
             ];
         })->values()->toArray();
 
-        SEOMeta::setTitle('કાર્ટ — મંદિર સ્ટોર — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ');
+        SEOMeta::setTitle('કાર્ટ — મંદિર સ્ટોર — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
 
         // Force-uncacheable. Anything between us and the user (browser
         // back/forward cache, Cloudflare's "respect existing headers"

@@ -58,7 +58,7 @@ class SendPushNotification implements ShouldQueue
             $tokenValues = array_column($tokens, 'token');
             $totalRecipients = count($tokenValues);
 
-            $title = $notification->title_gu ?: ($notification->title_en ?: 'શ્રી પાતળિયા હનુમાનજી');
+            $title = $notification->title_gu ?: ($notification->title_en ?: 'શ્રી પાતાળિયા હનુમાનજી');
             $body = $notification->body_gu ?: ($notification->body_en ?: '');
 
             // FCM `data` payload values must all be strings — the Flutter

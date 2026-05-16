@@ -11,7 +11,7 @@
     {{-- Hanumanji background photo, gently faded into parchment --}}
     <div class="absolute inset-0">
         <img src="{{ asset('images/hanumanji-hero.jpg') }}"
-             alt="શ્રી પાતળિયા હનુમાનજી"
+             alt="શ્રી પાતાળિયા હનુમાનજી"
              class="w-full h-full object-cover object-center"
              style="opacity: 0.30;">
         {{-- Parchment veil — keeps image readable as background --}}
@@ -46,12 +46,12 @@
 
         {{-- Name --}}
         <h1 class="text-5xl sm:text-7xl lg:text-8xl font-black leading-[1.05] tracking-tight">
-            <span style="color: #7A1E1E;">શ્રી પાતળિયા</span><br>
+            <span style="color: #7A1E1E;">શ્રી પાતાળિયા</span><br>
             <span style="color: #C45F12;">હનુમાનજી ધામ</span>
         </h1>
 
         <p class="mt-6 text-lg sm:text-xl font-light tracking-wide" style="color: #5E4F3D;">
-            અંતરજાલ, ગાંધીધામ, કચ્છ — 370110
+            અંતરજાળ, ગાંધીધામ, કચ્છ — 370110
         </p>
 
         {{-- Ornamental divider --}}
@@ -508,7 +508,7 @@
         <div class="text-center mb-10">
             <div class="divine-divider"><span style="color: #C89434;">📍</span></div>
             <h2 class="divine-heading">દર્શન માટે પધારો</h2>
-            <p class="divine-subtext">અંતરજાલ, ગાંધીધામ, કચ્છ — 370110</p>
+            <p class="divine-subtext">અંતરજાળ, ગાંધીધામ, કચ્છ — 370110</p>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -523,8 +523,8 @@
                 <div>
                     <p class="text-xs uppercase tracking-wide mb-0.5" style="color: #C45F12;">સરનામું</p>
                     <p class="text-sm leading-relaxed" style="color: #3E3226;">
-                        શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ<br>
-                        અંતરજાલ, ગાંધીધામ, કચ્છ — 370110
+                        શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ<br>
+                        અંતરજાળ, ગાંધીધામ, કચ્છ — 370110
                     </p>
                 </div>
             </div>

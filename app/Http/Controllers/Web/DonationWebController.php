@@ -43,8 +43,8 @@ class DonationWebController extends Controller
             ];
         })->values()->toArray();
 
-        SEOMeta::setTitle('દાન કરો — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ');
-        SEOMeta::setDescription('શ્રી પાતળિયા હનુમાનજી મંદિર માટે ઓનલાઈન દાન કરો.');
+        SEOMeta::setTitle('દાન કરો — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
+        SEOMeta::setDescription('શ્રી પાતાળિયા હનુમાનજી મંદિર માટે ઓનલાઈન દાન કરો.');
 
         return view('pages.donation.index', compact('campaigns', 'donationTypes', 'donationTypesJs'));
     }

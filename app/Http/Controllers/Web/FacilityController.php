@@ -12,19 +12,19 @@ class FacilityController extends Controller
 {
     public function bhojanalay(): View
     {
-        SEOMeta::setTitle('ભોજનાલય — શ્રી પાતળિયા હનુમાનજી');
+        SEOMeta::setTitle('ભોજનાલય — શ્રી પાતાળિયા હનુમાનજી');
         return view('pages.facilities.bhojanalay');
     }
 
     public function yatriwas(): View
     {
-        SEOMeta::setTitle('યાત્રીવાસ — શ્રી પાતળિયા હનુમાનજી');
+        SEOMeta::setTitle('યાત્રીવાસ — શ્રી પાતાળિયા હનુમાનજી');
         return view('pages.facilities.yatriwas');
     }
 
     public function placesAround(): View
     {
-        SEOMeta::setTitle('આસપાસના સ્થળો — શ્રી પાતળિયા હનુમાનજી');
+        SEOMeta::setTitle('આસપાસના સ્થળો — શ્રી પાતાળિયા હનુમાનજી');
         return view('pages.facilities.places-around');
     }
 }

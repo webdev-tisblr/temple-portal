@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
         key: "{{ $razorpayKeyId }}",
         amount: {{ $amount }},
         currency: "{{ $currency }}",
-        name: "શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ",
+        name: "શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ",
         description: "{{ $description }}",
         order_id: "{{ $orderId }}",
         prefill: {

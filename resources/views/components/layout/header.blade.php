@@ -7,10 +7,10 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16 lg:h-20">
             <a href="{{ route('home') }}" class="flex items-center gap-3 flex-shrink-0 group">
-                <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="શ્રી પાતળિયા હનુમાનજી" class="w-12 h-12 lg:w-11 lg:h-11 rounded-full border border-amber-700/30 group-hover:border-amber-500/50 transition-all object-cover diya-glow" style="box-shadow: 0 0 15px rgba(196,154,42,0.2);">
+                <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="શ્રી પાતાળિયા હનુમાનજી" class="w-12 h-12 lg:w-11 lg:h-11 rounded-full border border-amber-700/30 group-hover:border-amber-500/50 transition-all object-cover diya-glow" style="box-shadow: 0 0 15px rgba(196,154,42,0.2);">
                 <div>
-                    <h1 class="text-base lg:text-base font-bold text-gold leading-tight">શ્રી પાતળિયા હનુમાનજી</h1>
-                    <p class="text-[10px] lg:text-[10px] text-amber-700/80 tracking-widest uppercase">સેવા ટ્રસ્ટ &bull; અંતરજાલ</p>
+                    <h1 class="text-base lg:text-base font-bold text-gold leading-tight">શ્રી પાતાળિયા હનુમાનજી</h1>
+                    <p class="text-[10px] lg:text-[10px] text-amber-700/80 tracking-widest uppercase">સેવા ટ્રસ્ટ &bull; અંતરજાળ</p>
                 </div>
             </a>
 

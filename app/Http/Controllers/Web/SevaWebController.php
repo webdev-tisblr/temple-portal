@@ -33,15 +33,15 @@ class SevaWebController extends Controller
 
         $grouped = $sevas->groupBy(fn ($seva) => $seva->getRawOriginal('category'));
 
-        SEOMeta::setTitle('સેવા અને પૂજા — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ');
-        SEOMeta::setDescription('શ્રી પાતળિયા હનુમાનજી મંદિરમાં સેવા અને પૂજા ઓનલાઈન બુક કરો.');
+        SEOMeta::setTitle('સેવા અને પૂજા — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
+        SEOMeta::setDescription('શ્રી પાતાળિયા હનુમાનજી મંદિરમાં સેવા અને પૂજા ઓનલાઈન બુક કરો.');
 
         return view('pages.seva.index', compact('sevas', 'grouped'));
     }
 
     public function show(Seva $seva): View
     {
-        SEOMeta::setTitle("{$seva->name} — શ્રી પાતળિયા હનુમાનજી સેવા ટ્રસ્ટ");
+        SEOMeta::setTitle("{$seva->name} — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ");
         SEOMeta::setDescription($seva->description ?? '');
 
         $linkedProducts = $seva->hasProductSelection() ? $seva->getLinkedProductsList() : collect();

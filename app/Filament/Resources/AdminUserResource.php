@@ -18,7 +18,10 @@ class AdminUserResource extends Resource
 {
     protected static ?string $model = AdminUser::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-shield-check';
+    // Users-and-people glyph so Admin Users reads as "the people"; Roles
+    // sits below it with a key icon (lang/vendor/filament-shield) so the
+    // two adjacent rows stop looking identical.
+    protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
     protected static ?string $navigationGroup = 'System';
 

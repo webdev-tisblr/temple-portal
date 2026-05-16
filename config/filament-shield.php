@@ -4,7 +4,9 @@ return [
     'shield_resource' => [
         'should_register_navigation' => true,
         'slug' => 'shield/roles',
-        'navigation_sort' => -1,
+        // Sort 3 puts Roles directly below Admin Users (sort 2) inside
+        // the System navigation group (lang/vendor override above).
+        'navigation_sort' => 3,
         'navigation_badge' => true,
         'navigation_group' => true,
         'sub_navigation_position' => null,

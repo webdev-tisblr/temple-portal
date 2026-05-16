@@ -180,82 +180,123 @@ class NotificationTemplateResource extends Resource
                         ->columnSpanFull(),
                 ]),
 
-            // ── Recipient ─────────────────────────────────────────────
-            Forms\Components\Section::make('Recipient')->schema([
-                Forms\Components\Select::make('recipient_strategy')
-                    ->label('Send to')
-                    ->options([
-                        NotificationTemplate::RECIPIENT_DEVOTEE => 'Devotee in the event (email or phone)',
-                        NotificationTemplate::RECIPIENT_TRUST_ADMIN => 'Trust admin (trust_email / trust_phone)',
-                        NotificationTemplate::RECIPIENT_ADMIN_USER => 'A specific admin user (pick below)',
-                        NotificationTemplate::RECIPIENT_ADMIN_ROLE => 'Every admin holding a role (eg pujari, trustee)',
-                        NotificationTemplate::RECIPIENT_FIXED_EMAIL => 'A specific email address',
-                        NotificationTemplate::RECIPIENT_FIXED_PHONE => 'A specific phone number',
-                        NotificationTemplate::RECIPIENT_CONTEXT_PATH => 'Look up from the event data (advanced)',
-                    ])
-                    ->default(NotificationTemplate::RECIPIENT_DEVOTEE)
-                    ->required()
-                    ->live(),
+            // ── Recipients ────────────────────────────────────────────
+            //
+            // One template, many recipients. The repeater persists into
+            // the `recipients` JSON column; each entry independently
+            // resolves at dispatch time (devotee + admin role + fixed
+            // phone all firing off the same body in one go).
+            //
+            // PUSH templates are kept single-recipient (devotee) — admin
+            // users don't register FCM tokens, so an admin-role push
+            // entry would silently no-op. The whole repeater is hidden
+            // on the push channel; NotificationService falls back to
+            // the legacy single-recipient logic via the
+            // recipient_strategy / recipient_value columns for push.
+            Forms\Components\Section::make('Recipients')
+                ->description('Each row resolves independently — add more to send the same message to multiple recipients in one go.')
+                ->visible(fn (Forms\Get $get) => $get('channel') !== NotificationTemplate::CHANNEL_PUSH)
+                ->schema([
+                    Forms\Components\Repeater::make('recipients')
+                        ->hiddenLabel()
+                        ->defaultItems(1)
+                        ->minItems(1)
+                        ->addActionLabel('Add another recipient')
+                        ->reorderable(false)
+                        ->grid(1)
+                        ->itemLabel(function (array $state): ?string {
+                            $strategy = $state['strategy'] ?? null;
+                            return match ($strategy) {
+                                NotificationTemplate::RECIPIENT_DEVOTEE => 'Devotee in the event',
+                                NotificationTemplate::RECIPIENT_TRUST_ADMIN => 'Trust admin',
+                                NotificationTemplate::RECIPIENT_ADMIN_USER => 'Specific admin user',
+                                NotificationTemplate::RECIPIENT_ADMIN_ROLE => 'Admin role: ' . ($state['value'] ?: '—'),
+                                NotificationTemplate::RECIPIENT_FIXED_EMAIL => 'Fixed email: ' . ($state['value'] ?: '—'),
+                                NotificationTemplate::RECIPIENT_FIXED_PHONE => 'Fixed phone: ' . ($state['value'] ?: '—'),
+                                NotificationTemplate::RECIPIENT_CONTEXT_PATH => 'Context path: ' . ($state['value'] ?: '—'),
+                                default => 'Recipient',
+                            };
+                        })
+                        ->schema([
+                            Forms\Components\Select::make('strategy')
+                                ->label('Send to')
+                                ->options([
+                                    NotificationTemplate::RECIPIENT_DEVOTEE => 'Devotee in the event (email or phone)',
+                                    NotificationTemplate::RECIPIENT_TRUST_ADMIN => 'Trust admin (trust_email / trust_phone)',
+                                    NotificationTemplate::RECIPIENT_ADMIN_USER => 'A specific admin user',
+                                    NotificationTemplate::RECIPIENT_ADMIN_ROLE => 'Every admin holding a role',
+                                    NotificationTemplate::RECIPIENT_FIXED_EMAIL => 'A specific email address',
+                                    NotificationTemplate::RECIPIENT_FIXED_PHONE => 'A specific phone number',
+                                    NotificationTemplate::RECIPIENT_CONTEXT_PATH => 'Look up from the event data (advanced)',
+                                ])
+                                ->default(NotificationTemplate::RECIPIENT_DEVOTEE)
+                                ->required()
+                                ->live(),
 
-                // Admin-user picker — visible only when "A specific admin
-                // user" is chosen. recipient_value stores the user's id;
-                // the resolver looks them up at send time and reads
-                // .email or .phone depending on channel. Inactive users
-                // are filtered out so admin can't pick someone who's
-                // already been offboarded.
-                Forms\Components\Select::make('recipient_value')
-                    ->label('Admin user')
-                    ->options(function () {
-                        return \App\Models\AdminUser::query()
-                            ->where('is_active', true)
-                            ->orderBy('name')
-                            ->get()
-                            ->mapWithKeys(fn ($u) => [
-                                $u->id => trim(
-                                    $u->name
-                                    . ($u->email ? "  ·  {$u->email}" : '')
-                                    . ($u->phone ? "  ·  {$u->phone}" : '')
-                                ),
-                            ])
-                            ->all();
-                    })
-                    ->searchable()
-                    ->required()
-                    ->helperText('Email channel will use this admin\'s email; WhatsApp / SMS will use their phone. Channel sends are skipped if the matching field is empty on the chosen user.')
-                    ->visible(fn (Forms\Get $get) => $get('recipient_strategy') === NotificationTemplate::RECIPIENT_ADMIN_USER),
+                            // Admin-user picker (only when strategy = admin_user)
+                            Forms\Components\Select::make('value')
+                                ->label('Admin user')
+                                ->options(function () {
+                                    return \App\Models\AdminUser::query()
+                                        ->where('is_active', true)
+                                        ->orderBy('name')
+                                        ->get()
+                                        ->mapWithKeys(fn ($u) => [
+                                            $u->id => trim(
+                                                $u->name
+                                                . ($u->email ? "  ·  {$u->email}" : '')
+                                                . ($u->phone ? "  ·  {$u->phone}" : '')
+                                            ),
+                                        ])
+                                        ->all();
+                                })
+                                ->searchable()
+                                ->required()
+                                ->visible(fn (Forms\Get $get) => $get('strategy') === NotificationTemplate::RECIPIENT_ADMIN_USER),
 
-                // Role picker — visible only when "Every admin holding a
-                // role" is chosen. recipient_value stores the role name;
-                // NotificationService fans the dispatch out across every
-                // active AdminUser with that role at send time.
-                Forms\Components\Select::make('recipient_value')
-                    ->label('Admin role')
-                    ->options(function () {
-                        return \Spatie\Permission\Models\Role::query()
-                            ->where('guard_name', 'admin')
-                            ->orderBy('name')
-                            ->pluck('name', 'name')
-                            ->all();
-                    })
-                    ->searchable()
-                    ->required()
-                    ->helperText('All active admin users with this role get the notification. Email channel reads admin_users.email; WhatsApp / SMS read admin_users.phone. Channel sends are skipped for users missing the matching field.')
-                    ->visible(fn (Forms\Get $get) => $get('recipient_strategy') === NotificationTemplate::RECIPIENT_ADMIN_ROLE),
+                            // Role picker (only when strategy = admin_role)
+                            Forms\Components\Select::make('value')
+                                ->label('Admin role')
+                                ->options(function () {
+                                    return \Spatie\Permission\Models\Role::query()
+                                        ->where('guard_name', 'admin')
+                                        ->orderBy('name')
+                                        ->pluck('name', 'name')
+                                        ->all();
+                                })
+                                ->searchable()
+                                ->required()
+                                ->helperText('Every active admin with this role gets the notification.')
+                                ->visible(fn (Forms\Get $get) => $get('strategy') === NotificationTemplate::RECIPIENT_ADMIN_ROLE),
 
-                // Free-text input — shown for the remaining strategies
-                // that need a literal value (fixed email / fixed phone /
-                // context dot-path). Devotee + trust-admin + admin-user
-                // + admin-role strategies all resolve from elsewhere, so
-                // this stays hidden in those cases.
-                Forms\Components\TextInput::make('recipient_value')
-                    ->label('Value')
-                    ->visible(fn (Forms\Get $get) => in_array($get('recipient_strategy'), [
-                        NotificationTemplate::RECIPIENT_FIXED_EMAIL,
-                        NotificationTemplate::RECIPIENT_FIXED_PHONE,
-                        NotificationTemplate::RECIPIENT_CONTEXT_PATH,
-                    ], true))
-                    ->helperText('Email address, phone number, or — for the advanced option — a dot-path like booking.contact_phone.'),
-            ])->columns(2),
+                            // Free-text input (fixed email / fixed phone / context path)
+                            Forms\Components\TextInput::make('value')
+                                ->label('Value')
+                                ->helperText('Email address, phone number, or — for the advanced option — a dot-path like booking.contact_phone.')
+                                ->visible(fn (Forms\Get $get) => in_array($get('strategy'), [
+                                    NotificationTemplate::RECIPIENT_FIXED_EMAIL,
+                                    NotificationTemplate::RECIPIENT_FIXED_PHONE,
+                                    NotificationTemplate::RECIPIENT_CONTEXT_PATH,
+                                ], true)),
+                        ]),
+                ]),
+
+            // Push templates stay single-recipient (devotee) — admin
+            // users have no FCM tokens, so any admin-role entry would
+            // silently no-op. Keep the legacy single dropdown for push.
+            Forms\Components\Section::make('Recipient')
+                ->visible(fn (Forms\Get $get) => $get('channel') === NotificationTemplate::CHANNEL_PUSH)
+                ->schema([
+                    Forms\Components\Select::make('recipient_strategy')
+                        ->label('Send to')
+                        ->options([
+                            NotificationTemplate::RECIPIENT_DEVOTEE => 'Devotee in the event',
+                        ])
+                        ->default(NotificationTemplate::RECIPIENT_DEVOTEE)
+                        ->disabled()
+                        ->dehydrated()
+                        ->helperText('Push notifications only support the in-event devotee — admin users do not register FCM tokens. Use WhatsApp / SMS / Email for admin recipients.'),
+                ]),
         ]);
     }
 

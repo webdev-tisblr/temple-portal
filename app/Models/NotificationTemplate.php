@@ -63,6 +63,7 @@ class NotificationTemplate extends Model
         'push_deep_link',
         'recipient_strategy',
         'recipient_value',
+        'recipients',
         'placeholder_map',
     ];
 
@@ -72,7 +73,59 @@ class NotificationTemplate extends Model
         'push_title' => 'array',
         'push_body' => 'array',
         'placeholder_map' => 'array',
+        // Array of { strategy: string, value: string|null } entries.
+        // Each entry independently resolves at dispatch; same row can
+        // therefore fan out to devotee + admin_role + fixed_phone in
+        // one go. See migration 2026_05_16_130000.
+        'recipients' => 'array',
     ];
+
+    /**
+     * Normalise the recipients list into a non-empty array of
+     * { strategy, value } entries for the dispatcher to iterate.
+     *
+     * Order of precedence:
+     *   1. `recipients` JSON column (new shape, multi-recipient).
+     *   2. Synthesised single-item array from the legacy
+     *      `recipient_strategy` + `recipient_value` columns —
+     *      keeps seeded rows and any pre-migration data working
+     *      transparently.
+     *
+     * Returns an empty array only when neither path produced a usable
+     * strategy. NotificationService treats that as "skipped: no
+     * recipient" and logs accordingly.
+     *
+     * @return array<int, array{strategy: string, value: ?string}>
+     */
+    public function resolveRecipients(): array
+    {
+        $list = $this->recipients;
+        if (is_array($list) && $list !== []) {
+            $out = [];
+            foreach ($list as $entry) {
+                if (! is_array($entry)) continue;
+                $strategy = is_string($entry['strategy'] ?? null) ? trim($entry['strategy']) : '';
+                if ($strategy === '') continue;
+                $value = $entry['value'] ?? null;
+                $out[] = [
+                    'strategy' => $strategy,
+                    'value' => is_string($value) ? trim($value) : $value,
+                ];
+            }
+            if ($out !== []) {
+                return $out;
+            }
+        }
+
+        if (is_string($this->recipient_strategy) && trim($this->recipient_strategy) !== '') {
+            return [[
+                'strategy' => $this->recipient_strategy,
+                'value' => $this->recipient_value,
+            ]];
+        }
+
+        return [];
+    }
 
     /** Convenience scope used by the dispatcher. */
     public function scopeEnabledForKey($query, string $key)

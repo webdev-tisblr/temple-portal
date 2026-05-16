@@ -140,8 +140,18 @@ final class NotificationService
     // ------------------------------------------------------------------
 
     /**
-     * Core dispatch loop — resolves templates for $key, fans out by channel,
-     * isolates each send so one dead driver never suppresses the others.
+     * Core dispatch loop — resolves templates for $key, fans out by channel
+     * and then by recipient inside each template, isolates each send so one
+     * dead driver never suppresses the others.
+     *
+     * A single template row can now declare multiple recipients (see
+     * NotificationTemplate::resolveRecipients() — JSON `recipients` column).
+     * For each (template × recipient config) we deliver once, and an
+     * `admin_role` recipient further fans out into N per-admin deliveries
+     * inside the inner loop. The per-recipient template is built via
+     * `replicate()` with overridden strategy/value so the in-memory model
+     * the driver sees matches what RecipientResolver expects, without ever
+     * touching the persisted row.
      */
     private function doDispatch(string $key, array $context, ?string $idempotencyKey): int
     {
@@ -163,63 +173,95 @@ final class NotificationService
                 ? "{$idempotencyKey}:{$template->channel}"
                 : null;
 
-            // admin_role strategy fans out across every active admin
-            // user holding the configured role. Each gets its own
-            // delivery with an `admin` key in context (so templates can
-            // render {{ admin.name }} per recipient). Idempotency key
-            // is suffixed with admin id so cron re-runs are no-ops per
-            // recipient.
-            if ($template->recipient_strategy === NotificationTemplate::RECIPIENT_ADMIN_ROLE) {
-                $role = trim((string) $template->recipient_value);
-                if ($role === '') {
-                    Log::warning('Notification: admin_role template missing recipient_value', [
-                        'template_id' => $template->id, 'template_key' => $template->key,
-                    ]);
-                    continue;
-                }
-
-                $admins = \App\Models\AdminUser::role($role)->where('is_active', true)->get();
-                if ($admins->isEmpty()) {
-                    Log::info('Notification: no active admins with role — skipping', [
-                        'template_id' => $template->id, 'template_key' => $template->key, 'role' => $role,
-                    ]);
-                    continue;
-                }
-
-                foreach ($admins as $admin) {
-                    $perAdminCtx = $ctx->with(['admin' => $admin]);
-                    $perAdminKey = $perChannelKey !== null
-                        ? "{$perChannelKey}:admin:{$admin->getKey()}"
-                        : null;
-                    try {
-                        if ($this->deliver($template, $perAdminCtx, $perAdminKey)) {
-                            $delivered++;
-                        }
-                    } catch (\Throwable $e) {
-                        Log::error('Notification: deliver wrapper threw (admin_role fan-out)', [
-                            'template_id' => $template->id,
-                            'admin_user_id' => $admin->getKey(),
-                            'error' => $e->getMessage(),
-                        ]);
-                    }
-                }
+            $recipientConfigs = $template->resolveRecipients();
+            if ($recipientConfigs === []) {
+                Log::warning('Notification: template has no usable recipient configs', [
+                    'template_id' => $template->id, 'template_key' => $template->key,
+                ]);
                 continue;
             }
 
-            try {
-                if ($this->deliver($template, $ctx, $perChannelKey)) {
-                    $delivered++;
+            foreach ($recipientConfigs as $i => $recipient) {
+                $strategy = $recipient['strategy'];
+                $value = $recipient['value'];
+
+                // Per-recipient view of the template — never persist this
+                // back. setRawAttributes copies the model state cleanly;
+                // overwriting two attributes after gives RecipientResolver
+                // the exact (strategy, value) for this delivery without
+                // mutating the original loaded row.
+                $perRecipientTemplate = (new NotificationTemplate())
+                    ->setRawAttributes($template->getAttributes(), sync: true);
+                $perRecipientTemplate->exists = true;
+                $perRecipientTemplate->recipient_strategy = $strategy;
+                $perRecipientTemplate->recipient_value = $value;
+
+                // Suffix the idempotency key with the recipient index so
+                // multi-recipient cron re-runs dedup independently per
+                // entry. Without this, the second recipient's first send
+                // would alias to the first recipient's prior log row and
+                // get skipped as "duplicate".
+                $perRecipientKey = $perChannelKey !== null
+                    ? "{$perChannelKey}:r{$i}"
+                    : null;
+
+                // admin_role recipient fans out across every active admin
+                // user holding the configured role. Each gets its own
+                // delivery with `admin` injected into context so templates
+                // can render {{ admin.name }} per recipient.
+                if ($strategy === NotificationTemplate::RECIPIENT_ADMIN_ROLE) {
+                    $role = is_string($value) ? trim($value) : '';
+                    if ($role === '') {
+                        Log::warning('Notification: admin_role recipient missing role name', [
+                            'template_id' => $template->id, 'template_key' => $template->key,
+                        ]);
+                        continue;
+                    }
+
+                    $admins = \App\Models\AdminUser::role($role)->where('is_active', true)->get();
+                    if ($admins->isEmpty()) {
+                        Log::info('Notification: no active admins with role — skipping', [
+                            'template_id' => $template->id, 'template_key' => $template->key, 'role' => $role,
+                        ]);
+                        continue;
+                    }
+
+                    foreach ($admins as $admin) {
+                        $perAdminCtx = $ctx->with(['admin' => $admin]);
+                        $perAdminKey = $perRecipientKey !== null
+                            ? "{$perRecipientKey}:admin:{$admin->getKey()}"
+                            : null;
+                        try {
+                            if ($this->deliver($perRecipientTemplate, $perAdminCtx, $perAdminKey)) {
+                                $delivered++;
+                            }
+                        } catch (\Throwable $e) {
+                            Log::error('Notification: deliver wrapper threw (admin_role fan-out)', [
+                                'template_id' => $template->id,
+                                'admin_user_id' => $admin->getKey(),
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    }
+                    continue;
                 }
-            } catch (\Throwable $e) {
-                // The deliver() wrapper itself catches; this is the absolute
-                // safety net so an unexpected throw in error-handling code
-                // can never break the caller.
-                Log::error('Notification: deliver wrapper threw', [
-                    'template_id' => $template->id,
-                    'template_key' => $template->key,
-                    'channel' => $template->channel,
-                    'error' => $e->getMessage(),
-                ]);
+
+                try {
+                    if ($this->deliver($perRecipientTemplate, $ctx, $perRecipientKey)) {
+                        $delivered++;
+                    }
+                } catch (\Throwable $e) {
+                    // The deliver() wrapper itself catches; this is the absolute
+                    // safety net so an unexpected throw in error-handling code
+                    // can never break the caller.
+                    Log::error('Notification: deliver wrapper threw', [
+                        'template_id' => $template->id,
+                        'template_key' => $template->key,
+                        'channel' => $template->channel,
+                        'recipient_strategy' => $strategy,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
         }
 

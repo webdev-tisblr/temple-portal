@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\NotificationLogResource\Pages;
 use App\Models\NotificationLog;
+use App\Models\NotificationTemplate;
 use App\Services\Notifications\NotificationService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -13,6 +14,7 @@ use Filament\Notifications\Notification as FlashNotification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Read-only audit surface over the per-attempt notification log written
@@ -260,14 +262,29 @@ class NotificationLogResource extends Resource
                             return;
                         }
 
-                        // Rebuild a minimal context from the snapshot. For
-                        // rich Eloquent context the resend will be partial
-                        // (only the keys that flattened cleanly into the
-                        // snapshot survive) — admin can also re-trigger
-                        // the upstream event for a full reproduction.
-                        $context = $record->context_snapshot ?? [];
+                        // Clone the template and pin it to the EXACT recipient
+                        // (strategy, value) that was tried originally. Without
+                        // this, multi-recipient templates fall back to the
+                        // template's legacy default (usually `devotee`),
+                        // which is the wrong recipient for r1+ entries and
+                        // explains the "Resend → skipped/failed" loop.
+                        $perRecipientTemplate = (new NotificationTemplate())
+                            ->setRawAttributes($template->getAttributes(), sync: true);
+                        $perRecipientTemplate->exists = true;
+                        if (! empty($record->recipient_strategy)) {
+                            $perRecipientTemplate->recipient_strategy = $record->recipient_strategy;
+                            $perRecipientTemplate->recipient_value = $record->recipient_value;
+                        }
 
-                        $ok = app(NotificationService::class)->sendTemplate($template, $context);
+                        // Rehydrate Eloquent model refs in the snapshot. The
+                        // snapshotter flattens models to {model, id} pairs so
+                        // the JSON column stays bounded; the recipient
+                        // resolver expects real instances (`$x instanceof
+                        // Model`) so without rehydration the devotee /
+                        // booking refs are dead weight at Resend time.
+                        $context = self::rehydrateContextSnapshot($record->context_snapshot ?? []);
+
+                        $ok = app(NotificationService::class)->sendTemplate($perRecipientTemplate, $context);
 
                         FlashNotification::make()
                             ->title($ok ? 'Resent' : 'Resend failed — see latest log row')
@@ -290,5 +307,48 @@ class NotificationLogResource extends Resource
     {
         // Eager-load relations to avoid N+1 on the list view.
         return parent::getEloquentQuery()->with(['template', 'devotee']);
+    }
+
+    /**
+     * Turn a context_snapshot back into a Resend-ready context. The
+     * snapshotter (NotificationService::snapshotContext) flattens every
+     * Eloquent model into a {model, id} pair to keep the JSON column
+     * bounded. RecipientResolver and most drivers do `$x instanceof
+     * Model` checks against the context values, so without
+     * rehydration the resend hits the "no Devotee in context"
+     * branches and silently fails.
+     *
+     * Missing rows (model deleted since dispatch) are dropped — the
+     * resend then falls through to whatever fallbacks the resolver
+     * has (eg context.phone / context.email top-level keys), or
+     * fails cleanly. Either is better than passing a half-real array
+     * and pretending it's the original Eloquent instance.
+     *
+     * @param  array<string, mixed>  $snapshot
+     * @return array<string, mixed>
+     */
+    private static function rehydrateContextSnapshot(array $snapshot): array
+    {
+        $out = [];
+        foreach ($snapshot as $key => $value) {
+            if (
+                is_array($value)
+                && isset($value['model'], $value['id'])
+                && is_string($value['model'])
+                && is_subclass_of($value['model'], Model::class)
+            ) {
+                $model = $value['model']::query()->find($value['id']);
+                if ($model !== null) {
+                    $out[$key] = $model;
+                }
+                // Drop the key if the row no longer exists — resend
+                // falls through to whatever fallbacks the resolver
+                // has rather than carrying around a {model, id}
+                // pair the drivers won't recognise.
+                continue;
+            }
+            $out[$key] = $value;
+        }
+        return $out;
     }
 }

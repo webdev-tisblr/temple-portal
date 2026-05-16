@@ -379,6 +379,13 @@ final class NotificationService
                 'recipient_hash' => $recipient !== null
                     ? NotificationLog::hashRecipient((string) $recipient['value'])
                     : null,
+                // Snapshot the (strategy, value) that's about to be tried so
+                // Resend can reproduce it later. doDispatch mutates these on
+                // a per-recipient template clone before calling deliver(),
+                // so reading them off $template here captures the per-attempt
+                // pair rather than the row's legacy default.
+                'recipient_strategy' => $template->recipient_strategy,
+                'recipient_value' => $template->recipient_value,
                 'devotee_id' => $this->devoteeIdFromContext($ctx),
                 'status' => $status,
                 'skip_reason' => $skipReason,

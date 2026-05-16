@@ -44,6 +44,11 @@ class NotificationLog extends Model
         'channel',
         'recipient_masked',
         'recipient_hash',
+        // Per-attempt copy of the (strategy, value) so Resend can
+        // reproduce the exact recipient that was tried — see
+        // migration 2026_05_16_140000 for the why.
+        'recipient_strategy',
+        'recipient_value',
         'devotee_id',
         'status',
         'skip_reason',

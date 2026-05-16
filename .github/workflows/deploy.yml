@@ -108,6 +108,16 @@ jobs:
             # dropdown. Safe to run on every deploy.
             php artisan db:seed --class=Database\\Seeders\\RolePermissionSeeder --force || true
 
+            # Filament Shield permission scan — inserts permission rows
+            # for any newly-added Resource / Page / Widget so non-super
+            # admins can be granted access via /admin/shield/roles
+            # without an SSH step. --option=permissions skips policy
+            # file generation so existing app/Policies/* stay untouched;
+            # --all covers resources + pages + widgets in one pass.
+            # Idempotent: only inserts missing rows, preserves all
+            # existing role-permission assignments.
+            php artisan shield:generate --all --option=permissions --minimal || true
+
             # Clear ALL caches BEFORE rebuilding them. Filament's
             # admin-resource registration is computed from class
             # discovery at boot — without optimize:clear, a newly-added

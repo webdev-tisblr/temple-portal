@@ -25,7 +25,11 @@ use Illuminate\Database\Eloquent\Builder;
 class OperationsTodayOverview extends StatsOverviewWidget
 {
     protected static ?int $sort = 2;
-    protected static ?string $heading = 'Today';
+
+    protected function getHeading(): ?string
+    {
+        return 'Today';
+    }
 
     public static function canView(): bool
     {

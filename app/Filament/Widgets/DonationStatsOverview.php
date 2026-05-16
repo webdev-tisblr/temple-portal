@@ -12,7 +12,11 @@ use Illuminate\Database\Eloquent\Builder;
 class DonationStatsOverview extends StatsOverviewWidget
 {
     protected static ?int $sort = 1;
-    protected static ?string $heading = 'Finances';
+
+    protected function getHeading(): ?string
+    {
+        return 'Finances';
+    }
 
     public static function canView(): bool
     {

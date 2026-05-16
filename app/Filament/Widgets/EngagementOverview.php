@@ -22,7 +22,11 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 class EngagementOverview extends StatsOverviewWidget
 {
     protected static ?int $sort = 3;
-    protected static ?string $heading = 'Devotees';
+
+    protected function getHeading(): ?string
+    {
+        return 'Devotees';
+    }
 
     public static function canView(): bool
     {

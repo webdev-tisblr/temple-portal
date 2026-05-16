@@ -21,7 +21,11 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 class ActiveContentOverview extends StatsOverviewWidget
 {
     protected static ?int $sort = 4;
-    protected static ?string $heading = 'Active content';
+
+    protected function getHeading(): ?string
+    {
+        return 'Active content';
+    }
 
     public static function canView(): bool
     {

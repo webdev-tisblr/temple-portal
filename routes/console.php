@@ -35,7 +35,12 @@ Schedule::command('queue:retry all')
 Schedule::command('temple:send-birthday-blessings')
     ->dailyAt('07:00');
 
-// Dispatch scheduled push notifications every 5 minutes.
+// Dispatch scheduled push notifications every minute. Admin picks a
+// minute-precision scheduled_at in the Filament form (no seconds), so
+// every-minute polling means the push arrives within ~1 minute of the
+// chosen time. The previous 5-minute cadence made the actual send up
+// to 5 min late, which surprised admins who expected the time they
+// picked to be honoured precisely.
 // Status flow: draft → scheduled → sending → sent | failed
 Schedule::call(function () {
     $due = Notification::query()
@@ -48,19 +53,22 @@ Schedule::call(function () {
         $notification->update(['status' => 'sending']);
         SendPushNotification::dispatch($notification);
     }
-})->everyFiveMinutes()->name('dispatch-scheduled-notifications')->withoutOverlapping();
+})->everyMinute()->name('dispatch-scheduled-notifications')->withoutOverlapping();
 
 // Cancel stale pending bookings every 5 minutes
 Schedule::command('bookings:clean-stale')
     ->everyFiveMinutes()
     ->withoutOverlapping();
 
-// Seva reminders — every 30 min. Each Seva resource carries its own
+// Seva reminders — every 5 min. Each Seva resource carries its own
 // reminders[] array; this command fans out per-booking × per-reminder
-// dispatches to devotee + pujari-role admins. The 35-min window in
-// the command default leaves 5 min slack for clock drift.
+// dispatches to devotee + pujari-role admins. A 5-minute cadence with
+// a 10-min window (command default) keeps reminders within ~5 minutes
+// of the configured offset. The previous 30-minute cadence drifted
+// half an hour late on average, which read as "no reminder arrived"
+// for tighter offsets like 3h-before.
 Schedule::command('seva:dispatch-reminders')
-    ->everyThirtyMinutes()
+    ->everyFiveMinutes()
     ->withoutOverlapping()
     ->runInBackground();
 

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\AdminUser;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 
 class AuthServiceProvider extends ServiceProvider
@@ -49,6 +51,24 @@ class AuthServiceProvider extends ServiceProvider
             }
 
             return $user->hasRole('super_admin') ? true : null;
+        });
+
+        /*
+        |--------------------------------------------------------------------------
+        | AdminUser last_login_at stamp
+        |--------------------------------------------------------------------------
+        |
+        | The Filament admin column reads `temple_admin_users.last_login_at`,
+        | but nothing was writing to it — the column stayed null for every
+        | admin and the list always showed "Never". Stamp it from the Login
+        | event so the Filament panel + any future "active admin" reports
+        | reflect reality. updateQuietly avoids spamming the Spatie activity
+        | log with a row per login.
+        */
+        Event::listen(Login::class, function (Login $event) {
+            if ($event->user instanceof AdminUser) {
+                $event->user->forceFill(['last_login_at' => now()])->saveQuietly();
+            }
         });
     }
 }

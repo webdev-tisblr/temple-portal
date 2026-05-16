@@ -32,12 +32,13 @@ use Illuminate\Support\Facades\Log;
  * re-runs are no-ops because the log row already exists.
  *
  * Window sizing: must be >= cron cadence or some reminders fall through
- * the cracks. Default window is 35 min for a 30-min cadence (5 min
- * slack for clock drift / staggered runs).
+ * the cracks. Default window is 10 min for a 5-min cadence (5 min slack
+ * for clock drift / staggered runs). Idempotency at NotificationService
+ * dedups any overlap inside that window.
  */
 class DispatchSevaReminders extends Command
 {
-    protected $signature = 'seva:dispatch-reminders {--window=35 : Window minutes — bookings whose fire_at falls in (now-window, now] get reminded}';
+    protected $signature = 'seva:dispatch-reminders {--window=10 : Window minutes — bookings whose fire_at falls in (now-window, now] get reminded}';
 
     protected $description = 'Dispatch seva.booking.reminder for confirmed bookings based on per-seva reminder_offsets';
 

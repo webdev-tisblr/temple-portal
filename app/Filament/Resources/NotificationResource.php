@@ -195,13 +195,25 @@ class NotificationResource extends Resource
                         ->dehydrated(false)
                         ->live(),
 
+                    // native(false) swaps in Filament's custom Flatpickr-based
+                    // picker. The browser-native datetime-local input enforces
+                    // step=60s against the `min` value's seconds offset, which
+                    // produced the "nearest valid values are HH:MM:39" errors
+                    // whenever min was now()-with-seconds — and gave no
+                    // 12-hour / AM-PM mode on desktop or a clean mobile UX.
+                    // Aligning minDate to the minute boundary belt-and-braces
+                    // the same problem for any caller that re-enables native.
                     Forms\Components\DateTimePicker::make('scheduled_at')
                         ->label('Scheduled time')
+                        ->native(false)
                         ->seconds(false)
-                        ->minDate(fn () => now())
+                        ->minutesStep(1)
+                        ->displayFormat('d/m/Y h:i A')
+                        ->format('Y-m-d H:i:s')
+                        ->minDate(fn () => now()->startOfMinute())
                         ->visible(fn (Get $get) => $get('send_mode') === 'schedule')
                         ->required(fn (Get $get) => $get('send_mode') === 'schedule')
-                        ->helperText('The dispatcher checks every 5 minutes — actual send may be up to ~5 min after this time.'),
+                        ->helperText('Pick the date and time (12-hour AM/PM). The dispatcher checks every minute, so delivery fires within ~1 min of this time.'),
                 ]),
 
             Forms\Components\Section::make('Delivery')

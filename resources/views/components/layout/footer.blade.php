@@ -5,15 +5,16 @@
     use App\Models\DarshanTiming;
 
     $trustName    = SystemSetting::getValue('trust_name', 'શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
+    $trustTagline = SystemSetting::getValue(
+        'trust_tagline',
+        'ગુજરાતમાં હનુમાનજીનું પ્રસિદ્ધ ધામ. ભક્તિ, સેવા અને સમર્પણ સાથે મંદિરનું વ્યવસ્થાપન ટ્રસ્ટ દ્વારા થાય છે.'
+    );
     $trustAddress = SystemSetting::getValue('trust_address', 'અંતરજાળ, ગાંધીધામ, કચ્છ — 370110');
     $trustPhone   = SystemSetting::getValue('trust_phone');
     $trustEmail   = SystemSetting::getValue('trust_email');
     $trustWhatsApp= SystemSetting::getValue('trust_whatsapp');
     $trust80g     = SystemSetting::getValue('trust_80g_reg_no');
     $mapUrl       = SystemSetting::getValue('trust_map_url');
-    $fbUrl        = SystemSetting::getValue('trust_facebook_url');
-    $igUrl        = SystemSetting::getValue('trust_instagram_url');
-    $ytUrl        = SystemSetting::getValue('trust_youtube_url');
 
     // Today's darshan snapshot — cached in the model already so this
     // is cheap to call from every page render.
@@ -30,14 +31,17 @@
     </div>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {{-- 5 columns on desktop: identity, mandir, booking & donation,
-             contact info, darshan + socials. Trust identity gets a
-             wider column-span on lg so the description paragraph stays
-             readable while the four link/info columns sit tighter to
-             its right. --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-10">
+        {{-- 4 columns on desktop, identity column spans 2:
+                col 1-2 → trust identity + contact info stacked
+                col 3   → Mandir links
+                col 4   → Booking & Donation links
+                col 5   → Darshan timings (no socials block)
+             The contact info now sits directly below the trust
+             identity so the brand block reads as one cohesive
+             "who/where to find us" unit. --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-10">
 
-            {{-- ── 1. Trust identity ───────────────────────────────── --}}
+            {{-- ── 1. Trust identity + contact info ─────────────────── --}}
             <div class="lg:col-span-2">
                 <div class="flex items-center gap-3 mb-4">
                     <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}"
@@ -50,47 +54,18 @@
                     </div>
                 </div>
                 <p class="text-sm leading-relaxed" style="color: #5E4F3D;">
-                    ગુજરાતમાં હનુમાનજીનું પ્રસિદ્ધ ધામ. ભક્તિ, સેવા અને સમર્પણ સાથે મંદિરનું વ્યવસ્થાપન ટ્રસ્ટ દ્વારા થાય છે.
+                    {{ $trustTagline }}
                 </p>
                 @if($trust80g)
                     <p class="mt-3 text-xs" style="color: #8A7860;">
                         <span class="font-semibold" style="color: #7A1E1E;">80G:</span> {{ $trust80g }}
                     </p>
                 @endif
-            </div>
 
-            {{-- ── 2. Mandir — about / history / people / contact ───── --}}
-            <div>
-                <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">મંદિર</h3>
-                <ul class="space-y-2.5 text-sm">
-                    {{-- /parichay, /itihas, /mahima are CMS pages
-                         served by the catch-all /{slug} route — same
-                         URLs the header dropdown links to. --}}
-                    <li><a href="/parichay"                style="color: #3E3226;" class="hover:underline">પરિચય</a></li>
-                    <li><a href="/itihas"                  style="color: #3E3226;" class="hover:underline">ઇતિહાસ</a></li>
-                    <li><a href="{{ route('trustees') }}"  style="color: #3E3226;" class="hover:underline">ટ્રસ્ટીઓ</a></li>
-                    <li><a href="{{ route('pujari') }}"    style="color: #3E3226;" class="hover:underline">પૂજારી</a></li>
-                    <li><a href="{{ route('gallery') }}"   style="color: #3E3226;" class="hover:underline">ફોટો ગેલેરી</a></li>
-                    <li><a href="{{ route('contact') }}"   style="color: #3E3226;" class="hover:underline">સંપર્ક</a></li>
-                </ul>
-            </div>
-
-            {{-- ── 3. Booking & donation ────────────────────────────── --}}
-            <div>
-                <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">બુકિંગ અને દાન</h3>
-                <ul class="space-y-2.5 text-sm">
-                    <li><a href="{{ route('donate') }}"        style="color: #3E3226;" class="hover:underline">ઓનલાઈન દાન</a></li>
-                    <li><a href="{{ route('seva.index') }}"    style="color: #3E3226;" class="hover:underline">સેવા બુકિંગ</a></li>
-                    <li><a href="{{ route('halls.index') }}"   style="color: #3E3226;" class="hover:underline">હોલ બુકિંગ</a></li>
-                    <li><a href="{{ route('projects.index') }}" style="color: #3E3226;" class="hover:underline">સેવા પ્રોજેક્ટ્સ</a></li>
-                    <li><a href="{{ route('store.index') }}"   style="color: #3E3226;" class="hover:underline">મંદિર સ્ટોર</a></li>
-                </ul>
-            </div>
-
-            {{-- ── 3. Reach us ─────────────────────────────────────── --}}
-            <div>
-                <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">સંપર્ક</h3>
-                <ul class="space-y-3 text-sm" style="color: #3E3226;">
+                {{-- Contact info — stacked under the identity block so
+                     the "who + where + how to reach" reads as one
+                     unit on the left of the footer. --}}
+                <ul class="mt-6 space-y-3 text-sm" style="color: #3E3226;">
                     <li class="flex gap-2.5">
                         <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #C45F12;">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
@@ -135,59 +110,68 @@
                 </ul>
             </div>
 
-            {{-- ── 4. Darshan timings + socials ────────────────────── --}}
+            {{-- ── 2. Mandir — about / history / people / contact ───── --}}
+            <div>
+                <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">મંદિર</h3>
+                <ul class="space-y-2.5 text-sm">
+                    {{-- /parichay, /itihas, /mahima are CMS pages
+                         served by the catch-all /{slug} route — same
+                         URLs the header dropdown links to. --}}
+                    <li><a href="/parichay"                style="color: #3E3226;" class="hover:underline">પરિચય</a></li>
+                    <li><a href="/itihas"                  style="color: #3E3226;" class="hover:underline">ઇતિહાસ</a></li>
+                    <li><a href="{{ route('trustees') }}"  style="color: #3E3226;" class="hover:underline">ટ્રસ્ટીઓ</a></li>
+                    <li><a href="{{ route('pujari') }}"    style="color: #3E3226;" class="hover:underline">પૂજારી</a></li>
+                    <li><a href="{{ route('gallery') }}"   style="color: #3E3226;" class="hover:underline">ફોટો ગેલેરી</a></li>
+                    <li><a href="{{ route('contact') }}"   style="color: #3E3226;" class="hover:underline">સંપર્ક</a></li>
+                </ul>
+            </div>
+
+            {{-- ── 3. Booking & donation ────────────────────────────── --}}
+            <div>
+                <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">બુકિંગ અને દાન</h3>
+                <ul class="space-y-2.5 text-sm">
+                    <li><a href="{{ route('donate') }}"        style="color: #3E3226;" class="hover:underline">ઓનલાઈન દાન</a></li>
+                    <li><a href="{{ route('seva.index') }}"    style="color: #3E3226;" class="hover:underline">સેવા બુકિંગ</a></li>
+                    <li><a href="{{ route('halls.index') }}"   style="color: #3E3226;" class="hover:underline">હોલ બુકિંગ</a></li>
+                    <li><a href="{{ route('projects.index') }}" style="color: #3E3226;" class="hover:underline">સેવા પ્રોજેક્ટ્સ</a></li>
+                    <li><a href="{{ route('store.index') }}"   style="color: #3E3226;" class="hover:underline">મંદિર સ્ટોર</a></li>
+                </ul>
+            </div>
+
+            {{-- ── 4. Darshan + aarti timings ───────────────────────── --}}
+            {{-- All four rows render text-only — emoji icons (☀️ 🌙 🪔)
+                 were dropped at the trust's request because they
+                 rendered inconsistently across Windows/Android. --}}
             <div>
                 @if($todayTiming)
                     <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">દર્શન સમય</h3>
-                    <ul class="space-y-2 text-sm mb-6" style="color: #3E3226;">
+                    <ul class="space-y-2 text-sm" style="color: #3E3226;">
                         @if($todayTiming->morning_open && $todayTiming->morning_close)
                             <li class="flex justify-between gap-3">
-                                <span class="flex items-center gap-1.5"><span>☀️</span> સવારે</span>
+                                <span>સવારે</span>
                                 <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->morning_open)->format('h:i') }} – {{ \Carbon\Carbon::parse($todayTiming->morning_close)->format('h:i A') }}</span>
                             </li>
                         @endif
                         @if($todayTiming->evening_open && $todayTiming->evening_close)
                             <li class="flex justify-between gap-3">
-                                <span class="flex items-center gap-1.5"><span>🌙</span> સાંજે</span>
+                                <span>સાંજે</span>
                                 <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->evening_open)->format('h:i') }} – {{ \Carbon\Carbon::parse($todayTiming->evening_close)->format('h:i A') }}</span>
                             </li>
                         @endif
-                        {{-- Morning / evening aarti rows intentionally
-                             omitted from the footer — they live on the
-                             /darshan page where there's room for the
-                             full aarti schedule. The footer only carries
-                             the two open/close windows so the column
-                             stays compact. --}}
+                        @if($todayTiming->aarti_morning)
+                            <li class="flex justify-between gap-3 pt-1 border-t" style="border-color: rgba(122,30,30,0.10);">
+                                <span>સવારની આરતી</span>
+                                <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->aarti_morning)->format('h:i A') }}</span>
+                            </li>
+                        @endif
+                        @if($todayTiming->aarti_evening)
+                            <li class="flex justify-between gap-3">
+                                <span>સાંજની આરતી</span>
+                                <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->aarti_evening)->format('h:i A') }}</span>
+                            </li>
+                        @endif
                     </ul>
                 @endif
-
-                <h3 class="text-xs uppercase tracking-widest font-bold mb-3" style="color: #C45F12;">અમારી સાથે જોડાઓ</h3>
-                <div class="flex gap-2.5">
-                    @if($fbUrl)
-                        <a href="{{ $fbUrl }}" target="_blank" rel="noopener" aria-label="Facebook"
-                           class="w-10 h-10 rounded-xl border flex items-center justify-center transition hover:-translate-y-0.5"
-                           style="background: #FFFCF5; border-color: rgba(122,30,30,0.15); color: #1877F2;">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                        </a>
-                    @endif
-                    @if($igUrl)
-                        <a href="{{ $igUrl }}" target="_blank" rel="noopener" aria-label="Instagram"
-                           class="w-10 h-10 rounded-xl border flex items-center justify-center transition hover:-translate-y-0.5"
-                           style="background: #FFFCF5; border-color: rgba(122,30,30,0.15); color: #E4405F;">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                        </a>
-                    @endif
-                    @if($ytUrl)
-                        <a href="{{ $ytUrl }}" target="_blank" rel="noopener" aria-label="YouTube"
-                           class="w-10 h-10 rounded-xl border flex items-center justify-center transition hover:-translate-y-0.5"
-                           style="background: #FFFCF5; border-color: rgba(122,30,30,0.15); color: #FF0000;">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-                        </a>
-                    @endif
-                    @if(!$fbUrl && !$igUrl && !$ytUrl)
-                        <p class="text-xs italic" style="color: #8A7860;">હાલ ઉપલબ્ધ નથી</p>
-                    @endif
-                </div>
             </div>
 
         </div>

@@ -55,6 +55,15 @@ class SystemSettings extends Page implements HasForms
                             Forms\Components\TextInput::make('trust_pan')->label('Trust PAN'),
                             Forms\Components\TextInput::make('trust_phone')->label('Phone'),
                             Forms\Components\TextInput::make('trust_email')->label('Email'),
+                            // Public footer tagline. Renders below the
+                            // logo/name on every page via the footer
+                            // partial. Plain text only — line breaks
+                            // are honoured by Tailwind's leading-relaxed.
+                            Forms\Components\Textarea::make('trust_tagline')
+                                ->label('Footer tagline (Gujarati)')
+                                ->rows(3)
+                                ->helperText('Short description shown under the trust logo in the public footer. 1–2 sentences.')
+                                ->columnSpanFull(),
                         ])->columns(2),
 
                         Forms\Components\Section::make('80G Details')->schema([

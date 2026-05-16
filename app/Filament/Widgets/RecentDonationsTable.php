@@ -12,9 +12,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 class RecentDonationsTable extends BaseWidget
 {
-    protected static ?string $heading = 'Recent Donations';
+    protected static ?string $heading = 'Recent donations';
 
-    protected static ?int $sort = 4;
+    protected static ?int $sort = 7;
 
     protected int|string|array $columnSpan = 'full';
 

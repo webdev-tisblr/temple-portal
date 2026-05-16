@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
-use App\Models\Devotee;
 use App\Models\Donation;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -13,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 class DonationStatsOverview extends StatsOverviewWidget
 {
     protected static ?int $sort = 1;
+    protected static ?string $heading = 'Finances';
 
     public static function canView(): bool
     {
@@ -34,18 +34,31 @@ class DonationStatsOverview extends StatsOverviewWidget
         $captured = fn (): Builder => Donation::query()
             ->whereHas('payment', fn (Builder $q) => $q->where('status', 'captured'));
 
+        $todayCount = $captured()->whereDate('created_at', today())->count();
+        $monthCount = $captured()
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->count();
+        $fyCount = $captured()->where('financial_year', $fy)->count();
+        $fySum = (float) $captured()->where('financial_year', $fy)->sum('amount');
+
+        // Devotee count was previously here too — moved into the
+        // EngagementOverview widget so this row stays purely financial
+        // and the dashboard has one logical purpose per row.
         return [
             Stat::make("Today's Donations", '₹' . number_format((float) $captured()->whereDate('created_at', today())->sum('amount')))
-                ->description($captured()->whereDate('created_at', today())->count() . ' donations')
+                ->description("{$todayCount} donations today")
                 ->color('success'),
             Stat::make('This Month', '₹' . number_format((float) $captured()->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->sum('amount')))
-                ->description($captured()->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->count() . ' donations')
+                ->description("{$monthCount} donations · MTD")
                 ->color('primary'),
-            Stat::make("FY {$fy}", '₹' . number_format((float) $captured()->where('financial_year', $fy)->sum('amount')))
-                ->description($captured()->where('financial_year', $fy)->count() . ' donations')
+            Stat::make("FY {$fy}", '₹' . number_format($fySum))
+                ->description("{$fyCount} donations · YTD")
                 ->color('warning'),
-            Stat::make('Total Devotees', number_format(Devotee::count()))
-                ->description('Registered users')
+            Stat::make('Avg this month', '₹' . number_format($monthCount > 0
+                ? (float) $captured()->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->avg('amount')
+                : 0))
+                ->description('Per donation, captured')
                 ->color('info'),
         ];
     }

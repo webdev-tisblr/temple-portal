@@ -11,9 +11,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 class DonationChart extends ChartWidget
 {
-    protected static ?string $heading = 'Donations (Last 30 Days)';
+    protected static ?string $heading = 'Donations · last 30 days';
 
-    protected static ?int $sort = 2;
+    protected static ?int $sort = 5;
 
     public static function canView(): bool
     {

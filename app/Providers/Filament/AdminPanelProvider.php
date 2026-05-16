@@ -45,6 +45,12 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make('Communication'),
                 NavigationGroup::make('System'),
             ])
+            // Lets the admin collapse the sidebar to a 64px rail on
+            // desktop. State persists across reloads via Filament's
+            // localStorage flag. Frees horizontal room for the
+            // wider dashboard widgets + Filament tables on small
+            // laptop screens.
+            ->sidebarCollapsibleOnDesktop()
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([

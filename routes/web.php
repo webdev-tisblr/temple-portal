@@ -12,6 +12,7 @@ use App\Http\Controllers\Web\FacilityController;
 use App\Http\Controllers\Web\GalleryWebController;
 use App\Http\Controllers\Web\HallBookingController;
 use App\Http\Controllers\Web\HomeController;
+use App\Http\Controllers\Web\LegalController;
 use App\Http\Controllers\Web\PageController;
 use App\Http\Controllers\Web\ProjectController;
 use App\Http\Controllers\Web\SevaWebController;
@@ -221,6 +222,13 @@ Route::get('/admin-tools/storage-repair', function () {
 
     return implode("\n", $log);
 })->name('admin.storage-repair');
+
+// Legal / store-compliance pages (required by App Store + Google Play).
+// Defined before the CMS catch-all so these fixed URLs always resolve.
+Route::get('/privacy-policy', [LegalController::class, 'privacy'])->name('legal.privacy');
+Route::get('/terms', [LegalController::class, 'terms'])->name('legal.terms');
+Route::get('/refund-policy', [LegalController::class, 'refund'])->name('legal.refund');
+Route::get('/account-deletion', [LegalController::class, 'accountDeletion'])->name('legal.account-deletion');
 
 // CMS Pages (catch-all — MUST BE LAST)
 Route::get('/{slug}', [PageController::class, 'show'])->name('page.show');

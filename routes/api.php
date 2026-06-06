@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ContentController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
@@ -161,6 +162,10 @@ Route::prefix('v1')->group(function () {
                 'data' => (new DevoteeResource($fresh))->toArray($request),
             ]);
         });
+
+        // Permanent account deletion (App Store 5.1.1(v) + Play User Data
+        // policy). Erases PII; retains anonymised financial records.
+        Route::delete('/me', [AccountController::class, 'destroy']);
 
         // Seva booking (requires auth)
         Route::post('/sevas/{seva}/book', [SevaController::class, 'book']);

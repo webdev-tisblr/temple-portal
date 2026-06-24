@@ -9,7 +9,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ટૂંક સમયમાં — {{ $trustName }}</title>
+    <title>{{ __('comingsoon.soon') }} — {{ $trustName }}</title>
     <meta name="robots" content="noindex,nofollow">
     <meta name="theme-color" content="#FBF5EA">
 
@@ -42,19 +42,19 @@
         <div class="inline-flex items-center gap-2 px-5 py-2 rounded-full border mb-6"
              style="background: rgba(232,117,26,0.10); border-color: rgba(200,148,52,0.45);">
             <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background: #E8751A;"></span>
-            <span class="text-sm tracking-[0.2em] uppercase font-medium" style="color: #7A1E1E;">|| જય શ્રી રામ ||</span>
+            <span class="text-sm tracking-[0.2em] uppercase font-medium" style="color: #7A1E1E;">{{ __('home.hero_jai') }}</span>
             <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background: #E8751A;"></span>
         </div>
 
         {{-- Main heading --}}
         <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black leading-[1.1] tracking-tight">
-            <span style="color: #7A1E1E;">ટૂંક સમયમાં</span><br>
-            <span style="color: #C45F12;">પધારી રહ્યા છીએ</span>
+            <span style="color: #7A1E1E;">{{ __('comingsoon.soon') }}</span><br>
+            <span style="color: #C45F12;">{{ __('comingsoon.arriving') }}</span>
         </h1>
 
         <p class="mt-5 text-lg" style="color: #5E4F3D;">
-            {{ $trustName }}નું ઑનલાઈન ધામ ટૂંક સમયમાં ઉપલબ્ધ થશે.<br class="hidden sm:block">
-            કૃપા કરી થોડી પ્રતિક્ષા કરો — અમે જલ્દી પાછા આવીશું.
+            {{ $trustName }}{{ __('comingsoon.body1_suffix') }}<br class="hidden sm:block">
+            {{ __('comingsoon.body2') }}
         </p>
 
         {{-- Ornamental divider --}}

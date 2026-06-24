@@ -3,9 +3,9 @@
 @section('content')
 
 <x-page-header
-    :breadcrumb="[['label' => 'દર્શન સમય']]"
-    title="દર્શન સમય"
-    subtitle="શ્રી પાતાળિયા હનુમાનજી મંદિર — દર્શન, આરતી અને સમય" />
+    :breadcrumb="[['label' => __('footer.darshan_times')]]"
+    title="{{ __('footer.darshan_times') }}"
+    subtitle="{{ __('darshan.subtitle') }}" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
@@ -25,7 +25,7 @@
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
                 </span>
-                લાઇવ દર્શન
+                {{ __('home.live_darshan') }}
             </h2>
 
             @if(!empty($youtubeUrl))
@@ -41,11 +41,11 @@
                             frameborder="0"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                             allowfullscreen
-                            title="શ્રી પાતાળિયા હનુમાનજી — લાઇવ દર્શન">
+                            title="{{ __('common.temple_name') }} — {{ __('home.live_darshan') }}">
                         </iframe>
                     </div>
                     <div class="px-5 py-3 bg-amber-900/20 border-t border-amber-800/30">
-                        <p class="text-sm text-gold font-medium text-center">|| જય શ્રી રામ || — લાઇવ દર્શન, શ્રી પાતાળિયા હનુમાનજી</p>
+                        <p class="text-sm text-gold font-medium text-center">{{ __('darshan.live_caption') }}</p>
                     </div>
                 </div>
             @else
@@ -55,9 +55,9 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                         </svg>
                     </div>
-                    <h3 class="text-xl font-bold text-gold mb-2">લાઇવ દર્શન ટૂંક સમયમાં</h3>
+                    <h3 class="text-xl font-bold text-gold mb-2">{{ __('darshan.live_coming') }}</h3>
                     <p class="divine-subtext max-w-sm mx-auto">
-                        ટૂંક સમયમાં આ સ્ક્રીન પર મંદિરના લાઇવ દર્શન ઉપલબ્ધ થશે. કૃપા કરી પ્રતિક્ષા કરો.
+                        {{ __('darshan.live_coming_sub') }}
                     </p>
                 </div>
             @endif
@@ -69,8 +69,8 @@
                 <h2 class="text-2xl font-bold text-gold mb-6 flex items-center gap-2">
                     <span class="text-2xl">🪔</span>
                     {{ $dailyDarshanPhoto->captured_on && $dailyDarshanPhoto->captured_on->isToday()
-                        ? 'આજનું દર્શન'
-                        : 'નવીનતમ દર્શન' }}
+                        ? __('darshan.todays')
+                        : __('darshan.latest') }}
                 </h2>
                 <div class="card-sacred overflow-hidden">
                     {{-- Image rendered at natural aspect ratio. Centered
@@ -79,15 +79,15 @@
                     <div class="flex items-center justify-center"
                          style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
                         <img src="{{ image_url($dailyDarshanPhoto->image_path) }}"
-                             alt="આજનું દર્શન"
+                             alt="{{ __('darshan.todays') }}"
                              loading="lazy"
                              class="block max-w-full h-auto">
                     </div>
                     <div class="px-5 py-3 bg-amber-900/20 border-t border-amber-800/30">
                         <p class="text-sm text-gold font-medium text-center">
                             {{ $dailyDarshanPhoto->captured_on && $dailyDarshanPhoto->captured_on->isToday()
-                                ? 'આજનું દર્શન'
-                                : 'નવીનતમ દર્શન' }}
+                                ? __('darshan.todays')
+                                : __('darshan.latest') }}
                         </p>
                     </div>
                 </div>
@@ -99,7 +99,7 @@
     <div class="mb-14">
         <h2 class="text-2xl font-bold text-gold mb-6 flex items-center gap-2">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            દર્શન સમય
+            {{ __('footer.darshan_times') }}
         </h2>
 
         @if(isset($timings) && $timings->isNotEmpty())
@@ -109,11 +109,11 @@
                         <div class="bg-gradient-to-r from-amber-900/60 to-amber-800/40 px-5 py-4 border-b border-amber-800/30">
                             <h3 class="text-lg font-bold text-gold">
                                 @if($timing->day_type === 'regular')
-                                    સોમ – શનિ (સામાન્ય દિવસ)
+                                    {{ __('darshan.weekday_normal') }}
                                 @elseif($timing->day_type === 'sunday')
-                                    રવિવાર
+                                    {{ __('darshan.sunday') }}
                                 @elseif($timing->day_type === 'festival')
-                                    ઉત્સવ / તહેવાર
+                                    {{ __('darshan.festival') }}
                                 @else
                                     {{ ucfirst($timing->day_type) }}
                                 @endif
@@ -129,7 +129,7 @@
                                     </svg>
                                 </div>
                                 <div>
-                                    <p class="text-xs text-amber-600 uppercase tracking-wide font-medium">સવારે</p>
+                                    <p class="text-xs text-amber-600 uppercase tracking-wide font-medium">{{ __('footer.morning') }}</p>
                                     <p class="text-amber-100/70 font-semibold">
                                         {{ \Carbon\Carbon::parse($timing->morning_open)->format('h:i A') }}
                                         &ndash;
@@ -146,7 +146,7 @@
                                     </svg>
                                 </div>
                                 <div>
-                                    <p class="text-xs text-amber-600 uppercase tracking-wide font-medium">સાંજે</p>
+                                    <p class="text-xs text-amber-600 uppercase tracking-wide font-medium">{{ __('footer.evening') }}</p>
                                     <p class="text-amber-100/70 font-semibold">
                                         {{ \Carbon\Carbon::parse($timing->evening_open)->format('h:i A') }}
                                         &ndash;
@@ -163,12 +163,12 @@
                                     </svg>
                                 </div>
                                 <div>
-                                    <p class="text-xs text-amber-600 uppercase tracking-wide font-medium">આરતી</p>
+                                    <p class="text-xs text-amber-600 uppercase tracking-wide font-medium">{{ __('darshan.aarti') }}</p>
                                     <p class="text-amber-100/70 font-semibold text-sm">
-                                        સવારે: {{ $timing->aarti_morning ? \Carbon\Carbon::parse($timing->aarti_morning)->format('h:i A') : '—' }}
+                                        {{ __('footer.morning') }}: {{ $timing->aarti_morning ? \Carbon\Carbon::parse($timing->aarti_morning)->format('h:i A') : '—' }}
                                     </p>
                                     <p class="text-amber-100/70 font-semibold text-sm">
-                                        સાંજે: {{ $timing->aarti_evening ? \Carbon\Carbon::parse($timing->aarti_evening)->format('h:i A') : '—' }}
+                                        {{ __('footer.evening') }}: {{ $timing->aarti_evening ? \Carbon\Carbon::parse($timing->aarti_evening)->format('h:i A') : '—' }}
                                     </p>
                                 </div>
                             </div>
@@ -178,7 +178,7 @@
             </div>
         @else
             <div class="text-center py-10 text-amber-100/40">
-                <p>સમય ઉપલબ્ધ નથી. કૃપા કરી પછીથી ફરી તપાસો.</p>
+                <p>{{ __('darshan.no_timings') }}</p>
             </div>
         @endif
     </div>
@@ -188,7 +188,7 @@
         <div class="mb-14">
             <h2 class="text-2xl font-bold text-gold mb-6 flex items-center gap-2">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                મંદિર નિયમો અને માર્ગદર્શિકા
+                {{ __('darshan.rules_guidelines') }}
             </h2>
             <div class="card-sacred p-6 sm:p-8">
                 <div class="prose prose-invert prose-headings:text-gold prose-a:text-amber-500 prose-strong:text-amber-100/80 prose-li:text-amber-100/60 max-w-none text-amber-100/60 leading-relaxed">
@@ -204,11 +204,11 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            નોંધ
+            {{ __('darshan.note') }}
         </h3>
         <ul class="text-sm text-amber-100/60 space-y-1 list-disc list-inside">
-            <li>ઉત્સવ અને ખાસ પ્રસંગે સમય બદલાઈ શકે છે.</li>
-            <li>વધુ માહિતી માટે મંદિર ટ્રસ્ટ ઓફિસ અથવા <a href="{{ route('contact') }}" class="text-amber-500 hover:text-gold underline transition">સંપર્ક</a> પૃષ્ઠ જુઓ.</li>
+            <li>{{ __('darshan.note1') }}</li>
+            <li>{{ __('darshan.note2_before') }} <a href="{{ route('contact') }}" class="text-amber-500 hover:text-gold underline transition">{{ __('nav.contact') }}</a> {{ __('darshan.note2_after') }}</li>
         </ul>
     </div>
 

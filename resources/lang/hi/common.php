@@ -11,4 +11,10 @@ return [
     'time' => 'समय',
     'amount' => 'राशि',
     'try_again' => 'पुनः प्रयास करें',
+    'status' => 'स्थिति',
+    'email' => 'ईमेल',
+    'devotee' => 'भक्त',
+    'read_more' => 'और पढ़ें',
+    'minimum' => 'न्यूनतम',
+    'details' => 'विवरण',
 ];

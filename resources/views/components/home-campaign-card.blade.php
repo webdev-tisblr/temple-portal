@@ -46,13 +46,13 @@
                  style="width: {{ $pct }}%; background: linear-gradient(90deg, #E8751A, #C89434);"></div>
         </div>
         <p class="text-[11px] mt-1.5 flex items-center justify-between" style="color: #5E4F3D;">
-            <span>{{ $pct }}% પૂર્ણ</span>
-            <span>{{ $campaign->donor_count ?? 0 }} દાનકર્તા</span>
+            <span>{{ $pct }}% {{ __('home.complete') }}</span>
+            <span>{{ $campaign->donor_count ?? 0 }} {{ __('projects.donor_count') }}</span>
         </p>
     </div>
 
     <div class="mt-4 inline-flex items-center gap-1 text-sm font-semibold" style="color: #C45F12;">
-        યોગદાન આપો
+        {{ __('home.contribute') }}
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
         </svg>

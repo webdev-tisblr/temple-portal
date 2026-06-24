@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>લૉગિન — શ્રી પાતાળિયા હનુમાનજી</title>
+    <title>{{ __('nav.login') }} — {{ __('common.temple_name') }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-temple flex items-center justify-center p-4">
@@ -11,9 +11,9 @@
 <div class="w-full max-w-md" x-data="loginForm()">
     {{-- Header --}}
     <div class="text-center mb-8">
-        <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="શ્રી પાતાળિયા હનુમાનજી" class="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-amber-600/40 diya-glow" style="box-shadow: 0 0 25px rgba(196,154,42,0.3);">
-        <h1 class="text-2xl font-black text-gold tracking-wide">શ્રી પાતાળિયા હનુમાનજી</h1>
-        <p class="text-amber-200/60 mt-1 text-sm">સેવા ટ્રસ્ટ ડિજિટલ પોર્ટલ</p>
+        <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="{{ __('common.temple_name') }}" class="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-amber-600/40 diya-glow" style="box-shadow: 0 0 25px rgba(196,154,42,0.3);">
+        <h1 class="text-2xl font-black text-gold tracking-wide">{{ __('common.temple_name') }}</h1>
+        <p class="text-amber-200/60 mt-1 text-sm">{{ __('login.portal_sub') }}</p>
     </div>
 
     {{-- Flash Messages --}}
@@ -35,13 +35,13 @@
 
         {{-- Step 1: Phone Number --}}
         <div x-show="step === 1" x-transition>
-            <h2 class="text-xl font-semibold text-amber-100/80 mb-2">લૉગિન / રજિસ્ટર</h2>
-            <p class="text-amber-100/40 text-sm mb-6">તમારો મોબાઈલ નંબર દાખલ કરો</p>
+            <h2 class="text-xl font-semibold text-amber-100/80 mb-2">{{ __('login.login_register') }}</h2>
+            <p class="text-amber-100/40 text-sm mb-6">{{ __('login.enter_mobile') }}</p>
 
             <form action="{{ route('login.otp.send') }}" method="POST" @submit="loading = true">
                 @csrf
                 <div class="mb-4">
-                    <label for="phone" class="block text-sm font-medium text-amber-600 mb-1">મોબાઈલ નંબર</label>
+                    <label for="phone" class="block text-sm font-medium text-amber-600 mb-1">{{ __('login.mobile_number') }}</label>
                     <div class="flex">
                         <span class="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-amber-800/30 bg-amber-900/20 text-amber-500 text-sm font-medium">
                             +91
@@ -66,13 +66,13 @@
                     class="w-full btn-divine py-3 px-4 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
                     :disabled="phone.length !== 10 || loading"
                 >
-                    <span x-show="!loading">OTP મોકલો</span>
+                    <span x-show="!loading">{{ __('login.send_otp') }}</span>
                     <span x-show="loading" class="flex items-center justify-center">
                         <svg class="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                         </svg>
-                        મોકલી રહ્યા છીએ...
+                        {{ __('login.sending') }}
                     </span>
                 </button>
             </form>
@@ -80,9 +80,9 @@
 
         {{-- Step 2: OTP Verification --}}
         <div x-show="step === 2" x-transition>
-            <h2 class="text-xl font-semibold text-amber-100/80 mb-2">OTP દાખલ કરો</h2>
+            <h2 class="text-xl font-semibold text-amber-100/80 mb-2">{{ __('login.enter_otp') }}</h2>
             <p class="text-amber-100/40 text-sm mb-6">
-                <span x-text="'+91 ' + phone"></span> પર OTP મોકલવામાં આવ્યો છે
+                <span x-text="'+91 ' + phone"></span> {{ __('login.otp_sent_suffix') }}
             </p>
 
             <form action="{{ route('login.otp.verify') }}" method="POST" @submit="loading = true">
@@ -112,13 +112,13 @@
                     class="w-full btn-divine py-3 px-4 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
                     :disabled="otpDigits.join('').length !== 6 || loading"
                 >
-                    <span x-show="!loading">ચકાસો</span>
+                    <span x-show="!loading">{{ __('login.verify') }}</span>
                     <span x-show="loading" class="flex items-center justify-center">
                         <svg class="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                         </svg>
-                        ચકાસી રહ્યા છીએ...
+                        {{ __('login.verifying') }}
                     </span>
                 </button>
             </form>
@@ -127,14 +127,14 @@
                 @click="step = 1; otpDigits = ['','','','','','']"
                 class="w-full mt-3 text-amber-500 hover:text-gold text-sm font-medium transition"
             >
-                ← નંબર બદલો
+                {{ __('login.change_number') }}
             </button>
         </div>
 
     </div>
 
     <p class="text-center text-amber-100/20 text-xs mt-6">
-        &copy; {{ date('Y') }} શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ
+        &copy; {{ date('Y') }} {{ __('common.trust_full') }}
     </p>
 </div>
 

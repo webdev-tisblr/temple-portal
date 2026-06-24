@@ -1,0 +1,25 @@
+<?php
+
+return [
+    'subtitle' => 'Shree Pataliya Hanumanji Temple — Priests and Sevaks',
+    'intro' => 'The devout priests of Shree Pataliya Hanumanji Temple perform the daily worship, abhishek, bhog and aarti of Lord Hanuman with full devotion.',
+    'n1' => 'Pt. Govardhanbhai Bhatt',
+    'r1' => 'Head Priest',
+    'e1' => 'Experience: 25+ years',
+    't1' => 'Training: Vaishnav tradition',
+    'n2' => 'Pt. Divyakant Upadhyay',
+    'r2' => 'Associate Priest',
+    'e2' => 'Experience: 15+ years',
+    't2' => 'Training: Shaiv–Vaishnav',
+    'n3' => 'Pt. Suresh Trivedi',
+    'r3' => 'Sevak Priest',
+    'e3' => 'Experience: 10+ years',
+    't3' => 'Training: Swami-stotra',
+    'daily' => 'Daily Service Schedule',
+    's1' => 'Morning mangal-uthav, bhog offering, abhishek',
+    's2' => 'Morning aarti (Mangala Aarti)',
+    's3' => 'Devotee service, receiving offerings, sutra-puja',
+    's4' => 'Evening bhog, deep-utsav, sandhya aarti',
+    's5' => 'Festivals: bhajan-kirtan, festival puja',
+    's6' => 'Night shringar, bhagavan-stotra, shayan-bhog',
+];

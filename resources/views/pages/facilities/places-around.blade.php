@@ -4,18 +4,16 @@
 
 <x-page-header
     :breadcrumb="[
-        ['label' => 'સુવિધાઓ'],
-        ['label' => 'આસપાસના સ્થળો'],
+        ['label' => __('halls.facilities')],
+        ['label' => __('placesaround.title')],
     ]"
-    title="આસપાસના સ્થળો"
-    subtitle="મંદિર આસપાસના પ્રસિદ્ધ સ્થાનો" />
+    title="{{ __('placesaround.title') }}"
+    subtitle="{{ __('placesaround.subtitle') }}" />
 
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
     <p class="text-amber-100/60 leading-relaxed mb-10">
-        શ્રી પાતાળિયા હનુમાનજી ધામ ગાંધીધામ-કચ્છમાં આવેલું છે.
-        આસપાસ અનેક પ્રસિદ્ધ ધર્મ-સ્થાનો, ઐતિહાસિક સ્થળો અને કુદરતી સૌંદર્યથી
-        સભર સ્થાનો છે, જ્યાં યાત્રિકો અવશ્ય મુલાકાત લઈ શકે છે.
+        {{ __('placesaround.intro') }}
     </p>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -23,45 +21,45 @@
         @php
         $places = [
             [
-                'name'     => 'ગાંધીધામ રેલવે સ્ટેશન',
-                'distance' => '~૩ કિ.મી.',
-                'type'     => 'પરિવહન',
-                'desc'     => 'ગાંધીધામ જંકશન — કચ્છનું સૌથી મોટું રેલવે સ્ટેશન. મુંબઈ, અમદાવાદ અને દિલ્હી સાથે સીધી ટ્રેનો.',
+                'name'     => __('placesaround.p1n'),
+                'distance' => __('placesaround.p1dist'),
+                'type'     => __('placesaround.t_transport'),
+                'desc'     => __('placesaround.p1d'),
                 'icon'     => 'M3 10h18M3 14h18M8 6V3m8 3V3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
             ],
             [
-                'name'     => 'કંડલા પોર્ટ (દીનદયાલ પોર્ટ)',
-                'distance' => '~૧૨ કિ.મી.',
-                'type'     => 'ઐતિહાસિક',
-                'desc'     => 'ભારતનું સૌથી જૂનું બંદર. ઔદ્યોગિક ઇતિહાસ અને સૂર્યોદય માટે પ્રખ્યાત.',
+                'name'     => __('placesaround.p2n'),
+                'distance' => __('placesaround.p2dist'),
+                'type'     => __('placesaround.t_historical'),
+                'desc'     => __('placesaround.p2d'),
                 'icon'     => 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z',
             ],
             [
-                'name'     => 'પિંગળેશ્વર બીચ',
-                'distance' => '~૩૫ કિ.મી.',
-                'type'     => 'કુદરતી',
-                'desc'     => 'એકાંત અને સુંદર બીચ. સ્વચ્છ રેતી, સૂર્યાસ્તના નયનરમ્ય દ્રશ્યો — ધ્યાન અને વિશ્રામ માટે અનુકૂળ.',
+                'name'     => __('placesaround.p3n'),
+                'distance' => __('placesaround.p3dist'),
+                'type'     => __('placesaround.t_natural'),
+                'desc'     => __('placesaround.p3d'),
                 'icon'     => 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9',
             ],
             [
-                'name'     => 'માતાનો મઢ (આશાપુરા માતા)',
-                'distance' => '~૮૫ કિ.મી.',
-                'type'     => 'ધાર્મિક',
-                'desc'     => 'કચ્છની કુળદેવી આશાપુરા માતાનું પ્રસિદ્ધ મંદિર. નવરાત્રિ દરમિયાન લાખો ભક્તો દર્શન માટે પધારે છે.',
+                'name'     => __('placesaround.p4n'),
+                'distance' => __('placesaround.p4dist'),
+                'type'     => __('placesaround.t_religious'),
+                'desc'     => __('placesaround.p4d'),
                 'icon'     => 'M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707',
             ],
             [
-                'name'     => 'ભુજ શહેર (કચ્છનું મુખ્ય મથક)',
-                'distance' => '~૫૫ કિ.મી.',
-                'type'     => 'નગર / પ્રવાસન',
-                'desc'     => 'કચ્છનું મુખ્ય મથક. પ્રાગ મહેલ, આયના મહેલ, કચ્છ મ્યુઝિયમ અને જગપ્રસિદ્ધ કચ્છી હસ્તકલા બજાર.',
+                'name'     => __('placesaround.p5n'),
+                'distance' => __('placesaround.p5dist'),
+                'type'     => __('placesaround.t_city'),
+                'desc'     => __('placesaround.p5d'),
                 'icon'     => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4',
             ],
             [
-                'name'     => 'માંડવી બીચ',
-                'distance' => '~૬૦ કિ.મી.',
-                'type'     => 'કુદરતી',
-                'desc'     => 'કચ્છનો સૌથી પ્રસિદ્ધ બીચ. સૂર્યાસ્ત, ઊંટ-સવારી અને વિજય-વિલાસ પેલેસ સાથેનો જાણીતો પ્રવાસ-સ્થળ.',
+                'name'     => __('placesaround.p6n'),
+                'distance' => __('placesaround.p6dist'),
+                'type'     => __('placesaround.t_natural'),
+                'desc'     => __('placesaround.p6d'),
                 'icon'     => 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9',
             ],
         ];
@@ -88,7 +86,7 @@
     </div>
 
     <div class="mt-10 bg-amber-900/20 border border-amber-800/30 rounded-xl p-5 text-sm text-amber-100/50">
-        <p><strong class="text-amber-100/70">નોંધ:</strong> દર્શાવેલ અંતર અંદાજિત છે. વાસ્તવિક પ્રવાસ-સમય ટ્રાફિક પર આધાર રાખે છે. યોગ્ય આયોજન સાથે મુલાકાત લેવી.</p>
+        <p><strong class="text-amber-100/70">{{ __('darshan.note') }}:</strong> {{ __('placesaround.note') }}</p>
     </div>
 
 </div>

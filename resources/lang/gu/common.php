@@ -11,4 +11,10 @@ return [
     'time' => 'સમય',
     'amount' => 'રકમ',
     'try_again' => 'ફરી પ્રયાસ કરો',
+    'status' => 'સ્થિતિ',
+    'email' => 'ઈમેલ',
+    'devotee' => 'ભક્ત',
+    'read_more' => 'વધુ વાંચો',
+    'minimum' => 'ન્યૂનતમ',
+    'details' => 'વિગત',
 ];

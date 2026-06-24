@@ -4,11 +4,11 @@
 
 <x-page-header
     :breadcrumb="[
-        ['label' => 'ડેશબોર્ડ', 'url' => route('dashboard.index')],
-        ['label' => '80G રસીદો'],
+        ['label' => __('nav.dashboard'), 'url' => route('dashboard.index')],
+        ['label' => __('dashboard.receipts_80g')],
     ]"
-    title="80G રસીદો"
-    subtitle="આવકવેરા 80G મુક્તિ પ્રમાણપત્રો" />
+    title="{{ __('dashboard.receipts_80g') }}"
+    subtitle="{{ __('dashboard.receipts_80g_sub') }}" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-temple">
 
@@ -16,8 +16,8 @@
     <div class="mb-6 flex items-start gap-3 px-5 py-4 bg-blue-950/30 border border-blue-800/30 rounded-xl text-blue-300">
         <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <p class="text-sm">
-            80G રસીદો આવકવેરા હેતુ માટે માન્ય છે. PAN નંબર અપડેટ રાખવાનું ભૂલશો નહીં.
-            <a href="{{ route('dashboard.profile') }}" class="underline font-semibold hover:text-blue-200 transition">પ્રોફાઇલ અપડેટ કરો.</a>
+            {{ __('dashboard.receipts_note') }}
+            <a href="{{ route('dashboard.profile') }}" class="underline font-semibold hover:text-blue-200 transition">{{ __('dashboard.update_profile_link') }}</a>
         </p>
     </div>
 
@@ -32,7 +32,7 @@
                             <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">Daan Tarikh</th>
                             <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">Rakam</th>
                             <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">Financial Year</th>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">ડાઉનલોડ</th>
+                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">{{ __('dashboard.download') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-amber-900/15">
@@ -56,7 +56,7 @@
                                 <a href="{{ route('dashboard.receipts.download', $receipt) }}"
                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 btn-divine text-xs font-semibold rounded-lg">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                                    PDF ડાઉનલોડ
+                                    {{ __('dashboard.pdf_download') }}
                                 </a>
                             </td>
                         </tr>
@@ -72,8 +72,8 @@
         @else
             <div class="text-center py-16">
                 <svg class="w-12 h-12 text-amber-800/30 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                <p class="text-amber-100/30 mb-4">હાલ તમારી કોઈ 80G રસીદ ઉપલબ્ધ નથી.</p>
-                <p class="text-xs text-amber-100/20">દાન કર્યા બાદ 80G પ્રમાણપત્ર ઉપલબ્ધ થશે.</p>
+                <p class="text-amber-100/30 mb-4">{{ __('dashboard.no_receipts') }}</p>
+                <p class="text-xs text-amber-100/20">{{ __('dashboard.receipts_after_donation') }}</p>
             </div>
         @endif
 

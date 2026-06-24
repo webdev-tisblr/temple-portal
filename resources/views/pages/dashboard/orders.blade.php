@@ -3,12 +3,12 @@
 @section('content')
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-temple">
     <nav class="text-sm text-amber-100/30 mb-6">
-        <a href="{{ route('dashboard.index') }}" class="hover:text-gold transition">ડેશબોર્ડ</a>
+        <a href="{{ route('dashboard.index') }}" class="hover:text-gold transition">{{ __('nav.dashboard') }}</a>
         <span class="mx-2">/</span>
-        <span class="text-gold">મારા ઓર્ડર</span>
+        <span class="text-gold">{{ __('dashboard.my_orders') }}</span>
     </nav>
 
-    <h1 class="divine-heading text-2xl mb-6">મારા ઓર્ડર</h1>
+    <h1 class="divine-heading text-2xl mb-6">{{ __('dashboard.my_orders') }}</h1>
 
     @if($orders->isNotEmpty())
         <div class="space-y-4">
@@ -64,8 +64,8 @@
             <svg class="w-12 h-12 text-amber-800/40 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
             </svg>
-            <p class="text-amber-100/30">હજુ સુધી કોઈ ઓર્ડર નથી.</p>
-            <a href="{{ route('store.index') }}" class="mt-4 inline-flex items-center px-6 py-2.5 btn-divine">સ્ટોર જુઓ</a>
+            <p class="text-amber-100/30">{{ __('dashboard.no_orders') }}</p>
+            <a href="{{ route('store.index') }}" class="mt-4 inline-flex items-center px-6 py-2.5 btn-divine">{{ __('dashboard.view_store') }}</a>
         </div>
     @endif
 </div>

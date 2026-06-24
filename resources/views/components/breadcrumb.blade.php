@@ -10,7 +10,7 @@
      style="color: #5E4F3D;">
     <a href="{{ route('home') }}"
        class="hover:underline transition"
-       style="color: #5E4F3D;">મુખ્ય પૃષ્ઠ</a>
+       style="color: #5E4F3D;">{{ __('nav.home') }}</a>
 
     @foreach($items as $item)
         <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #8A7860;">

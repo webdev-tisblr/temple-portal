@@ -47,7 +47,7 @@
         <div class="flex items-center justify-between mt-4 pt-4 border-t border-amber-900/20">
             <span class="text-xl font-black text-gold">{!! $product->getDisplayPrice() !!}</span>
             <span class="text-amber-600 text-sm font-semibold group-hover:translate-x-1 transition-transform flex items-center gap-1">
-                વિગત <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                {{ __('common.details') }} <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </span>
         </div>
     </div>

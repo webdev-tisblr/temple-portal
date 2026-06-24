@@ -1,0 +1,20 @@
+<?php
+
+return [
+    'subtitle' => 'Shree Pataliya Hanumanji Temple — darshan, aarti and timings',
+    'live_caption' => '|| Jai Shri Ram || — Live Darshan, Shree Pataliya Hanumanji',
+    'live_coming' => 'Live Darshan coming soon',
+    'live_coming_sub' => 'Live darshan of the temple will soon be available on this screen. Please wait.',
+    'todays' => 'Today\'s Darshan',
+    'latest' => 'Latest Darshan',
+    'weekday_normal' => 'Mon – Sat (regular day)',
+    'sunday' => 'Sunday',
+    'festival' => 'Festival / Holiday',
+    'aarti' => 'Aarti',
+    'no_timings' => 'Timings not available. Please check again later.',
+    'rules_guidelines' => 'Temple Rules and Guidelines',
+    'note' => 'Note',
+    'note1' => 'Timings may change on festivals and special occasions.',
+    'note2_before' => 'For more information, see the temple trust office or the',
+    'note2_after' => 'page.',
+];

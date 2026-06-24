@@ -3,9 +3,9 @@
 @section('content')
 
 <x-page-header
-    :breadcrumb="[['label' => 'બ્લૉગ']]"
-    title="બ્લૉગ"
-    subtitle="મંદિરના સમાચાર, ભક્તિ-લેખો અને પ્રસંગ-કથાઓ" />
+    :breadcrumb="[['label' => __('blog.title')]]"
+    title="{{ __('blog.title') }}"
+    subtitle="{{ __('blog.subtitle') }}" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
@@ -56,7 +56,7 @@
                             </span>
                             <a href="{{ route('blog.show', $post->slug ?? $post) }}"
                                class="text-amber-500 hover:text-gold text-sm font-semibold flex items-center gap-1 transition">
-                                વધુ વાંચો
+                                {{ __('common.read_more') }}
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
                             </a>
                         </div>

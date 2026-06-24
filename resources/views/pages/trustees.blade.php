@@ -3,18 +3,16 @@
 @section('content')
 
 <x-page-header
-    :breadcrumb="[['label' => 'ટ્રસ્ટીઓ']]"
-    title="ટ્રસ્ટીઓ"
-    subtitle="શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ — ટ્રસ્ટ સભ્યો" />
+    :breadcrumb="[['label' => __('nav.trustees')]]"
+    title="{{ __('nav.trustees') }}"
+    subtitle="{{ __('trustees.subtitle') }}" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
     {{-- Intro --}}
     <div class="max-w-3xl mx-auto text-center mb-12">
         <p class="text-amber-100/60 leading-relaxed text-lg">
-            શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ, ગાંધીધામ–કચ્છ ના ટ્રસ્ટીઓ ભક્તિ, સેવા અને સમર્પણ ભાવ સાથે
-            મંદિર સ્થળ, ધાર્મિક ઉત્સવો અને સામાજિક સેવા પ્રવૃત્તિઓ ચલાવે છે.
-            નીચે આ ટ્રસ્ટ ના સ્થાપક અને વર્તમાન ટ્રસ્ટ સભ્યોનો પરિચય આપ્યો છે.
+            {{ __('trustees.intro') }}
         </p>
     </div>
 
@@ -28,9 +26,9 @@
                     <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
                 </svg>
             </div>
-            <h3 class="text-lg font-bold text-gold">શ્રી રામભાઈ પટેલ</h3>
-            <p class="text-amber-500 font-medium text-sm mt-1">પ્રમુખ (Chairman)</p>
-            <p class="text-amber-100/40 text-sm mt-2">ગાંધીધામ, કચ્છ</p>
+            <h3 class="text-lg font-bold text-gold">{{ __('trustees.name1') }}</h3>
+            <p class="text-amber-500 font-medium text-sm mt-1">{{ __('trustees.role1') }}</p>
+            <p class="text-amber-100/40 text-sm mt-2">{{ __('trustees.location') }}</p>
         </div>
 
         {{-- Trustee 2 --}}
@@ -40,9 +38,9 @@
                     <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
                 </svg>
             </div>
-            <h3 class="text-lg font-bold text-gold">શ્રી ભાવેશભાઈ શાહ</h3>
-            <p class="text-amber-500 font-medium text-sm mt-1">સચિવ (Secretary)</p>
-            <p class="text-amber-100/40 text-sm mt-2">ગાંધીધામ, કચ્છ</p>
+            <h3 class="text-lg font-bold text-gold">{{ __('trustees.name2') }}</h3>
+            <p class="text-amber-500 font-medium text-sm mt-1">{{ __('trustees.role2') }}</p>
+            <p class="text-amber-100/40 text-sm mt-2">{{ __('trustees.location') }}</p>
         </div>
 
         {{-- Trustee 3 --}}
@@ -52,9 +50,9 @@
                     <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
                 </svg>
             </div>
-            <h3 class="text-lg font-bold text-gold">શ્રી નટવરભાઈ ઠાકર</h3>
-            <p class="text-amber-500 font-medium text-sm mt-1">કોષાધ્યક્ષ (Treasurer)</p>
-            <p class="text-amber-100/40 text-sm mt-2">ગાંધીધામ, કચ્છ</p>
+            <h3 class="text-lg font-bold text-gold">{{ __('trustees.name3') }}</h3>
+            <p class="text-amber-500 font-medium text-sm mt-1">{{ __('trustees.role3') }}</p>
+            <p class="text-amber-100/40 text-sm mt-2">{{ __('trustees.location') }}</p>
         </div>
 
         {{-- Trustee 4 --}}
@@ -64,9 +62,9 @@
                     <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
                 </svg>
             </div>
-            <h3 class="text-lg font-bold text-gold">શ્રી જિતેન્દ્રભાઈ દવે</h3>
-            <p class="text-amber-500 font-medium text-sm mt-1">ટ્રસ્ટી (Trustee)</p>
-            <p class="text-amber-100/40 text-sm mt-2">ગાંધીધામ, કચ્છ</p>
+            <h3 class="text-lg font-bold text-gold">{{ __('trustees.name4') }}</h3>
+            <p class="text-amber-500 font-medium text-sm mt-1">{{ __('trustees.role4') }}</p>
+            <p class="text-amber-100/40 text-sm mt-2">{{ __('trustees.location') }}</p>
         </div>
 
     </div>
@@ -74,9 +72,9 @@
     {{-- Contact Info --}}
     <div class="bg-amber-900/20 border border-amber-800/30 rounded-xl p-6 text-center">
         <p class="text-amber-100/60">
-            ટ્રસ્ટ સંબંધિત કોઈ જાણકારી માટે
-            <a href="{{ route('contact') }}" class="text-amber-500 hover:text-gold font-semibold underline transition">સંપર્ક</a>
-            પૃષ્ઠ ની મુલાકાત લો.
+            {{ __('trustees.contact_before') }}
+            <a href="{{ route('contact') }}" class="text-amber-500 hover:text-gold font-semibold underline transition">{{ __('nav.contact') }}</a>
+            {{ __('trustees.contact_after') }}
         </p>
     </div>
 

@@ -4,11 +4,11 @@
 
 <x-page-header
     :breadcrumb="[
-        ['label' => 'ડેશબોર્ડ', 'url' => route('dashboard.index')],
-        ['label' => 'પ્રોફાઇલ'],
+        ['label' => __('nav.dashboard'), 'url' => route('dashboard.index')],
+        ['label' => __('dashboard.profile')],
     ]"
-    title="પ્રોફાઇલ"
-    subtitle="તમારી વ્યક્તિગત માહિતી અપડેટ કરો" />
+    title="{{ __('dashboard.profile') }}"
+    subtitle="{{ __('dashboard.update_profile_sub') }}" />
 
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-temple">
 
@@ -22,7 +22,7 @@
 
     @if($errors->any())
         <div class="mb-6 px-5 py-4 bg-red-950/30 border border-red-800/30 rounded-xl">
-            <p class="text-sm font-semibold text-red-300 mb-2">કૃપા કરી ફોર્મ સુધારો:</p>
+            <p class="text-sm font-semibold text-red-300 mb-2">{{ __('store.form_errors') }}</p>
             <ul class="text-sm text-red-300/80 space-y-1 list-disc list-inside">
                 @foreach($errors->all() as $error)
                     <li>{{ $error }}</li>
@@ -62,29 +62,29 @@
                         </label>
                     </div>
 
-                    <h3 class="text-gold font-bold text-lg">{{ $devotee->name ?: 'ભક્ત' }}</h3>
+                    <h3 class="text-gold font-bold text-lg">{{ $devotee->name ?: __('common.devotee') }}</h3>
                     <p class="text-amber-100/40 text-sm">+91 {{ $devotee->phone }}</p>
 
                     {{-- Quick Stats --}}
                     <div class="mt-6 space-y-3 text-left">
                         <div class="flex items-center justify-between py-2 border-t border-amber-900/15">
-                            <span class="text-amber-100/40 text-xs">ફોન ચકાસણી</span>
+                            <span class="text-amber-100/40 text-xs">{{ __('dashboard.phone_verify') }}</span>
                             <span class="text-xs {{ $devotee->phone_verified_at ? 'text-emerald-400' : 'text-amber-400' }}">
-                                {{ $devotee->phone_verified_at ? '✓ ચકાસેલ' : 'બાકી' }}
+                                {{ $devotee->phone_verified_at ? __('dashboard.verified') : __('dashboard.pending_status') }}
                             </span>
                         </div>
                         <div class="flex items-center justify-between py-2 border-t border-amber-900/15">
                             <span class="text-amber-100/40 text-xs">PAN</span>
                             <span class="text-xs {{ $devotee->pan_encrypted ? 'text-emerald-400' : 'text-amber-100/30' }}">
-                                {{ $devotee->pan_encrypted ? '✓ ******' . $devotee->pan_last_four : 'ઉમેરો' }}
+                                {{ $devotee->pan_encrypted ? '✓ ******' . $devotee->pan_last_four : __('dashboard.add') }}
                             </span>
                         </div>
                         <div class="flex items-center justify-between py-2 border-t border-amber-900/15">
-                            <span class="text-amber-100/40 text-xs">ભાષા</span>
+                            <span class="text-amber-100/40 text-xs">{{ __('dashboard.language') }}</span>
                             <span class="text-xs text-amber-100/60">{{ ['gu' => 'ગુજરાતી', 'hi' => 'हिन्दी', 'en' => 'English'][$devotee->language?->value ?? 'gu'] ?? 'ગુજરાતી' }}</span>
                         </div>
                         <div class="flex items-center justify-between py-2 border-t border-amber-900/15">
-                            <span class="text-amber-100/40 text-xs">રજિસ્ટર થયા</span>
+                            <span class="text-amber-100/40 text-xs">{{ __('dashboard.registered') }}</span>
                             <span class="text-xs text-amber-100/60">{{ $devotee->created_at?->format('d M Y') }}</span>
                         </div>
                     </div>
@@ -96,20 +96,20 @@
                 <div class="card-sacred p-6 sm:p-8 inner-glow">
                     <h2 class="text-gold font-bold text-lg mb-6 flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                        વ્યક્તિગત માહિતી
+                        {{ __('dashboard.personal_info') }}
                     </h2>
 
                     <div class="space-y-5">
                         {{-- Name + Email --}}
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <div>
-                                <label for="name" class="block text-sm font-medium text-amber-600 mb-1.5">નામ <span class="text-red-400">*</span></label>
+                                <label for="name" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('store.name') }} <span class="text-red-400">*</span></label>
                                 <input type="text" name="name" id="name" value="{{ old('name', $devotee->name ?? '') }}"
                                     class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20">
                                 @error('name')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                             </div>
                             <div>
-                                <label for="email" class="block text-sm font-medium text-amber-600 mb-1.5">ઈમેલ</label>
+                                <label for="email" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('common.email') }}</label>
                                 <input type="email" name="email" id="email" value="{{ old('email', $devotee->email ?? '') }}"
                                     placeholder="example@email.com"
                                     class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20">
@@ -120,15 +120,15 @@
                         {{-- City + State --}}
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <div>
-                                <label for="city" class="block text-sm font-medium text-amber-600 mb-1.5">શહેર</label>
+                                <label for="city" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('store.city') }}</label>
                                 <input type="text" name="city" id="city" value="{{ old('city', $devotee->city ?? '') }}"
-                                    placeholder="તમારું શહેર"
+                                    placeholder="{{ __('store.city_placeholder') }}"
                                     class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20">
                             </div>
                             <div>
-                                <label for="state" class="block text-sm font-medium text-amber-600 mb-1.5">રાજ્ય</label>
+                                <label for="state" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('store.state') }}</label>
                                 <input type="text" name="state" id="state" value="{{ old('state', $devotee->state ?? '') }}"
-                                    placeholder="તમારું રાજ્ય"
+                                    placeholder="{{ __('store.state_placeholder') }}"
                                     class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20">
                             </div>
                         </div>
@@ -136,13 +136,13 @@
                         {{-- Pincode + DOB --}}
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <div>
-                                <label for="pincode" class="block text-sm font-medium text-amber-600 mb-1.5">પિનકોડ</label>
+                                <label for="pincode" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('store.pincode') }}</label>
                                 <input type="text" name="pincode" id="pincode" value="{{ old('pincode', $devotee->pincode ?? '') }}"
                                     placeholder="370205" maxlength="6"
                                     class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20">
                             </div>
                             <div>
-                                <label for="date_of_birth" class="block text-sm font-medium text-amber-600 mb-1.5">જન્મ તારીખ</label>
+                                <label for="date_of_birth" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('dashboard.dob') }}</label>
                                 <input type="date" name="date_of_birth" id="date_of_birth"
                                     value="{{ old('date_of_birth', optional($devotee->date_of_birth ?? null)?->format('Y-m-d')) }}"
                                     class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20">
@@ -152,7 +152,7 @@
                         {{-- Language + PAN --}}
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <div>
-                                <label for="language" class="block text-sm font-medium text-amber-600 mb-1.5">પ્રાધાન્ય ભાષા</label>
+                                <label for="language" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('dashboard.pref_language') }}</label>
                                 <select name="language" id="language"
                                     class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20">
                                     <option value="gu" class="bg-stone-900" {{ old('language', $devotee->language?->value ?? 'gu') === 'gu' ? 'selected' : '' }}>ગુજરાતી</option>
@@ -162,8 +162,8 @@
                             </div>
                             <div>
                                 <label for="pan_number" class="block text-sm font-medium text-amber-600 mb-1.5">
-                                    PAN નંબર
-                                    <span class="text-xs text-amber-100/30 font-normal">(80G માટે)</span>
+                                    {{ __('dashboard.pan_number') }}
+                                    <span class="text-xs text-amber-100/30 font-normal">{{ __('dashboard.for_80g') }}</span>
                                 </label>
                                 <input type="text" name="pan_number" id="pan_number" value="{{ old('pan_number') }}"
                                     placeholder="{{ $devotee->pan_last_four ? '******' . $devotee->pan_last_four : 'ABCDE1234F' }}"
@@ -177,7 +177,7 @@
                         <div class="pt-4 border-t border-amber-900/15">
                             <button type="submit" class="btn-divine inline-flex items-center gap-2 px-8 py-3">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                પ્રોફાઇલ સાચવો
+                                {{ __('dashboard.save_profile') }}
                             </button>
                         </div>
                     </div>

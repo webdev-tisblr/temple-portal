@@ -3,17 +3,16 @@
 @section('content')
 
 <x-page-header
-    :breadcrumb="[['label' => 'પૂજારી']]"
-    title="પૂજારી"
-    subtitle="શ્રી પાતાળિયા હનુમાનજી મંદિર — પૂજારી અને સેવક" />
+    :breadcrumb="[['label' => __('footer.pujari')]]"
+    title="{{ __('footer.pujari') }}"
+    subtitle="{{ __('pujari.subtitle') }}" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
     {{-- Intro --}}
     <div class="max-w-3xl mx-auto text-center mb-12">
         <p class="text-amber-100/60 leading-relaxed text-lg">
-            શ્રી પાતાળિયા હનુમાનજી મંદિર ના સ્નાતક-સ્તર ના ધર્મ-નિષ્ઠ પૂજારીઓ પ્રતિ દિન ભગવાન
-            હનુમાનજી ની પૂજા-અર્ચના, અભિષેક, ભોગ-ચઢાવ અને આરતી ભાવ-પૂર્ણ રીતે સંપન્ન કરે છે.
+            {{ __('pujari.intro') }}
         </p>
     </div>
 
@@ -29,11 +28,11 @@
                         <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
                     </svg>
                 </div>
-                <h3 class="text-xl font-bold text-gold">પં. ગોવર્ધનભાઈ ભટ્ટ</h3>
-                <p class="text-amber-500 font-semibold text-sm mt-1">મુખ્ય પૂજારી (Head Priest)</p>
+                <h3 class="text-xl font-bold text-gold">{{ __('pujari.n1') }}</h3>
+                <p class="text-amber-500 font-semibold text-sm mt-1">{{ __('pujari.r1') }}</p>
                 <div class="mt-4 pt-4 border-t border-amber-900/20 text-sm text-amber-100/40 space-y-1">
-                    <p>અનુભવ: ૨૫+ વર્ષ</p>
-                    <p>વ્યખ્યયાર્ પ્રશિક્ષણ: વૈષ્ણવ પરંપરા</p>
+                    <p>{{ __('pujari.e1') }}</p>
+                    <p>{{ __('pujari.t1') }}</p>
                 </div>
             </div>
         </div>
@@ -47,11 +46,11 @@
                         <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
                     </svg>
                 </div>
-                <h3 class="text-xl font-bold text-gold">પં. દિવ્યકાન્ત ઉપાધ્યાય</h3>
-                <p class="text-amber-500 font-semibold text-sm mt-1">સહ-પૂજારી (Associate Priest)</p>
+                <h3 class="text-xl font-bold text-gold">{{ __('pujari.n2') }}</h3>
+                <p class="text-amber-500 font-semibold text-sm mt-1">{{ __('pujari.r2') }}</p>
                 <div class="mt-4 pt-4 border-t border-amber-900/20 text-sm text-amber-100/40 space-y-1">
-                    <p>અનુભવ: ૧૫+ વર્ષ</p>
-                    <p>વ્યખ્યયાર્ પ્રશિક્ષણ: શૈવ–વૈષ્ણવ</p>
+                    <p>{{ __('pujari.e2') }}</p>
+                    <p>{{ __('pujari.t2') }}</p>
                 </div>
             </div>
         </div>
@@ -65,11 +64,11 @@
                         <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
                     </svg>
                 </div>
-                <h3 class="text-xl font-bold text-gold">પં. સુરેશ ત્રિવેદી</h3>
-                <p class="text-amber-500 font-semibold text-sm mt-1">સેવક-પૂજારી (Sevak Priest)</p>
+                <h3 class="text-xl font-bold text-gold">{{ __('pujari.n3') }}</h3>
+                <p class="text-amber-500 font-semibold text-sm mt-1">{{ __('pujari.r3') }}</p>
                 <div class="mt-4 pt-4 border-t border-amber-900/20 text-sm text-amber-100/40 space-y-1">
-                    <p>અનુભવ: ૧૦+ વર્ષ</p>
-                    <p>વ્યખ્યયાર્ પ્રશિક્ષણ: સ્‍વામિ-સ્‍ત્રોત</p>
+                    <p>{{ __('pujari.e3') }}</p>
+                    <p>{{ __('pujari.t3') }}</p>
                 </div>
             </div>
         </div>
@@ -78,31 +77,31 @@
 
     {{-- Daily Duties Info --}}
     <div class="card-sacred p-6 sm:p-8">
-        <h2 class="text-xl font-bold text-gold mb-4">દૈનિક સેવા ક્રમ</h2>
+        <h2 class="text-xl font-bold text-gold mb-4">{{ __('pujari.daily') }}</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-amber-100/60">
             <div class="flex items-start gap-3">
                 <span class="flex-shrink-0 w-7 h-7 bg-amber-900/40 text-amber-400 rounded-full flex items-center justify-center text-xs font-bold">1</span>
-                <span>સવારે મંગળ-ઉઠ્ઠાવ, ભોગ-ચઢાવ, અભિષેક</span>
+                <span>{{ __('pujari.s1') }}</span>
             </div>
             <div class="flex items-start gap-3">
                 <span class="flex-shrink-0 w-7 h-7 bg-amber-900/40 text-amber-400 rounded-full flex items-center justify-center text-xs font-bold">2</span>
-                <span>સવારે આરતી (Mangala Aarti)</span>
+                <span>{{ __('pujari.s2') }}</span>
             </div>
             <div class="flex items-start gap-3">
                 <span class="flex-shrink-0 w-7 h-7 bg-amber-900/40 text-amber-400 rounded-full flex items-center justify-center text-xs font-bold">3</span>
-                <span>ભક્ત-સેવા, ચઢાવ-ગ્રહણ, સૂત્ર-પૂજા</span>
+                <span>{{ __('pujari.s3') }}</span>
             </div>
             <div class="flex items-start gap-3">
                 <span class="flex-shrink-0 w-7 h-7 bg-amber-900/40 text-amber-400 rounded-full flex items-center justify-center text-xs font-bold">4</span>
-                <span>સાંજ-ભોગ, દ્વીપ-ઉત્સ્‍વ, સાંધ્ય-આરતી</span>
+                <span>{{ __('pujari.s4') }}</span>
             </div>
             <div class="flex items-start gap-3">
                 <span class="flex-shrink-0 w-7 h-7 bg-amber-900/40 text-amber-400 rounded-full flex items-center justify-center text-xs font-bold">5</span>
-                <span>ઉત્સવ-પ્રસઙ્ગ: ભજન-કીર્તન, ઉત્સ્‍વ-પૂજા</span>
+                <span>{{ __('pujari.s5') }}</span>
             </div>
             <div class="flex items-start gap-3">
                 <span class="flex-shrink-0 w-7 h-7 bg-amber-900/40 text-amber-400 rounded-full flex items-center justify-center text-xs font-bold">6</span>
-                <span>રાત્રી-શૃઙ્gar, ભગવાન-સ્‍ત્રોત, શ્‍યાન-ભોગ</span>
+                <span>{{ __('pujari.s6') }}</span>
             </div>
         </div>
     </div>

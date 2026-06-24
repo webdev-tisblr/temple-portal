@@ -3,9 +3,9 @@
 @section('content')
 
 <x-page-header
-    :breadcrumb="[['label' => 'ફોટો ગેલેરી']]"
-    title="ફોટો ગેલેરી"
-    subtitle="શ્રી પાતાળિયા હનુમાનજી ધામ — ફોટા અને વિડિયો" />
+    :breadcrumb="[['label' => __('footer.photo_gallery')]]"
+    title="{{ __('footer.photo_gallery') }}"
+    subtitle="{{ __('gallery.subtitle') }}" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple"
      x-data="{

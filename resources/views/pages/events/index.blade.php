@@ -3,14 +3,14 @@
 @section('content')
 
 <x-page-header
-    :breadcrumb="[['label' => 'કાર્યક્રમો']]"
-    title="કાર્યક્રમો"
-    subtitle="મંદિરના આગામી અને તાજેતરના ઉત્સવો" />
+    :breadcrumb="[['label' => __('events.title')]]"
+    title="{{ __('events.title') }}"
+    subtitle="{{ __('events.subtitle') }}" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
     {{-- Upcoming Events --}}
-    <h2 class="text-2xl font-bold text-gold mb-6">આગામી કાર્યક્રમો</h2>
+    <h2 class="text-2xl font-bold text-gold mb-6">{{ __('events.upcoming') }}</h2>
 
     @if($upcoming->isNotEmpty())
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -57,7 +57,7 @@
 
                         <div class="mt-4 pt-3 border-t border-amber-900/15">
                             <a href="{{ route('events.show', $event) }}" class="text-amber-500 hover:text-gold text-sm font-semibold flex items-center gap-1 transition">
-                                વધુ વાંચો
+                                {{ __('common.read_more') }}
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
                             </a>
                         </div>
@@ -76,14 +76,14 @@
             <svg class="w-12 h-12 text-amber-800/40 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
             </svg>
-            <p class="text-amber-100/40">હ.yyy.l ma kooi upcoming events nathi.</p>
+            <p class="text-amber-100/40">{{ __('events.no_upcoming') }}</p>
         </div>
     @endif
 
     {{-- Recent Events --}}
     @if(isset($recent) && $recent->isNotEmpty())
         <div class="mt-16">
-            <h2 class="text-2xl font-bold text-gold mb-6">તાજેતરના કાર્યક્રમો</h2>
+            <h2 class="text-2xl font-bold text-gold mb-6">{{ __('events.recent') }}</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 @foreach($recent as $event)
                     <div class="card-sacred opacity-70">

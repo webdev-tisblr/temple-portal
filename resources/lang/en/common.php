@@ -11,4 +11,10 @@ return [
     'time' => 'Time',
     'amount' => 'Amount',
     'try_again' => 'Try again',
+    'status' => 'Status',
+    'email' => 'Email',
+    'devotee' => 'Devotee',
+    'read_more' => 'Read more',
+    'minimum' => 'Minimum',
+    'details' => 'Details',
 ];

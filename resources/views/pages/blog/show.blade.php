@@ -5,7 +5,7 @@
 <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-temple">
     <x-breadcrumb
         :items="[
-            ['label' => 'બ્લૉગ', 'url' => route('blog.index')],
+            ['label' => __('blog.title'), 'url' => route('blog.index')],
             ['label' => $post->title],
         ]"
         class="mb-6" />
@@ -43,7 +43,7 @@
 
         {{-- Share Section --}}
         <div class="mt-10 pt-8 border-t border-amber-900/20">
-            <p class="text-sm font-semibold text-amber-100/50 mb-3">શેર કરો:</p>
+            <p class="text-sm font-semibold text-amber-100/50 mb-3">{{ __('blog.share') }}</p>
             <div class="flex flex-wrap gap-3">
 
                 {{-- WhatsApp --}}
@@ -57,12 +57,12 @@
                 </a>
 
                 {{-- Copy Link --}}
-                <button onclick="navigator.clipboard.writeText(window.location.href).then(function(){ var b=this; b.textContent='કૉપી થઈ ગયું!'; setTimeout(function(){ b.textContent='લિંક કૉપી કરો'; },2000); }.bind(this))"
+                <button onclick="navigator.clipboard.writeText(window.location.href).then(function(){ var b=this; b.textContent='{{ __('blog.copied') }}'; setTimeout(function(){ b.textContent='{{ __('blog.copy_link') }}'; },2000); }.bind(this))"
                         class="inline-flex items-center gap-2 px-4 py-2 bg-amber-900/30 text-amber-100/60 text-sm font-medium rounded-lg hover:bg-amber-900/50 border border-amber-800/30 transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                     </svg>
-                    લિંક કૉપી કરો
+                    {{ __('blog.copy_link') }}
                 </button>
 
             </div>
@@ -74,7 +74,7 @@
     <div class="mt-6">
         <a href="{{ route('blog.index') }}" class="inline-flex items-center gap-2 text-amber-500 hover:text-gold font-semibold transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18"/></svg>
-            બધા બ્લૉગ પોસ્ટ્સ
+            {{ __('blog.all_posts') }}
         </a>
     </div>
 

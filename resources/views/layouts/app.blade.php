@@ -6,6 +6,10 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="#FBF5EA">
 
+    {{-- The site has its own language switcher (gu/hi/en), so suppress the
+         browser's "Translate this page?" prompt to avoid a redundant offer. --}}
+    <meta name="google" content="notranslate">
+
     {!! SEOMeta::generate() !!}
 
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">

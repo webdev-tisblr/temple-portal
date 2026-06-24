@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="gu">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google" content="notranslate">
     <title>{{ __('nav.login') }} — {{ __('common.temple_name') }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>

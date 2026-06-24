@@ -5,10 +5,11 @@
     $trustEmail   = SystemSetting::getValue('trust_email');
 @endphp
 <!DOCTYPE html>
-<html lang="gu">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="google" content="notranslate">
     <title>{{ __('comingsoon.soon') }} — {{ $trustName }}</title>
     <meta name="robots" content="noindex,nofollow">
     <meta name="theme-color" content="#FBF5EA">

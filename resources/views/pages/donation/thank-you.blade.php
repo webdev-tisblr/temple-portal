@@ -8,8 +8,8 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
             </svg>
         </div>
-        <h1 class="text-2xl font-bold text-emerald-300 mb-2">આભાર! દાન સફળ થયું.</h1>
-        <p class="text-amber-100/50 mb-4">તમારું દાન સફળતાપૂર્વક પ્રાપ્ત થયું છે.</p>
+        <h1 class="text-2xl font-bold text-emerald-300 mb-2">{{ __('donation.thank_title') }}</h1>
+        <p class="text-amber-100/50 mb-4">{{ __('donation.thank_sub') }}</p>
 
         {{-- Greeting Card Display --}}
         @if($donation->greeting_card_path)
@@ -28,7 +28,7 @@
                         <a href="{{ route('donation.greeting-card', $donation->id) }}" download="greeting-card.png"
                            class="inline-flex items-center gap-2 px-4 py-2 bg-amber-900/30 text-amber-100/70 text-sm font-medium rounded-lg hover:bg-amber-900/50 border border-amber-800/30 transition">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                            ડાઉનલોડ ગ્રીટિંગ કાર્ડ
+                            {{ __('donation.download_greeting') }}
                         </a>
                     </div>
                 </div>
@@ -37,28 +37,28 @@
 
         <div class="bg-amber-900/20 border border-amber-800/30 rounded-xl p-4 text-left mt-6 text-sm">
             <div class="flex justify-between py-2 border-b border-amber-900/20">
-                <span class="text-amber-100/40">રકમ</span>
+                <span class="text-amber-100/40">{{ __('common.amount') }}</span>
                 <span class="font-bold text-gold">₹{{ number_format((float) $donation->amount) }}</span>
             </div>
             <div class="flex justify-between py-2 border-b border-amber-900/20">
-                <span class="text-amber-100/40">પ્રકાર</span>
+                <span class="text-amber-100/40">{{ __('donation.type_label') }}</span>
                 <span class="font-medium text-amber-100/60">{{ $donation->donationType?->name ?? ucfirst($donation->donation_type->value) }}</span>
             </div>
             <div class="flex justify-between py-2">
-                <span class="text-amber-100/40">80G રસીદ</span>
+                <span class="text-amber-100/40">{{ __('donation.receipt_80g') }}</span>
                 <span class="font-medium">
                     @if($donation->receipt_generated && $donation->receipt)
-                        <a href="{{ route('dashboard.receipts.download', $donation->receipt) }}" class="text-amber-500 hover:text-gold underline transition">ડાઉનલોડ</a>
+                        <a href="{{ route('dashboard.receipts.download', $donation->receipt) }}" class="text-amber-500 hover:text-gold underline transition">{{ __('donation.download') }}</a>
                     @else
-                        <span class="text-amber-100/30">ટૂંક સમયમાં ઉપલબ્ધ</span>
+                        <span class="text-amber-100/30">{{ __('donation.available_soon') }}</span>
                     @endif
                 </span>
             </div>
         </div>
 
         <div class="mt-8 space-x-3">
-            <a href="{{ route('donate') }}" class="inline-flex items-center px-6 py-2.5 btn-divine">વધુ દાન કરો</a>
-            <a href="{{ route('dashboard.index') }}" class="inline-flex items-center px-6 py-2.5 btn-temple">ડેશબોર્ડ</a>
+            <a href="{{ route('donate') }}" class="inline-flex items-center px-6 py-2.5 btn-divine">{{ __('donation.donate_more') }}</a>
+            <a href="{{ route('dashboard.index') }}" class="inline-flex items-center px-6 py-2.5 btn-temple">{{ __('nav.dashboard') }}</a>
         </div>
     @else
         <div class="w-20 h-20 bg-amber-900/30 border border-amber-700/30 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -66,9 +66,9 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
             </svg>
         </div>
-        <h1 class="text-2xl font-bold text-amber-300 mb-2">ચકાસણી બાકી</h1>
-        <p class="text-amber-100/50">પેમેન્ટ ચકાસણી થઈ શકી નથી. જો સફળ થયું હોય, તો ડેશબોર્ડમાં દેખાશે.</p>
-        <a href="{{ route('dashboard.index') }}" class="mt-6 inline-flex items-center px-6 py-2.5 btn-divine">ડેશબોર્ડ જુઓ</a>
+        <h1 class="text-2xl font-bold text-amber-300 mb-2">{{ __('seva.verify_pending') }}</h1>
+        <p class="text-amber-100/50">{{ __('donation.verify_pending_sub') }}</p>
+        <a href="{{ route('dashboard.index') }}" class="mt-6 inline-flex items-center px-6 py-2.5 btn-divine">{{ __('seva.view_dashboard') }}</a>
     @endif
 </div>
 @endsection

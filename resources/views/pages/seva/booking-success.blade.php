@@ -10,46 +10,46 @@
         </div>
 
         @if($booking)
-            <h1 class="text-2xl font-bold text-emerald-300 mb-2">સેવા બુક થઈ ગઈ!</h1>
-            <p class="text-amber-100/50 mb-4">તમારી સેવા સફળતાપૂર્વક બુક થઈ ગઈ છે. 80G રસીદ ઇમેઇલ/WhatsApp પર મોકલવામાં આવશે.</p>
+            <h1 class="text-2xl font-bold text-emerald-300 mb-2">{{ __('seva.booked_title') }}</h1>
+            <p class="text-amber-100/50 mb-4">{{ __('seva.booked_sub') }}</p>
 
             {{-- Booking Details --}}
             <div class="bg-amber-900/20 border border-amber-800/30 rounded-xl p-5 text-left mt-6 text-sm space-y-0">
-                <p class="text-xs text-amber-500 uppercase tracking-wider font-semibold mb-3">બુકિંગ વિગતો</p>
+                <p class="text-xs text-amber-500 uppercase tracking-wider font-semibold mb-3">{{ __('seva.booking_details') }}</p>
 
                 <div class="flex justify-between py-2.5 border-b border-amber-900/20">
-                    <span class="text-amber-100/40">સેવા</span>
+                    <span class="text-amber-100/40">{{ __('nav.seva') }}</span>
                     <span class="font-semibold text-amber-100/80">{{ $booking->seva->name }}</span>
                 </div>
                 <div class="flex justify-between py-2.5 border-b border-amber-900/20">
-                    <span class="text-amber-100/40">તારીખ</span>
+                    <span class="text-amber-100/40">{{ __('common.date') }}</span>
                     <span class="font-medium text-amber-100/70">{{ $booking->booking_date->format('d M Y') }}</span>
                 </div>
                 @if($booking->slot_time)
                 <div class="flex justify-between py-2.5 border-b border-amber-900/20">
-                    <span class="text-amber-100/40">સમય</span>
+                    <span class="text-amber-100/40">{{ __('common.time') }}</span>
                     <span class="font-medium text-amber-100/70">{{ \Carbon\Carbon::parse($booking->slot_time)->format('h:i A') }}</span>
                 </div>
                 @endif
                 @if($booking->devotee_name_for_seva)
                 <div class="flex justify-between py-2.5 border-b border-amber-900/20">
-                    <span class="text-amber-100/40">ભક્તનું નામ</span>
+                    <span class="text-amber-100/40">{{ __('seva.devotee_name') }}</span>
                     <span class="font-medium text-amber-100/70">{{ $booking->devotee_name_for_seva }}</span>
                 </div>
                 @endif
                 @if($booking->sankalp)
                 <div class="flex justify-between py-2.5 border-b border-amber-900/20">
-                    <span class="text-amber-100/40">સંકલ્પ</span>
+                    <span class="text-amber-100/40">{{ __('seva.sankalp') }}</span>
                     <span class="font-medium text-amber-100/70">{{ $booking->sankalp }}</span>
                 </div>
                 @endif
                 <div class="flex justify-between py-2.5">
-                    <span class="text-amber-100/40">રકમ</span>
+                    <span class="text-amber-100/40">{{ __('common.amount') }}</span>
                     <span class="font-bold text-gold text-base">₹{{ number_format((float) $booking->total_amount, 2) }}</span>
                 </div>
                 @if($booking->selected_product_id && $booking->selectedProduct)
                     <div class="flex justify-between py-2.5 border-t border-amber-900/20">
-                        <span class="text-amber-100/40">પસંદ કરેલ</span>
+                        <span class="text-amber-100/40">{{ __('seva.selected') }}</span>
                         <div class="flex items-center gap-2">
                             @if($booking->selectedProduct->image_path)
                                 <img src="{{ image_url($booking->selectedProduct->image_path) }}" alt="" class="w-8 h-8 rounded object-cover">
@@ -64,7 +64,7 @@
             @if($booking->seva->assignee)
                 @php $assignee = $booking->seva->assignee; @endphp
                 <div class="bg-amber-900/15 border border-amber-800/20 rounded-xl p-5 text-left mt-4 text-sm">
-                    <p class="text-xs text-amber-500 uppercase tracking-wider font-semibold mb-3">સેવા સંપર્ક</p>
+                    <p class="text-xs text-amber-500 uppercase tracking-wider font-semibold mb-3">{{ __('seva.seva_contact') }}</p>
                     <div class="flex items-start gap-3">
                         <div class="w-10 h-10 bg-amber-900/30 rounded-full flex items-center justify-center flex-shrink-0">
                             <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -85,22 +85,22 @@
                                     {{ $assignee->email }}
                                 </a>
                             @endif
-                            <p class="text-amber-100/30 text-xs mt-1.5">સેવા સંબંધિત કોઈ પ્રશ્ન માટે સંપર્ક કરો.</p>
+                            <p class="text-amber-100/30 text-xs mt-1.5">{{ __('seva.contact_prompt') }}</p>
                         </div>
                     </div>
                 </div>
             @endif
 
             <div class="mt-8 flex flex-wrap justify-center gap-3">
-                <a href="{{ route('seva.index') }}" class="inline-flex items-center px-6 py-2.5 btn-divine">વધુ સેવા જુઓ</a>
-                <a href="{{ route('dashboard.index') }}" class="inline-flex items-center px-6 py-2.5 btn-temple">ડેશબોર્ડ</a>
+                <a href="{{ route('seva.index') }}" class="inline-flex items-center px-6 py-2.5 btn-divine">{{ __('seva.view_more_seva') }}</a>
+                <a href="{{ route('dashboard.index') }}" class="inline-flex items-center px-6 py-2.5 btn-temple">{{ __('nav.dashboard') }}</a>
             </div>
         @else
-            <h1 class="text-2xl font-bold text-emerald-300 mb-2">પેમેન્ટ સફળ!</h1>
-            <p class="text-amber-100/50 mb-4">તમારું પેમેન્ટ સફળતાપૂર્વક પ્રાપ્ત થયું છે. 80G રસીદ ઇમેઇલ/WhatsApp પર મોકલવામાં આવશે.</p>
+            <h1 class="text-2xl font-bold text-emerald-300 mb-2">{{ __('seva.payment_success') }}</h1>
+            <p class="text-amber-100/50 mb-4">{{ __('seva.payment_success_sub') }}</p>
             <div class="mt-8 flex flex-wrap justify-center gap-3">
-                <a href="{{ route('home') }}" class="inline-flex items-center px-6 py-2.5 btn-divine">હોમ</a>
-                <a href="{{ route('dashboard.index') }}" class="inline-flex items-center px-6 py-2.5 btn-temple">ડેશબોર્ડ</a>
+                <a href="{{ route('home') }}" class="inline-flex items-center px-6 py-2.5 btn-divine">{{ __('nav.home') }}</a>
+                <a href="{{ route('dashboard.index') }}" class="inline-flex items-center px-6 py-2.5 btn-temple">{{ __('nav.dashboard') }}</a>
             </div>
         @endif
     @else
@@ -109,9 +109,9 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
             </svg>
         </div>
-        <h1 class="text-2xl font-bold text-amber-300 mb-2">ચકાસણી બાકી</h1>
-        <p class="text-amber-100/50">પેમેન્ટ ચકાસણી થઈ શકી નથી. જો પેમેન્ટ સફળ થયું હોય, તો થોડીવારમાં તમારા ડેશબોર્ડમાં દેખાશે.</p>
-        <a href="{{ route('dashboard.index') }}" class="mt-6 inline-flex items-center px-6 py-2.5 btn-divine">ડેશબોર્ડ જુઓ</a>
+        <h1 class="text-2xl font-bold text-amber-300 mb-2">{{ __('seva.verify_pending') }}</h1>
+        <p class="text-amber-100/50">{{ __('seva.verify_pending_sub') }}</p>
+        <a href="{{ route('dashboard.index') }}" class="mt-6 inline-flex items-center px-6 py-2.5 btn-divine">{{ __('seva.view_dashboard') }}</a>
     @endif
 </div>
 @endsection

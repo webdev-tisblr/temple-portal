@@ -7,8 +7,8 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
     </div>
-    <h1 class="text-2xl font-bold text-red-300 mb-2">પેમેન્ટ નિષ્ફળ</h1>
-    <p class="text-amber-100/50 mb-6">પેમેન્ટ રદ થયું છે અથવા નિષ્ફળ ગયું છે. કૃપા કરીને ફરી પ્રયાસ કરો.</p>
-    <a href="{{ route('seva.index') }}" class="inline-flex items-center px-6 py-2.5 btn-divine">ફરી પ્રયાસ કરો</a>
+    <h1 class="text-2xl font-bold text-red-300 mb-2">{{ __('seva.payment_failed') }}</h1>
+    <p class="text-amber-100/50 mb-6">{{ __('seva.payment_failed_sub') }}</p>
+    <a href="{{ route('seva.index') }}" class="inline-flex items-center px-6 py-2.5 btn-divine">{{ __('common.try_again') }}</a>
 </div>
 @endsection

@@ -4,10 +4,10 @@
 
 <x-page-header
     :breadcrumb="[
-        ['label' => 'સ્ટોર', 'url' => route('store.index')],
-        ['label' => 'કાર્ટ'],
+        ['label' => __('nav.store'), 'url' => route('store.index')],
+        ['label' => __('nav.cart')],
     ]"
-    title="કાર્ટ" />
+    title="{{ __('nav.cart') }}" />
 
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-temple">
 
@@ -21,7 +21,7 @@
 
     @if($errors->any())
         <div class="mb-6 px-5 py-4 bg-red-950/30 border border-red-800/30 rounded-xl">
-            <p class="text-sm font-semibold text-red-300 mb-2">કૃપા કરી ફોર્મ સુધારો:</p>
+            <p class="text-sm font-semibold text-red-300 mb-2">{{ __('store.form_errors') }}</p>
             <ul class="text-sm text-red-300/80 space-y-1 list-disc list-inside">
                 @foreach($errors->all() as $error)
                     <li>{{ $error }}</li>
@@ -38,11 +38,11 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
                 </svg>
             </div>
-            <h2 class="text-xl font-bold text-amber-100/60 mb-2">તમારી કાર્ટ ખાલી છે.</h2>
-            <p class="text-amber-100/30 text-sm mb-6">મંદિર સ્ટોરમાંથી પૂજા સામગ્રી ખરીદો.</p>
+            <h2 class="text-xl font-bold text-amber-100/60 mb-2">{{ __('store.cart_empty') }}</h2>
+            <p class="text-amber-100/30 text-sm mb-6">{{ __('store.cart_empty_sub') }}</p>
             <a href="{{ route('store.index') }}" class="inline-flex items-center gap-2 btn-divine px-6 py-2.5">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                સ્ટોર પર જાઓ
+                {{ __('store.go_to_store') }}
             </a>
         </div>
     @else
@@ -53,7 +53,7 @@
             <div class="card-sacred p-4 sm:p-6 inner-glow mb-8">
                 <h2 class="text-gold font-bold text-lg mb-5 flex items-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
-                    કાર્ટ આઇટમ
+                    {{ __('store.cart_items') }}
                 </h2>
 
                 <div class="space-y-4">
@@ -75,7 +75,7 @@
                             <div class="flex-1 min-w-0">
                                 <a :href="item.url" class="text-sm sm:text-base font-semibold text-amber-100/80 hover:text-gold transition truncate block" x-text="item.name"></a>
                                 <p class="text-sm text-amber-100/40 mt-0.5">
-                                    ₹<span x-text="parseFloat(item.unit_price).toLocaleString('en-IN', {minimumFractionDigits: 2})"></span> પ્રતિ નંગ
+                                    ₹<span x-text="parseFloat(item.unit_price).toLocaleString('en-IN', {minimumFractionDigits: 2})"></span> {{ __('store.per_unit') }}
                                 </p>
                             </div>
 
@@ -96,7 +96,7 @@
                             </div>
 
                             {{-- Remove --}}
-                            <button @click="removeItem(index)" class="p-2 text-amber-100/30 hover:text-red-400 transition flex-shrink-0" title="દૂર કરો">
+                            <button @click="removeItem(index)" class="p-2 text-amber-100/30 hover:text-red-400 transition flex-shrink-0" title="{{ __('store.remove') }}">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                             </button>
                         </div>
@@ -105,7 +105,7 @@
 
                 {{-- Cart Total --}}
                 <div class="mt-6 pt-5 border-t border-amber-900/20 flex items-center justify-between">
-                    <span class="text-amber-100/50 font-medium">કુલ રકમ</span>
+                    <span class="text-amber-100/50 font-medium">{{ __('store.total') }}</span>
                     <span class="text-2xl font-bold text-gold">₹<span x-text="parseFloat(cartTotal).toLocaleString('en-IN', {minimumFractionDigits: 2})"></span></span>
                 </div>
             </div>
@@ -127,22 +127,22 @@
                 <div class="card-sacred p-4 sm:p-6 inner-glow mb-8">
                     <h2 class="text-gold font-bold text-lg mb-6 flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        શિપિંગ માહિતી
+                        {{ __('store.shipping_info') }}
                     </h2>
 
                     <div class="space-y-5">
                         {{-- Name + Phone --}}
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <div>
-                                <label for="shipping_name" class="block text-sm font-medium text-amber-600 mb-1.5">નામ <span class="text-red-400">*</span></label>
+                                <label for="shipping_name" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('store.name') }} <span class="text-red-400">*</span></label>
                                 <input type="text" name="shipping_name" id="shipping_name" required
                                     value="{{ old('shipping_name', auth('devotee')->user()->name ?? '') }}"
-                                    placeholder="તમારું પૂરું નામ"
+                                    placeholder="{{ __('store.name_placeholder') }}"
                                     class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20">
                                 @error('shipping_name')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                             </div>
                             <div>
-                                <label for="shipping_phone" class="block text-sm font-medium text-amber-600 mb-1.5">ફોન <span class="text-red-400">*</span></label>
+                                <label for="shipping_phone" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('store.phone') }} <span class="text-red-400">*</span></label>
                                 <input type="text" name="shipping_phone" id="shipping_phone" required
                                     value="{{ old('shipping_phone', auth('devotee')->user()->phone ?? '') }}"
                                     placeholder="+91 XXXXX XXXXX"
@@ -153,9 +153,9 @@
 
                         {{-- Address --}}
                         <div>
-                            <label for="shipping_address" class="block text-sm font-medium text-amber-600 mb-1.5">સરનામું <span class="text-red-400">*</span></label>
+                            <label for="shipping_address" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('store.address') }} <span class="text-red-400">*</span></label>
                             <textarea name="shipping_address" id="shipping_address" rows="3" required
-                                placeholder="તમારું પૂરું સરનામું"
+                                placeholder="{{ __('store.address_placeholder') }}"
                                 class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20 resize-none">{{ old('shipping_address', auth('devotee')->user()->address ?? '') }}</textarea>
                             @error('shipping_address')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                         </div>
@@ -163,18 +163,18 @@
                         {{-- City + State --}}
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <div>
-                                <label for="shipping_city" class="block text-sm font-medium text-amber-600 mb-1.5">શહેર <span class="text-red-400">*</span></label>
+                                <label for="shipping_city" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('store.city') }} <span class="text-red-400">*</span></label>
                                 <input type="text" name="shipping_city" id="shipping_city" required
                                     value="{{ old('shipping_city', auth('devotee')->user()->city ?? '') }}"
-                                    placeholder="તમારું શહેર"
+                                    placeholder="{{ __('store.city_placeholder') }}"
                                     class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20">
                                 @error('shipping_city')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                             </div>
                             <div>
-                                <label for="shipping_state" class="block text-sm font-medium text-amber-600 mb-1.5">રાજ્ય <span class="text-red-400">*</span></label>
+                                <label for="shipping_state" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('store.state') }} <span class="text-red-400">*</span></label>
                                 <input type="text" name="shipping_state" id="shipping_state" required
                                     value="{{ old('shipping_state', auth('devotee')->user()->state ?? '') }}"
-                                    placeholder="તમારું રાજ્ય"
+                                    placeholder="{{ __('store.state_placeholder') }}"
                                     class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20">
                                 @error('shipping_state')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                             </div>
@@ -183,7 +183,7 @@
                         {{-- Pincode --}}
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <div>
-                                <label for="shipping_pincode" class="block text-sm font-medium text-amber-600 mb-1.5">પિનકોડ <span class="text-red-400">*</span></label>
+                                <label for="shipping_pincode" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('store.pincode') }} <span class="text-red-400">*</span></label>
                                 <input type="text" name="shipping_pincode" id="shipping_pincode" required maxlength="10"
                                     value="{{ old('shipping_pincode', auth('devotee')->user()->pincode ?? '') }}"
                                     placeholder="370205"
@@ -194,9 +194,9 @@
 
                         {{-- Notes --}}
                         <div>
-                            <label for="notes" class="block text-sm font-medium text-amber-600 mb-1.5">નોંધ <span class="text-xs text-amber-100/30 font-normal">(વૈકલ્પિક)</span></label>
+                            <label for="notes" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('store.notes') }} <span class="text-xs text-amber-100/30 font-normal">{{ __('store.optional') }}</span></label>
                             <textarea name="notes" id="notes" rows="2"
-                                placeholder="કોઈ ખાસ સૂચના..."
+                                placeholder="{{ __('store.notes_placeholder') }}"
                                 class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20 resize-none">{{ old('notes') }}</textarea>
                             @error('notes')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                         </div>
@@ -220,8 +220,8 @@
                         <template x-if="pendingUpdates === 0">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                         </template>
-                        <span x-show="pendingUpdates === 0">પેમેન્ટ કરો — ₹<span x-text="parseFloat(cartTotal).toLocaleString('en-IN', {minimumFractionDigits: 2})"></span></span>
-                        <span x-show="pendingUpdates > 0" x-cloak>કાર્ટ સેવ થઈ રહી છે...</span>
+                        <span x-show="pendingUpdates === 0">{{ __('store.pay') }}₹<span x-text="parseFloat(cartTotal).toLocaleString('en-IN', {minimumFractionDigits: 2})"></span></span>
+                        <span x-show="pendingUpdates > 0" x-cloak>{{ __('store.cart_saving') }}</span>
                     </button>
                 </div>
             </form>
@@ -296,7 +296,7 @@ function cartManager() {
                 }
             } catch (e) {
                 console.error('Cart sync error', e);
-                this.errorMessage = 'કાર્ટ અપડેટ સાચવાઈ નહીં. પેજ રિફ્રેશ કરી ફરી પ્રયાસ કરો.';
+                this.errorMessage = @js(__('store.cart_save_error'));
             } finally {
                 this.pendingUpdates--;
             }
@@ -336,7 +336,7 @@ function cartManager() {
                 await this.postJson('{{ route("store.cart.remove") }}', { cart_key: item.cart_key });
             } catch (e) {
                 console.error('Remove error', e);
-                this.errorMessage = 'આઇટમ દૂર થઈ શકી નહીં. પેજ રિફ્રેશ કરી ફરી પ્રયાસ કરો.';
+                this.errorMessage = @js(__('store.item_remove_error'));
             } finally {
                 this.pendingUpdates--;
             }
@@ -362,7 +362,7 @@ function cartManager() {
 
             if (this.pendingUpdates > 0 || this.errorMessage) {
                 alert(this.errorMessage ||
-                    'કાર્ટ સેવ થઈ રહી છે, કૃપા કરી થોડી વાર પછી ફરી પ્રયાસ કરો.');
+                    @js(__('store.cart_saving_wait')));
                 return;
             }
 

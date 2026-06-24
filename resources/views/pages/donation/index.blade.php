@@ -4,8 +4,8 @@
 <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-temple" x-data="donationForm()">
 
     <div class="text-center mb-8">
-        <h1 class="divine-heading text-3xl">દાન કરો</h1>
-        <p class="divine-subtext mt-2">શ્રી પાતાળિયા હનુમાનજી મંદિર માટે ઓનલાઈન દાન કરો</p>
+        <h1 class="divine-heading text-3xl">{{ __('nav.donate') }}</h1>
+        <p class="divine-subtext mt-2">{{ __('donation.subtitle') }}</p>
     </div>
 
     @if($errors->any())
@@ -25,7 +25,7 @@
              into `amount`, so admins/devotees can pick a preset and
              then override it. Mirrors the mobile donate screen. --}}
         <div class="mb-6">
-            <label class="block text-sm font-medium text-amber-600 mb-3">રકમ પસંદ કરો</label>
+            <label class="block text-sm font-medium text-amber-600 mb-3">{{ __('donation.choose_amount') }}</label>
             <div class="grid grid-cols-3 gap-3">
                 @foreach([101, 501, 1100, 2100, 5100, 11000] as $preset)
                     <button type="button"
@@ -42,10 +42,10 @@
              Filled automatically when a preset chip is clicked; typing
              here overrides the chip selection. --}}
         <div class="mb-6">
-            <label class="block text-sm font-medium text-amber-600 mb-1">રકમ</label>
+            <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('common.amount') }}</label>
             <div class="flex">
                 <span class="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-amber-800/30 bg-amber-900/20 text-amber-500 font-medium">₹</span>
-                <input type="number" min="1" placeholder="રકમ દાખલ કરો"
+                <input type="number" min="1" placeholder="{{ __('donation.enter_amount') }}"
                     x-model="customAmount"
                     @input="amount = customAmount ? parseInt(customAmount) : 0"
                     class="flex-1 block w-full rounded-r-lg bg-transparent border-amber-800/30 text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20 text-lg">
@@ -54,9 +54,9 @@
 
         {{-- Donation Type (Dynamic) --}}
         <div class="mb-6">
-            <label class="block text-sm font-medium text-amber-600 mb-1">દાનનો પ્રકાર</label>
+            <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('donation.type') }}</label>
             <select x-model="selectedTypeId" @change="onTypeChange()" class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 focus:border-amber-600 focus:ring-amber-600/20">
-                <option value="" class="bg-stone-900">-- પ્રકાર પસંદ કરો --</option>
+                <option value="" class="bg-stone-900">{{ __('donation.choose_type') }}</option>
                 @foreach($donationTypes as $type)
                     <option value="{{ $type->id }}" class="bg-stone-900">{{ $type->name_gu }}</option>
                 @endforeach
@@ -67,8 +67,8 @@
 
         {{-- Purpose --}}
         <div class="mb-6">
-            <label class="block text-sm font-medium text-amber-600 mb-1">હેતુ (વૈકલ્પિક)</label>
-            <input type="text" x-model="purpose" placeholder="દા.ત. પરિવારના કલ્યાણ માટે"
+            <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('donation.purpose') }}</label>
+            <input type="text" x-model="purpose" placeholder="{{ __('donation.purpose_placeholder') }}"
                 class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
         </div>
 
@@ -76,7 +76,7 @@
         <div class="mb-6">
             <label class="flex items-center gap-2">
                 <input type="checkbox" x-model="anonymous" class="rounded border-amber-800/40 bg-transparent text-amber-500 focus:ring-amber-600/20">
-                <span class="text-sm text-amber-100/60">ગુપ્ત દાન (નામ જાહેર ન કરો)</span>
+                <span class="text-sm text-amber-100/60">{{ __('donation.gupt_daan') }}</span>
             </label>
         </div>
 
@@ -93,7 +93,7 @@
                 {{-- Dynamic Extra Fields (inside form so they submit properly) --}}
                 <template x-if="currentExtraFields.length > 0">
                     <div class="mb-6 space-y-4 p-4 border border-amber-800/20 rounded-lg bg-amber-900/10">
-                        <p class="text-xs text-amber-500 font-medium uppercase tracking-wide">વધારાની માહિતી</p>
+                        <p class="text-xs text-amber-500 font-medium uppercase tracking-wide">{{ __('donation.extra_info') }}</p>
                         <template x-for="(field, index) in currentExtraFields" :key="field.key">
                             <div>
                                 <label class="block text-sm font-medium text-amber-600 mb-1" x-text="field.label_gu || field.label_en"></label>
@@ -126,12 +126,12 @@
                 <button type="submit"
                     :disabled="!amount || amount < 1"
                     class="w-full py-3 btn-divine disabled:opacity-40 disabled:cursor-not-allowed text-lg">
-                    ₹<span x-text="amount ? amount.toLocaleString('en-IN') : '0'"></span> દાન કરો
+                    ₹<span x-text="amount ? amount.toLocaleString('en-IN') : '0'"></span> {{ __('nav.donate') }}
                 </button>
             </form>
         @else
             <a href="{{ route('login') }}" class="block w-full text-center py-3 btn-divine text-lg">
-                દાન કરવા લૉગિન કરો
+                {{ __('donation.login_to_donate') }}
             </a>
         @endauth
     </div>
@@ -139,7 +139,7 @@
     {{-- Active Campaigns --}}
     @if($campaigns->isNotEmpty())
         <div class="mt-10">
-            <h2 class="text-xl font-bold text-gold mb-4">ચાલુ અભિયાન</h2>
+            <h2 class="text-xl font-bold text-gold mb-4">{{ __('donation.active_campaigns') }}</h2>
             @foreach($campaigns as $campaign)
                 <div class="card-sacred p-5 mb-4">
                     <h3 class="font-semibold text-amber-100/70">{{ $campaign->title }}</h3>
@@ -152,8 +152,8 @@
                             <div class="bg-gradient-to-r from-amber-600 to-amber-400 h-3 rounded-full transition-all" style="width: {{ $pct }}%"></div>
                         </div>
                         <div class="flex justify-between text-xs text-amber-100/40 mt-1">
-                            <span>₹{{ number_format((float) $campaign->raised_amount) }} એકત્ર</span>
-                            <span>₹{{ number_format((float) $campaign->goal_amount) }} લક્ષ્ય</span>
+                            <span>₹{{ number_format((float) $campaign->raised_amount) }} {{ __('donation.raised') }}</span>
+                            <span>₹{{ number_format((float) $campaign->goal_amount) }} {{ __('donation.goal') }}</span>
                         </div>
                     </div>
                 </div>

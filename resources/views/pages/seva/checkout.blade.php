@@ -9,8 +9,8 @@
             </svg>
         </div>
     </div>
-    <h1 class="text-xl font-semibold text-amber-100/70 mb-2">પેમેન્ટ પ્રોસેસ થઈ રહ્યું છે...</h1>
-    <p class="text-amber-100/40">Razorpay ચેકઆઉટ ખુલી રહ્યું છે. કૃપા કરીને રાહ જુઓ.</p>
+    <h1 class="text-xl font-semibold text-amber-100/70 mb-2">{{ __('seva.payment_processing') }}</h1>
+    <p class="text-amber-100/40">Razorpay {{ __('seva.razorpay_opening') }}</p>
     <p class="text-sm text-amber-100/30 mt-4">{{ $description }} — ₹{{ number_format($amount / 100) }}</p>
 </div>
 
@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
         key: "{{ $razorpayKeyId }}",
         amount: {{ $amount }},
         currency: "{{ $currency }}",
-        name: "શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ",
+        name: "{{ __('common.trust_full') }}",
         description: "{{ $description }}",
         order_id: "{{ $orderId }}",
         prefill: {

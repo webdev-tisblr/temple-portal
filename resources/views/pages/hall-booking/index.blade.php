@@ -4,11 +4,11 @@
 
 <x-page-header
     :breadcrumb="[
-        ['label' => 'હોલ બુકિંગ', 'url' => route('halls.index')],
+        ['label' => __('nav.halls'), 'url' => route('halls.index')],
         ['label' => $hall->name],
     ]"
     :title="$hall->name"
-    subtitle="લગ્ન, સત્સંગ, ધાર્મિક કાર્યક્રમો તથા સામાજિક ઉત્સવો માટે ઉપલબ્ધ" />
+    subtitle="{{ __('halls.subtitle_short') }}" />
 
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
@@ -65,13 +65,13 @@
         {{-- Capacity --}}
         <div class="flex items-center gap-2 mb-5">
             <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-            <span class="text-amber-100/70 text-sm">ક્ષમતા: <strong class="text-gold">{{ $hall->capacity }} વ્યક્તિ</strong></span>
+            <span class="text-amber-100/70 text-sm">{{ __('halls.capacity') }} <strong class="text-gold">{{ $hall->capacity }} {{ __('halls.persons') }}</strong></span>
         </div>
 
         {{-- Amenities --}}
         @if($hall->amenities && count($hall->amenities) > 0)
             <div class="mb-5">
-                <h3 class="text-sm font-semibold text-amber-500 mb-2">સુવિધાઓ</h3>
+                <h3 class="text-sm font-semibold text-amber-500 mb-2">{{ __('halls.facilities') }}</h3>
                 <div class="flex flex-wrap gap-2">
                     @foreach($hall->amenities as $amenity)
                         <span class="inline-block px-3 py-1 text-xs font-medium rounded-full bg-amber-900/30 text-amber-400 border border-amber-800/20">{{ $amenity }}</span>
@@ -83,29 +83,29 @@
         {{-- Rules --}}
         @if($hall->rules)
             <div class="mb-5">
-                <h3 class="text-sm font-semibold text-amber-500 mb-2">નિયમો</h3>
+                <h3 class="text-sm font-semibold text-amber-500 mb-2">{{ __('halls.rules') }}</h3>
                 <div class="text-amber-100/50 text-sm leading-relaxed">{!! nl2br(e($hall->rules)) !!}</div>
             </div>
         @endif
 
         {{-- Pricing Table --}}
         <div>
-            <h3 class="text-sm font-semibold text-amber-500 mb-3">ભાડા વિગત</h3>
+            <h3 class="text-sm font-semibold text-amber-500 mb-3">{{ __('halls.rent_details') }}</h3>
             <div class="overflow-hidden rounded-lg border border-amber-800/20">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="bg-amber-900/20">
-                            <th class="px-4 py-2.5 text-left text-amber-400 font-semibold">પ્રકાર</th>
-                            <th class="px-4 py-2.5 text-right text-amber-400 font-semibold">ભાડું</th>
+                            <th class="px-4 py-2.5 text-left text-amber-400 font-semibold">{{ __('halls.type') }}</th>
+                            <th class="px-4 py-2.5 text-right text-amber-400 font-semibold">{{ __('halls.rent') }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr class="border-t border-amber-900/15">
-                            <td class="px-4 py-2.5 text-amber-100/70">આખો દિવસ (Full Day)</td>
+                            <td class="px-4 py-2.5 text-amber-100/70">{{ __('halls.full_day_paren') }}</td>
                             <td class="px-4 py-2.5 text-right font-bold text-gold">₹{{ number_format((float) $hall->price_per_day) }}</td>
                         </tr>
                         <tr class="border-t border-amber-900/15">
-                            <td class="px-4 py-2.5 text-amber-100/70">અડધો દિવસ (Half Day)</td>
+                            <td class="px-4 py-2.5 text-amber-100/70">{{ __('halls.half_day_paren') }}</td>
                             <td class="px-4 py-2.5 text-right font-bold text-gold">₹{{ number_format((float) $hall->price_per_half_day) }}</td>
                         </tr>
                     </tbody>
@@ -121,14 +121,14 @@
                 <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </div>
             <p class="text-amber-100/60 leading-relaxed text-sm">
-                શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ દ્વારા ભક્તો માટે વિશાળ હોલ ઉપલબ્ધ છે. લગ્ન, સત્સંગ, ધાર્મિક કાર્યક્રમો તથા સામાજિક ઉત્સવો માટે નજીવા ભાડે ઉપલબ્ધ. AC, સાઉન્ડ સિસ્ટમ, પાર્કિંગ સહિત સુવિધાઓ.
+                {{ __('halls.about_text') }}
             </p>
         </div>
     </div>
 
     {{-- Booking Form --}}
     <div class="card-sacred p-6 sm:p-8" x-data="hallBooking()">
-        <h2 class="divine-heading text-xl sm:text-2xl mb-6">બુકિંગ ફોર્મ</h2>
+        <h2 class="divine-heading text-xl sm:text-2xl mb-6">{{ __('halls.booking_form') }}</h2>
 
         {{-- Validation Errors --}}
         @if($errors->any())
@@ -147,7 +147,7 @@
              checked per-chip via checkAvailability() once the booking
              type below is set. --}}
         <div class="mb-5">
-            <label class="block text-sm font-medium text-amber-600 mb-2">તારીખ પસંદ કરો <span class="text-red-400">*</span></label>
+            <label class="block text-sm font-medium text-amber-600 mb-2">{{ __('seva.choose_date') }} <span class="text-red-400">*</span></label>
             <div class="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x"
                  style="scrollbar-width: thin;">
                 <template x-for="day in upcomingDays" :key="day.date">
@@ -166,22 +166,22 @@
 
         {{-- Booking Type --}}
         <div class="mb-5">
-            <label class="block text-sm font-medium text-amber-600 mb-2">બુકિંગ પ્રકાર <span class="text-red-400">*</span></label>
+            <label class="block text-sm font-medium text-amber-600 mb-2">{{ __('halls.booking_type') }} <span class="text-red-400">*</span></label>
             <div class="flex flex-wrap gap-3">
                 <label class="flex items-center gap-2 cursor-pointer">
                     <input type="radio" name="booking_type_select" value="full_day" x-model="bookingType" @change="checkAvailability()"
                            class="text-amber-600 border-amber-800/30 focus:ring-amber-600/20 bg-transparent">
-                    <span class="text-sm text-amber-100/70">આખો દિવસ (Full Day)</span>
+                    <span class="text-sm text-amber-100/70">{{ __('halls.full_day_paren') }}</span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer">
                     <input type="radio" name="booking_type_select" value="half_day_morning" x-model="bookingType" @change="checkAvailability()"
                            class="text-amber-600 border-amber-800/30 focus:ring-amber-600/20 bg-transparent">
-                    <span class="text-sm text-amber-100/70">અડધો દિવસ - સવાર</span>
+                    <span class="text-sm text-amber-100/70">{{ __('halls.half_day_morning') }}</span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer">
                     <input type="radio" name="booking_type_select" value="half_day_evening" x-model="bookingType" @change="checkAvailability()"
                            class="text-amber-600 border-amber-800/30 focus:ring-amber-600/20 bg-transparent">
-                    <span class="text-sm text-amber-100/70">અડધો દિવસ - સાંજ</span>
+                    <span class="text-sm text-amber-100/70">{{ __('halls.half_day_evening') }}</span>
                 </label>
             </div>
         </div>
@@ -193,15 +193,15 @@
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                 </svg>
-                ઉપલબ્ધતા ચકાસી રહ્યા છીએ...
+                {{ __('halls.checking_avail') }}
             </div>
             <div x-show="!checking && available === true" class="flex items-center gap-2 py-2 px-4 bg-emerald-900/20 border border-emerald-800/30 rounded-lg">
                 <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                <span class="text-emerald-400 text-sm font-semibold">ઉપલબ્ધ છે</span>
+                <span class="text-emerald-400 text-sm font-semibold">{{ __('halls.available') }}</span>
             </div>
             <div x-show="!checking && available === false" class="flex items-center gap-2 py-2 px-4 bg-red-900/20 border border-red-800/30 rounded-lg">
                 <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                <span class="text-red-400 text-sm font-semibold">આ તારીખ બુક થઈ ગયેલ છે</span>
+                <span class="text-red-400 text-sm font-semibold">{{ __('halls.booked') }}</span>
             </div>
         </div>
 
@@ -218,34 +218,34 @@
             <div class="space-y-4">
                 {{-- Contact Name --}}
                 <div>
-                    <label class="block text-sm font-medium text-amber-600 mb-1">સંપર્ક નામ <span class="text-red-400">*</span></label>
+                    <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('halls.contact_name') }} <span class="text-red-400">*</span></label>
                     <input type="text" name="contact_name" value="{{ old('contact_name', auth('devotee')->user()?->name) }}" required
-                        placeholder="તમારું પૂરું નામ"
+                        placeholder="{{ __('store.name_placeholder') }}"
                         class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
                 </div>
 
                 {{-- Phone --}}
                 <div>
-                    <label class="block text-sm font-medium text-amber-600 mb-1">ફોન નંબર <span class="text-red-400">*</span></label>
+                    <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('halls.phone_number') }} <span class="text-red-400">*</span></label>
                     <input type="tel" name="contact_phone" value="{{ old('contact_phone', auth('devotee')->user()?->phone) }}" required
-                        placeholder="મોબાઇલ નંબર"
+                        placeholder="{{ __('halls.mobile_placeholder') }}"
                         class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
                 </div>
 
                 {{-- Purpose --}}
                 <div>
-                    <label class="block text-sm font-medium text-amber-600 mb-1">હેતુ <span class="text-red-400">*</span></label>
+                    <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('halls.purpose') }} <span class="text-red-400">*</span></label>
                     <input type="text" name="purpose" value="{{ old('purpose') }}" required
-                        placeholder="દા.ત. લગ્ન, સત્સંગ"
+                        placeholder="{{ __('halls.purpose_placeholder') }}"
                         class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
                 </div>
 
                 {{-- Expected Guests --}}
                 <div>
-                    <label class="block text-sm font-medium text-amber-600 mb-1">અંદાજિત મહેમાન <span class="text-amber-100/30 text-xs">(વૈકલ્પિક)</span></label>
+                    <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('halls.expected_guests') }} <span class="text-amber-100/30 text-xs">{{ __('store.optional') }}</span></label>
                     <input type="number" name="expected_guests" value="{{ old('expected_guests') }}" min="1"
                         inputmode="numeric"
-                        placeholder="અંદાજિત સંખ્યા"
+                        placeholder="{{ __('halls.guests_placeholder') }}"
                         class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
                 </div>
             </div>
@@ -253,7 +253,7 @@
             {{-- Price Display --}}
             <div class="mt-6 p-4 bg-amber-900/20 border border-amber-800/30 rounded-lg" x-show="bookingType">
                 <div class="flex justify-between items-center">
-                    <span class="text-amber-100/50 text-sm">ચૂકવવાની રકમ</span>
+                    <span class="text-amber-100/50 text-sm">{{ __('halls.amount_to_pay') }}</span>
                     <span class="text-2xl font-bold text-gold" x-text="'₹' + calculatedAmount.toLocaleString('en-IN')"></span>
                 </div>
             </div>
@@ -264,11 +264,11 @@
                     <button type="submit"
                         :disabled="!selectedDate || !bookingType || available !== true"
                         class="w-full sm:w-auto px-8 py-3 btn-divine disabled:opacity-40 disabled:cursor-not-allowed">
-                        <span x-text="bookingType ? 'બુક કરો — ₹' + calculatedAmount.toLocaleString('en-IN') : 'બુક કરો'"></span>
+                        <span x-text="bookingType ? @js(__('halls.book_prefix')) + calculatedAmount.toLocaleString('en-IN') : @js(__('halls.book'))"></span>
                     </button>
                 @else
                     <a href="{{ route('login') }}" class="inline-flex items-center px-8 py-3 btn-divine">
-                        બુક કરવા લૉગિન કરો
+                        {{ __('seva.login_to_book') }}
                     </a>
                 @endauth
             </div>
@@ -282,9 +282,9 @@ function hallGallery() {
     return {
         current: 0,
         images: [
-            { icon: '🏛️', label: 'મંદિર હોલ - મુખ્ય દૃશ્ય' },
-            { icon: '🎊', label: 'કાર્યક્રમ હોલ - આંતરિક દૃશ્ય' },
-            { icon: '🪔', label: 'સેવા હોલ - સ્ટેજ દૃશ્ય' },
+            { icon: '🏛️', label: @js(__('halls.gallery1')) },
+            { icon: '🎊', label: @js(__('halls.gallery2')) },
+            { icon: '🪔', label: @js(__('halls.gallery3')) },
         ],
         prev() {
             this.current = this.current === 0 ? this.images.length - 1 : this.current - 1;
@@ -309,8 +309,8 @@ function hallBooking() {
 
     // Build the next 60 days for the chip carousel — local-time
     // midnight so day-of-week / month labels are temple-local.
-    const dayLabels = ['રવિ', 'સોમ', 'મંગળ', 'બુધ', 'ગુરુ', 'શુક્ર', 'શનિ'];
-    const monthLabels = ['જાન્યુ', 'ફેબ્રુ', 'માર્ચ', 'એપ્રિલ', 'મે', 'જૂન', 'જુલાઈ', 'ઑગસ્ટ', 'સપ્ટે', 'ઑક્ટો', 'નવે', 'ડિસે'];
+    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const pad = n => String(n).padStart(2, '0');
     const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     const days = [];

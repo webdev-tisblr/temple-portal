@@ -21,12 +21,21 @@ class Hall extends Model
 
     protected $fillable = [
         'name',
+        'name_gu',
+        'name_hi',
+        'name_en',
         'description',
+        'description_gu',
+        'description_hi',
+        'description_en',
         'capacity',
         'price_per_day',
         'price_per_half_day',
         'amenities',
         'rules',
+        'rules_gu',
+        'rules_hi',
+        'rules_en',
         'image_path',
         'is_active',
     ];
@@ -38,6 +47,40 @@ class Hall extends Model
         'amenities' => 'array',
         'is_active' => 'boolean',
     ];
+
+    /**
+     * Locale-aware name. Falls back to Gujarati (the primary language),
+     * then to the legacy single-column `name` for safety.
+     */
+    public function getNameAttribute(): ?string
+    {
+        $locale = app()->getLocale();
+        $field = "name_{$locale}";
+        return $this->attributes[$field]
+            ?? $this->attributes['name_gu']
+            ?? $this->attributes['name']
+            ?? null;
+    }
+
+    public function getDescriptionAttribute(): ?string
+    {
+        $locale = app()->getLocale();
+        $field = "description_{$locale}";
+        return $this->attributes[$field]
+            ?? $this->attributes['description_gu']
+            ?? $this->attributes['description']
+            ?? null;
+    }
+
+    public function getRulesAttribute(): ?string
+    {
+        $locale = app()->getLocale();
+        $field = "rules_{$locale}";
+        return $this->attributes[$field]
+            ?? $this->attributes['rules_gu']
+            ?? $this->attributes['rules']
+            ?? null;
+    }
 
     public function bookings(): HasMany
     {

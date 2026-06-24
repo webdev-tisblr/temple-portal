@@ -23,19 +23,29 @@ class HallResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Basic Info')->schema([
-                Forms\Components\TextInput::make('name')
-                    ->required()
-                    ->maxLength(255),
+            Forms\Components\Section::make('Name')->schema([
+                Forms\Components\TextInput::make('name_gu')->label('Name (Gujarati)')->required()->maxLength(255),
+                Forms\Components\TextInput::make('name_hi')->label('Name (Hindi)')->maxLength(255),
+                Forms\Components\TextInput::make('name_en')->label('Name (English)')->maxLength(255),
+            ])->columns(3),
+
+            Forms\Components\Section::make('Capacity')->schema([
                 Forms\Components\TextInput::make('capacity')
                     ->numeric()
                     ->required(),
-                Forms\Components\RichEditor::make('description')
-                    ->columnSpanFull(),
-                Forms\Components\Textarea::make('rules')
-                    ->rows(4)
-                    ->columnSpanFull(),
-            ])->columns(2),
+            ]),
+
+            Forms\Components\Section::make('Description')->schema([
+                Forms\Components\RichEditor::make('description_gu')->label('Description (Gujarati)'),
+                Forms\Components\RichEditor::make('description_hi')->label('Description (Hindi)'),
+                Forms\Components\RichEditor::make('description_en')->label('Description (English)'),
+            ]),
+
+            Forms\Components\Section::make('Rules')->schema([
+                Forms\Components\Textarea::make('rules_gu')->label('Rules (Gujarati)')->rows(4),
+                Forms\Components\Textarea::make('rules_hi')->label('Rules (Hindi)')->rows(4),
+                Forms\Components\Textarea::make('rules_en')->label('Rules (English)')->rows(4),
+            ])->columns(1),
 
             Forms\Components\Section::make('Pricing')->schema([
                 Forms\Components\TextInput::make('price_per_day')
@@ -68,7 +78,8 @@ class HallResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')
+                Tables\Columns\TextColumn::make('name_gu')
+                    ->label('Name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('capacity'),
                 Tables\Columns\TextColumn::make('price_per_day')

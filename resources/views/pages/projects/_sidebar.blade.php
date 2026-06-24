@@ -16,10 +16,10 @@
         {{-- Amounts --}}
         <div class="flex items-baseline gap-2 mb-1">
             <span class="text-2xl font-bold text-gold">₹{{ number_format($raised) }}</span>
-            <span class="text-sm text-amber-100/30">એકત્ર</span>
+            <span class="text-sm text-amber-100/30">{{ __('donation.raised') }}</span>
         </div>
         <div class="text-sm text-amber-100/40 mb-3">
-            ₹{{ number_format($goal) }} લક્ષ્યમાંથી
+            ₹{{ number_format($goal) }} {{ __('donation.goal_from') }}
         </div>
 
         {{-- Stats Row --}}
@@ -27,33 +27,33 @@
             <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-900/40 text-amber-400">{{ $pct }}%</span>
             <span class="text-sm text-amber-100/50">
                 <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                {{ $project->donor_count ?? 0 }} દાનકર્તા
+                {{ $project->donor_count ?? 0 }} {{ __('projects.donor_count') }}
             </span>
         </div>
 
         {{-- Status Badges --}}
         @if($isGoalReached)
             <div class="px-4 py-2 rounded-lg bg-green-900/30 border border-green-700/30 text-green-400 text-sm font-semibold text-center mb-4">
-                લક્ષ્ય પ્રાપ્ત! 🎉
+                {{ __('projects.goal_reached_emoji') }}
             </div>
         @endif
         @if($isEnded)
             <div class="px-4 py-2 rounded-lg bg-amber-900/30 border border-amber-700/30 text-amber-400 text-sm font-semibold text-center mb-4">
-                સમાપ્ત
+                {{ __('projects.ended') }}
             </div>
         @endif
 
         {{-- ---- Donation Form ---- --}}
         @if($isEnded)
             <div class="px-4 py-3 rounded-lg bg-amber-900/20 border border-amber-800/20 text-amber-100/50 text-sm text-center">
-                આ પ્રોજેક્ટ સમાપ્ત થયો છે
+                {{ __('projects.project_ended') }}
             </div>
         @else
             {{-- Preset Amounts.
                  Chip click fills the input below; typing in the input
                  overrides the chip. Same flow as /donate. --}}
             <div class="mb-4">
-                <label class="block text-sm font-medium text-amber-600 mb-2">રકમ પસંદ કરો</label>
+                <label class="block text-sm font-medium text-amber-600 mb-2">{{ __('donation.choose_amount') }}</label>
                 <div class="grid grid-cols-3 gap-2">
                     @foreach([501, 1100, 2100, 5100, 11000] as $preset)
                         <button type="button"
@@ -68,10 +68,10 @@
 
             {{-- Custom Amount --}}
             <div class="mb-4">
-                <label class="block text-sm font-medium text-amber-600 mb-1">રકમ</label>
+                <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('common.amount') }}</label>
                 <div class="flex">
                     <span class="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-amber-800/30 bg-amber-900/20 text-amber-500 font-medium text-sm">₹</span>
-                    <input type="number" min="1" placeholder="રકમ દાખલ કરો"
+                    <input type="number" min="1" placeholder="{{ __('donation.enter_amount') }}"
                         x-model="customAmount"
                         @input="amount = customAmount ? parseInt(customAmount) : 0"
                         class="flex-1 block w-full rounded-r-lg bg-transparent border-amber-800/30 text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
@@ -82,7 +82,7 @@
             <div class="mb-5">
                 <label class="flex items-center gap-2">
                     <input type="checkbox" x-model="anonymous" class="rounded border-amber-800/40 bg-transparent text-amber-500 focus:ring-amber-600/20">
-                    <span class="text-sm text-amber-100/60">ગુપ્ત દાન (નામ જાહેર ન કરો)</span>
+                    <span class="text-sm text-amber-100/60">{{ __('donation.gupt_daan') }}</span>
                 </label>
             </div>
 
@@ -98,12 +98,12 @@
                     <button type="submit"
                         :disabled="!amount || amount < 1"
                         class="w-full py-3 btn-divine disabled:opacity-40 disabled:cursor-not-allowed text-base font-bold">
-                        દાન કરો — ₹<span x-text="amount ? amount.toLocaleString('en-IN') : '0'"></span>
+                        {{ __('donation.donate_prefix') }}₹<span x-text="amount ? amount.toLocaleString('en-IN') : '0'"></span>
                     </button>
                 </form>
             @else
                 <a href="{{ route('login') }}" class="block w-full text-center py-3 btn-divine text-base font-bold">
-                    દાન કરવા લૉગિન કરો
+                    {{ __('donation.login_to_donate') }}
                 </a>
             @endauth
         @endif
@@ -119,7 +119,7 @@
 
     {{-- ---- Share Buttons ---- --}}
     <div class="card-sacred p-6">
-        <h3 class="text-sm font-semibold text-gold mb-3">શેર કરો</h3>
+        <h3 class="text-sm font-semibold text-gold mb-3">{{ __('projects.share') }}</h3>
         <div class="flex flex-wrap gap-2">
             {{-- WhatsApp --}}
             <a href="https://api.whatsapp.com/send?text={{ $shareTitle }}%20-%20{{ $shareUrl }}"
@@ -165,21 +165,21 @@
 
     {{-- ---- Campaign Details ---- --}}
     <div class="card-sacred p-6">
-        <h3 class="text-sm font-semibold text-gold mb-3">અભિયાન વિગતો</h3>
+        <h3 class="text-sm font-semibold text-gold mb-3">{{ __('projects.campaign_details') }}</h3>
         <dl class="space-y-3 text-sm">
             <div class="flex justify-between">
-                <dt class="text-amber-100/40">શરૂઆત તારીખ</dt>
+                <dt class="text-amber-100/40">{{ __('projects.start_date') }}</dt>
                 <dd class="text-amber-100/70 font-medium">{{ $project->start_date->format('d/m/Y') }}</dd>
             </div>
             @if($project->end_date)
                 <div class="flex justify-between">
-                    <dt class="text-amber-100/40">અંતિમ તારીખ</dt>
+                    <dt class="text-amber-100/40">{{ __('projects.end_date') }}</dt>
                     <dd class="text-amber-100/70 font-medium">{{ $project->end_date->format('d/m/Y') }}</dd>
                 </div>
             @else
                 <div class="flex justify-between">
-                    <dt class="text-amber-100/40">અંતિમ તારીખ</dt>
-                    <dd class="text-amber-100/50 text-xs">સમય-મર્યાદા નથી</dd>
+                    <dt class="text-amber-100/40">{{ __('projects.end_date') }}</dt>
+                    <dd class="text-amber-100/50 text-xs">{{ __('projects.no_deadline') }}</dd>
                 </div>
             @endif
         </dl>

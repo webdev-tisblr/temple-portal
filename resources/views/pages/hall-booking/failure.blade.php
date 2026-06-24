@@ -8,16 +8,16 @@
         </svg>
     </div>
 
-    <h1 class="text-2xl font-bold text-red-300 mb-2">પેમેન્ટ નિષ્ફળ</h1>
-    <p class="text-amber-100/50 mb-2">હોલ બુકિંગ માટે પેમેન્ટ પ્રક્રિયા પૂર્ણ થઈ શકી નથી.</p>
-    <p class="text-amber-100/30 text-sm">કૃપા કરીને ફરી પ્રયાસ કરો. જો સમસ્યા ચાલુ રહે, તો અમારો સંપર્ક કરો.</p>
+    <h1 class="text-2xl font-bold text-red-300 mb-2">{{ __('seva.payment_failed') }}</h1>
+    <p class="text-amber-100/50 mb-2">{{ __('halls.payment_failed_sub') }}</p>
+    <p class="text-amber-100/30 text-sm">{{ __('store.try_again_contact') }}</p>
 
     <div class="mt-8 flex flex-wrap justify-center gap-3">
         <a href="{{ route('hall.booking') }}" class="inline-flex items-center gap-2 px-6 py-2.5 btn-divine">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-            ફરી પ્રયાસ કરો
+            {{ __('common.try_again') }}
         </a>
-        <a href="{{ route('home') }}" class="inline-flex items-center px-6 py-2.5 btn-temple">મુખ્ય પૃષ્ઠ</a>
+        <a href="{{ route('home') }}" class="inline-flex items-center px-6 py-2.5 btn-temple">{{ __('nav.home') }}</a>
     </div>
 </div>
 @endsection

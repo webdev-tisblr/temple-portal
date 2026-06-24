@@ -17,7 +17,7 @@
 
     <x-breadcrumb
         :items="[
-            ['label' => 'સેવા પ્રોજેક્ટ્સ', 'url' => route('projects.index')],
+            ['label' => __('footer.seva_projects'), 'url' => route('projects.index')],
             ['label' => $project->title],
         ]"
         class="mb-6" />
@@ -161,7 +161,7 @@
             {{-- ---- FAQs Accordion ---- --}}
             @if(count($faqs) > 0)
                 <div class="card-sacred p-6 sm:p-8" x-data="{ openFaq: null }">
-                    <h2 class="text-xl font-bold text-gold mb-5">વારંવાર પૂછાતા પ્રશ્નો</h2>
+                    <h2 class="text-xl font-bold text-gold mb-5">{{ __('projects.faqs') }}</h2>
                     <div class="space-y-3">
                         @foreach($faqs as $index => $faq)
                             <div class="border border-amber-900/20 rounded-xl overflow-hidden">
@@ -190,10 +190,10 @@
             {{-- ---- Donor List ---- --}}
             @if($project->show_donor_list)
                 <div class="card-sacred p-6 sm:p-8" x-data="donorList()">
-                    <h2 class="text-xl font-bold text-gold mb-5">દાનકર્તાઓ</h2>
+                    <h2 class="text-xl font-bold text-gold mb-5">{{ __('projects.donors') }}</h2>
 
                     <template x-if="allDonors.length === 0 && !loading">
-                        <p class="text-amber-100/40 text-sm py-4">હજુ સુધી કોઈ દાન નથી</p>
+                        <p class="text-amber-100/40 text-sm py-4">{{ __('projects.no_donations') }}</p>
                     </template>
 
                     <template x-if="allDonors.length > 0">
@@ -201,8 +201,8 @@
                             <table class="w-full">
                                 <thead>
                                     <tr class="border-b border-amber-900/20">
-                                        <th class="text-left py-3 px-2 text-sm font-semibold text-amber-600">નામ &amp; શહેર</th>
-                                        <th class="text-right py-3 px-2 text-sm font-semibold text-amber-600">રકમ</th>
+                                        <th class="text-left py-3 px-2 text-sm font-semibold text-amber-600">{{ __('projects.name_city') }}</th>
+                                        <th class="text-right py-3 px-2 text-sm font-semibold text-amber-600">{{ __('common.amount') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -225,13 +225,13 @@
                                 <button @click="loadMore()"
                                         :disabled="loading"
                                         class="px-6 py-2 border border-amber-800/30 rounded-lg text-sm font-medium text-amber-400 hover:border-amber-600 hover:text-amber-300 transition disabled:opacity-40">
-                                    <span x-show="!loading">વધુ જુઓ</span>
+                                    <span x-show="!loading">{{ __('projects.view_more') }}</span>
                                     <span x-show="loading" class="inline-flex items-center">
                                         <svg class="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
                                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                                         </svg>
-                                        લોડ થઈ રહ્યું છે...
+                                        {{ __('seva.loading') }}
                                     </span>
                                 </button>
                             </div>

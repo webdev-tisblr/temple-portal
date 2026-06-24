@@ -3,9 +3,9 @@
 @section('content')
 
 <x-page-header
-    :breadcrumb="[['label' => 'હોલ બુકિંગ']]"
-    title="હોલ બુકિંગ"
-    subtitle="શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ દ્વારા ભક્તો માટે લગ્ન, સત્સંગ, ધાર્મિક કાર્યક્રમો તથા સામાજિક ઉત્સવો માટે વિશાળ હોલ ઉપલબ્ધ" />
+    :breadcrumb="[['label' => __('nav.halls')]]"
+    title="{{ __('nav.halls') }}"
+    subtitle="{{ __('halls.subtitle') }}" />
 
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
@@ -15,7 +15,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                       d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
             </svg>
-            <p class="text-lg">હાલ કોઈ હૉલ ઉપલબ્ધ નથી.</p>
+            <p class="text-lg">{{ __('halls.none_available') }}</p>
         </div>
     @else
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -41,7 +41,7 @@
                         {{-- Capacity chip --}}
                         <span class="absolute top-3 left-3 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full shadow-sm"
                               style="background: rgba(255,252,245,0.92); color: #7A1E1E; border: 1px solid rgba(200,148,52,0.55); backdrop-filter: blur(4px);">
-                            ક્ષમતા: {{ $hall->capacity }}
+                            {{ __('halls.capacity') }} {{ $hall->capacity }}
                         </span>
                     </div>
 
@@ -69,11 +69,11 @@
                         {{-- Pricing + CTA --}}
                         <div class="mt-auto pt-4 flex items-center justify-between border-t border-amber-900/15">
                             <div>
-                                <p class="text-[11px] text-amber-600 uppercase tracking-wider">આખો દિવસ</p>
+                                <p class="text-[11px] text-amber-600 uppercase tracking-wider">{{ __('halls.full_day') }}</p>
                                 <p class="text-lg font-black text-gold leading-tight">₹{{ number_format((float) $hall->price_per_day) }}</p>
                             </div>
                             <span class="text-amber-600 text-sm font-semibold group-hover:translate-x-1 transition-transform flex items-center gap-1">
-                                બુક કરો
+                                {{ __('halls.book') }}
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                             </span>
                         </div>

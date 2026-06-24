@@ -3,9 +3,9 @@
 @section('content')
 
 <x-page-header
-    :breadcrumb="[['label' => 'સેવા પ્રોજેક્ટ્સ']]"
-    title="સેવા પ્રોજેક્ટ્સ"
-    subtitle="શ્રી પાતાળિયા હનુમાનજી મંદિરના ચાલુ પ્રોજેક્ટ્સ અને અભિયાનો — દાન કરીને સહયોગ આપો" />
+    :breadcrumb="[['label' => __('footer.seva_projects')]]"
+    title="{{ __('footer.seva_projects') }}"
+    subtitle="{{ __('projects.subtitle') }}" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">
 
@@ -49,12 +49,12 @@
                             @endif
                             @if($isGoalReached)
                                 <span class="inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-full bg-green-600/90 text-white">
-                                    લક્ષ્ય પ્રાપ્ત!
+                                    {{ __('projects.goal_reached') }}
                                 </span>
                             @endif
                             @if($isEnded)
                                 <span class="inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-full bg-red-800/80 text-red-100">
-                                    સમાપ્ત
+                                    {{ __('projects.ended') }}
                                 </span>
                             @endif
                         </div>
@@ -98,7 +98,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                       d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
             </svg>
-            <p class="text-lg">હાલમાં કોઈ સેવા પ્રોજેક્ટ ઉપલબ્ધ નથી.</p>
+            <p class="text-lg">{{ __('projects.none_available') }}</p>
         </div>
     @endif
 </div>

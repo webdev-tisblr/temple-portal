@@ -25,13 +25,24 @@ class HallController extends BaseApiController
                 ->get()
                 ->map(fn (Hall $h) => [
                     'id' => $h->id,
+                    // Resolved (server locale) + all variants so the app can
+                    // switch language client-side without refetching.
                     'name' => $h->name,
+                    'name_gu' => $h->name_gu,
+                    'name_hi' => $h->name_hi,
+                    'name_en' => $h->name_en,
                     'description' => $h->description,
+                    'description_gu' => $h->description_gu,
+                    'description_hi' => $h->description_hi,
+                    'description_en' => $h->description_en,
                     'capacity' => $h->capacity,
                     'price_per_day' => (float) $h->price_per_day,
                     'price_per_half_day' => (float) $h->price_per_half_day,
                     'amenities' => $h->amenities ?? [],
                     'rules' => $h->rules,
+                    'rules_gu' => $h->rules_gu,
+                    'rules_hi' => $h->rules_hi,
+                    'rules_en' => $h->rules_en,
                     'image_url' => $h->image_path ? image_url($h->image_path) : null,
                 ]);
         });

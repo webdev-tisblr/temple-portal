@@ -235,6 +235,9 @@ class ContentController extends BaseApiController
                     'id' => $timing->id,
                     'day_type' => $timing->day_type,
                     'label' => $timing->label,
+                    'label_gu' => $timing->label_gu,
+                    'label_hi' => $timing->label_hi,
+                    'label_en' => $timing->label_en,
                     'morning_open' => $timing->morning_open,
                     'morning_close' => $timing->morning_close,
                     'afternoon_open' => $timing->afternoon_open,
@@ -244,6 +247,9 @@ class ContentController extends BaseApiController
                     'aarti_morning' => $timing->aarti_morning,
                     'aarti_evening' => $timing->aarti_evening,
                     'special_note' => $timing->{'special_note_' . app()->getLocale()} ?? $timing->special_note_gu,
+                    'special_note_gu' => $timing->special_note_gu,
+                    'special_note_hi' => $timing->special_note_hi,
+                    'special_note_en' => $timing->special_note_en,
                 ]);
         });
 
@@ -527,9 +533,20 @@ class ContentController extends BaseApiController
         return [
             'id' => $campaign->id,
             'slug' => $campaign->slug,
+            // Resolved (server locale) + all variants so the app can switch
+            // language client-side without refetching.
             'title' => $campaign->title,
+            'title_gu' => $campaign->title_gu,
+            'title_hi' => $campaign->title_hi,
+            'title_en' => $campaign->title_en,
             'description' => $campaign->description,
+            'description_gu' => $campaign->description_gu,
+            'description_hi' => $campaign->description_hi,
+            'description_en' => $campaign->description_en,
             'writeup' => $campaign->writeup,
+            'writeup_gu' => $campaign->writeup_gu,
+            'writeup_hi' => $campaign->writeup_hi,
+            'writeup_en' => $campaign->writeup_en,
             'goal_amount' => (float) $campaign->goal_amount,
             'raised_amount' => (float) $campaign->raised_amount,
             'donor_count' => $campaign->donor_count,

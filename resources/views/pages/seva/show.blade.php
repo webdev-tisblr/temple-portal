@@ -5,7 +5,7 @@
 
     <x-breadcrumb
         :items="[
-            ['label' => 'સેવા અને પૂજા', 'url' => route('seva.index')],
+            ['label' => __('home.seva_puja'), 'url' => route('seva.index')],
             ['label' => $seva->name],
         ]"
         class="mb-6" />
@@ -31,7 +31,7 @@
             {{-- Price --}}
             <div class="mt-3">
                 @if($seva->is_variable_price)
-                    <span class="text-sm text-amber-100/40">ન્યૂનતમ રકમ:</span>
+                    <span class="text-sm text-amber-100/40">{{ __('seva.min_amount') }}</span>
                     <span class="text-2xl font-bold text-gold ml-1">₹{{ number_format((float) $seva->min_price) }}</span>
                 @else
                     <span class="text-2xl font-bold text-gold">₹{{ number_format((float) $seva->price) }}</span>
@@ -48,7 +48,7 @@
             {{-- Booking Section --}}
             @if($seva->requires_booking)
                 <div class="mt-8 border-t border-amber-900/20 pt-6" x-data="slotPicker({{ $seva->id }})">
-                    <h2 class="text-lg font-semibold text-gold mb-4">તારીખ અને સમય પસંદ કરો</h2>
+                    <h2 class="text-lg font-semibold text-gold mb-4">{{ __('seva.choose_date_time') }}</h2>
 
                     {{-- Date picker — horizontal chip carousel.
                          Mirrors the mobile seva detail screen exactly:
@@ -57,14 +57,14 @@
                          day label + day number + month, and the
                          selected chip is highlighted in saffron. --}}
                     <div class="mb-4">
-                        <label class="block text-sm font-medium text-amber-600 mb-2">તારીખ પસંદ કરો</label>
+                        <label class="block text-sm font-medium text-amber-600 mb-2">{{ __('seva.choose_date') }}</label>
 
                         <div x-show="datesLoading" class="text-amber-100/40 text-xs py-2">
-                            તારીખો લોડ થઈ રહી છે...
+                            {{ __('seva.loading_dates') }}
                         </div>
 
                         <div x-show="!datesLoading && availableDates.length === 0" class="text-sm py-3 px-4 bg-amber-900/10 border border-amber-800/30 rounded-lg text-amber-100/60">
-                            હાલ આગામી 30 દિવસોમાં કોઈ ઉપલબ્ધ તારીખ નથી.
+                            {{ __('seva.no_dates') }}
                         </div>
 
                         <div x-show="!datesLoading && availableDates.length > 0"
@@ -91,12 +91,12 @@
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                             </svg>
-                            લોડ થઈ રહ્યું છે...
+                            {{ __('seva.loading') }}
                         </div>
 
                         {{-- Blackout message --}}
                         <div x-show="!loading && blackout" class="text-sm py-4 px-4 bg-red-900/20 rounded-lg border border-red-800/30">
-                            <span class="text-red-400 font-semibold">આ તારીખે સેવા ઉપલબ્ધ નથી</span>
+                            <span class="text-red-400 font-semibold">{{ __('seva.not_available_date') }}</span>
                             <span x-show="blackoutReason" class="block text-red-300/60 mt-1 text-xs" x-text="blackoutReason"></span>
                         </div>
 
@@ -106,13 +106,13 @@
                         </div>
 
                         <div x-show="!loading && !blackout && !unavailableMessage && slots.length === 0 && booked.length === 0" class="text-amber-100/40 text-sm py-4">
-                            આ સેવા માટે કોઈ સમય સ્લોટ કોન્ફિગર નથી.
+                            {{ __('seva.no_slots') }}
                         </div>
 
                         <div x-show="!loading && !blackout && (slots.length > 0 || booked.length > 0)">
                             <p class="text-sm text-amber-100/50 mb-2">
-                                ઉપલબ્ધ સમય
-                                <span x-show="slotDuration" class="text-amber-100/30" x-text="'(' + slotDuration + ' મિનિટ)'"></span>
+                                {{ __('seva.available_time') }}
+                                <span x-show="slotDuration" class="text-amber-100/30" x-text="'(' + slotDuration + ' {{ __('seva.minutes') }})'"></span>
                             </p>
                             <div class="flex flex-wrap gap-2">
                                 <template x-for="slot in slots" :key="slot">
@@ -161,13 +161,13 @@
                     {{-- Additional Fields --}}
                     <div x-show="selectedDate" class="mt-4 space-y-3">
                         <div>
-                            <label class="block text-sm font-medium text-amber-600 mb-1">સેવા માટે નામ (વૈકલ્પિક)</label>
-                            <input type="text" x-model="devoteeName" placeholder="તમારું અથવા પરિવારનું નામ"
+                            <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('seva.name_label') }}</label>
+                            <input type="text" x-model="devoteeName" placeholder="{{ __('seva.name_placeholder') }}"
                                 class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-amber-600 mb-1">સંકલ્પ (વૈકલ્પિક)</label>
-                            <textarea x-model="sankalp" rows="2" placeholder="તમારી મનોકામના / સંકલ્પ"
+                            <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('seva.sankalp_label') }}</label>
+                            <textarea x-model="sankalp" rows="2" placeholder="{{ __('seva.sankalp_placeholder') }}"
                                 class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20"></textarea>
                         </div>
                     </div>
@@ -186,12 +186,12 @@
                                 <button type="submit"
                                     :disabled="!selectedDate"
                                     class="w-full sm:w-auto px-8 py-3 btn-divine disabled:opacity-40 disabled:cursor-not-allowed">
-                                    બુક કરો — ₹{{ number_format((float) $seva->price) }}
+                                    {{ __('seva.book_for') }}₹{{ number_format((float) $seva->price) }}
                                 </button>
                             </form>
                         @else
                             <a href="{{ route('login') }}" class="inline-flex items-center px-8 py-3 btn-divine">
-                                બુક કરવા લૉગિન કરો
+                                {{ __('seva.login_to_book') }}
                             </a>
                         @endauth
                     </div>
@@ -199,7 +199,7 @@
             @else
                 <div class="mt-8 border-t border-amber-900/20 pt-6">
                     <a href="#" class="inline-flex items-center px-8 py-3 btn-divine">
-                        આ સેવા માટે દાન કરો
+                        {{ __('seva.donate_for_seva') }}
                     </a>
                 </div>
             @endif
@@ -214,8 +214,8 @@ function slotPicker(sevaId) {
 
     // Gujarati day-of-week labels — week starts Monday = index 0 for
     // Carbon parity, but JS Date.getDay() returns Sun=0..Sat=6.
-    const dayLabels = ['રવિ', 'સોમ', 'મંગળ', 'બુધ', 'ગુરુ', 'શુક્ર', 'શનિ'];
-    const monthLabels = ['જાન્યુ', 'ફેબ્રુ', 'માર્ચ', 'એપ્રિલ', 'મે', 'જૂન', 'જુલાઈ', 'ઑગસ્ટ', 'સપ્ટે', 'ઑક્ટો', 'નવે', 'ડિસે'];
+    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
     return {
         sevaId: sevaId,

@@ -11,7 +11,7 @@
     {{-- Hanumanji background photo, gently faded into parchment --}}
     <div class="absolute inset-0">
         <img src="{{ asset('images/hanumanji-hero.jpg') }}"
-             alt="શ્રી પાતાળિયા હનુમાનજી"
+             alt="{{ __('common.temple_name') }}"
              class="w-full h-full object-cover object-center"
              style="opacity: 0.30;">
         {{-- Parchment veil — keeps image readable as background --}}
@@ -40,18 +40,18 @@
         <div class="inline-flex items-center gap-2 px-5 py-2 rounded-full border mb-6"
              style="background: rgba(232,117,26,0.10); border-color: rgba(200,148,52,0.45);">
             <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background: #E8751A;"></span>
-            <span class="text-sm tracking-[0.2em] uppercase font-medium" style="color: #7A1E1E;">|| જય શ્રી રામ ||</span>
+            <span class="text-sm tracking-[0.2em] uppercase font-medium" style="color: #7A1E1E;">{{ __('home.hero_jai') }}</span>
             <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background: #E8751A;"></span>
         </div>
 
         {{-- Name --}}
         <h1 class="text-5xl sm:text-7xl lg:text-8xl font-black leading-[1.05] tracking-tight">
-            <span style="color: #7A1E1E;">શ્રી પાતાળિયા</span><br>
-            <span style="color: #C45F12;">હનુમાનજી ધામ</span>
+            <span style="color: #7A1E1E;">{{ __('home.hero_line1') }}</span><br>
+            <span style="color: #C45F12;">{{ __('home.hero_line2') }}</span>
         </h1>
 
         <p class="mt-6 text-lg sm:text-xl font-light tracking-wide" style="color: #5E4F3D;">
-            અંતરજાળ, ગાંધીધામ, કચ્છ — 370110
+            {{ __('common.address') }}
         </p>
 
         {{-- Ornamental divider --}}
@@ -90,7 +90,7 @@
                         <span class="relative inline-flex rounded-full h-2.5 w-2.5" style="background: #A83232;"></span>
                     @endif
                 </span>
-                {{ $isOpen ? 'મંદિર હાલ ખુલ્લું છે' : 'મંદિર હાલ બંધ છે' }}
+                {{ $isOpen ? __('home.temple_open') : __('home.temple_closed') }}
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
@@ -100,14 +100,14 @@
         {{-- CTA row --}}
         <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             <a href="{{ route('donate') }}" class="w-full sm:w-auto btn-divine text-base px-10 py-4">
-                🪔 દાન કરો
+                🪔 {{ __('nav.donate') }}
             </a>
             <a href="{{ route('darshan') }}#live" class="w-full sm:w-auto btn-temple text-base px-10 py-4">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                 </svg>
-                લાઇવ દર્શન
+                {{ __('home.live_darshan') }}
             </a>
         </div>
     </div>
@@ -131,32 +131,32 @@
         $tiles = [
             [
                 'href' => route('seva.index'),
-                'label' => 'સેવા',
+                'label' => __('nav.seva'),
                 'svg' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M12 4.5c-1.5 1.7-3 3.4-3 5.6 0 1.66 1.34 3 3 3s3-1.34 3-3c0-2.2-1.5-3.9-3-5.6zM5 14v2a2 2 0 002 2h2.5l1.5 2h2l1.5-2H17a2 2 0 002-2v-2c0-.55-.45-1-1-1H6c-.55 0-1 .45-1 1z"/>',
             ],
             [
                 'href' => route('donate'),
-                'label' => 'દાન',
+                'label' => __('home.daan'),
                 'svg' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>',
             ],
             [
                 'href' => route('darshan'),
-                'label' => 'દર્શન',
+                'label' => __('nav.darshan'),
                 'svg' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M1.5 12s4-7.5 10.5-7.5S22.5 12 22.5 12s-4 7.5-10.5 7.5S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6"/>',
             ],
             [
                 'href' => route('events.index'),
-                'label' => 'કાર્યક્રમ',
+                'label' => __('nav.events'),
                 'svg' => '<rect x="3" y="4.5" width="18" height="16" rx="2" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M3 9.5h18M8 3v3M16 3v3"/>',
             ],
             [
                 'href' => route('store.index'),
-                'label' => 'સ્ટોર',
+                'label' => __('nav.store'),
                 'svg' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M6 7h12l-1 13H7L6 7zM9 7V5a3 3 0 016 0v2"/>',
             ],
             [
                 'href' => route('halls.index'),
-                'label' => 'હોલ',
+                'label' => __('home.hall'),
                 'svg' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M3 20.5h18M4 20.5V10l8-5 8 5v10.5M8 20.5V13m4 7.5V13m4 7.5V13"/>',
             ],
         ];
@@ -186,8 +186,8 @@
 <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
     <div class="text-center mb-8">
         <div class="divine-divider"><span style="color: #C89434;">🪔</span></div>
-        <h2 class="divine-heading">દર્શન સમય</h2>
-        <p class="divine-subtext">પ્રભુના ચરણોમાં શીશ ઝુકાવો</p>
+        <h2 class="divine-heading">{{ __('footer.darshan_times') }}</h2>
+        <p class="divine-subtext">{{ __('home.darshan_sub') }}</p>
     </div>
 
     {{-- Four time-tiles in a single row on desktop, 2×2 on mobile.
@@ -197,27 +197,27 @@
     @php
         $slots = [
             [
-                'label' => 'સવાર દર્શન',
+                'label' => __('home.morning_darshan'),
                 'time' => $timings->morning_open ? \Carbon\Carbon::parse($timings->morning_open)->format('h:i A') : null,
-                'subtitle' => $timings->morning_close ? 'થી ' . \Carbon\Carbon::parse($timings->morning_close)->format('h:i A') : null,
+                'subtitle' => $timings->morning_close ? __('home.till_prefix') . \Carbon\Carbon::parse($timings->morning_close)->format('h:i A') : null,
                 'svg' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4 7 17M17 7l1.4-1.4"/><circle cx="12" cy="12" r="4" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"/>',
             ],
             [
-                'label' => 'સવાર આરતી',
+                'label' => __('home.morning_aarti'),
                 'time' => $timings->aarti_morning ? \Carbon\Carbon::parse($timings->aarti_morning)->format('h:i A') : null,
                 'subtitle' => null,
                 'svg' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 3c0 2-2 2.5-2 5a2 2 0 104 0c0-2.5-2-3-2-5z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M6 14h12a2 2 0 01-2 2H8a2 2 0 01-2-2zM4 19h16"/>',
             ],
             [
-                'label' => 'સાંજ આરતી',
+                'label' => __('home.evening_aarti'),
                 'time' => $timings->aarti_evening ? \Carbon\Carbon::parse($timings->aarti_evening)->format('h:i A') : null,
                 'subtitle' => null,
                 'svg' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 3c0 2-2 2.5-2 5a2 2 0 104 0c0-2.5-2-3-2-5z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M6 14h12a2 2 0 01-2 2H8a2 2 0 01-2-2zM4 19h16"/>',
             ],
             [
-                'label' => 'સાંજ દર્શન',
+                'label' => __('home.evening_darshan'),
                 'time' => $timings->evening_open ? \Carbon\Carbon::parse($timings->evening_open)->format('h:i A') : null,
-                'subtitle' => $timings->evening_close ? 'થી ' . \Carbon\Carbon::parse($timings->evening_close)->format('h:i A') : null,
+                'subtitle' => $timings->evening_close ? __('home.till_prefix') . \Carbon\Carbon::parse($timings->evening_close)->format('h:i A') : null,
                 'svg' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M20 14.5A8 8 0 119.5 4 7 7 0 0020 14.5z"/>',
             ],
         ];
@@ -246,7 +246,7 @@
     <div class="text-center mt-7">
         <a href="{{ route('darshan') }}" class="text-sm font-semibold inline-flex items-center gap-1 hover:underline"
            style="color: #C45F12;">
-            પૂર્ણ સમય-પત્રક જુઓ
+            {{ __('home.view_full_schedule') }}
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
             </svg>
@@ -266,8 +266,8 @@
 <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
     <div class="text-center mb-8">
         <div class="divine-divider"><span style="color: #C89434;">🪔</span></div>
-        <h2 class="divine-heading">યોગદાન અભિયાન</h2>
-        <p class="divine-subtext">મંદિર ધામના ચાલુ પ્રોજેક્ટ્સ — દાન કરીને સહયોગ આપો</p>
+        <h2 class="divine-heading">{{ __('home.contribution_campaigns') }}</h2>
+        <p class="divine-subtext">{{ __('home.campaigns_sub') }}</p>
     </div>
 
     @php
@@ -287,7 +287,7 @@
         @endphp
         <div class="card-sacred p-8 sm:p-10 inner-glow max-w-5xl mx-auto">
             <div class="text-center mb-6">
-                <p class="text-xs uppercase tracking-[0.25em] font-bold" style="color: #C45F12;">વિશેષ અભિયાન</p>
+                <p class="text-xs uppercase tracking-[0.25em] font-bold" style="color: #C45F12;">{{ __('home.featured_campaign') }}</p>
                 <h3 class="divine-heading text-2xl sm:text-3xl mt-2">{{ $c->title }}</h3>
                 @if($c->description)
                     <p class="mt-3 max-w-2xl mx-auto" style="color: #5E4F3D;">{{ \Illuminate\Support\Str::limit(strip_tags($c->description), 200) }}</p>
@@ -302,12 +302,12 @@
                     <div class="h-full rounded-full transition-all duration-1000" style="width: {{ $pct }}%; background: linear-gradient(90deg, #E8751A, #C89434);"></div>
                 </div>
                 <p class="text-xs mt-2 flex items-center justify-between" style="color: #5E4F3D;">
-                    <span>{{ $pct }}% પૂર્ણ</span>
-                    <span>{{ $c->donor_count ?? 0 }} ભક્તોએ યોગદાન આપ્યું</span>
+                    <span>{{ $pct }}% {{ __('home.complete') }}</span>
+                    <span>{{ $c->donor_count ?? 0 }} {{ __('home.donors_contributed') }}</span>
                 </p>
             </div>
             <div class="text-center mt-8">
-                <a href="{{ route('projects.show', $c->slug) }}" class="btn-divine text-base px-10 py-3.5">🙏 યોગદાન આપો</a>
+                <a href="{{ route('projects.show', $c->slug) }}" class="btn-divine text-base px-10 py-3.5">🙏 {{ __('home.contribute') }}</a>
             </div>
         </div>
 
@@ -359,7 +359,7 @@
 
     <div class="text-center mt-8">
         <a href="{{ route('projects.index') }}" class="btn-temple">
-            બધા પ્રોજેક્ટ્સ જુઓ
+            {{ __('home.view_all_projects') }}
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
         </a>
     </div>
@@ -374,8 +374,8 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-10">
             <div class="divine-divider"><span style="color: #C89434;">🙏</span></div>
-            <h2 class="divine-heading">સેવા અને પૂજા</h2>
-            <p class="divine-subtext">ઓનલાઈન સેવા બુક કરો અને ભગવાનના આશીર્વાદ મેળવો</p>
+            <h2 class="divine-heading">{{ __('home.seva_puja') }}</h2>
+            <p class="divine-subtext">{{ __('home.seva_sub') }}</p>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             @foreach($sevas as $seva)
@@ -384,7 +384,7 @@
         </div>
         <div class="text-center mt-10">
             <a href="{{ route('seva.index') }}" class="btn-temple">
-                બધી સેવાઓ જુઓ
+                {{ __('home.view_all_sevas') }}
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
                 </svg>
@@ -403,8 +403,8 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-10">
             <div class="divine-divider"><span style="color: #C89434;">📿</span></div>
-            <h2 class="divine-heading">આગામી કાર્યક્રમો</h2>
-            <p class="divine-subtext">મંદિરના આગામી ઉત્સવ અને વિશેષ પ્રસંગો</p>
+            <h2 class="divine-heading">{{ __('home.upcoming_events') }}</h2>
+            <p class="divine-subtext">{{ __('home.events_sub') }}</p>
         </div>
 
         @if($events->count() <= 3)
@@ -449,7 +449,7 @@
 
         <div class="text-center mt-10">
             <a href="{{ route('events.index') }}" class="btn-temple">
-                બધા કાર્યક્રમો જુઓ
+                {{ __('home.view_all_events') }}
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
                 </svg>
@@ -467,8 +467,8 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-10">
             <div class="divine-divider"><span style="color: #C89434;">📸</span></div>
-            <h2 class="divine-heading">ગેલેરી</h2>
-            <p class="divine-subtext">મંદિરના તાજેતરના ફોટા</p>
+            <h2 class="divine-heading">{{ __('nav.gallery') }}</h2>
+            <p class="divine-subtext">{{ __('home.gallery_sub') }}</p>
         </div>
 
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
@@ -486,7 +486,7 @@
 
         <div class="text-center mt-8">
             <a href="{{ route('gallery') }}" class="btn-temple">
-                બધા ફોટા જુઓ
+                {{ __('home.view_all_photos') }}
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
                 </svg>
@@ -507,8 +507,8 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-10">
             <div class="divine-divider"><span style="color: #C89434;">📍</span></div>
-            <h2 class="divine-heading">દર્શન માટે પધારો</h2>
-            <p class="divine-subtext">અંતરજાળ, ગાંધીધામ, કચ્છ — 370110</p>
+            <h2 class="divine-heading">{{ __('home.come_for_darshan') }}</h2>
+            <p class="divine-subtext">{{ __('common.address') }}</p>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -521,10 +521,10 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-xs uppercase tracking-wide mb-0.5" style="color: #C45F12;">સરનામું</p>
+                    <p class="text-xs uppercase tracking-wide mb-0.5" style="color: #C45F12;">{{ __('common.address_label') }}</p>
                     <p class="text-sm leading-relaxed" style="color: #3E3226;">
-                        શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ<br>
-                        અંતરજાળ, ગાંધીધામ, કચ્છ — 370110
+                        {{ __('common.trust_full') }}<br>
+                        {{ __('common.address') }}
                     </p>
                 </div>
             </div>
@@ -537,11 +537,11 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-xs uppercase tracking-wide mb-0.5" style="color: #C45F12;">સંપર્ક</p>
+                    <p class="text-xs uppercase tracking-wide mb-0.5" style="color: #C45F12;">{{ __('nav.contact') }}</p>
                     <a href="{{ route('contact') }}" class="text-sm font-semibold hover:underline" style="color: #7A1E1E;">
-                        ફોન & ઈમેલ વિગતો
+                        {{ __('home.phone_email') }}
                     </a>
-                    <p class="text-xs mt-2" style="color: #5E4F3D;">પ્રશ્ન / સંદેશ માટે સંપર્ક કરો</p>
+                    <p class="text-xs mt-2" style="color: #5E4F3D;">{{ __('home.contact_prompt') }}</p>
                 </div>
             </div>
 
@@ -553,15 +553,15 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-xs uppercase tracking-wide mb-0.5" style="color: #C45F12;">દર્શન સમય</p>
+                    <p class="text-xs uppercase tracking-wide mb-0.5" style="color: #C45F12;">{{ __('footer.darshan_times') }}</p>
                     @if($timings)
                         <p class="text-sm font-semibold" style="color: #7A1E1E;">
-                            સવારે {{ \Carbon\Carbon::parse($timings->morning_open)->format('h:i') }}
+                            {{ __('footer.morning') }} {{ \Carbon\Carbon::parse($timings->morning_open)->format('h:i') }}
                             – {{ \Carbon\Carbon::parse($timings->morning_close)->format('h:i A') }}
                         </p>
                         @if($timings->evening_open && $timings->evening_close)
                             <p class="text-sm font-semibold mt-1" style="color: #7A1E1E;">
-                                સાંજે {{ \Carbon\Carbon::parse($timings->evening_open)->format('h:i') }}
+                                {{ __('footer.evening') }} {{ \Carbon\Carbon::parse($timings->evening_open)->format('h:i') }}
                                 – {{ \Carbon\Carbon::parse($timings->evening_close)->format('h:i A') }}
                             </p>
                         @endif

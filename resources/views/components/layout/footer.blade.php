@@ -49,8 +49,8 @@
                          class="w-12 h-12 rounded-full border diya-glow object-cover"
                          style="border-color: rgba(200,148,52,0.45); box-shadow: 0 0 14px rgba(196,154,42,0.25);">
                     <div>
-                        <h3 class="text-base font-bold leading-tight" style="color: #7A1E1E;">શ્રી પાતાળિયા હનુમાનજી</h3>
-                        <p class="text-[10px] tracking-widest uppercase font-semibold mt-0.5" style="color: #C45F12;">સેવા ટ્રસ્ટ &bull; અંતરજાળ</p>
+                        <h3 class="text-base font-bold leading-tight" style="color: #7A1E1E;">{{ __('common.temple_name') }}</h3>
+                        <p class="text-[10px] tracking-widest uppercase font-semibold mt-0.5" style="color: #C45F12;">{{ __('common.trust_subtitle') }}</p>
                     </div>
                 </div>
                 <p class="text-sm leading-relaxed" style="color: #5E4F3D;">
@@ -112,29 +112,29 @@
 
             {{-- ── 2. Mandir — about / history / people / contact ───── --}}
             <div>
-                <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">મંદિર</h3>
+                <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">{{ __('nav.mandir') }}</h3>
                 <ul class="space-y-2.5 text-sm">
                     {{-- /parichay, /itihas, /mahima are CMS pages
                          served by the catch-all /{slug} route — same
                          URLs the header dropdown links to. --}}
-                    <li><a href="/parichay"                style="color: #3E3226;" class="hover:underline">પરિચય</a></li>
-                    <li><a href="/itihas"                  style="color: #3E3226;" class="hover:underline">ઇતિહાસ</a></li>
-                    <li><a href="{{ route('trustees') }}"  style="color: #3E3226;" class="hover:underline">ટ્રસ્ટીઓ</a></li>
-                    <li><a href="{{ route('pujari') }}"    style="color: #3E3226;" class="hover:underline">પૂજારી</a></li>
-                    <li><a href="{{ route('gallery') }}"   style="color: #3E3226;" class="hover:underline">ફોટો ગેલેરી</a></li>
-                    <li><a href="{{ route('contact') }}"   style="color: #3E3226;" class="hover:underline">સંપર્ક</a></li>
+                    <li><a href="/parichay"                style="color: #3E3226;" class="hover:underline">{{ __('nav.parichay') }}</a></li>
+                    <li><a href="/itihas"                  style="color: #3E3226;" class="hover:underline">{{ __('nav.itihas') }}</a></li>
+                    <li><a href="{{ route('trustees') }}"  style="color: #3E3226;" class="hover:underline">{{ __('nav.trustees') }}</a></li>
+                    <li><a href="{{ route('pujari') }}"    style="color: #3E3226;" class="hover:underline">{{ __('footer.pujari') }}</a></li>
+                    <li><a href="{{ route('gallery') }}"   style="color: #3E3226;" class="hover:underline">{{ __('footer.photo_gallery') }}</a></li>
+                    <li><a href="{{ route('contact') }}"   style="color: #3E3226;" class="hover:underline">{{ __('nav.contact') }}</a></li>
                 </ul>
             </div>
 
             {{-- ── 3. Booking & donation ────────────────────────────── --}}
             <div>
-                <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">બુકિંગ અને દાન</h3>
+                <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">{{ __('footer.booking_donation') }}</h3>
                 <ul class="space-y-2.5 text-sm">
-                    <li><a href="{{ route('donate') }}"        style="color: #3E3226;" class="hover:underline">ઓનલાઈન દાન</a></li>
-                    <li><a href="{{ route('seva.index') }}"    style="color: #3E3226;" class="hover:underline">સેવા બુકિંગ</a></li>
-                    <li><a href="{{ route('halls.index') }}"   style="color: #3E3226;" class="hover:underline">હોલ બુકિંગ</a></li>
-                    <li><a href="{{ route('projects.index') }}" style="color: #3E3226;" class="hover:underline">સેવા પ્રોજેક્ટ્સ</a></li>
-                    <li><a href="{{ route('store.index') }}"   style="color: #3E3226;" class="hover:underline">મંદિર સ્ટોર</a></li>
+                    <li><a href="{{ route('donate') }}"        style="color: #3E3226;" class="hover:underline">{{ __('footer.online_donation') }}</a></li>
+                    <li><a href="{{ route('seva.index') }}"    style="color: #3E3226;" class="hover:underline">{{ __('footer.seva_booking') }}</a></li>
+                    <li><a href="{{ route('halls.index') }}"   style="color: #3E3226;" class="hover:underline">{{ __('nav.halls') }}</a></li>
+                    <li><a href="{{ route('projects.index') }}" style="color: #3E3226;" class="hover:underline">{{ __('footer.seva_projects') }}</a></li>
+                    <li><a href="{{ route('store.index') }}"   style="color: #3E3226;" class="hover:underline">{{ __('footer.temple_store') }}</a></li>
                 </ul>
             </div>
 
@@ -144,29 +144,29 @@
                  rendered inconsistently across Windows/Android. --}}
             <div>
                 @if($todayTiming)
-                    <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">દર્શન સમય</h3>
+                    <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">{{ __('footer.darshan_times') }}</h3>
                     <ul class="space-y-2 text-sm" style="color: #3E3226;">
                         @if($todayTiming->morning_open && $todayTiming->morning_close)
                             <li class="flex justify-between gap-3">
-                                <span>સવારે</span>
+                                <span>{{ __('footer.morning') }}</span>
                                 <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->morning_open)->format('h:i') }} – {{ \Carbon\Carbon::parse($todayTiming->morning_close)->format('h:i A') }}</span>
                             </li>
                         @endif
                         @if($todayTiming->evening_open && $todayTiming->evening_close)
                             <li class="flex justify-between gap-3">
-                                <span>સાંજે</span>
+                                <span>{{ __('footer.evening') }}</span>
                                 <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->evening_open)->format('h:i') }} – {{ \Carbon\Carbon::parse($todayTiming->evening_close)->format('h:i A') }}</span>
                             </li>
                         @endif
                         @if($todayTiming->aarti_morning)
                             <li class="flex justify-between gap-3 pt-1 border-t" style="border-color: rgba(122,30,30,0.10);">
-                                <span>સવારની આરતી</span>
+                                <span>{{ __('footer.morning_aarti') }}</span>
                                 <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->aarti_morning)->format('h:i A') }}</span>
                             </li>
                         @endif
                         @if($todayTiming->aarti_evening)
                             <li class="flex justify-between gap-3">
-                                <span>સાંજની આરતી</span>
+                                <span>{{ __('footer.evening_aarti') }}</span>
                                 <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->aarti_evening)->format('h:i A') }}</span>
                             </li>
                         @endif

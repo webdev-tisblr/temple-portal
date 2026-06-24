@@ -13,6 +13,9 @@ class DarshanTiming extends Model
     protected $fillable = [
         'day_type',
         'label',
+        'label_gu',
+        'label_hi',
+        'label_en',
         'morning_open',
         'morning_close',
         'afternoon_open',
@@ -34,4 +37,17 @@ class DarshanTiming extends Model
         'effective_until' => 'date',
         'is_active' => 'boolean',
     ];
+
+    /**
+     * Locale-aware label. Falls back to Gujarati, then the legacy `label`.
+     */
+    public function getLabelAttribute(): ?string
+    {
+        $locale = app()->getLocale();
+        $field = "label_{$locale}";
+        return $this->attributes[$field]
+            ?? $this->attributes['label_gu']
+            ?? $this->attributes['label']
+            ?? null;
+    }
 }

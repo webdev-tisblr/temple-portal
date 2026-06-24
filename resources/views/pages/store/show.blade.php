@@ -4,7 +4,7 @@
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-temple">
 
     @php
-        $crumbs = [['label' => 'મંદિર સ્ટોર', 'url' => route('store.index')]];
+        $crumbs = [['label' => __('footer.temple_store'), 'url' => route('store.index')]];
         if ($product->category) {
             $crumbs[] = ['label' => $product->category->name, 'url' => route('store.category', $product->category->slug)];
         }
@@ -71,7 +71,7 @@
                         <template x-if="maxStock > 0">
                             <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-emerald-950/50 text-emerald-400 border border-emerald-800/30">
                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                <span x-text="`In Stock (${maxStock} ઉપલબ્ધ)`"></span>
+                                <span x-text="`In Stock (${maxStock} {{ __('store.in_stock') }})`"></span>
                             </span>
                         </template>
                         <template x-if="maxStock <= 0">
@@ -102,7 +102,7 @@
                             {{-- Variant Selector --}}
                             @if($product->has_variants && !empty($product->variants))
                                 <div class="mb-5">
-                                    <label class="block text-sm font-medium text-amber-600 mb-2">વિકલ્પ પસંદ કરો</label>
+                                    <label class="block text-sm font-medium text-amber-600 mb-2">{{ __('store.choose_option') }}</label>
                                     <div class="flex flex-wrap gap-2">
                                         @foreach($product->variants as $i => $variant)
                                             @php
@@ -134,7 +134,7 @@
 
                             {{-- Quantity Selector --}}
                             <div class="mb-4">
-                                <label class="block text-sm font-medium text-amber-600 mb-2">જથ્થો</label>
+                                <label class="block text-sm font-medium text-amber-600 mb-2">{{ __('store.quantity') }}</label>
                                 <div class="inline-flex items-center border border-amber-800/30 rounded-lg overflow-hidden">
                                     <button type="button"
                                             @click="quantity > 1 ? quantity-- : null"
@@ -168,12 +168,12 @@
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                                     </svg>
-                                    <span x-text="adding ? 'ઉમેરાઈ રહ્યું છે...' : 'કાર્ટમાં ઉમેરો'"></span>
+                                    <span x-text="adding ? @js(__('store.adding')) : @js(__('store.add_to_cart'))"></span>
                                 </button>
                             @else
                                 <a href="{{ route('login') }}" class="w-full sm:w-auto px-8 py-3 btn-divine inline-flex items-center justify-center gap-2">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
-                                    ખરીદવા લૉગિન કરો
+                                    {{ __('store.login_to_buy') }}
                                 </a>
                             @endauth
 
@@ -206,7 +206,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
                             </svg>
-                            ખરીદવા માટે લૉગિન કરો
+                            {{ __('store.login_to_buy2') }}
                         </a>
                     @endauth
                 </div>
@@ -295,7 +295,7 @@ function productPage() {
                 }
             } catch (error) {
                 this.toastSuccess = false;
-                this.toastMessage = 'કંઈક ખોટું થયું. ફરી પ્રયાસ કરો.';
+                this.toastMessage = @js(__('store.something_wrong'));
                 this.showToast = true;
             }
 

@@ -1,0 +1,28 @@
+<?php
+
+return [
+    'subtitle' => 'Donate online to Shree Pataliya Hanumanji Temple',
+    'choose_amount' => 'Select amount',
+    'enter_amount' => 'Enter amount',
+    'type' => 'Donation type',
+    'choose_type' => '-- Select type --',
+    'purpose' => 'Purpose (optional)',
+    'purpose_placeholder' => 'e.g. for the family\'s wellbeing',
+    'gupt_daan' => 'Anonymous donation (don\'t reveal name)',
+    'extra_info' => 'Additional information',
+    'login_to_donate' => 'Login to donate',
+    'donate_prefix' => 'Donate — ',
+    'active_campaigns' => 'Active Campaigns',
+    'raised' => 'raised',
+    'goal' => 'goal',
+    'goal_from' => 'of goal',
+    'thank_title' => 'Thank you! Donation successful.',
+    'thank_sub' => 'Your donation was received successfully.',
+    'download_greeting' => 'Download Greeting Card',
+    'type_label' => 'Type',
+    'receipt_80g' => '80G Receipt',
+    'download' => 'Download',
+    'available_soon' => 'Available soon',
+    'donate_more' => 'Donate more',
+    'verify_pending_sub' => 'Payment could not be verified. If it succeeded, it will appear in your dashboard.',
+];

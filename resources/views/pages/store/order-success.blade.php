@@ -10,26 +10,26 @@
         </div>
 
         @if($order)
-            <h1 class="text-2xl font-bold text-emerald-300 mb-2">ઓર્ડર સફળ!</h1>
-            <p class="text-amber-100/50 mb-4">તમારો ઓર્ડર સફળતાપૂર્વક નોંધાઈ ગયો છે. ઇનવૉઇસ ઇમેઇલ/WhatsApp પર મોકલવામાં આવશે.</p>
+            <h1 class="text-2xl font-bold text-emerald-300 mb-2">{{ __('store.order_success') }}</h1>
+            <p class="text-amber-100/50 mb-4">{{ __('store.order_success_sub') }}</p>
 
             {{-- Order Details --}}
             <div class="bg-amber-900/20 border border-amber-800/30 rounded-xl p-5 text-left mt-6 text-sm space-y-0">
-                <p class="text-xs text-amber-500 uppercase tracking-wider font-semibold mb-3">ઓર્ડર વિગતો</p>
+                <p class="text-xs text-amber-500 uppercase tracking-wider font-semibold mb-3">{{ __('store.order_details') }}</p>
 
                 <div class="flex justify-between py-2.5 border-b border-amber-900/20">
-                    <span class="text-amber-100/40">ઓર્ડર નંબર</span>
+                    <span class="text-amber-100/40">{{ __('store.order_number') }}</span>
                     <span class="font-semibold text-amber-100/80">{{ $order->order_number }}</span>
                 </div>
                 <div class="flex justify-between py-2.5 border-b border-amber-900/20">
-                    <span class="text-amber-100/40">તારીખ</span>
+                    <span class="text-amber-100/40">{{ __('common.date') }}</span>
                     <span class="font-medium text-amber-100/70">{{ $order->created_at->format('d M Y, h:i A') }}</span>
                 </div>
 
                 {{-- Items Summary --}}
                 @if($order->items && $order->items->isNotEmpty())
                     <div class="py-2.5 border-b border-amber-900/20">
-                        <span class="text-amber-100/40 block mb-2">ઉત્પાદનો</span>
+                        <span class="text-amber-100/40 block mb-2">{{ __('store.products') }}</span>
                         @foreach($order->items as $item)
                             <div class="flex justify-between py-1">
                                 <span class="text-amber-100/70">{{ $item->product_name }} x {{ $item->quantity }}</span>
@@ -41,13 +41,13 @@
 
                 @if((float) $order->shipping_charge > 0)
                     <div class="flex justify-between py-2.5 border-b border-amber-900/20">
-                        <span class="text-amber-100/40">શિપિંગ ચાર્જ</span>
+                        <span class="text-amber-100/40">{{ __('store.shipping_charge') }}</span>
                         <span class="font-medium text-amber-100/70">₹{{ number_format((float) $order->shipping_charge, 2) }}</span>
                     </div>
                 @endif
 
                 <div class="flex justify-between py-2.5">
-                    <span class="text-amber-100/40">કુલ રકમ</span>
+                    <span class="text-amber-100/40">{{ __('store.total') }}</span>
                     <span class="font-bold text-gold text-base">₹{{ number_format((float) $order->total_amount, 2) }}</span>
                 </div>
             </div>
@@ -61,21 +61,21 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                   d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
-                        ઇનવૉઇસ ડાઉનલોડ કરો
+                        {{ __('store.download_invoice') }}
                     </a>
                 </div>
             @endif
 
             <div class="mt-8 flex flex-wrap justify-center gap-3">
-                <a href="{{ route('store.index') }}" class="inline-flex items-center px-6 py-2.5 btn-divine">ખરીદી ચાલુ રાખો</a>
-                <a href="{{ route('dashboard.index') }}" class="inline-flex items-center px-6 py-2.5 btn-temple">ડેશબોર્ડ</a>
+                <a href="{{ route('store.index') }}" class="inline-flex items-center px-6 py-2.5 btn-divine">{{ __('store.continue_shopping') }}</a>
+                <a href="{{ route('dashboard.index') }}" class="inline-flex items-center px-6 py-2.5 btn-temple">{{ __('nav.dashboard') }}</a>
             </div>
         @else
-            <h1 class="text-2xl font-bold text-emerald-300 mb-2">પેમેન્ટ સફળ!</h1>
-            <p class="text-amber-100/50 mb-4">તમારું પેમેન્ટ સફળતાપૂર્વક પ્રાપ્ત થયું છે. ઇનવૉઇસ ઇમેઇલ/WhatsApp પર મોકલવામાં આવશે.</p>
+            <h1 class="text-2xl font-bold text-emerald-300 mb-2">{{ __('seva.payment_success') }}</h1>
+            <p class="text-amber-100/50 mb-4">{{ __('store.payment_success_sub') }}</p>
             <div class="mt-8 flex flex-wrap justify-center gap-3">
-                <a href="{{ route('store.index') }}" class="inline-flex items-center px-6 py-2.5 btn-divine">ખરીદી ચાલુ રાખો</a>
-                <a href="{{ route('dashboard.index') }}" class="inline-flex items-center px-6 py-2.5 btn-temple">ડેશબોર્ડ</a>
+                <a href="{{ route('store.index') }}" class="inline-flex items-center px-6 py-2.5 btn-divine">{{ __('store.continue_shopping') }}</a>
+                <a href="{{ route('dashboard.index') }}" class="inline-flex items-center px-6 py-2.5 btn-temple">{{ __('nav.dashboard') }}</a>
             </div>
         @endif
     @else
@@ -84,9 +84,9 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
             </svg>
         </div>
-        <h1 class="text-2xl font-bold text-amber-300 mb-2">ચકાસણી બાકી</h1>
-        <p class="text-amber-100/50">પેમેન્ટ ચકાસણી થઈ શકી નથી. જો પેમેન્ટ સફળ થયું હોય, તો થોડીવારમાં તમારા ડેશબોર્ડમાં દેખાશે.</p>
-        <a href="{{ route('dashboard.index') }}" class="mt-6 inline-flex items-center px-6 py-2.5 btn-divine">ડેશબોર્ડ જુઓ</a>
+        <h1 class="text-2xl font-bold text-amber-300 mb-2">{{ __('seva.verify_pending') }}</h1>
+        <p class="text-amber-100/50">{{ __('seva.verify_pending_sub') }}</p>
+        <a href="{{ route('dashboard.index') }}" class="mt-6 inline-flex items-center px-6 py-2.5 btn-divine">{{ __('seva.view_dashboard') }}</a>
     @endif
 </div>
 @endsection

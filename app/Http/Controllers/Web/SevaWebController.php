@@ -70,6 +70,17 @@ class SevaWebController extends Controller
         // REAL PAYMENT MODE
         try {
             $result = DB::transaction(function () use ($seva, $validated, $devotee, $quantity, $totalAmount) {
+                // Race-safe capacity re-check under a row lock — closes the
+                // window between validateBooking() above and the insert
+                // below where two devotees could grab the same last slot.
+                if (! app(SevaSlotService::class)->hasSlotCapacityForUpdate(
+                    $seva, $validated['booking_date'], $validated['slot_time'] ?? null
+                )) {
+                    throw new \App\Exceptions\SlotUnavailableException(
+                        'This slot was just booked by someone else. Please choose another.'
+                    );
+                }
+
                 $paymentId = (string) Str::uuid();
                 $receipt = 'SEVA-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
 
@@ -124,6 +135,8 @@ class SevaWebController extends Controller
                 'devoteeEmail' => $devotee->email ?? '',
             ]);
 
+        } catch (\App\Exceptions\SlotUnavailableException $e) {
+            return back()->withErrors(['slot_time' => $e->getMessage()]);
         } catch (\Exception $e) {
             Log::error('Web seva booking failed', ['error' => $e->getMessage()]);
             return back()->withErrors(['booking' => 'બુકિંગ બનાવવામાં નિષ્ફળ. કૃપા કરીને ફરી પ્રયાસ કરો.']);
@@ -134,6 +147,14 @@ class SevaWebController extends Controller
     {
         try {
             $result = DB::transaction(function () use ($seva, $validated, $devotee, $quantity, $totalAmount) {
+                if (! app(SevaSlotService::class)->hasSlotCapacityForUpdate(
+                    $seva, $validated['booking_date'], $validated['slot_time'] ?? null
+                )) {
+                    throw new \App\Exceptions\SlotUnavailableException(
+                        'This slot was just booked by someone else. Please choose another.'
+                    );
+                }
+
                 $paymentId = (string) Str::uuid();
 
                 $payment = Payment::create([
@@ -174,6 +195,8 @@ class SevaWebController extends Controller
                 'booking' => $result['booking']->load('seva'),
             ]);
 
+        } catch (\App\Exceptions\SlotUnavailableException $e) {
+            return back()->withErrors(['slot_time' => $e->getMessage()]);
         } catch (\Exception $e) {
             Log::error('Web seva booking failed', ['error' => $e->getMessage()]);
             return back()->withErrors(['booking' => 'બુકિંગ બનાવવામાં નિષ્ફળ. કૃપા કરીને ફરી પ્રયાસ કરો.']);

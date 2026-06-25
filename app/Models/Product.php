@@ -145,10 +145,23 @@ class Product extends Model
         return '₹' . number_format((float) $this->price, 2);
     }
 
-    /** Drop $qty from the top-level stock_quantity (non-variant flow). */
-    public function decrementStock(int $qty): void
+    /**
+     * Drop $qty from the top-level stock_quantity (non-variant flow),
+     * floored at 0 so concurrent captures of the last unit can never push
+     * stock negative. Returns the shortfall (qty that could not be
+     * fulfilled) so the caller can flag an oversell — 0 means fully met.
+     */
+    public function decrementStock(int $qty): int
     {
-        $this->decrement('stock_quantity', $qty);
+        $available = (int) $this->stock_quantity;
+        $applied = min($qty, max(0, $available));
+        $shortfall = $qty - $applied;
+
+        if ($applied > 0) {
+            $this->decrement('stock_quantity', $applied);
+        }
+
+        return $shortfall;
     }
 
     /**

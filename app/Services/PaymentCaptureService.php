@@ -165,12 +165,34 @@ class PaymentCaptureService
                         continue;
                     }
                     if ($product->has_variants && $item->variant_label) {
-                        $product->decrementVariantStock(
+                        $ok = $product->decrementVariantStock(
                             $item->variant_label,
                             (int) $item->quantity,
                         );
+                        if (! $ok) {
+                            // Variant label vanished between checkout and
+                            // capture — payment already taken, so log loudly
+                            // for manual reconciliation rather than fail.
+                            Log::critical('PaymentCapture: variant stock decrement failed (oversell/missing)', [
+                                'order_id' => $order->id,
+                                'product_id' => $product->id,
+                                'variant_label' => $item->variant_label,
+                                'qty' => (int) $item->quantity,
+                            ]);
+                        }
                     } else {
-                        $product->decrementStock((int) $item->quantity);
+                        $shortfall = $product->decrementStock((int) $item->quantity);
+                        if ($shortfall > 0) {
+                            // Two captures raced for the last unit(s). Stock
+                            // is floored at 0 (never negative); surface the
+                            // oversell so an admin can restock or refund.
+                            Log::critical('PaymentCapture: store oversell — insufficient stock at capture', [
+                                'order_id' => $order->id,
+                                'product_id' => $product->id,
+                                'qty_ordered' => (int) $item->quantity,
+                                'qty_short' => $shortfall,
+                            ]);
+                        }
                     }
                 }
 

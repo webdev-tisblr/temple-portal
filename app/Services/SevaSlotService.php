@@ -375,6 +375,43 @@ class SevaSlotService
         return null;
     }
 
+    /**
+     * Race-safe capacity re-check, to be called INSIDE the booking
+     * transaction immediately before inserting the SevaBooking row.
+     *
+     * validateBooking() above runs OUTSIDE any transaction, so two
+     * devotees hitting the last slot in the same instant can both pass it
+     * and both insert (classic check-then-act race — there is no DB unique
+     * constraint because slots have a configurable capacity, which a unique
+     * index can't express). This method re-counts the slot's bookings with
+     * `lockForUpdate()`, so concurrent bookings for the same seva+date
+     * serialise on InnoDB's row/gap locks: the second caller blocks until
+     * the first commits, then sees the updated count and is correctly
+     * rejected when the slot is full.
+     *
+     * Returns true if there is still capacity (safe to insert), false if
+     * the slot filled up while we waited for the lock.
+     */
+    public function hasSlotCapacityForUpdate(Seva $seva, string $date, ?string $slotTime): bool
+    {
+        if (! $seva->requires_booking || empty($slotTime)) {
+            // No slot system (or no specific slot) → nothing to contend for.
+            return true;
+        }
+
+        $config = $this->normalizeConfig($seva->slot_config);
+        $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
+
+        $currentBookings = SevaBooking::where('seva_id', $seva->id)
+            ->where('booking_date', $date)
+            ->where('slot_time', $slotTime)
+            ->whereIn('status', ['pending', 'confirmed', 'completed'])
+            ->lockForUpdate()
+            ->count();
+
+        return $currentBookings < $maxPerSlot;
+    }
+
     private function emptyConfig(): array
     {
         return [

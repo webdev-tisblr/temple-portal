@@ -152,6 +152,30 @@ class PaymentWebhookController extends Controller
             return response()->json(['status' => 'payment_not_found'], 404);
         }
 
+        // Amount tamper check — the signature proves the payload is
+        // authentically from Razorpay, but not that the paid amount
+        // matches what we charged. Razorpay sends amount in paise; our
+        // Payment.amount is rupees (decimal:2). A mismatch is a serious
+        // anomaly: do NOT auto-capture (which would issue a full receipt /
+        // confirm a booking for a wrong amount). Mark the event for review
+        // and return 200 so Razorpay stops retrying.
+        $paidPaise = isset($paymentEntity['amount']) ? (int) $paymentEntity['amount'] : null;
+        $expectedPaise = (int) round(((float) $payment->amount) * 100);
+        if ($paidPaise !== null && $paidPaise !== $expectedPaise && $payment->status->value !== 'captured') {
+            RazorpayWebhookEvent::where('razorpay_order_id', $razorpayOrderId)
+                ->where('event_type', 'payment.captured')
+                ->orderByDesc('id')
+                ->limit(1)
+                ->update(['outcome' => RazorpayWebhookEvent::OUTCOME_IGNORED]);
+            Log::critical('Razorpay webhook: amount mismatch — capture withheld for review', [
+                'payment_id' => $payment->id,
+                'razorpay_order_id' => $razorpayOrderId,
+                'expected_paise' => $expectedPaise,
+                'paid_paise' => $paidPaise,
+            ]);
+            return response()->json(['status' => 'amount_mismatch'], 200);
+        }
+
         // PaymentCaptureService is idempotent (Payment::lockForUpdate
         // + status re-check), so calling it after a client-verify
         // already captured is a no-op.

@@ -19,7 +19,38 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1')->group(function () {
+Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
+    // Lightweight public config endpoint for the Flutter app to gate old
+    // versions (force-update). No auth: the app needs this before login.
+    // Values are admin-editable via SystemSetting; sensible defaults apply
+    // when unset so an unconfigured install never reports update_required.
+    Route::get('/app-config', function () {
+        $minVersion = \App\Models\SystemSetting::getValue('app_min_version', '1.0.0');
+        $latestVersion = \App\Models\SystemSetting::getValue('app_latest_version', $minVersion);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Success',
+            'data' => [
+                'min_supported_version' => $minVersion,
+                'latest_version' => $latestVersion,
+                'android_store_url' => \App\Models\SystemSetting::getValue(
+                    'app_android_store_url',
+                    'https://play.google.com/store/apps/details?id=com.patadiyahanumanji.app',
+                ),
+                'ios_store_url' => \App\Models\SystemSetting::getValue(
+                    'app_ios_store_url',
+                    'https://apps.apple.com/app/patadiya-hanumanji',
+                ),
+                // Advisory flag: the server can force an update for ALL
+                // current callers by setting app_update_required=1. The
+                // app should still compare its own build against
+                // min_supported_version for the authoritative gate.
+                'update_required' => \App\Models\SystemSetting::getValue('app_update_required', '0') === '1',
+            ],
+        ]);
+    });
+
     // Content (public)
     Route::get('/content/announcements', [ContentController::class, 'announcements']);
     Route::get('/content/live-darshan', [ContentController::class, 'liveDarshan']);
@@ -58,11 +89,16 @@ Route::prefix('v1')->group(function () {
     Route::get('/blog/{slug}', [ContentController::class, 'blogDetail']);
 
     // Public: Contact & Donation Types
-    Route::post('/contact', [ContentController::class, 'submitContact']);
+    // Tighter throttle: contact form is a spam/abuse target.
+    Route::post('/contact', [ContentController::class, 'submitContact'])->middleware('throttle:10,1');
     Route::get('/donation-types', [ContentController::class, 'donationTypes']);
 
     // Webhooks (no auth)
-    Route::post('/webhooks/razorpay', [PaymentWebhookController::class, 'handle']);
+    // The Razorpay webhook must never be throttled — Razorpay retries on
+    // any non-2xx and bursts of legitimate events (settlements, refunds)
+    // can exceed the general cap. Exempt it from the group throttle.
+    Route::post('/webhooks/razorpay', [PaymentWebhookController::class, 'handle'])
+        ->withoutMiddleware('throttle:60,1');
     // WhatsApp delivery webhook. POST is the live event stream from
     // Meta Cloud API (relayed by "The Internet Store" BSP) — sent /
     // delivered / read / failed status events match against
@@ -72,9 +108,10 @@ Route::prefix('v1')->group(function () {
     Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'handle']);
     Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify']);
 
-    // Public auth routes
-    Route::post('/auth/otp/send', [AuthController::class, 'sendOtp']);
-    Route::post('/auth/otp/verify', [AuthController::class, 'verifyOtp']);
+    // Public auth routes — tighter throttle on the OTP surface. OtpService
+    // also enforces a per-phone send cap; this is the per-IP layer.
+    Route::post('/auth/otp/send', [AuthController::class, 'sendOtp'])->middleware('throttle:10,1');
+    Route::post('/auth/otp/verify', [AuthController::class, 'verifyOtp'])->middleware('throttle:10,1');
 
     // Device tokens — public registration so anonymous installs (no OTP
     // login yet) can still receive admin broadcasts. Auth-optional: if a
@@ -167,8 +204,9 @@ Route::prefix('v1')->group(function () {
         // policy). Erases PII; retains anonymised financial records.
         Route::delete('/me', [AccountController::class, 'destroy']);
 
-        // Seva booking (requires auth)
-        Route::post('/sevas/{seva}/book', [SevaController::class, 'book']);
+        // Seva booking (requires auth) — creates a Razorpay order, so it
+        // gets the same tighter CREATE throttle as donations/store orders.
+        Route::post('/sevas/{seva}/book', [SevaController::class, 'book'])->middleware('throttle:10,1');
         Route::get('/bookings', [SevaController::class, 'bookings']);
 
         // Payment verification — called by app right after Razorpay success.
@@ -176,13 +214,15 @@ Route::prefix('v1')->group(function () {
         Route::post('/payments/verify', [PaymentVerificationController::class, 'verify']);
 
         // Donations
-        Route::post('/donations', [DonationController::class, 'create']);
+        // Tighter throttle on order CREATE: limits Razorpay order spam.
+        Route::post('/donations', [DonationController::class, 'create'])->middleware('throttle:10,1');
         Route::get('/donations/history', [DonationController::class, 'history']);
         Route::get('/donations/{donation}', [DonationController::class, 'show']);
         Route::get('/donations/{donation}/receipt', [DonationController::class, 'downloadReceipt']);
 
         // Store (auth)
-        Route::post('/store/orders', [StoreController::class, 'createOrder']);
+        // Tighter throttle on order CREATE: limits Razorpay order spam.
+        Route::post('/store/orders', [StoreController::class, 'createOrder'])->middleware('throttle:10,1');
         Route::get('/store/orders', [StoreController::class, 'orders']);
         Route::get('/store/orders/{order}/invoice', [StoreController::class, 'downloadInvoice']);
 

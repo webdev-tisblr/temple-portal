@@ -69,7 +69,16 @@ class OtpService
             'created_at' => now(),
         ]);
 
-        Log::info("OTP for {$phone}: {$code}");
+        // Only ever write the actual OTP code to the log in local/testing,
+        // where there's no real delivery channel and the developer reads it
+        // from the log. In production the code must NEVER hit the logs.
+        if (app()->environment('local', 'testing')) {
+            Log::info("OTP for {$phone}: {$code}");
+        } else {
+            // Non-sensitive observability line for production: confirms an
+            // OTP was generated for a phone without leaking the code.
+            Log::info('OTP generated', ['phone' => $phone, 'purpose' => $purpose]);
+        }
 
         // Look up an existing devotee by phone so the dispatcher can use
         // the 'devotee' recipient strategy (email/phone off the model) for

@@ -47,7 +47,10 @@ return [
     |
     */
 
-    'expiration' => null,
+    // 90 days. The mobile app handles a 401 by logging out and prompting
+    // OTP re-login, which is cheap — so we cap token lifetime rather than
+    // leaving long-lived tokens valid forever (was null = never expires).
+    'expiration' => 60 * 24 * 90,
 
     /*
     |--------------------------------------------------------------------------

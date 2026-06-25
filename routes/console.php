@@ -60,13 +60,13 @@ Schedule::command('bookings:clean-stale')
     ->everyFiveMinutes()
     ->withoutOverlapping();
 
-// Seva reminders — every 5 min. Each Seva resource carries its own
-// reminders[] array; this command fans out per-booking × per-reminder
-// dispatches to devotee + pujari-role admins. A 5-minute cadence with
-// a 10-min window (command default) keeps reminders within ~5 minutes
-// of the configured offset. The previous 30-minute cadence drifted
-// half an hour late on average, which read as "no reminder arrived"
-// for tighter offsets like 3h-before.
+// Seva reminders — every 5 min. Reminders are pre-computed into
+// temple_seva_reminder_schedules when a booking is confirmed (see
+// SevaReminderScheduler / SevaBookingObserver); this command simply
+// drains the due rows. Because each reminder is a durable pending row,
+// a missed tick (deploy, blip) no longer loses it — the next run picks
+// it up and sends it a little late instead of never. Within ~5 min of
+// the configured offset on a healthy schedule.
 Schedule::command('seva:dispatch-reminders')
     ->everyFiveMinutes()
     ->withoutOverlapping()

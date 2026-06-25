@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Models\Seva;
+use App\Models\SevaBooking;
 use App\Models\SystemSetting;
+use App\Observers\SevaBookingObserver;
 use App\Observers\SevaObserver;
 use Filament\Actions\DeleteAction as PageDeleteAction;
 use Filament\Forms\Components\FileUpload;
@@ -31,6 +33,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Seva::observe(SevaObserver::class);
+        // Materialises / cancels seva reminder schedule rows as bookings
+        // change state, on every confirm path. See SevaReminderScheduler.
+        SevaBooking::observe(SevaBookingObserver::class);
 
         // All Filament image uploads land in Cloudflare R2 (the 'r2' disk
         // pins to the public bucket, served via cdn.patadiyahanumanji.com).

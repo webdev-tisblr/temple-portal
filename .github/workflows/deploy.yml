@@ -101,6 +101,12 @@ jobs:
             # like contact.submitted have a delivery body the moment
             # the trigger fires.
             php artisan db:seed --class=Database\\Seeders\\NotificationTemplatesSeeder --force || true
+            # Materialise reminder rows for bookings confirmed before the
+            # pre-computed seva reminder schedule existed. Idempotent
+            # (firstOrCreate on booking+offset) — only has an effect the
+            # first time; harmless on every subsequent deploy. New
+            # confirmations are scheduled automatically via the observer.
+            php artisan seva:backfill-reminder-schedule || true
             # Roles — idempotent via Spatie's firstOrCreate. Without
             # this, any new role added in code (eg `pujari` in
             # 2026-05-13) wouldn't exist in production's `roles`

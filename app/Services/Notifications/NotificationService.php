@@ -148,6 +148,126 @@ final class NotificationService
         return $this->deliver($template, $ctx, idempotencyKey: null);
     }
 
+    /**
+     * Re-attempt the delivery recorded by an existing NotificationLog row,
+     * updating THAT SAME row in place (status + attempts + sent_at).
+     *
+     * This is the engine behind the automatic reaper (`notifications:reap`)
+     * AND can be reused by the admin "Resend" action. Unlike sendTemplate()
+     * — which writes a fresh log row per call — retryLog() mutates the
+     * original row so its `attempts` column is a natural, durable retry
+     * budget: the reaper simply stops re-attempting once attempts hits its
+     * ceiling, with no extra bookkeeping table or column.
+     *
+     * The idempotency check in deliver() is deliberately bypassed here: the
+     * whole point of a retry is that the original send did NOT reach the
+     * recipient (the row is still `pending` after the send window, or it is
+     * `failed`). The caller (reaper) owns the safety rules that decide a row
+     * is genuinely eligible before calling this.
+     *
+     * Returns true if the driver accepted the message this time.
+     */
+    public function retryLog(NotificationLog $log): bool
+    {
+        $template = $log->template;
+        if ($template === null) {
+            $log->forceFill([
+                'status' => NotificationLog::STATUS_FAILED,
+                'error_message' => 'auto-retry aborted: source template no longer exists',
+            ])->save();
+            return false;
+        }
+
+        $driver = $this->drivers[$template->channel] ?? null;
+        if ($driver === null) {
+            $log->forceFill([
+                'status' => NotificationLog::STATUS_FAILED,
+                'error_message' => "auto-retry aborted: no driver for channel {$template->channel}",
+            ])->save();
+            return false;
+        }
+
+        // Pin the exact (strategy, value) recorded on the log so multi-
+        // recipient templates re-send to the SAME recipient that was tried
+        // originally, not the template's legacy default. Mirrors the admin
+        // Resend action.
+        $perRecipientTemplate = (new NotificationTemplate())
+            ->setRawAttributes($template->getAttributes(), sync: true);
+        $perRecipientTemplate->exists = true;
+        if (! empty($log->recipient_strategy)) {
+            $perRecipientTemplate->recipient_strategy = $log->recipient_strategy;
+            $perRecipientTemplate->recipient_value = $log->recipient_value;
+        }
+
+        $ctx = new NotificationContext(self::rehydrateSnapshot($log->context_snapshot ?? []));
+
+        $ok = false;
+        $errorMessage = null;
+        try {
+            $ok = $driver->send($perRecipientTemplate, $ctx);
+        } catch (\Throwable $e) {
+            $errorMessage = substr($e->getMessage(), 0, 1000);
+            Log::error('Notification: retry driver threw', [
+                'log_id' => $log->getKey(),
+                'template_key' => $template->key,
+                'channel' => $template->channel,
+                'error' => $errorMessage,
+            ]);
+        }
+
+        $providerMessageId = method_exists($driver, 'lastMessageId')
+            ? $driver->lastMessageId()
+            : null;
+
+        $log->forceFill([
+            'status' => $ok ? NotificationLog::STATUS_SENT : NotificationLog::STATUS_FAILED,
+            'attempts' => $log->attempts + 1,
+            'sent_at' => $ok ? now() : null,
+            'error_message' => $ok ? null : ($errorMessage ?? 'driver returned false'),
+            'provider_message_id' => $ok ? ($providerMessageId ?? $log->provider_message_id) : $log->provider_message_id,
+        ])->save();
+
+        return $ok;
+    }
+
+    /**
+     * Rebuild a dispatch context array from a stored context_snapshot,
+     * re-inflating the flattened {model, id} pairs back into real Eloquent
+     * instances (RecipientResolver and the drivers do `instanceof Model`
+     * checks, so a bare {model, id} array is invisible to them).
+     *
+     * Rows that have since been deleted are dropped — the resolver then
+     * falls back to top-level scalar keys (context.email / context.phone)
+     * or fails cleanly, which beats carrying a half-real reference.
+     *
+     * Public + static so both the reaper and the Filament Resend action
+     * share one implementation. See NotificationService::snapshotContext()
+     * for the inverse direction.
+     *
+     * @param  array<string, mixed>  $snapshot
+     * @return array<string, mixed>
+     */
+    public static function rehydrateSnapshot(array $snapshot): array
+    {
+        $out = [];
+        foreach ($snapshot as $key => $value) {
+            if (
+                is_array($value)
+                && isset($value['model'], $value['id'])
+                && is_string($value['model'])
+                && is_subclass_of($value['model'], Model::class)
+            ) {
+                $model = $value['model']::query()->find($value['id']);
+                if ($model !== null) {
+                    $out[$key] = $model;
+                }
+                continue;
+            }
+            $out[$key] = $value;
+        }
+        return $out;
+    }
+
     // ------------------------------------------------------------------
     // Internals
     // ------------------------------------------------------------------

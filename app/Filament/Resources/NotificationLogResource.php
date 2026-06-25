@@ -14,7 +14,6 @@ use Filament\Notifications\Notification as FlashNotification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 
 /**
  * Read-only audit surface over the per-attempt notification log written
@@ -282,7 +281,7 @@ class NotificationLogResource extends Resource
                         // resolver expects real instances (`$x instanceof
                         // Model`) so without rehydration the devotee /
                         // booking refs are dead weight at Resend time.
-                        $context = self::rehydrateContextSnapshot($record->context_snapshot ?? []);
+                        $context = NotificationService::rehydrateSnapshot($record->context_snapshot ?? []);
 
                         $ok = app(NotificationService::class)->sendTemplate($perRecipientTemplate, $context);
 
@@ -309,46 +308,4 @@ class NotificationLogResource extends Resource
         return parent::getEloquentQuery()->with(['template', 'devotee']);
     }
 
-    /**
-     * Turn a context_snapshot back into a Resend-ready context. The
-     * snapshotter (NotificationService::snapshotContext) flattens every
-     * Eloquent model into a {model, id} pair to keep the JSON column
-     * bounded. RecipientResolver and most drivers do `$x instanceof
-     * Model` checks against the context values, so without
-     * rehydration the resend hits the "no Devotee in context"
-     * branches and silently fails.
-     *
-     * Missing rows (model deleted since dispatch) are dropped — the
-     * resend then falls through to whatever fallbacks the resolver
-     * has (eg context.phone / context.email top-level keys), or
-     * fails cleanly. Either is better than passing a half-real array
-     * and pretending it's the original Eloquent instance.
-     *
-     * @param  array<string, mixed>  $snapshot
-     * @return array<string, mixed>
-     */
-    private static function rehydrateContextSnapshot(array $snapshot): array
-    {
-        $out = [];
-        foreach ($snapshot as $key => $value) {
-            if (
-                is_array($value)
-                && isset($value['model'], $value['id'])
-                && is_string($value['model'])
-                && is_subclass_of($value['model'], Model::class)
-            ) {
-                $model = $value['model']::query()->find($value['id']);
-                if ($model !== null) {
-                    $out[$key] = $model;
-                }
-                // Drop the key if the row no longer exists — resend
-                // falls through to whatever fallbacks the resolver
-                // has rather than carrying around a {model, id}
-                // pair the drivers won't recognise.
-                continue;
-            }
-            $out[$key] = $value;
-        }
-        return $out;
-    }
 }

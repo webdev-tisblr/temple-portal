@@ -72,6 +72,25 @@ Schedule::command('seva:dispatch-reminders')
     ->withoutOverlapping()
     ->runInBackground();
 
+// Notification safety net — retry sends that stalled mid-flight (worker
+// died after writing the `pending` row) or failed transiently (SMTP /
+// WhatsApp / FCM blip). Re-attempts in place with a bounded budget
+// (the attempts column), so nothing silently vanishes. Every 5 min keeps
+// recovery tight without hammering providers; withoutOverlapping() means
+// a slow run never stacks on the next tick. See ReapNotifications.
+Schedule::command('notifications:reap')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->runInBackground();
+
+// Keep the per-attempt notification audit log from growing forever.
+// Generous retention (90d resolved / 180d failed); the nightly DB
+// backup is the real archive. Runs in the small hours, staggered off
+// the R2 sweeps.
+Schedule::command('notifications:prune-logs')
+    ->dailyAt('04:30')
+    ->withoutOverlapping();
+
 // Prune expired OTP codes daily
 Schedule::command('model:prune', ['--model' => [OtpCode::class]])
     ->daily();

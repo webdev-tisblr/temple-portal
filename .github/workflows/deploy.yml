@@ -5,8 +5,84 @@ on:
     branches: [main]
 
 jobs:
+  # ───────────────────────────────────────────────────────────────
+  # Gate job: a red build here BLOCKS deploy (deploy `needs: test`).
+  # Runs the Pint style check (free, deterministic) and the PHPUnit
+  # suite against a throwaway MySQL 8 service container. The project
+  # is MySQL-only — there is no sqlite path — so the DB tests need a
+  # real MySQL. The service DB name matches phpunit.xml's
+  # DB_DATABASE=temple_portal_test.
+  # ───────────────────────────────────────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: temple_portal_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, curl, gd, zip, intl, bcmath, sodium, pdo_mysql
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-test-${{ hashFiles('composer.lock', 'composer.json') }}
+
+      # Tests/Pint live in require-dev, so install WITH dev here (the
+      # deploy job below still uses --no-dev for production).
+      - name: Install Composer dependencies (with dev)
+        run: composer install --optimize-autoloader --no-interaction
+
+      # ⚠️ REPORTING MODE (continue-on-error) — does NOT block deploy yet.
+      # The existing codebase predates Pint and ~180 files don't match its
+      # default ruleset, and the new PHPUnit suite has not yet had a green
+      # run against the CI MySQL service. Blocking on either right now would
+      # brick every deploy on day one. These steps report results so you can
+      # watch them go green, THEN arm the gate:
+      #   1. run `vendor/bin/pint` once locally + commit the formatting pass,
+      #   2. confirm `php artisan test` is green in a CI run,
+      #   3. remove the `continue-on-error: true` lines below so a red build
+      #      blocks deploy (the `deploy` job already `needs: test`).
+      - name: Check code style (Pint)
+        continue-on-error: true
+        run: ./vendor/bin/pint --test
+
+      - name: Prepare test environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run tests
+        continue-on-error: true
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: temple_portal_test
+          DB_USERNAME: root
+          DB_PASSWORD: root
+        run: php artisan test
+
   deploy:
     runs-on: ubuntu-latest
+    needs: test
 
     steps:
       - uses: actions/checkout@v4
@@ -95,6 +171,12 @@ jobs:
           port: ${{ secrets.HOSTINGER_PORT }}
           script: |
             cd ~/domains/patadiyahanumanji.com/public_html
+            # Take a fresh DB snapshot to the offsite r2_backup disk BEFORE
+            # running migrations, so a bad/destructive migration can be
+            # rolled back from the most recent pre-migration dump. Tolerant
+            # of failure (|| true) so a backup hiccup can't block the deploy
+            # entirely — but the snapshot is the safety net for the line below.
+            php artisan backup:run --only-db || true
             php artisan migrate --force
             # Idempotent — only inserts rows that don't already exist.
             # Seeds the per-channel notification templates so triggers

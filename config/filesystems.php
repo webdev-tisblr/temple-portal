@@ -94,6 +94,25 @@ return [
             'report' => false,
         ],
 
+        // ─── Offsite DB backup bucket (spatie/laravel-backup target) ──────
+        // A SEPARATE Cloudflare R2 bucket, distinct from temple-public /
+        // temple-private, with its OWN credentials. Used ONLY by
+        // config/backup.php so a host disk failure or a bad migration can't
+        // take the backups down with the live data. The operator must
+        // create the bucket and populate the R2_BACKUP_* env vars in the
+        // production .env — see CLAUDE.md → MANUAL OPERATOR STEPS.
+        'r2_backup' => [
+            'driver' => 's3',
+            'key' => env('R2_BACKUP_ACCESS_KEY_ID'),
+            'secret' => env('R2_BACKUP_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('R2_BACKUP_BUCKET'),
+            'endpoint' => env('R2_BACKUP_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'throw' => false,
+            'report' => false,
+        ],
+
     ],
 
     // 'links' was removed once uploads moved to Cloudflare R2. The

@@ -22,8 +22,18 @@
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>
-        <!-- <env name="DB_CONNECTION" value="sqlite"/> -->
-        <!-- <env name="DB_DATABASE" value=":memory:"/> -->
+        <!--
+            MySQL-only project — there is NO sqlite path (see CLAUDE.md).
+            Tests run against a dedicated MySQL database that must exist:
+            `temple_portal_test`. Locally: create it once with
+            `mysql -uroot -e "CREATE DATABASE temple_portal_test"`.
+            In CI a mysql:8 service container provides it (.github/workflows).
+            DB_HOST / DB_PORT / DB_USERNAME / DB_PASSWORD fall through to the
+            environment / .env so they can differ between local XAMPP and the
+            CI container.
+        -->
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_DATABASE" value="temple_portal_test"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

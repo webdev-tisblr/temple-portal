@@ -8,7 +8,9 @@ use App\Models\Notification;
 use App\Models\OtpCode;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -21,11 +23,17 @@ Artisan::command('inspire', function () {
 |--------------------------------------------------------------------------
 */
 
-// Process queued jobs every 5 minutes (stop-on-failure, no overlap)
+// Process queued jobs every 5 minutes (stop-on-failure, no overlap).
+// The queue drains money-path side effects (invoices, receipts,
+// notifications), so a silent failure here means devotees stop getting
+// confirmations — surface it in the log for the uptime/log monitor.
 Schedule::command('queue:work --stop-when-empty --tries=3')
     ->everyFiveMinutes()
     ->withoutOverlapping()
-    ->runInBackground();
+    ->runInBackground()
+    ->onFailure(function () {
+        Log::error('Scheduled task failed: queue:work');
+    });
 
 // Retry failed jobs hourly
 Schedule::command('queue:retry all')
@@ -81,7 +89,10 @@ Schedule::command('seva:dispatch-reminders')
 Schedule::command('notifications:reap')
     ->everyFiveMinutes()
     ->withoutOverlapping()
-    ->runInBackground();
+    ->runInBackground()
+    ->onFailure(function () {
+        Log::error('Scheduled task failed: notifications:reap');
+    });
 
 // Keep the per-attempt notification audit log from growing forever.
 // Generous retention (90d resolved / 180d failed); the nightly DB
@@ -95,9 +106,14 @@ Schedule::command('notifications:prune-logs')
 Schedule::command('model:prune', ['--model' => [OtpCode::class]])
     ->daily();
 
-// Database backup at 02:00 every night
+// Database backup at 02:00 every night. A missed/failed backup is a
+// silent catastrophe (you only find out you have no backup when you
+// need to restore), so log failures loudly for the monitor to catch.
 Schedule::command('backup:run --only-db')
-    ->dailyAt('02:00');
+    ->dailyAt('02:00')
+    ->onFailure(function () {
+        Log::error('Scheduled task failed: backup:run --only-db');
+    });
 
 // Regenerate sitemap weekly (Sunday midnight)
 Schedule::command('sitemap:generate')
@@ -163,25 +179,48 @@ Schedule::command('greeting-cards:clean-generated')
     ->hourlyAt(45)
     ->withoutOverlapping();
 
-// Update campaign raised_amount and donor_count totals hourly
+// Update campaign raised_amount and donor_count totals hourly.
+//
+// Single grouped query instead of the old per-campaign correlated
+// subquery (one query + one UPDATE per active campaign → N+1). We join
+// captured payments to donations ONCE, GROUP BY campaign, then update
+// each active campaign from the result map. Semantics are preserved
+// exactly: only payments with status='captured' count, only active
+// campaigns are updated, and an active campaign with no captured
+// donations is reset to 0 (the map lookup falls back to 0).
 Schedule::call(function () {
+    $totalsByCampaign = DB::table('temple_donations')
+        ->join('temple_payments', 'temple_payments.id', '=', 'temple_donations.payment_id')
+        ->where('temple_payments.status', 'captured')
+        ->whereNotNull('temple_donations.campaign_id')
+        ->groupBy('temple_donations.campaign_id')
+        ->selectRaw('temple_donations.campaign_id as campaign_id, SUM(temple_donations.amount) as total_amount, COUNT(DISTINCT temple_donations.devotee_id) as total_donors')
+        ->get()
+        ->keyBy('campaign_id');
+
     DonationCampaign::query()
         ->where('is_active', true)
-        ->each(function (DonationCampaign $campaign) {
-            $totals = DB::table('temple_donations')
-                ->where('campaign_id', $campaign->id)
-                ->whereExists(function ($q) {
-                    $q->select(DB::raw(1))
-                        ->from('temple_payments')
-                        ->whereColumn('temple_payments.id', 'temple_donations.payment_id')
-                        ->where('temple_payments.status', 'captured');
-                })
-                ->selectRaw('SUM(amount) as total_amount, COUNT(DISTINCT devotee_id) as total_donors')
-                ->first();
+        ->each(function (DonationCampaign $campaign) use ($totalsByCampaign) {
+            $totals = $totalsByCampaign->get($campaign->id);
 
             $campaign->update([
                 'raised_amount' => $totals->total_amount ?? 0,
                 'donor_count' => $totals->total_donors ?? 0,
             ]);
         });
-})->hourly()->name('update-campaign-totals');
+})->hourly()->name('update-campaign-totals')
+    ->onFailure(function () {
+        Log::error('Scheduled task failed: update-campaign-totals');
+    });
+
+// ────────────────────────────────────────────────────────────────
+// Scheduler heartbeat — write a fresh timestamp every 5 minutes. If
+// the cron that runs `schedule:run` dies (Hostinger cron disabled, PHP
+// broken after a bad deploy, etc.) this key goes stale, which an
+// external check / the /up health probe consumer can detect. 600s TTL
+// means the key expires ~2 ticks after the last successful run, so a
+// dead scheduler is unambiguous rather than a forever-stale value.
+// ────────────────────────────────────────────────────────────────
+Schedule::call(function () {
+    Cache::put('scheduler_last_run', now()->toIso8601String(), 600);
+})->everyFiveMinutes()->name('scheduler-heartbeat');

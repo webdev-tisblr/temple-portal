@@ -14,6 +14,7 @@ use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class OrderResource extends Resource
 {
@@ -104,5 +105,12 @@ class OrderResource extends Resource
             'index' => Pages\ListOrders::route('/'),
             'view' => Pages\ViewOrder::route('/{record}'),
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        // Eager-load relations to avoid N+1 on the list (devotee.name) and
+        // view page (items repeatable entry).
+        return parent::getEloquentQuery()->with(['devotee', 'items']);
     }
 }

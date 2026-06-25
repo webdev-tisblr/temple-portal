@@ -13,7 +13,10 @@ class GalleryWebController extends Controller
 {
     public function index(): View
     {
-        $images = GalleryImage::orderBy('sort_order')->get();
+        // The blade serialises ALL images into an Alpine array and filters by
+        // category client-side, so true pagination would break the lightbox /
+        // category tabs. Cap at 200 instead to bound the payload safely.
+        $images = GalleryImage::orderBy('sort_order')->limit(200)->get();
         $categories = $images->pluck('category')->unique()->values();
 
         SEOMeta::setTitle('ફોટો ગેલેરી — શ્રી પાતાળિયા હનુમાનજી');
@@ -23,7 +26,7 @@ class GalleryWebController extends Controller
 
     public function category(string $category): View
     {
-        $images = GalleryImage::where('category', $category)->orderBy('sort_order')->get();
+        $images = GalleryImage::where('category', $category)->orderBy('sort_order')->limit(200)->get();
         $categories = GalleryImage::distinct()->pluck('category');
 
         SEOMeta::setTitle(ucfirst($category) . ' ગેલેરી — શ્રી પાતાળિયા હનુમાનજી');

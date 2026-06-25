@@ -79,7 +79,7 @@ class DonationResource extends Resource
                     'general' => 'General', 'seva' => 'Seva', 'annadan' => 'Annadan',
                     'construction' => 'Construction', 'festival' => 'Festival', 'campaign' => 'Campaign',
                 ]),
-                Tables\Filters\SelectFilter::make('financial_year')->options(fn () => Donation::distinct()->pluck('financial_year', 'financial_year')->toArray()),
+                Tables\Filters\SelectFilter::make('financial_year')->options(fn () => cache()->remember('donation_financial_years', 3600, fn () => Donation::distinct()->pluck('financial_year', 'financial_year')->toArray())),
                 // Captured-only filter, ON by default. Hides
                 // pending/created/failed donation rows from the admin
                 // list + the column summariser (which used to silently
@@ -111,5 +111,12 @@ class DonationResource extends Resource
             'index' => Pages\ListDonations::route('/'),
             'view' => Pages\ViewDonation::route('/{record}'),
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        // Eager-load relations to avoid N+1 on the list/view (devotee.name
+        // in the table, receipt.* and payment.* on the view page).
+        return parent::getEloquentQuery()->with(['devotee', 'payment', 'receipt']);
     }
 }

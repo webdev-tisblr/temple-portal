@@ -206,12 +206,14 @@ class NotificationLogResource extends Resource
                     ->multiple(),
 
                 Tables\Filters\SelectFilter::make('template_key')
-                    ->options(fn () => NotificationLog::query()
+                    // distinct/pluck over a fast-growing log table — cache the
+                    // option list for an hour to keep the filter render cheap.
+                    ->options(fn () => cache()->remember('notif_log_template_keys', 3600, fn () => NotificationLog::query()
                         ->select('template_key')
                         ->distinct()
                         ->orderBy('template_key')
                         ->pluck('template_key', 'template_key')
-                        ->all())
+                        ->all()))
                     ->searchable()
                     ->label('Trigger'),
 

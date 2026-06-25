@@ -182,7 +182,9 @@ class HallController extends BaseApiController
             ->where('devotee_id', $request->user()->id)
             ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
             ->orderByDesc('created_at')
-            ->get()
+            ->paginate(20);
+
+        $data = $bookings->getCollection()
             ->map(fn (HallBooking $b) => [
                 'id' => $b->id,
                 'hall_name' => $b->hall?->name,
@@ -193,9 +195,19 @@ class HallController extends BaseApiController
                 'status' => $b->status,
                 'contact_name' => $b->contact_name,
                 'created_at' => $b->created_at?->toISOString(),
-            ]);
+            ])
+            ->values()
+            ->all();
 
-        return $this->success($bookings);
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+            'meta' => [
+                'current_page' => $bookings->currentPage(),
+                'last_page' => $bookings->lastPage(),
+                'total' => $bookings->total(),
+            ],
+        ]);
     }
 
     public function downloadInvoice(Request $request, HallBooking $booking)

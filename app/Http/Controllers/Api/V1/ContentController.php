@@ -273,7 +273,9 @@ class ContentController extends BaseApiController
                 $query->where('category', $category);
             }
 
-            return $query->get()->map(fn (GalleryImage $image) => [
+            // Bound the unbounded fetch. Keeps the flat-list response envelope
+            // ($this->success([...])) unchanged for app compatibility.
+            return $query->limit(200)->get()->map(fn (GalleryImage $image) => [
                 'id' => $image->id,
                 'title' => $image->title,
                 'description' => $image->description,

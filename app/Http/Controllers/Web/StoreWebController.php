@@ -60,7 +60,8 @@ class StoreWebController extends Controller
             ->where('is_seva_only', false)
             ->firstOrFail();
 
-        $query = Product::where('category_id', $category->id)->active()->forStore();
+        // Eager-load category — the product card reads $product->category->name.
+        $query = Product::where('category_id', $category->id)->active()->forStore()->with('category');
 
         // Search filter
         if ($search = request('search')) {

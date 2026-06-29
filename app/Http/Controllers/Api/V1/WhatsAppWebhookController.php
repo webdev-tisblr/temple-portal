@@ -315,14 +315,38 @@ class WhatsAppWebhookController extends Controller
             })
             ->first();
 
-        if ($log && $this->isStatusProgression($log->delivery_status, $normalisedStatus)) {
-            $log->forceFill([
-                'delivery_status' => $normalisedStatus,
-                'delivery_status_at' => $now,
-                'failure_reason' => $normalisedStatus === 'failed' && $errorMessage
-                    ? substr((string) $errorMessage, 0, 1000)
-                    : $log->failure_reason,
-            ])->save();
+        if ($log) {
+            $updates = [];
+
+            // ── wamid promotion ────────────────────────────────────────
+            // The send response only ever returns the BSP queue_id, so the
+            // log is stored keyed on the queue_id. But the BSP forwards the
+            // LATER lifecycle events (delivered / read / failed) in raw
+            // Meta-native shape (statuses[]) carrying ONLY the wamid — those
+            // hit recordStatus(), which matches solely on provider_message_id
+            // == wamid, and would miss every time, freezing the log at the
+            // wrapped 'sent' we matched here by queue_id.
+            //
+            // This wrapped 'sent' event is the ONE place we learn the
+            // queue_id ↔ wamid link, and it always precedes the Meta-native
+            // follow-ups. So promote the log to be keyed by the wamid now;
+            // every subsequent event then correlates. (No-op for genuine
+            // pre-Meta failures, where metaWamid is absent.)
+            if ($metaWamid && $log->provider_message_id !== $metaWamid) {
+                $updates['provider_message_id'] = $metaWamid;
+            }
+
+            if ($this->isStatusProgression($log->delivery_status, $normalisedStatus)) {
+                $updates['delivery_status'] = $normalisedStatus;
+                $updates['delivery_status_at'] = $now;
+                if ($normalisedStatus === 'failed' && $errorMessage) {
+                    $updates['failure_reason'] = substr((string) $errorMessage, 0, 1000);
+                }
+            }
+
+            if ($updates) {
+                $log->forceFill($updates)->save();
+            }
         }
 
         Log::info('WhatsApp webhook: BSP-wrapped event recorded', [

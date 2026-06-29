@@ -8,6 +8,7 @@ use App\Models\Devotee;
 use App\Models\NotificationLog;
 use App\Models\NotificationTemplate;
 use App\Services\Notifications\Contracts\NotificationDriver;
+use App\Support\ReviewBypass;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -286,8 +287,38 @@ final class NotificationService
      * the driver sees matches what RecipientResolver expects, without ever
      * touching the persisted row.
      */
+    /**
+     * True when the dispatch's subject is the configured store-review test
+     * number — via the raw context.phone scalar or the devotee model's
+     * phone. Used to suppress all sends to that throwaway account.
+     */
+    private function isReviewTestRecipient(array $context): bool
+    {
+        if (ReviewBypass::isTestPhone($context['phone'] ?? null)) {
+            return true;
+        }
+
+        $devotee = $context['devotee'] ?? null;
+        if ($devotee instanceof Devotee && ReviewBypass::isTestPhone($devotee->phone)) {
+            return true;
+        }
+
+        return false;
+    }
+
     private function doDispatch(string $key, array $context, ?string $idempotencyKey): int
     {
+        // Store-review test number: never send it anything. Keeps the
+        // Apple/Google reviewer's login clean (no welcome message, no
+        // receipts) and avoids spending WhatsApp/SMS on a throwaway
+        // account. The OTP send itself is already short-circuited in
+        // OtpService; this catches every other trigger whose subject is
+        // the test devotee (devotee.registered, seva/donation confirms).
+        if ($this->isReviewTestRecipient($context)) {
+            Log::info('Notification: suppressed for review test number', ['key' => $key]);
+            return 0;
+        }
+
         $templates = NotificationTemplate::query()
             ->where('key', $key)
             ->where('is_enabled', true)

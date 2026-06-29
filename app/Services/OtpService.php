@@ -6,8 +6,8 @@ namespace App\Services;
 
 use App\Models\Devotee;
 use App\Models\OtpCode;
-use App\Models\SystemSetting;
 use App\Services\Notifications\NotificationService;
+use App\Support\ReviewBypass;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
@@ -42,12 +42,12 @@ class OtpService
         // Store-review bypass: the configured test number never sends a
         // real OTP (reviewers abroad can't receive an Indian WhatsApp/SMS
         // code) and never touches rate-limit or lockout state. verify()
-        // accepts the matching fixed code directly. No-op in production
-        // unless an admin configured the pair — see config/otp.php.
-        $bypass = $this->reviewBypass();
-        if ($bypass !== null && hash_equals($bypass['phone'], trim($phone))) {
+        // accepts the matching fixed code directly, and NotificationService
+        // suppresses all sends to it. No-op in production unless an admin
+        // configured the pair — see config/otp.php / App\Support\ReviewBypass.
+        if (ReviewBypass::isTestPhone($phone)) {
             Log::info('OTP: review test-login bypass used (no message sent)', ['phone' => $phone]);
-            return $bypass['code'];
+            return ReviewBypass::testCode();
         }
 
         if ($this->isLockedOut($phone)) {
@@ -129,10 +129,7 @@ class OtpService
         // the fixed pair, evaluated BEFORE the lockout check so a reviewer
         // can't accidentally lock the test account out, and without ever
         // touching OtpCode rows.
-        $bypass = $this->reviewBypass();
-        if ($bypass !== null
-            && hash_equals($bypass['phone'], trim($phone))
-            && hash_equals($bypass['code'], trim($code))) {
+        if (ReviewBypass::matches($phone, $code)) {
             Log::info('OTP: review test-login verified via bypass', ['phone' => $phone]);
             return true;
         }
@@ -184,32 +181,6 @@ class OtpService
     public function cleanup(): void
     {
         OtpCode::where('created_at', '<', now()->subDay())->delete();
-    }
-
-    /**
-     * The Apple/Google review test-login pair, or null when the bypass is
-     * disabled. Both values must be non-empty (admin settings override the
-     * env/config fallback) for the bypass to be active — so an unconfigured
-     * production install behaves exactly as before. See config/otp.php.
-     *
-     * @return array{phone: string, code: string}|null
-     */
-    private function reviewBypass(): ?array
-    {
-        $phone = trim((string) SystemSetting::getValue(
-            'otp_test_phone',
-            (string) config('otp.review_bypass.test_phone', ''),
-        ));
-        $code = trim((string) SystemSetting::getValue(
-            'otp_test_code',
-            (string) config('otp.review_bypass.test_code', ''),
-        ));
-
-        if ($phone === '' || $code === '') {
-            return null;
-        }
-
-        return ['phone' => $phone, 'code' => $code];
     }
 
     /**

@@ -78,6 +78,22 @@ class SystemSettings extends Page implements HasForms
                             Forms\Components\Select::make('default_language')->label('Default Language')
                                 ->options(['gu' => 'Gujarati', 'hi' => 'Hindi', 'en' => 'English'])->default('gu'),
                         ])->columns(2),
+
+                        Forms\Components\Section::make('App Store Review — Test Login')
+                            ->description('A fixed OTP login for Apple/Google reviewers, who cannot receive a real WhatsApp/SMS OTP. When BOTH fields are set, this number logs in with the code below WITHOUT sending any message. It only ever accesses a throwaway test account. Leave both blank to disable. Put these values in the App Store review note.')
+                            ->collapsed()
+                            ->schema([
+                                Forms\Components\TextInput::make('otp_test_phone')
+                                    ->label('Test phone (10-digit, no +91)')
+                                    ->helperText('e.g. 9000000000 — must be a valid Indian mobile format.')
+                                    ->rule('regex:/^[6-9]\d{9}$/')
+                                    ->maxLength(10),
+                                Forms\Components\TextInput::make('otp_test_code')
+                                    ->label('Fixed OTP code (6 digits)')
+                                    ->helperText('e.g. 123456')
+                                    ->rule('regex:/^\d{6}$/')
+                                    ->maxLength(6),
+                            ])->columns(2),
                     ]),
 
                 // ─── Tab 2: Integrations ───

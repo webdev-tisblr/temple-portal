@@ -174,16 +174,22 @@ class NotificationLogResource extends Resource
 
                 Tables\Columns\TextColumn::make('failure_reason')
                     ->label('Why failed')
-                    ->limit(80)
-                    ->wrap()
+                    // Keep it to a single truncated line so a long Meta
+                    // error (some run several sentences) can't blow up the
+                    // row height. Full text shows on hover + in the view
+                    // modal's "Failure reason" textarea.
+                    ->limit(40)
+                    ->tooltip(fn (?string $state): ?string => $state)
+                    ->wrap(false)
                     ->placeholder('—'),
 
                 Tables\Columns\TextColumn::make('skip_reason')
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('error_message')
-                    ->limit(60)
-                    ->wrap()
+                    ->limit(40)
+                    ->tooltip(fn (?string $state): ?string => $state)
+                    ->wrap(false)
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([

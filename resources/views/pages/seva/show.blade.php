@@ -41,7 +41,7 @@
             {{-- Description --}}
             @if($seva->description)
                 <div class="mt-4 text-amber-100/60 leading-relaxed prose prose-invert prose-sm max-w-none">
-                    {!! nl2br(e($seva->description)) !!}
+                    {!! $seva->description !!}
                 </div>
             @endif
 

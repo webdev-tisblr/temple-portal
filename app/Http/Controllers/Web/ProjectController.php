@@ -18,9 +18,6 @@ class ProjectController extends Controller
     {
         $projects = DonationCampaign::where('is_active', true)
             ->where('start_date', '<=', now())
-            ->where(function ($q) {
-                $q->whereNull('end_date')->orWhere('end_date', '>=', now());
-            })
             ->orderByDesc('is_featured')
             ->orderByDesc('created_at')
             ->paginate(12);

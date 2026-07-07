@@ -26,9 +26,6 @@ class DonationWebController extends Controller
     {
         $campaigns = DonationCampaign::where('is_active', true)
             ->where('start_date', '<=', now())
-            ->where(function ($q) {
-                $q->whereNull('end_date')->orWhere('end_date', '>=', now());
-            })
             ->get();
 
         $donationTypes = DonationType::where('is_active', true)->orderBy('sort_order')->get();

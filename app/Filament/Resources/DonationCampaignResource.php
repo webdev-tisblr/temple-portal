@@ -83,7 +83,6 @@ class DonationCampaignResource extends Resource
             Forms\Components\Section::make('Settings')->schema([
                 Forms\Components\TextInput::make('goal_amount')->label('Goal Amount')->numeric()->prefix('₹')->required(),
                 Forms\Components\DatePicker::make('start_date')->required(),
-                Forms\Components\DatePicker::make('end_date')->nullable(),
                 Forms\Components\Toggle::make('is_active')->label('Active')->default(true),
                 Forms\Components\Toggle::make('is_featured')->label('Featured')->default(false),
                 Forms\Components\Toggle::make('show_donor_list')->label('Show Donor List')->default(true),

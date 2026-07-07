@@ -17,7 +17,7 @@
                     $raised = (float) $project->raised_amount;
                     $goal = (float) $project->goal_amount;
                     $pct = $goal > 0 ? min(100, round(($raised / $goal) * 100)) : 0;
-                    $isEnded = $project->end_date && $project->end_date->isPast();
+                    $isEnded = false; // Campaigns no longer have an end date.
                     $isGoalReached = $raised >= $goal && $goal > 0;
                 @endphp
                 <a href="{{ route('projects.show', $project->slug) }}"

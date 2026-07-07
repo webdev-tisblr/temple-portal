@@ -189,10 +189,6 @@ class ContentController extends BaseApiController
     {
         $campaigns = DonationCampaign::query()
             ->where('is_active', true)
-            ->where(function ($q) {
-                $q->whereNull('end_date')
-                    ->orWhere('end_date', '>=', now()->toDateString());
-            })
             ->orderByDesc('created_at')
             ->get()
             ->map(fn (DonationCampaign $campaign) => $this->mapCampaign($campaign));
@@ -556,7 +552,6 @@ class ContentController extends BaseApiController
                 ? image_url($campaign->image_path)
                 : null,
             'start_date' => $campaign->start_date?->toDateString(),
-            'end_date' => $campaign->end_date?->toDateString(),
             'is_featured' => (bool) $campaign->is_featured,
             'progress_percent' => $campaign->goal_amount > 0
                 ? round(((float) $campaign->raised_amount / (float) $campaign->goal_amount) * 100, 2)

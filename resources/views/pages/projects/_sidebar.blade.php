@@ -37,12 +37,6 @@
                 {{ __('projects.goal_reached_emoji') }}
             </div>
         @endif
-        @if($isEnded)
-            <div class="px-4 py-2 rounded-lg bg-amber-900/30 border border-amber-700/30 text-amber-400 text-sm font-semibold text-center mb-4">
-                {{ __('projects.ended') }}
-            </div>
-        @endif
-
         {{-- ---- Donation Form ---- --}}
         @if($isEnded)
             <div class="px-4 py-3 rounded-lg bg-amber-900/20 border border-amber-800/20 text-amber-100/50 text-sm text-center">
@@ -171,17 +165,6 @@
                 <dt class="text-amber-100/40">{{ __('projects.start_date') }}</dt>
                 <dd class="text-amber-100/70 font-medium">{{ $project->start_date->format('d/m/Y') }}</dd>
             </div>
-            @if($project->end_date)
-                <div class="flex justify-between">
-                    <dt class="text-amber-100/40">{{ __('projects.end_date') }}</dt>
-                    <dd class="text-amber-100/70 font-medium">{{ $project->end_date->format('d/m/Y') }}</dd>
-                </div>
-            @else
-                <div class="flex justify-between">
-                    <dt class="text-amber-100/40">{{ __('projects.end_date') }}</dt>
-                    <dd class="text-amber-100/50 text-xs">{{ __('projects.no_deadline') }}</dd>
-                </div>
-            @endif
         </dl>
     </div>
 

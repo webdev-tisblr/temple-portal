@@ -50,6 +50,15 @@ class DonationCampaignResource extends Resource
                 Forms\Components\RichEditor::make('writeup_en')->label('Writeup (English)'),
             ]),
 
+            Forms\Components\Section::make('Featured Video')->schema([
+                Forms\Components\TextInput::make('featured_video_url')
+                    ->label('Featured Video URL')
+                    ->url()
+                    ->maxLength(500)
+                    ->placeholder('https://youtu.be/xxxxxxxxxxx')
+                    ->helperText('Optional. Paste a YouTube link (or a direct .mp4 URL). Shows prominently above the image gallery on web and app.'),
+            ]),
+
             Forms\Components\Section::make('Media Gallery')->schema([
                 Forms\Components\Repeater::make('media')
                     ->schema([

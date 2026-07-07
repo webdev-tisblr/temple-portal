@@ -34,6 +34,8 @@ class EventWebController extends Controller
         SEOMeta::setTitle("{$event->title} — શ્રી પાતાળિયા હનુમાનજી");
         SEOMeta::setDescription(strip_tags($event->description ?? '') ?: '');
 
+        $event->load('media');
+
         return view('pages.events.show', compact('event'));
     }
 }

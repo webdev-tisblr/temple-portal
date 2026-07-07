@@ -15,6 +15,7 @@ use App\Models\DonationType;
 use App\Models\Event;
 use App\Models\GalleryImage;
 use App\Models\SystemSetting;
+use App\Models\Trustee;
 use App\Services\DarshanShareCardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -297,6 +298,7 @@ class ContentController extends BaseApiController
         $cutoff = now()->subDay()->toDateString();
 
         $query = Event::query()
+            ->with('media')
             ->where('status', 'published')
             ->where(function ($q) use ($cutoff) {
                 // Event has no end_date AND starts today or later
@@ -330,6 +332,12 @@ class ContentController extends BaseApiController
             'end_time' => $event->end_time,
             'location' => $event->location,
             'image_url' => $event->image_path ? image_url($event->image_path) : null,
+            'media' => $event->media->map(fn (\App\Models\EventMedia $m) => [
+                'type' => $m->media_type,
+                'url' => $m->media_type === 'video'
+                    ? $m->video_url
+                    : ($m->image_path ? image_url($m->image_path) : null),
+            ])->filter(fn ($m) => $m['url'] !== null)->values(),
             'is_featured' => $event->is_featured,
             'event_type' => $event->event_type?->value,
         ]);
@@ -498,6 +506,30 @@ class ContentController extends BaseApiController
     }
 
     /**
+     * Return active trustees (ordered), with resolved + all-language fields.
+     */
+    public function trustees(): JsonResponse
+    {
+        $trustees = Cache::remember('content.trustees.v1', 1800, function () {
+            return Trustee::active()->ordered()->get()->map(fn (Trustee $t) => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'name_gu' => $t->name_gu,
+                'name_hi' => $t->name_hi,
+                'name_en' => $t->name_en,
+                'role' => $t->role,
+                'role_gu' => $t->role_gu,
+                'role_hi' => $t->role_hi,
+                'role_en' => $t->role_en,
+                'location' => $t->location,
+                'photo_url' => $t->photo_path ? image_url($t->photo_path) : null,
+            ])->values();
+        });
+
+        return $this->success($trustees);
+    }
+
+    /**
      * Return active donation types.
      */
     public function donationTypes(): JsonResponse
@@ -551,6 +583,16 @@ class ContentController extends BaseApiController
             'image_url' => $campaign->image_path
                 ? image_url($campaign->image_path)
                 : null,
+            'featured_video_url' => $campaign->featured_video_url,
+            // Gallery: resolve each stored key/URL through image_url() (idempotent
+            // for absolute URLs like uploaded videos / links).
+            'media' => collect($campaign->media ?? [])
+                ->map(fn ($m) => [
+                    'url' => isset($m['url']) ? image_url($m['url']) : null,
+                    'type' => $m['type'] ?? 'image',
+                ])
+                ->filter(fn ($m) => $m['url'] !== null)
+                ->values(),
             'start_date' => $campaign->start_date?->toDateString(),
             'is_featured' => (bool) $campaign->is_featured,
             'progress_percent' => $campaign->goal_amount > 0

@@ -44,7 +44,8 @@ class TempleController extends Controller
     public function trustees(): View
     {
         SEOMeta::setTitle('ટ્રસ્ટીઓ — શ્રી પાતાળિયા હનુમાનજી');
-        return view('pages.trustees');
+        $trustees = \App\Models\Trustee::active()->ordered()->get();
+        return view('pages.trustees', compact('trustees'));
     }
 
     public function pujari(): View

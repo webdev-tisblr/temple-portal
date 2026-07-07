@@ -62,6 +62,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     // get the generic one.
     Route::post('/content/daily-darshan-card', [ContentController::class, 'dailyDarshanShareCard']);
     Route::get('/content/temple-info', [ContentController::class, 'templeInfo']);
+    Route::get('/content/trustees', [ContentController::class, 'trustees']);
     Route::get('/campaigns', [ContentController::class, 'campaigns']);
     Route::get('/campaigns/{campaign}', [ContentController::class, 'campaignDetail']);
 

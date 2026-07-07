@@ -53,8 +53,40 @@ class EventResource extends Resource
                 )->required(),
                 Forms\Components\Select::make('status')->options(['draft' => 'Draft', 'published' => 'Published', 'cancelled' => 'Cancelled'])->default('draft'),
                 Forms\Components\Toggle::make('is_featured')->label('Featured'),
-                Forms\Components\FileUpload::make('image_path')->image()->directory('events')->maxSize(2048),
+                Forms\Components\FileUpload::make('image_path')->label('Cover Image')->image()->directory('events')->maxSize(2048),
             ])->columns(2),
+
+            Forms\Components\Section::make('Photos & Videos')
+                ->description('Add a gallery of photos and videos for this event. Photos are uploaded; videos are YouTube / hosted links.')
+                ->schema([
+                    Forms\Components\Repeater::make('media')
+                        ->relationship()
+                        ->schema([
+                            Forms\Components\Select::make('media_type')
+                                ->options(['photo' => 'Photo', 'video' => 'Video'])
+                                ->default('photo')
+                                ->live()
+                                ->required(),
+                            Forms\Components\FileUpload::make('image_path')
+                                ->label('Photo')
+                                ->image()
+                                ->directory('event-media')
+                                ->maxSize(4096)
+                                ->visible(fn (\Filament\Forms\Get $get): bool => $get('media_type') === 'photo'),
+                            Forms\Components\TextInput::make('video_url')
+                                ->label('Video URL')
+                                ->url()
+                                ->maxLength(500)
+                                ->placeholder('https://youtu.be/xxxxxxxxxxx')
+                                ->visible(fn (\Filament\Forms\Get $get): bool => $get('media_type') === 'video'),
+                            Forms\Components\TextInput::make('sort_order')->numeric()->default(0),
+                        ])
+                        ->columns(2)
+                        ->defaultItems(0)
+                        ->reorderable()
+                        ->orderColumn('sort_order')
+                        ->addActionLabel('Add Photo / Video'),
+                ]),
         ]);
     }
 

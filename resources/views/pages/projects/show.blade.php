@@ -36,6 +36,35 @@
             {{-- Title (desktop) --}}
             <h1 class="divine-heading text-2xl sm:text-3xl hidden lg:block">{{ $project->title }}</h1>
 
+            {{-- ---- Featured Video ---- --}}
+            @if($project->featured_video_url)
+                @php
+                    $fv = $project->featured_video_url;
+                    $isYt = str_contains($fv, 'youtube.com') || str_contains($fv, 'youtu.be');
+                    $ytId = '';
+                    if ($isYt) {
+                        if (str_contains($fv, 'youtu.be/')) {
+                            $ytId = explode('?', explode('youtu.be/', $fv)[1] ?? '')[0];
+                        } elseif (preg_match('/[?&]v=([^&]+)/', $fv, $m)) {
+                            $ytId = $m[1];
+                        }
+                    }
+                @endphp
+                <div class="card-sacred overflow-hidden">
+                    <div class="relative aspect-video bg-black">
+                        @if($isYt && $ytId)
+                            <iframe class="absolute inset-0 w-full h-full"
+                                    src="https://www.youtube-nocookie.com/embed/{{ $ytId }}"
+                                    title="{{ $project->title }}" frameborder="0" loading="lazy"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowfullscreen></iframe>
+                        @else
+                            <video class="absolute inset-0 w-full h-full" controls src="{{ $fv }}"></video>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
             {{-- ---- Media Gallery ---- --}}
             @if(count($mediaItems) > 0)
                 <div class="card-sacred overflow-hidden" x-data="projectGallery()">

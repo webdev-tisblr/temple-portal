@@ -34,6 +34,7 @@ class DonationCampaign extends Model
         'raised_amount',
         'donor_count',
         'image_path',
+        'featured_video_url',
         'media',
         'faqs',
         'start_date',

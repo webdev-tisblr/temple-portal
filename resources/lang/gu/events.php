@@ -10,6 +10,7 @@ return [
     'time' => 'સમય',
     'venue' => 'સ્થળ',
     'share' => 'શેર કરો:',
+    'gallery' => 'ફોટા અને વિડિઓ',
     'whatsapp_share' => 'WhatsApp પર શેર કરો',
     'copy_link' => 'લિંક કૉપી કરો',
     'link_copied' => 'લિંક કૉપી થઈ ગઈ!',

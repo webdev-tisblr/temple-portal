@@ -10,6 +10,7 @@ return [
     'time' => 'Time',
     'venue' => 'Venue',
     'share' => 'Share:',
+    'gallery' => 'Photos & Videos',
     'whatsapp_share' => 'Share on WhatsApp',
     'copy_link' => 'Copy link',
     'link_copied' => 'Link copied!',

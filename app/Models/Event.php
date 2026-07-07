@@ -7,12 +7,18 @@ namespace App\Models;
 use App\Enums\EventType;
 use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Event extends Model
 {
     use HasManagedImages;
 
     protected $table = 'temple_events';
+
+    public function media(): HasMany
+    {
+        return $this->hasMany(EventMedia::class, 'event_id')->orderBy('sort_order')->orderBy('id');
+    }
 
     protected function managedImages(): array
     {

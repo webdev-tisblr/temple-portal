@@ -82,6 +82,7 @@ class SevaController extends BaseApiController
             'date' => $date,
             'slots' => $availability['available'],
             'booked' => $availability['booked'],
+            'slot_type' => $seva->getResolvedSlotConfig()['slot_type'] ?? 'time_slots',
             'slot_duration_minutes' => $seva->getSlotDurationMinutes(),
             'max_bookings_per_slot' => $seva->getMaxBookingsPerSlot(),
         ];
@@ -147,9 +148,11 @@ class SevaController extends BaseApiController
         $devotee = $request->user();
         $quantity = $validated['quantity'] ?? 1;
 
-        // If the seva is configured for product selection, the selection is required,
-        // must be one of the linked products, and the seva price = product price.
+        // If the seva is configured for product selection, the selection is
+        // required, must be one of the linked products, and the seva price =
+        // the selected product's price (or the selected variant's price).
         $unitPrice = (float) $seva->price;
+        $variantLabel = null;
         if ($seva->hasProductSelection()) {
             $linked = $seva->getLinkedProductsList();
             $selectedId = $validated['selected_product_id'] ?? null;
@@ -160,9 +163,30 @@ class SevaController extends BaseApiController
             if (! $selectedProduct) {
                 return $this->error('પસંદ કરેલું ઉત્પાદન આ સેવા માટે ઉપલબ્ધ નથી.', 422);
             }
-            $unitPrice = (float) $selectedProduct->price;
+
+            if ($selectedProduct->has_variants && ! empty($selectedProduct->variants)) {
+                $variantLabel = $validated['selected_variant_label'] ?? null;
+                if (empty($variantLabel)) {
+                    return $this->error('કૃપા કરી વિકલ્પ પસંદ કરો.', 422);
+                }
+                $variantPrice = $selectedProduct->getVariantPrice($variantLabel);
+                if ($variantPrice === null) {
+                    return $this->error('પસંદ કરેલો વિકલ્પ ઉપલબ્ધ નથી.', 422);
+                }
+                $unitPrice = (float) $variantPrice;
+            } else {
+                $unitPrice = (float) $selectedProduct->price;
+            }
         }
         $totalAmount = $unitPrice * $quantity;
+
+        // Full-day / full-week sevas have no time slot — force slot_time to the
+        // mode sentinel so capacity checks + storage stay consistent regardless
+        // of what the client sent.
+        $slotType = $this->slotService->slotType($this->slotService->normalizeConfig($seva->slot_config));
+        if ($slotType !== SevaSlotService::SLOT_TYPE_TIME) {
+            $validated['slot_time'] = $slotType;
+        }
 
         // Validate slot via service
         $error = $this->slotService->validateBooking($seva, $validated['booking_date'], $validated['slot_time'] ?? null);
@@ -216,6 +240,7 @@ class SevaController extends BaseApiController
                     'devotee_name_for_seva' => $validated['devotee_name_for_seva'] ?? $devotee->name,
                     'sankalp' => $validated['sankalp'] ?? null,
                     'selected_product_id' => $validated['selected_product_id'] ?? null,
+                    'selected_variant_label' => $variantLabel,
                 ]);
 
                 return ['booking' => $booking, 'payment' => $payment, 'razorpay_order' => $razorpayOrder];

@@ -11,6 +11,70 @@ use Carbon\Carbon;
 class SevaSlotService
 {
     /**
+     * Slot modes. `time_slots` = the classic HH:MM time-slot system.
+     * `full_day` = the whole day is the unit (no time slots); capacity is
+     * counted per date. `full_week` = the whole ISO week is the unit;
+     * capacity is counted across the Mon–Sun window the date falls in.
+     * For the two "full" modes a booking stores its mode string in
+     * `slot_time` as a sentinel (so it is never empty — the WhatsApp
+     * template guard needs a non-empty slot_time).
+     */
+    public const SLOT_TYPE_TIME = 'time_slots';
+    public const SLOT_TYPE_FULL_DAY = 'full_day';
+    public const SLOT_TYPE_FULL_WEEK = 'full_week';
+
+    /**
+     * Resolve the slot mode from a normalized config, defaulting safely.
+     */
+    public function slotType(array $config): string
+    {
+        $type = $config['slot_type'] ?? self::SLOT_TYPE_TIME;
+
+        return in_array($type, [self::SLOT_TYPE_TIME, self::SLOT_TYPE_FULL_DAY, self::SLOT_TYPE_FULL_WEEK], true)
+            ? $type
+            : self::SLOT_TYPE_TIME;
+    }
+
+    /**
+     * Mon–Sun date range (Y-m-d) for the ISO week the given date is in.
+     *
+     * @return array{0:string,1:string}
+     */
+    private function weekRange(string $date): array
+    {
+        $d = Carbon::parse($date);
+
+        return [
+            $d->copy()->startOfWeek(Carbon::MONDAY)->toDateString(),
+            $d->copy()->endOfWeek(Carbon::SUNDAY)->toDateString(),
+        ];
+    }
+
+    /**
+     * Active-booking count for a full_day (per date) or full_week (per ISO
+     * week) unit. `$lock` adds lockForUpdate() for the race-safe re-check.
+     */
+    private function countFullUnitBookings(Seva $seva, string $slotType, string $date, bool $lock = false): int
+    {
+        $q = SevaBooking::where('seva_id', $seva->id)
+            ->whereIn('status', ['pending', 'confirmed', 'completed'])
+            ->where('slot_time', $slotType);
+
+        if ($slotType === self::SLOT_TYPE_FULL_WEEK) {
+            [$weekStart, $weekEnd] = $this->weekRange($date);
+            $q->whereBetween('booking_date', [$weekStart, $weekEnd]);
+        } else {
+            $q->where('booking_date', $date);
+        }
+
+        if ($lock) {
+            $q->lockForUpdate();
+        }
+
+        return $q->count();
+    }
+
+    /**
      * Normalize v1 slot_config to v2 format.
      */
     public function normalizeConfig(?array $config): array
@@ -21,12 +85,15 @@ class SevaSlotService
 
         // Already v2
         if (($config['version'] ?? null) === 2) {
+            $config['slot_type'] = $this->slotType($config);
+
             return $config;
         }
 
         // v1 → v2 conversion
         return [
             'version' => 2,
+            'slot_type' => self::SLOT_TYPE_TIME,
             'slot_duration_minutes' => 60,
             'max_bookings_per_slot' => 1,
             'acceptance_period' => [
@@ -61,6 +128,13 @@ class SevaSlotService
 
         if ($this->getBlackoutReason($config, $date) !== null) {
             return [];
+        }
+
+        // Full-day / full-week sevas have a single synthetic "slot" (the
+        // mode string) instead of HH:MM times — the day or week IS the slot.
+        $slotType = $this->slotType($config);
+        if ($slotType === self::SLOT_TYPE_FULL_DAY || $slotType === self::SLOT_TYPE_FULL_WEEK) {
+            return [$slotType];
         }
 
         $dayName = strtolower(Carbon::parse($date)->format('l')); // monday, tuesday, etc.
@@ -149,6 +223,22 @@ class SevaSlotService
                 'blackout' => true,
                 'blackout_reason' => $blackoutReason,
                 'message' => null,
+            ];
+        }
+
+        // Full-day / full-week: one unit, counted per date or per ISO week.
+        $slotType = $this->slotType($config);
+        if ($slotType === self::SLOT_TYPE_FULL_DAY || $slotType === self::SLOT_TYPE_FULL_WEEK) {
+            $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
+            $isFull = $this->countFullUnitBookings($seva, $slotType, $date) >= $maxPerSlot;
+
+            return [
+                'available' => $isFull ? [] : [$slotType],
+                'booked' => $isFull ? [$slotType] : [],
+                'blackout' => false,
+                'blackout_reason' => null,
+                'message' => null,
+                'slot_type' => $slotType,
             ];
         }
 
@@ -242,6 +332,8 @@ class SevaSlotService
         }
 
         $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
+        $slotType = $this->slotType($config);
+        $fullUnitMemo = []; // memoize full_day (per date) / full_week (per week) counts
         $available = [];
 
         for ($i = 0; $i < $days; $i++) {
@@ -251,6 +343,22 @@ class SevaSlotService
                 continue;
             }
             if ($this->getBlackoutReason($config, $date)) {
+                continue;
+            }
+
+            // Full-day / full-week: the date is bookable if its unit (day or
+            // ISO week) still has capacity. Memoized so a full_week only
+            // hits the DB once per week rather than once per day.
+            if ($slotType === self::SLOT_TYPE_FULL_DAY || $slotType === self::SLOT_TYPE_FULL_WEEK) {
+                $key = $slotType === self::SLOT_TYPE_FULL_WEEK
+                    ? implode('_', $this->weekRange($date))
+                    : $date;
+                if (! array_key_exists($key, $fullUnitMemo)) {
+                    $fullUnitMemo[$key] = $this->countFullUnitBookings($seva, $slotType, $date);
+                }
+                if ($fullUnitMemo[$key] < $maxPerSlot) {
+                    $available[] = $date;
+                }
                 continue;
             }
 
@@ -337,6 +445,21 @@ class SevaSlotService
             return null;
         }
 
+        // Full-day / full-week: no time slot to pick — validate capacity for
+        // the whole day or the whole ISO week. The controller stores the mode
+        // string as slot_time, so incoming $slotTime is not consulted here.
+        $slotType = $this->slotType($config);
+        if ($slotType === self::SLOT_TYPE_FULL_DAY || $slotType === self::SLOT_TYPE_FULL_WEEK) {
+            $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
+            if ($this->countFullUnitBookings($seva, $slotType, $date) >= $maxPerSlot) {
+                return $slotType === self::SLOT_TYPE_FULL_WEEK
+                    ? 'This week is fully booked. Please choose another.'
+                    : 'This day is fully booked. Please choose another.';
+            }
+
+            return null;
+        }
+
         $configuredSlots = $this->getSlotsForDate($seva, $date);
 
         if (empty($slotTime)) {
@@ -394,13 +517,23 @@ class SevaSlotService
      */
     public function hasSlotCapacityForUpdate(Seva $seva, string $date, ?string $slotTime): bool
     {
-        if (! $seva->requires_booking || empty($slotTime)) {
-            // No slot system (or no specific slot) → nothing to contend for.
+        if (! $seva->requires_booking) {
             return true;
         }
 
         $config = $this->normalizeConfig($seva->slot_config);
+        $slotType = $this->slotType($config);
         $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
+
+        // Full-day / full-week: race-safe re-count over the day or ISO week.
+        if ($slotType === self::SLOT_TYPE_FULL_DAY || $slotType === self::SLOT_TYPE_FULL_WEEK) {
+            return $this->countFullUnitBookings($seva, $slotType, $date, true) < $maxPerSlot;
+        }
+
+        if (empty($slotTime)) {
+            // No specific slot to contend for.
+            return true;
+        }
 
         $currentBookings = SevaBooking::where('seva_id', $seva->id)
             ->where('booking_date', $date)
@@ -416,6 +549,7 @@ class SevaSlotService
     {
         return [
             'version' => 2,
+            'slot_type' => self::SLOT_TYPE_TIME,
             'slot_duration_minutes' => 60,
             'max_bookings_per_slot' => 1,
             'acceptance_period' => ['type' => 'perpetual', 'start_date' => null, 'end_date' => null],

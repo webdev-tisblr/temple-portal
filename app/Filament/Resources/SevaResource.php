@@ -75,6 +75,18 @@ class SevaResource extends Resource
                 ->icon('heroicon-o-clock')
                 ->visible(fn (Get $get) => (bool) $get('requires_booking'))
                 ->schema([
+                    Forms\Components\Select::make('slot_config.slot_type')
+                        ->label('Booking Mode')
+                        ->options([
+                            'time_slots' => 'Time slots — devotee picks a time',
+                            'full_day' => 'Full day — the whole day is one booking (no time slot)',
+                            'full_week' => 'Full week — the whole week is one booking (no time slot)',
+                        ])
+                        ->default('time_slots')
+                        ->live()
+                        ->required()
+                        ->helperText('Full day / full week sevas have no time slots — the day or week itself acts as the slot.'),
+
                     Forms\Components\Grid::make(2)->schema([
                         Forms\Components\Select::make('slot_config.slot_duration_minutes')
                             ->label('Slot Duration')
@@ -87,11 +99,16 @@ class SevaResource extends Resource
                                 120 => '2 hours',
                                 180 => '3 hours',
                             ])
-                            ->default(60),
+                            ->default(60)
+                            ->visible(fn (Get $get) => ($get('slot_config.slot_type') ?? 'time_slots') === 'time_slots'),
                         Forms\Components\TextInput::make('slot_config.max_bookings_per_slot')
-                            ->label('Max Bookings Per Slot')
+                            ->label(fn (Get $get) => match ($get('slot_config.slot_type')) {
+                                'full_day' => 'Max Bookings Per Day',
+                                'full_week' => 'Max Bookings Per Week',
+                                default => 'Max Bookings Per Slot',
+                            })
                             ->numeric()->minValue(1)->default(1)
-                            ->helperText('How many devotees can book the same time slot.'),
+                            ->helperText('Capacity for each slot / day / week.'),
                     ]),
 
                     // Acceptance Period
@@ -116,9 +133,10 @@ class SevaResource extends Resource
                                 ->afterOrEqual('slot_config.acceptance_period.start_date'),
                         ])->columns(3),
 
-                    // Weekly Schedule
+                    // Weekly Schedule (time-slot mode only)
                     Forms\Components\Section::make('Weekly Schedule')
                         ->description('Set default time slots and override specific days if needed. Slots are validated against the duration to prevent overlaps.')
+                        ->visible(fn (Get $get) => ($get('slot_config.slot_type') ?? 'time_slots') === 'time_slots')
                         ->schema([
                             Forms\Components\Repeater::make('slot_config.weekly_schedule.default')
                                 ->label('Default Time Slots (all days)')

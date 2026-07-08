@@ -45,4 +45,9 @@ return [
     'view_dashboard' => 'डैशबोर्ड देखें',
     'payment_failed' => 'भुगतान विफल',
     'payment_failed_sub' => 'भुगतान रद्द हो गया है या विफल हो गया है। कृपया पुनः प्रयास करें।',
+    'book_full_day' => 'पूरा दिन बुक करें',
+    'book_full_week' => 'पूरा सप्ताह बुक करें',
+    'full_day_booked' => 'यह दिन पूरी तरह बुक है',
+    'full_week_booked' => 'यह सप्ताह पूरी तरह बुक है',
+    'choose_option' => 'विकल्प चुनें',
 ];

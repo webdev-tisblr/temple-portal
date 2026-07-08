@@ -69,6 +69,14 @@ class SevaResource extends JsonResource
                 'price' => (float) $p->price,
                 'image_url' => $p->image_path ? image_url($p->image_path) : null,
                 'in_stock' => $p->inStock(),
+                'has_variants' => (bool) $p->has_variants,
+                'variants' => ($p->has_variants && ! empty($p->variants))
+                    ? collect($p->variants)->map(fn ($v) => [
+                        'label' => $v['label'] ?? '',
+                        'price' => (float) ($v['price'] ?? 0),
+                        'in_stock' => (int) ($v['stock'] ?? 0) > 0,
+                    ])->values()->all()
+                    : [],
             ])
             ->values()
             ->all();

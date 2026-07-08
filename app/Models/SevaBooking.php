@@ -27,6 +27,7 @@ class SevaBooking extends Model
         'devotee_name_for_seva',
         'sankalp',
         'selected_product_id',
+        'selected_variant_label',
         'notes',
         'cancelled_at',
         'cancellation_reason',

@@ -109,7 +109,8 @@
                             {{ __('seva.no_slots') }}
                         </div>
 
-                        <div x-show="!loading && !blackout && (slots.length > 0 || booked.length > 0)">
+                        {{-- Time-slot mode: pick a time --}}
+                        <div x-show="!loading && !blackout && slotType === 'time_slots' && (slots.length > 0 || booked.length > 0)">
                             <p class="text-sm text-amber-100/50 mb-2">
                                 {{ __('seva.available_time') }}
                                 <span x-show="slotDuration" class="text-amber-100/30" x-text="'(' + slotDuration + ' {{ __('seva.minutes') }})'"></span>
@@ -128,6 +129,22 @@
                                 </template>
                             </div>
                         </div>
+
+                        {{-- Full-day / full-week mode: the day or week IS the slot --}}
+                        <div x-show="!loading && !blackout && slotType !== 'time_slots'">
+                            <template x-if="slots.length > 0">
+                                <button @click="selectedSlot = slots[0]"
+                                    :class="selectedSlot ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-900 border-amber-500 font-bold' : 'bg-transparent text-amber-100/60 border-amber-800/30 hover:border-amber-600'"
+                                    class="w-full px-4 py-3 border rounded-lg text-sm font-semibold transition"
+                                    x-text="slotType === 'full_week' ? '{{ __('seva.book_full_week') }}' : '{{ __('seva.book_full_day') }}'">
+                                </button>
+                            </template>
+                            <template x-if="slots.length === 0 && booked.length > 0">
+                                <div class="w-full px-4 py-3 border border-amber-900/20 rounded-lg text-sm bg-amber-900/10 text-amber-100/40 text-center"
+                                    x-text="slotType === 'full_week' ? '{{ __('seva.full_week_booked') }}' : '{{ __('seva.full_day_booked') }}'">
+                                </div>
+                            </template>
+                        </div>
                     </div>
 
                     {{-- Product Selection --}}
@@ -137,7 +154,7 @@
                             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                 @foreach($linkedProducts as $lp)
                                     <button type="button"
-                                        @click="selectedProductId = {{ $lp->id }}"
+                                        @click="selectedProductId = {{ $lp->id }}; selectedVariant = ''"
                                         :class="selectedProductId === {{ $lp->id }} ? 'ring-2 ring-amber-500 border-amber-500' : 'border-amber-800/30 hover:border-amber-600'"
                                         class="border rounded-xl overflow-hidden transition text-left bg-amber-900/10">
                                         <div class="aspect-square bg-amber-900/20 overflow-hidden">
@@ -155,6 +172,22 @@
                                     </button>
                                 @endforeach
                             </div>
+
+                            {{-- Variant selection (products with variable options) --}}
+                            <template x-if="needsVariant()">
+                                <div class="mt-3">
+                                    <label class="block text-xs font-medium text-amber-600 mb-2">{{ __('seva.choose_option') }}</label>
+                                    <div class="flex flex-wrap gap-2">
+                                        <template x-for="v in (currentProduct()?.variants || [])" :key="v.label">
+                                            <button type="button" @click="selectedVariant = v.label" :disabled="!v.in_stock"
+                                                :class="selectedVariant === v.label ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-900 border-amber-500 font-bold' : (v.in_stock ? 'bg-transparent text-amber-100/60 border-amber-800/30 hover:border-amber-600' : 'opacity-30 cursor-not-allowed border-amber-900/20')"
+                                                class="px-3 py-2 border rounded-lg text-xs font-medium transition"
+                                                x-text="v.label + ' — ₹' + Number(v.price).toLocaleString('en-IN')">
+                                            </button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
                     @endif
 
@@ -183,10 +216,11 @@
                                 <input type="hidden" name="devotee_name_for_seva" :value="devoteeName">
                                 <input type="hidden" name="sankalp" :value="sankalp">
                                 <input type="hidden" name="selected_product_id" :value="selectedProductId">
+                                <input type="hidden" name="selected_variant_label" :value="selectedVariant">
                                 <button type="submit"
-                                    :disabled="!selectedDate"
+                                    :disabled="!canBook()"
                                     class="w-full sm:w-auto px-8 py-3 btn-divine disabled:opacity-40 disabled:cursor-not-allowed">
-                                    {{ __('seva.book_for') }}₹{{ number_format((float) $seva->price) }}
+                                    {{ __('seva.book_for') }}<span x-text="displayPrice()"></span>
                                 </button>
                             </form>
                         @else
@@ -211,6 +245,22 @@
 <script>
 function slotPicker(sevaId) {
     const config = @json($seva->getResolvedSlotConfig());
+    const basePrice = {{ (float) $seva->price }};
+    const hasProductSelection = @json($linkedProducts->isNotEmpty());
+    const products = @json(
+        $linkedProducts->mapWithKeys(fn ($p) => [$p->id => [
+            'id' => $p->id,
+            'price' => (float) $p->price,
+            'has_variants' => (bool) $p->has_variants,
+            'variants' => ($p->has_variants && ! empty($p->variants))
+                ? collect($p->variants)->map(fn ($v) => [
+                    'label' => $v['label'] ?? '',
+                    'price' => (float) ($v['price'] ?? 0),
+                    'in_stock' => ((int) ($v['stock'] ?? 0)) > 0,
+                ])->values()
+                : [],
+        ]])
+    );
 
     // Gujarati day-of-week labels — week starts Monday = index 0 for
     // Carbon parity, but JS Date.getDay() returns Sun=0..Sat=6.
@@ -223,14 +273,44 @@ function slotPicker(sevaId) {
         selectedSlot: '',
         slots: [],
         booked: [],
+        slotType: config.slot_type || 'time_slots',
         loading: false,
         blackout: false,
         blackoutReason: '',
         unavailableMessage: '',
         slotDuration: config.slot_duration_minutes || 0,
         selectedProductId: null,
+        selectedVariant: '',
         devoteeName: '',
         sankalp: '',
+
+        currentProduct() {
+            return this.selectedProductId ? (products[this.selectedProductId] || null) : null;
+        },
+        needsVariant() {
+            const p = this.currentProduct();
+            return !!(p && p.has_variants);
+        },
+        unitPrice() {
+            const p = this.currentProduct();
+            if (!p) return basePrice;
+            if (p.has_variants) {
+                const v = p.variants.find(x => x.label === this.selectedVariant);
+                return v ? v.price : p.price;
+            }
+            return p.price;
+        },
+        displayPrice() {
+            return '₹' + Number(this.unitPrice()).toLocaleString('en-IN');
+        },
+        canBook() {
+            if (!this.selectedDate) return false;
+            if (hasProductSelection) {
+                if (!this.selectedProductId) return false;
+                if (this.needsVariant() && !this.selectedVariant) return false;
+            }
+            return true;
+        },
 
         // Date carousel state — populated from the
         // /sevas/{id}/available-dates endpoint so blackouts, fully
@@ -286,6 +366,7 @@ function slotPicker(sevaId) {
                 const json = await res.json();
                 this.slots = json.data?.slots || [];
                 this.booked = json.data?.booked || [];
+                this.slotType = json.data?.slot_type || this.slotType || 'time_slots';
                 this.blackout = json.data?.blackout || false;
                 this.blackoutReason = json.data?.blackout_reason || '';
                 this.unavailableMessage = json.data?.message || '';

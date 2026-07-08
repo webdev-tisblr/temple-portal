@@ -45,4 +45,9 @@ return [
     'view_dashboard' => 'View Dashboard',
     'payment_failed' => 'Payment failed',
     'payment_failed_sub' => 'The payment was cancelled or failed. Please try again.',
+    'book_full_day' => 'Book this whole day',
+    'book_full_week' => 'Book this whole week',
+    'full_day_booked' => 'This day is fully booked',
+    'full_week_booked' => 'This week is fully booked',
+    'choose_option' => 'Choose an option',
 ];

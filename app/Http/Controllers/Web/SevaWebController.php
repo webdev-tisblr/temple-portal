@@ -54,10 +54,49 @@ class SevaWebController extends Controller
         $validated = $request->validated();
         $devotee = Auth::guard('devotee')->user();
         $quantity = (int) ($validated['quantity'] ?? 1);
-        $totalAmount = (float) $seva->price * $quantity;
+
+        // Price = the selected product's price (or selected variant's price)
+        // when the seva uses product selection; otherwise the seva's own price.
+        // (Previously this used $seva->price unconditionally, ignoring the
+        // chosen product — inconsistent with the API and the displayed price.)
+        $unitPrice = (float) $seva->price;
+        $variantLabel = null;
+        if ($seva->hasProductSelection()) {
+            $selectedId = $validated['selected_product_id'] ?? null;
+            if (empty($selectedId)) {
+                return back()->withErrors(['selected_product_id' => 'કૃપા કરી સેવા સાથેનું ઉત્પાદન પસંદ કરો.']);
+            }
+            $selectedProduct = $seva->getLinkedProductsList()->firstWhere('id', (int) $selectedId);
+            if (! $selectedProduct) {
+                return back()->withErrors(['selected_product_id' => 'પસંદ કરેલું ઉત્પાદન આ સેવા માટે ઉપલબ્ધ નથી.']);
+            }
+            if ($selectedProduct->has_variants && ! empty($selectedProduct->variants)) {
+                $variantLabel = $validated['selected_variant_label'] ?? null;
+                if (empty($variantLabel)) {
+                    return back()->withErrors(['selected_variant_label' => 'કૃપા કરી વિકલ્પ પસંદ કરો.']);
+                }
+                $variantPrice = $selectedProduct->getVariantPrice($variantLabel);
+                if ($variantPrice === null) {
+                    return back()->withErrors(['selected_variant_label' => 'પસંદ કરેલો વિકલ્પ ઉપલબ્ધ નથી.']);
+                }
+                $unitPrice = (float) $variantPrice;
+            } else {
+                $unitPrice = (float) $selectedProduct->price;
+            }
+        }
+        $validated['selected_variant_label'] = $variantLabel;
+        $totalAmount = $unitPrice * $quantity;
+
+        // Full-day / full-week sevas have no time slot — force slot_time to the
+        // mode sentinel so capacity checks + storage stay consistent.
+        $slotSvc = app(SevaSlotService::class);
+        $slotType = $slotSvc->slotType($slotSvc->normalizeConfig($seva->slot_config));
+        if ($slotType !== SevaSlotService::SLOT_TYPE_TIME) {
+            $validated['slot_time'] = $slotType;
+        }
 
         // Validate slot via service (acceptance period, blackout, capacity)
-        $slotError = app(SevaSlotService::class)->validateBooking($seva, $validated['booking_date'], $validated['slot_time'] ?? null);
+        $slotError = $slotSvc->validateBooking($seva, $validated['booking_date'], $validated['slot_time'] ?? null);
         if ($slotError) {
             return back()->withErrors(['slot_time' => $slotError]);
         }
@@ -115,6 +154,7 @@ class SevaWebController extends Controller
                     'devotee_name_for_seva' => $validated['devotee_name_for_seva'] ?? $devotee->name,
                     'sankalp' => $validated['sankalp'] ?? null,
                     'selected_product_id' => $validated['selected_product_id'] ?? null,
+                    'selected_variant_label' => $validated['selected_variant_label'] ?? null,
                 ]);
 
                 return [
@@ -181,6 +221,7 @@ class SevaWebController extends Controller
                     'devotee_name_for_seva' => $validated['devotee_name_for_seva'] ?? $devotee->name,
                     'sankalp' => $validated['sankalp'] ?? null,
                     'selected_product_id' => $validated['selected_product_id'] ?? null,
+                    'selected_variant_label' => $validated['selected_variant_label'] ?? null,
                 ]);
 
                 // No Donation row for seva bookings — seva payments are

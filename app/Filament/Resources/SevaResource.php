@@ -151,6 +151,7 @@ class SevaResource extends Resource
                                     'range' => 'Specific date range',
                                 ])
                                 ->default('perpetual')
+                                ->live()
                                 ->inline(),
                             Forms\Components\DatePicker::make('slot_config.acceptance_period.start_date')
                                 ->label('Start Date')

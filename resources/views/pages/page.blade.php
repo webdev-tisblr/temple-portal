@@ -3,22 +3,8 @@
 @section('content')
 <section class="bg-temple py-8">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="mb-6 flex items-center justify-between gap-4 flex-wrap">
+        <div class="mb-6">
             <x-breadcrumb :items="[['label' => $page->title]]" />
-
-            {{-- Language switcher — only shown on CMS pages with multilingual content --}}
-            @if($page->title_hi || $page->title_en)
-                @php $cl = app()->getLocale(); @endphp
-                <div class="flex items-center gap-1 text-xs">
-                    <a href="?lang=gu" class="px-2 py-1 rounded-md {{ $cl === 'gu' ? 'bg-amber-800/40 text-gold font-bold' : 'text-amber-100/40 hover:text-gold' }} transition">ગુજરાતી</a>
-                    @if($page->title_hi)
-                        <a href="?lang=hi" class="px-2 py-1 rounded-md {{ $cl === 'hi' ? 'bg-amber-800/40 text-gold font-bold' : 'text-amber-100/40 hover:text-gold' }} transition">हिन्दी</a>
-                    @endif
-                    @if($page->title_en)
-                        <a href="?lang=en" class="px-2 py-1 rounded-md {{ $cl === 'en' ? 'bg-amber-800/40 text-gold font-bold' : 'text-amber-100/40 hover:text-gold' }} transition">English</a>
-                    @endif
-                </div>
-            @endif
         </div>
 
         @if($page->featured_image_path)

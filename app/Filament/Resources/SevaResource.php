@@ -110,11 +110,9 @@ class SevaResource extends Resource
                             ->helperText('Capacity for each slot / day / week.'),
                     ]),
 
-                    // Available days (full-day mode only) — compact toggle pills.
-                    Forms\Components\ToggleButtons::make('slot_config.full_day_days')
+                    // Available days (full-day mode only) — compact checkbox row.
+                    Forms\Components\CheckboxList::make('slot_config.full_day_days')
                         ->label('Available on these days')
-                        ->multiple()
-                        ->inline()
                         ->options([
                             'monday' => 'Mon',
                             'tuesday' => 'Tue',
@@ -124,7 +122,21 @@ class SevaResource extends Resource
                             'saturday' => 'Sat',
                             'sunday' => 'Sun',
                         ])
-                        ->helperText('Leave all off to offer this full-day seva every day; select days to restrict it (e.g. Tue & Sat).')
+                        ->columns(['default' => 2, 'sm' => 4, 'lg' => 7])
+                        ->gridDirection('row')
+                        ->bulkToggleable()
+                        // Normalize an older {day: bool} map (from the brief toggle
+                        // version) into a plain list of enabled days.
+                        ->afterStateHydrated(function (Forms\Components\CheckboxList $component, $state): void {
+                            if (! is_array($state) || $state === []) {
+                                return;
+                            }
+                            $isMap = array_keys($state) !== range(0, count($state) - 1);
+                            if ($isMap) {
+                                $component->state(array_values(array_keys(array_filter($state, fn ($v) => (bool) $v))));
+                            }
+                        })
+                        ->helperText('Leave all unchecked to offer this full-day seva every day; select days to restrict it (e.g. Tue & Sat).')
                         ->visible(fn (Get $get) => ($get('slot_config.slot_type') ?? 'time_slots') === 'full_day'),
 
                     // Acceptance Period

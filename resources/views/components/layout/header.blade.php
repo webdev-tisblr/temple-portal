@@ -3,7 +3,14 @@
     Two tiers: a dark utility strip (timings · contact · language · login) that
     collapses on scroll, and a condensing main bar (wordmark · dropdown nav ·
     donate). Wired to real routes/i18n/auth; falls back gracefully.
+
+    $transparent — when true (default: the homepage, which has a dark hero
+    scrim behind it), the main bar floats with NO background and switches its
+    text to white while the page is at the top; on scroll it condenses into the
+    frosted-glass bar with dark text. Inner pages pass this false implicitly and
+    keep the solid header throughout.
 --}}
+@props(['transparent' => request()->routeIs('home')])
 @php
     // Dropdown groupings (top-level nav mirrors the design: Temple, Seva,
     // Events, Hall Booking, Store — Contact lives in the utility strip).
@@ -31,7 +38,8 @@
     $fmt = fn ($t) => $t ? \Carbon\Carbon::parse($t)->format('g:i A') : null;
 @endphp
 
-<header x-data="{ mobileMenu: false, scrolled: false, m: null }"
+<header x-data="{ mobileMenu: false, scrolled: false, m: null, transparent: {{ $transparent ? 'true' : 'false' }} }"
+        x-init="scrolled = (window.scrollY > 40)"
         @scroll.window="scrolled = (window.scrollY > 40)"
         class="fixed top-0 left-0 right-0 z-50">
 
@@ -55,8 +63,8 @@
                      overflow-hidden (used for the scroll-collapse), so use links. --}}
                 <span class="inline-flex items-center gap-2">
                     @foreach (['gu' => 'ગુજરાતી', 'hi' => 'हिन्दी', 'en' => 'English'] as $code => $label)
-                        <a href="{{ request()->fullUrlWithQuery(['lang' => $code]) }}"
-                           class="transition-colors {{ app()->getLocale() === $code ? 'text-[#F2B673] font-semibold' : 'hover:text-[#F2B673]' }}">{{ $label }}</a>
+                        <a href="{{ route('locale.set', $code) }}"
+                           class="transition-colors {{ app()->getLocale() === $code ? 'text-[#F2B673] font-semibold' : 'text-white/85 hover:text-[#F2B673]' }}">{{ $label }}</a>
                         @if (!$loop->last)<span class="opacity-30">·</span>@endif
                     @endforeach
                 </span>
@@ -89,8 +97,10 @@
                     <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="{{ __('common.temple_name') }}" class="w-full h-full object-cover">
                 </span>
                 <span class="leading-none">
-                    <span class="block font-marcellus text-lg lg:text-xl text-stone-700">{{ __('common.temple_name') }}</span>
-                    <span class="block text-[10px] lg:text-[11px] tracking-[0.24em] text-saffron-500 font-semibold uppercase mt-1">{{ __('common.trust_subtitle') }}</span>
+                    <span class="block font-marcellus text-lg lg:text-xl transition-colors"
+                          :class="transparent && !scrolled ? 'text-white [text-shadow:0_1px_10px_rgba(0,0,0,0.35)]' : 'text-stone-700'">{{ __('common.temple_name') }}</span>
+                    <span class="block text-[10px] lg:text-[11px] tracking-[0.24em] font-semibold uppercase mt-1 transition-colors"
+                          :class="transparent && !scrolled ? 'text-saffron-200' : 'text-saffron-500'">{{ __('common.trust_subtitle') }}</span>
                 </span>
             </a>
 
@@ -98,7 +108,8 @@
             <nav class="hidden lg:flex items-center gap-7">
                 {{-- Temple ▾ --}}
                 <div class="relative" x-data="{ open:false, t:null }" @mouseenter="clearTimeout(t); open=true" @mouseleave="t=setTimeout(()=>open=false,180)">
-                    <button class="flex items-center gap-1.5 py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">
+                    <button class="flex items-center gap-1.5 py-2 text-[15px] font-medium transition-colors"
+                            :class="transparent && !scrolled ? 'text-white/90 hover:text-white' : 'text-stone-700 hover:text-maroon-500'">
                         {{ __('nav.mandir') }}<svg class="w-2.5 h-2.5 opacity-55" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
                     </button>
                     <div x-show="open" x-cloak x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 -translate-y-1.5" x-transition:enter-end="opacity-100 translate-y-0"
@@ -112,7 +123,8 @@
                 </div>
                 {{-- Seva ▾ --}}
                 <div class="relative" x-data="{ open:false, t:null }" @mouseenter="clearTimeout(t); open=true" @mouseleave="t=setTimeout(()=>open=false,180)">
-                    <button class="flex items-center gap-1.5 py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">
+                    <button class="flex items-center gap-1.5 py-2 text-[15px] font-medium transition-colors"
+                            :class="transparent && !scrolled ? 'text-white/90 hover:text-white' : 'text-stone-700 hover:text-maroon-500'">
                         {{ __('nav.seva') }}<svg class="w-2.5 h-2.5 opacity-55" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
                     </button>
                     <div x-show="open" x-cloak x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 -translate-y-1.5" x-transition:enter-end="opacity-100 translate-y-0"
@@ -124,15 +136,15 @@
                         </div>
                     </div>
                 </div>
-                <a href="{{ route('events.index') }}" class="py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">{{ __('nav.events') }}</a>
-                <a href="{{ route('halls.index') }}" class="py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">{{ __('nav.halls') }}</a>
-                <a href="{{ route('store.index') }}" class="py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">{{ __('nav.store') }}</a>
+                <a href="{{ route('events.index') }}" class="py-2 text-[15px] font-medium transition-colors" :class="transparent && !scrolled ? 'text-white/90 hover:text-white' : 'text-stone-700 hover:text-maroon-500'">{{ __('nav.events') }}</a>
+                <a href="{{ route('halls.index') }}" class="py-2 text-[15px] font-medium transition-colors" :class="transparent && !scrolled ? 'text-white/90 hover:text-white' : 'text-stone-700 hover:text-maroon-500'">{{ __('nav.halls') }}</a>
+                <a href="{{ route('store.index') }}" class="py-2 text-[15px] font-medium transition-colors" :class="transparent && !scrolled ? 'text-white/90 hover:text-white' : 'text-stone-700 hover:text-maroon-500'">{{ __('nav.store') }}</a>
             </nav>
 
             {{-- Right cluster --}}
             <div class="flex items-center gap-2 sm:gap-3 flex-none">
                 @auth('devotee')
-                    <a href="{{ route('store.cart') }}" class="relative hidden sm:flex items-center p-2 text-stone-600 hover:text-maroon-500 transition-colors" title="{{ __('nav.cart') }}">
+                    <a href="{{ route('store.cart') }}" class="relative hidden sm:flex items-center p-2 transition-colors" :class="transparent && !scrolled ? 'text-white/90 hover:text-white' : 'text-stone-600 hover:text-maroon-500'" title="{{ __('nav.cart') }}">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
                         @if(count(session('cart', [])) > 0)
                             <span class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold text-white bg-saffron-400 rounded-full leading-none">{{ array_sum(session('cart')) }}</span>
@@ -140,7 +152,7 @@
                     </a>
                 @endauth
                 <a href="{{ route('donate') }}" class="hidden sm:inline-flex btn-divine text-xs px-6 py-3">{{ __('nav.donate') }}</a>
-                <button @click="mobileMenu = true" class="lg:hidden p-2 text-stone-700 hover:text-maroon-500 transition" aria-label="{{ __('nav.menu') }}">
+                <button @click="mobileMenu = true" class="lg:hidden p-2 transition" :class="transparent && !scrolled ? 'text-white hover:text-white' : 'text-stone-700 hover:text-maroon-500'" aria-label="{{ __('nav.menu') }}">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
             </div>
@@ -211,7 +223,7 @@
                     <p class="pb-2 text-[11px] uppercase tracking-widest text-saffron-500">{{ __('common.language') }}</p>
                     <div class="flex gap-2">
                         @foreach (['gu' => 'ગુજરાતી', 'hi' => 'हिन्दी', 'en' => 'English'] as $code => $label)
-                            <a href="{{ request()->fullUrlWithQuery(['lang' => $code]) }}"
+                            <a href="{{ route('locale.set', $code) }}"
                                class="flex-1 text-center py-2 text-sm rounded-full border transition {{ app()->getLocale() === $code ? 'text-maroon-500 border-saffron-400 bg-[#FBEFE2] font-semibold' : 'text-stone-500 border-[#EAD9C3] hover:text-maroon-500' }}">{{ $label }}</a>
                         @endforeach
                     </div>

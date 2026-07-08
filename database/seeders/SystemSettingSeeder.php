@@ -23,6 +23,11 @@ class SystemSettingSeeder extends Seeder
             ['key' => 'youtube_channel_id', 'value' => '', 'group' => 'general', 'description' => 'YouTube channel ID'],
             ['key' => 'default_language', 'value' => 'gu', 'group' => 'general', 'description' => 'Default language code'],
             ['key' => 'receipt_prefix', 'value' => 'SPHST/80G', 'group' => 'payment', 'description' => '80G receipt number prefix'],
+            // Mobile app store links + install-banner toggle. Also read by the
+            // /api/v1/app-config force-update endpoint.
+            ['key' => 'app_install_banner_enabled', 'value' => '1', 'group' => 'app', 'description' => 'Show the "install our app" banner on the mobile website'],
+            ['key' => 'app_ios_store_url', 'value' => '', 'group' => 'app', 'description' => 'Apple App Store listing URL'],
+            ['key' => 'app_android_store_url', 'value' => '', 'group' => 'app', 'description' => 'Google Play Store listing URL'],
         ];
 
         foreach ($settings as $setting) {

@@ -1,5 +1,5 @@
-{{-- Language switcher — sets ?lang= which the SetLocale middleware reads and
-     persists in a cookie. Preserves the current URL/query. --}}
+{{-- Language switcher — hits the /locale/{code} route, which persists the
+     choice in a cookie and bounces back to the current page. --}}
 @php
     $langs = ['gu' => 'ગુજરાતી', 'hi' => 'हिन्दी', 'en' => 'English'];
     $current = app()->getLocale();
@@ -16,7 +16,7 @@
          class="absolute top-full right-0 pt-2 z-50">
         <div class="w-36 rounded-xl py-2 border border-[rgba(122,30,30,0.12)]" style="background: #FFFCF5; box-shadow: 0 16px 40px rgba(122,30,30,0.12);">
             @foreach ($langs as $code => $label)
-                <a href="{{ request()->fullUrlWithQuery(['lang' => $code]) }}"
+                <a href="{{ route('locale.set', $code) }}"
                    class="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-amber-900/10 transition {{ $current === $code ? 'text-gold font-semibold' : 'text-amber-100/60 hover:text-gold' }}">
                     <span>{{ $label }}</span>
                     @if ($current === $code)

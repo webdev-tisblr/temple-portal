@@ -79,6 +79,27 @@ class SystemSettings extends Page implements HasForms
                                 ->options(['gu' => 'Gujarati', 'hi' => 'Hindi', 'en' => 'English'])->default('gu'),
                         ])->columns(2),
 
+                        Forms\Components\Section::make('Mobile App')
+                            ->icon('heroicon-o-device-phone-mobile')
+                            ->description('Store links for the Patadiya Hanumanji app. These drive the "install our app" banner shown to mobile-web visitors (device-aware: iPhone → App Store, Android → Play Store) AND the force-update check the app itself reads. Leave a URL blank to hide that platform.')
+                            ->schema([
+                                Forms\Components\Toggle::make('app_install_banner_enabled')
+                                    ->label('Show app-install banner on mobile website')
+                                    ->helperText('When on, visitors on a phone browser see a gentle slide-up card inviting them to get the app.')
+                                    ->default(true)
+                                    ->columnSpanFull(),
+                                Forms\Components\TextInput::make('app_ios_store_url')
+                                    ->label('iOS App Store URL')
+                                    ->url()
+                                    ->placeholder('https://apps.apple.com/app/patadiya-hanumanji')
+                                    ->helperText('Apple App Store listing link.'),
+                                Forms\Components\TextInput::make('app_android_store_url')
+                                    ->label('Android Play Store URL')
+                                    ->url()
+                                    ->placeholder('https://play.google.com/store/apps/details?id=com.patadiyahanumanji.app')
+                                    ->helperText('Google Play Store listing link.'),
+                            ])->columns(2)->collapsible(),
+
                         Forms\Components\Section::make('App Store Review — Test Login')
                             ->description('A fixed OTP login for Apple/Google reviewers, who cannot receive a real WhatsApp/SMS OTP. When BOTH fields are set, this number logs in with the code below WITHOUT sending any message. It only ever accesses a throwaway test account. Leave both blank to disable. Put these values in the App Store review note.')
                             ->collapsed()
@@ -261,6 +282,7 @@ class SystemSettings extends Page implements HasForms
             'mail_' => 'mail',
             'whatsapp_' => 'whatsapp',
             'sms_' => 'sms',
+            'app_' => 'app',
         ];
 
         foreach ($data as $key => $value) {
@@ -270,6 +292,12 @@ class SystemSettings extends Page implements HasForms
                     $group = $g;
                     break;
                 }
+            }
+
+            // Normalise toggles to '1'/'0' so reads can rely on === '1'
+            // (a raw false would otherwise persist as an empty string).
+            if (is_bool($value)) {
+                $value = $value ? '1' : '0';
             }
 
             SystemSetting::updateOrCreate(

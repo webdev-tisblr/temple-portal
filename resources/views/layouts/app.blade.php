@@ -31,6 +31,8 @@
 
     <x-layout.footer />
 
+    <x-app-install-banner />
+
     @stack('scripts')
 </body>
 </html>

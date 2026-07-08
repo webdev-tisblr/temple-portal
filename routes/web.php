@@ -23,6 +23,29 @@ use Illuminate\Support\Facades\Route;
 // Homepage
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
+// Language switch — sets the locale cookie server-side and bounces back to
+// the page the user was on. Using a dedicated route (instead of a ?lang=
+// query param) keeps public URLs clean and immune to full-page caches that
+// key on the URL, so switching reliably re-renders in the chosen language.
+Route::get('/locale/{locale}', function (string $locale) {
+    if (! in_array($locale, ['gu', 'hi', 'en'], true)) {
+        $locale = 'gu';
+    }
+
+    $back = url()->previous();
+    // Only ever bounce back to a same-host page (guards against an open
+    // redirect via a crafted Referer) and never into the switch route itself.
+    if (parse_url($back, PHP_URL_HOST) !== request()->getHost() || str_contains($back, '/locale/')) {
+        $back = url('/');
+    }
+
+    app()->setLocale($locale);
+
+    return redirect($back)->withCookie(
+        cookie('locale', $locale, 60 * 24 * 365, null, null, null, false)
+    );
+})->name('locale.set');
+
 // Seva
 Route::get('/seva', [SevaWebController::class, 'index'])->name('seva.index');
 Route::get('/seva/{seva}', [SevaWebController::class, 'show'])->name('seva.show');

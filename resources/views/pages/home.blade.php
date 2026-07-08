@@ -5,7 +5,7 @@
 {{-- =================================================================
      HERO — Temple Identity
      ================================================================= --}}
-<section class="relative min-h-[72vh] flex items-center justify-center overflow-hidden -mt-16 lg:-mt-[120px]"
+<section class="relative min-h-[72vh] flex items-center justify-center overflow-hidden -mt-16 lg:-mt-20"
          style="background: #FBF5EA;">
 
     {{-- Hanumanji background photo, gently faded into parchment --}}
@@ -21,11 +21,6 @@
                 rgba(251,245,234,0.25) 35%,
                 rgba(251,245,234,0.55) 70%,
                 rgba(251,245,234,0.98) 100%);"></div>
-        {{-- Header scrim — darkens only the very top band so the floating
-             transparent header's white text/logo stay legible. Fades out well
-             above the hero content, leaving the parchment look untouched. --}}
-        <div class="absolute inset-x-0 top-0 h-44 pointer-events-none"
-             style="background: linear-gradient(180deg, rgba(24,14,8,0.55) 0%, rgba(24,14,8,0.28) 45%, transparent 100%);"></div>
         {{-- Saffron radial glow over the murti --}}
         <div class="absolute inset-0"
              style="background: radial-gradient(ellipse at center 38%, rgba(232,117,26,0.10) 0%, transparent 60%);"></div>

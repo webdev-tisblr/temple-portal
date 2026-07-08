@@ -247,8 +247,8 @@ function slotPicker(sevaId) {
     const config = @json($seva->getResolvedSlotConfig());
     const basePrice = {{ (float) $seva->price }};
     const hasProductSelection = @json($linkedProducts->isNotEmpty());
-    const products = @json(
-        $linkedProducts->mapWithKeys(fn ($p) => [$p->id => [
+    @php
+        $productsForJs = $linkedProducts->mapWithKeys(fn ($p) => [$p->id => [
             'id' => $p->id,
             'price' => (float) $p->price,
             'has_variants' => (bool) $p->has_variants,
@@ -259,8 +259,9 @@ function slotPicker(sevaId) {
                     'in_stock' => ((int) ($v['stock'] ?? 0)) > 0,
                 ])->values()
                 : [],
-        ]])
-    );
+        ]]);
+    @endphp
+    const products = @json($productsForJs);
 
     // Gujarati day-of-week labels — week starts Monday = index 0 for
     // Carbon parity, but JS Date.getDay() returns Sun=0..Sat=6.

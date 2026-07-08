@@ -32,6 +32,7 @@ class ProjectController extends Controller
     {
         $project = DonationCampaign::where('slug', $slug)
             ->where('is_active', true)
+            ->with('subCauses')
             ->firstOrFail();
 
         $project->loadCount('donations');

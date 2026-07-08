@@ -101,6 +101,7 @@ class DonationWebController extends Controller
                     'donation_type_id' => $validated['donation_type_id'] ?? null,
                     'purpose' => $validated['purpose'] ?? null,
                     'campaign_id' => $validated['campaign_id'] ?? null,
+                    'sub_cause_id' => $validated['sub_cause_id'] ?? null,
                     'extra_data' => $extraData,
                     'is_80g_eligible' => true,
                     'anonymous' => $validated['anonymous'] ?? false,

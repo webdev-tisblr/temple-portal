@@ -6,6 +6,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Validation\Rule;
 
 class CreateDonationRequest extends FormRequest
 {
@@ -22,6 +23,13 @@ class CreateDonationRequest extends FormRequest
             'donation_type_id' => ['nullable', 'integer', 'exists:temple_donation_types,id'],
             'purpose' => ['nullable', 'string', 'max:500'],
             'campaign_id' => ['nullable', 'integer', 'exists:temple_donation_campaigns,id'],
+            // A sub-cause, if given, must belong to the selected campaign.
+            'sub_cause_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('temple_campaign_sub_causes', 'id')
+                    ->where(fn ($q) => $q->where('campaign_id', $this->input('campaign_id'))),
+            ],
             'anonymous' => ['nullable', 'boolean'],
             'extra_data' => ['nullable', 'array'],
             // extra_data is a mixed bag: DonationType.extra_fields can define

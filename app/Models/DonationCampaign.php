@@ -82,4 +82,10 @@ class DonationCampaign extends Model
     {
         return $this->hasMany(Donation::class, 'campaign_id');
     }
+
+    public function subCauses(): HasMany
+    {
+        return $this->hasMany(CampaignSubCause::class, 'campaign_id')
+            ->orderBy('sort_order')->orderBy('id');
+    }
 }

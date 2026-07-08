@@ -31,6 +31,7 @@ class Donation extends Model
         'donation_type_id',
         'purpose',
         'campaign_id',
+        'sub_cause_id',
         'seva_booking_id',
         'is_80g_eligible',
         'receipt_generated',
@@ -63,6 +64,11 @@ class Donation extends Model
     public function campaign(): BelongsTo
     {
         return $this->belongsTo(DonationCampaign::class, 'campaign_id');
+    }
+
+    public function subCause(): BelongsTo
+    {
+        return $this->belongsTo(CampaignSubCause::class, 'sub_cause_id');
     }
 
     public function sevaBooking(): BelongsTo

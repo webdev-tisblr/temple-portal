@@ -189,6 +189,7 @@ class ContentController extends BaseApiController
     public function campaigns(): JsonResponse
     {
         $campaigns = DonationCampaign::query()
+            ->with('subCauses')
             ->where('is_active', true)
             ->orderByDesc('created_at')
             ->get()
@@ -205,6 +206,8 @@ class ContentController extends BaseApiController
         if (!$campaign->is_active) {
             return $this->error('Campaign not found', 404);
         }
+
+        $campaign->load('subCauses');
 
         return $this->success($this->mapCampaign($campaign));
     }
@@ -594,6 +597,16 @@ class ContentController extends BaseApiController
                 ->filter(fn ($m) => $m['url'] !== null)
                 ->values(),
             'start_date' => $campaign->start_date?->toDateString(),
+            'sub_causes' => $campaign->subCauses
+                ->where('is_active', true)
+                ->map(fn ($sc) => [
+                    'id' => $sc->id,
+                    'title' => $sc->title,
+                    'title_gu' => $sc->title_gu,
+                    'title_hi' => $sc->title_hi,
+                    'title_en' => $sc->title_en,
+                    'goal_amount' => $sc->goal_amount !== null ? (float) $sc->goal_amount : null,
+                ])->values(),
             'is_featured' => (bool) $campaign->is_featured,
             'progress_percent' => $campaign->goal_amount > 0
                 ? round(((float) $campaign->raised_amount / (float) $campaign->goal_amount) * 100, 2)

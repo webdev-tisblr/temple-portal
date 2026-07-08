@@ -60,6 +60,24 @@
                 </div>
             </div>
 
+            {{-- Sub-cause selection --}}
+            @php($activeSubCauses = $project->subCauses->where('is_active', true))
+            @if($activeSubCauses->isNotEmpty())
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-amber-600 mb-2">{{ __('donation.choose_cause') }}</label>
+                    <div class="space-y-2">
+                        @foreach($activeSubCauses as $sc)
+                            <label class="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition"
+                                   :class="selectedSubCause === '{{ $sc->id }}' ? 'border-amber-500 bg-amber-900/20' : 'border-amber-800/30 hover:border-amber-600'">
+                                <input type="radio" value="{{ $sc->id }}" x-model="selectedSubCause"
+                                       class="text-amber-500 border-amber-800/40 bg-transparent focus:ring-amber-600/20">
+                                <span class="text-sm text-amber-100/70">{{ $sc->title }}@if($sc->goal_amount)<span class="text-amber-100/40 text-xs"> (₹{{ number_format((float) $sc->goal_amount) }})</span>@endif</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             {{-- Custom Amount --}}
             <div class="mb-4">
                 <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('common.amount') }}</label>
@@ -87,6 +105,7 @@
                     <input type="hidden" name="amount" :value="amount">
                     <input type="hidden" name="donation_type" value="campaign">
                     <input type="hidden" name="campaign_id" value="{{ $project->id }}">
+                    <input type="hidden" name="sub_cause_id" :value="selectedSubCause">
                     <input type="hidden" name="anonymous" :value="anonymous ? 1 : 0">
 
                     <button type="submit"
@@ -178,6 +197,7 @@ function campaignDonation() {
         amount: 1100,
         customAmount: '1100',
         anonymous: false,
+        selectedSubCause: '',
         copied: false,
 
         copyLink() {

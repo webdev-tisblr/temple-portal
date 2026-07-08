@@ -79,6 +79,26 @@ class DonationCampaignResource extends Resource
                     ->addActionLabel('Add Media'),
             ]),
 
+            Forms\Components\Section::make('Sub-Causes')
+                ->description('Optional. Split the campaign into specific causes a donor can choose to fund (e.g. Roof repair, Annadan). If none are added, donors give to the campaign as a whole.')
+                ->schema([
+                    Forms\Components\Repeater::make('subCauses')
+                        ->relationship()
+                        ->schema([
+                            Forms\Components\TextInput::make('title_gu')->label('Title (Gujarati)')->required()->maxLength(255),
+                            Forms\Components\TextInput::make('title_hi')->label('Title (Hindi)')->maxLength(255),
+                            Forms\Components\TextInput::make('title_en')->label('Title (English)')->maxLength(255),
+                            Forms\Components\TextInput::make('goal_amount')->label('Goal Amount (optional)')->numeric()->prefix('₹'),
+                            Forms\Components\Toggle::make('is_active')->label('Active')->default(true)->inline(false),
+                            Forms\Components\TextInput::make('sort_order')->numeric()->default(0),
+                        ])
+                        ->columns(2)
+                        ->defaultItems(0)
+                        ->reorderable()
+                        ->orderColumn('sort_order')
+                        ->addActionLabel('Add Sub-Cause'),
+                ]),
+
             Forms\Components\Section::make('FAQs')->schema([
                 Forms\Components\Repeater::make('faqs')
                     ->schema([

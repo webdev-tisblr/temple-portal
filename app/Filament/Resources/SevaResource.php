@@ -80,12 +80,11 @@ class SevaResource extends Resource
                         ->options([
                             'time_slots' => 'Time slots — devotee picks a time',
                             'full_day' => 'Full day — the whole day is one booking (no time slot)',
-                            'full_week' => 'Full week — the whole week is one booking (no time slot)',
                         ])
                         ->default('time_slots')
                         ->live()
                         ->required()
-                        ->helperText('Full day / full week sevas have no time slots — the day or week itself acts as the slot.'),
+                        ->helperText('Full-day sevas have no time slots — the day itself acts as the slot. Use "Available Days" below to restrict to specific weekdays.'),
 
                     Forms\Components\Grid::make(2)->schema([
                         Forms\Components\Select::make('slot_config.slot_duration_minutes')

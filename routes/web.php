@@ -230,5 +230,8 @@ Route::get('/terms', [LegalController::class, 'terms'])->name('legal.terms');
 Route::get('/refund-policy', [LegalController::class, 'refund'])->name('legal.refund');
 Route::get('/account-deletion', [LegalController::class, 'accountDeletion'])->name('legal.account-deletion');
 
+// Chrome-free CMS page for the mobile app WebView (must precede the catch-all).
+Route::get('/pages/{slug}/embed', [PageController::class, 'embed'])->name('page.embed');
+
 // CMS Pages (catch-all — MUST BE LAST)
 Route::get('/{slug}', [PageController::class, 'show'])->name('page.show');

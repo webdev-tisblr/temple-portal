@@ -21,4 +21,15 @@ class PageController extends Controller
 
         return view('pages.page', compact('page'));
     }
+
+    /**
+     * Chrome-free version of a CMS page, styled for embedding in the mobile
+     * app's WebView. Respects the ?lang query param via the locale middleware.
+     */
+    public function embed(string $slug): View
+    {
+        $page = Page::where('slug', $slug)->where('status', 'published')->firstOrFail();
+
+        return view('pages.page-embed', compact('page'));
+    }
 }

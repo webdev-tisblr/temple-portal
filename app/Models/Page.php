@@ -27,6 +27,9 @@ class Page extends Model
         'body_gu',
         'body_hi',
         'body_en',
+        'blocks_gu',
+        'blocks_hi',
+        'blocks_en',
         'featured_image_path',
         'meta_title',
         'meta_description',
@@ -42,7 +45,25 @@ class Page extends Model
         'status' => PageStatus::class,
         'sort_order' => 'integer',
         'published_at' => 'datetime',
+        'blocks_gu' => 'array',
+        'blocks_hi' => 'array',
+        'blocks_en' => 'array',
     ];
+
+    /**
+     * Locale-resolved content blocks (falls back to Gujarati). Returns an
+     * array of ['type' => ..., 'data' => [...]] entries, or [] if the page
+     * still uses the legacy HTML body.
+     */
+    public function getBlocksAttribute(): array
+    {
+        $locale = app()->getLocale();
+        $field = "blocks_{$locale}";
+
+        $blocks = $this->$field ?? $this->blocks_gu;
+
+        return is_array($blocks) ? $blocks : [];
+    }
 
     public function getTitleAttribute(): string
     {

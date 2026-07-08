@@ -22,6 +22,51 @@ class PageResource extends Resource
     protected static ?string $navigationLabel = 'CMS Pages';
     protected static ?int $navigationSort = 2;
 
+    /**
+     * The block palette for the page builder — shared across all three
+     * language Builders. Each block stores {type, data} in the blocks_* JSON.
+     */
+    private static function contentBlocks(): array
+    {
+        return [
+            Forms\Components\Builder\Block::make('heading')
+                ->icon('heroicon-o-bars-3')
+                ->schema([
+                    Forms\Components\Select::make('level')->options(['h2' => 'Large heading', 'h3' => 'Medium heading'])->default('h2'),
+                    Forms\Components\TextInput::make('text')->required()->maxLength(255),
+                ]),
+            Forms\Components\Builder\Block::make('paragraph')
+                ->icon('heroicon-o-bars-3-bottom-left')
+                ->schema([
+                    Forms\Components\RichEditor::make('html')->label('Text')->required(),
+                ]),
+            Forms\Components\Builder\Block::make('image')
+                ->icon('heroicon-o-photo')
+                ->schema([
+                    Forms\Components\FileUpload::make('path')->label('Image')->image()->directory('page-blocks')->maxSize(4096)->required(),
+                    Forms\Components\TextInput::make('caption')->maxLength(255),
+                ]),
+            Forms\Components\Builder\Block::make('list')
+                ->icon('heroicon-o-list-bullet')
+                ->schema([
+                    Forms\Components\Repeater::make('items')
+                        ->simple(Forms\Components\TextInput::make('item')->required())
+                        ->defaultItems(2)
+                        ->addActionLabel('Add item'),
+                ]),
+            Forms\Components\Builder\Block::make('quote')
+                ->icon('heroicon-o-chat-bubble-left')
+                ->schema([
+                    Forms\Components\Textarea::make('text')->required()->rows(2),
+                ]),
+            Forms\Components\Builder\Block::make('video')
+                ->icon('heroicon-o-play-circle')
+                ->schema([
+                    Forms\Components\TextInput::make('url')->label('YouTube URL')->url()->required(),
+                ]),
+        ];
+    }
+
     public static function form(Form $form): Form
     {
         return $form->schema([
@@ -34,11 +79,30 @@ class PageResource extends Resource
                 Forms\Components\TextInput::make('title_en')->label('Title (English)')->maxLength(500),
             ])->columns(2),
 
-            Forms\Components\Section::make('Content')->schema([
-                Forms\Components\RichEditor::make('body_gu')->label('Content (Gujarati)')->required(),
-                Forms\Components\RichEditor::make('body_hi')->label('Content (Hindi)'),
-                Forms\Components\RichEditor::make('body_en')->label('Content (English)'),
-            ]),
+            Forms\Components\Section::make('Content Blocks')
+                ->description('Build the page from blocks — drag to reorder. Gujarati is primary; Hindi/English fall back to Gujarati when left empty.')
+                ->schema([
+                    Forms\Components\Tabs::make('content')->tabs([
+                        Forms\Components\Tabs\Tab::make('Gujarati')->schema([
+                            Forms\Components\Builder::make('blocks_gu')->label('')->blocks(self::contentBlocks())->blockNumbers(false)->collapsible()->cloneable(),
+                        ]),
+                        Forms\Components\Tabs\Tab::make('Hindi')->schema([
+                            Forms\Components\Builder::make('blocks_hi')->label('')->blocks(self::contentBlocks())->blockNumbers(false)->collapsible()->cloneable(),
+                        ]),
+                        Forms\Components\Tabs\Tab::make('English')->schema([
+                            Forms\Components\Builder::make('blocks_en')->label('')->blocks(self::contentBlocks())->blockNumbers(false)->collapsible()->cloneable(),
+                        ]),
+                    ]),
+                ]),
+
+            Forms\Components\Section::make('Legacy HTML (optional)')
+                ->description('Older pages used plain HTML. If content blocks exist above, they take priority and this is ignored.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\RichEditor::make('body_gu')->label('Content (Gujarati)'),
+                    Forms\Components\RichEditor::make('body_hi')->label('Content (Hindi)'),
+                    Forms\Components\RichEditor::make('body_en')->label('Content (English)'),
+                ]),
 
             Forms\Components\Section::make('SEO & Settings')->schema([
                 Forms\Components\FileUpload::make('featured_image_path')->image()->directory('pages'),

@@ -27,9 +27,15 @@
 
         <h1 class="divine-heading text-3xl sm:text-4xl mb-6">{{ $page->title }}</h1>
 
-        <div class="prose prose-lg prose-invert prose-headings:text-gold prose-a:text-amber-500 max-w-none">
-            {!! $page->body !!}
-        </div>
+        @if(!empty($page->blocks))
+            <div class="max-w-none">
+                @include('partials.blocks', ['blocks' => $page->blocks])
+            </div>
+        @else
+            <div class="prose prose-lg prose-invert prose-headings:text-gold prose-a:text-amber-500 max-w-none">
+                {!! $page->body !!}
+            </div>
+        @endif
     </div>
 </section>
 @endsection

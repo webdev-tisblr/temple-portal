@@ -136,7 +136,7 @@
                                 <button @click="selectedSlot = slots[0]"
                                     :class="selectedSlot ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-900 border-amber-500 font-bold' : 'bg-transparent text-amber-100/60 border-amber-800/30 hover:border-amber-600'"
                                     class="w-full px-4 py-3 border rounded-lg text-sm font-semibold transition"
-                                    x-text="slotType === 'full_week' ? '{{ __('seva.book_full_week') }}' : '{{ __('seva.book_full_day') }}'">
+                                    x-text="slotType === 'full_week' ? '{{ __('seva.book_full_week') }}' : ('{{ __('seva.book') }} ' + formatSelectedDate())">
                                 </button>
                             </template>
                             <template x-if="slots.length === 0 && booked.length > 0">
@@ -348,6 +348,15 @@ function slotPicker(sevaId) {
                 dayOfMonth: date.getDate(),
                 monthLabel: monthLabels[date.getMonth()],
             };
+        },
+
+        // 'YYYY-MM-DD' → '13 July' (full month name).
+        formatSelectedDate() {
+            if (!this.selectedDate) return '';
+            const [y, m, d] = this.selectedDate.split('-').map(Number);
+            const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+            return d + ' ' + months[m - 1];
         },
 
         pickDate(iso) {

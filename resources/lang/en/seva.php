@@ -50,4 +50,5 @@ return [
     'full_day_booked' => 'This day is fully booked',
     'full_week_booked' => 'This week is fully booked',
     'choose_option' => 'Choose an option',
+    'book' => 'Book',
 ];

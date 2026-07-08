@@ -50,4 +50,5 @@ return [
     'full_day_booked' => 'यह दिन पूरी तरह बुक है',
     'full_week_booked' => 'यह सप्ताह पूरी तरह बुक है',
     'choose_option' => 'विकल्प चुनें',
+    'book' => 'बुक करें',
 ];

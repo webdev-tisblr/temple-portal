@@ -53,6 +53,19 @@ class SevaSlotService
 
         $dayName = strtolower(Carbon::parse($date)->format('l'));
 
+        // Toggle format {monday: false, tuesday: true, ...} — the enabled days
+        // are the truthy keys. All-off means no restriction (every day).
+        $isMap = array_keys($days) !== range(0, count($days) - 1);
+        if ($isMap) {
+            $enabled = array_keys(array_filter($days, fn ($v) => (bool) $v));
+            if (empty($enabled)) {
+                return true;
+            }
+
+            return in_array($dayName, array_map('strtolower', $enabled), true);
+        }
+
+        // Legacy list format ['tuesday', 'saturday'].
         return in_array($dayName, array_map('strtolower', $days), true);
     }
 

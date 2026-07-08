@@ -111,21 +111,18 @@ class SevaResource extends Resource
                             ->helperText('Capacity for each slot / day / week.'),
                     ]),
 
-                    // Available weekdays (full-day mode only)
-                    Forms\Components\CheckboxList::make('slot_config.full_day_days')
-                        ->label('Available on these days')
-                        ->options([
-                            'monday' => 'Monday',
-                            'tuesday' => 'Tuesday',
-                            'wednesday' => 'Wednesday',
-                            'thursday' => 'Thursday',
-                            'friday' => 'Friday',
-                            'saturday' => 'Saturday',
-                            'sunday' => 'Sunday',
-                        ])
-                        ->columns(4)
-                        ->helperText('Leave all unchecked to offer this full-day seva every day. Tick specific days to restrict it (e.g. only Tuesday & Saturday).')
-                        ->visible(fn (Get $get) => ($get('slot_config.slot_type') ?? 'time_slots') === 'full_day'),
+                    // Available days (full-day mode only) — per-day toggles.
+                    Forms\Components\Section::make('Available Days')
+                        ->description('Turn on the days this full-day seva is offered. Leave all off to offer it every day.')
+                        ->visible(fn (Get $get) => ($get('slot_config.slot_type') ?? 'time_slots') === 'full_day')
+                        ->schema(
+                            collect(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'])
+                                ->map(fn (string $day) => Forms\Components\Toggle::make("slot_config.full_day_days.{$day}")
+                                    ->label(ucfirst($day))
+                                    ->inline(false))
+                                ->toArray()
+                        )
+                        ->columns(2),
 
                     // Acceptance Period
                     Forms\Components\Section::make('Acceptance Period')

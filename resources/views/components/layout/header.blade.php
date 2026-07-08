@@ -51,7 +51,15 @@
             <div class="flex items-center gap-4">
                 <a href="{{ route('contact') }}" class="hover:text-[#F2B673] transition-colors">{{ __('nav.contact') }}</a>
                 <span class="opacity-40">|</span>
-                <x-layout.language-switcher />
+                {{-- Inline language links — a dropdown can't escape the strip's
+                     overflow-hidden (used for the scroll-collapse), so use links. --}}
+                <span class="inline-flex items-center gap-2">
+                    @foreach (['gu' => 'ગુજરાતી', 'hi' => 'हिन्दी', 'en' => 'English'] as $code => $label)
+                        <a href="{{ request()->fullUrlWithQuery(['lang' => $code]) }}"
+                           class="transition-colors {{ app()->getLocale() === $code ? 'text-[#F2B673] font-semibold' : 'hover:text-[#F2B673]' }}">{{ $label }}</a>
+                        @if (!$loop->last)<span class="opacity-30">·</span>@endif
+                    @endforeach
+                </span>
                 <span class="opacity-40">|</span>
                 @auth('devotee')
                     <a href="{{ route('dashboard.index') }}" class="inline-flex items-center gap-1.5 hover:text-[#F2B673] transition-colors">
@@ -70,8 +78,8 @@
 
     {{-- ===================== MAIN BAR ===================== --}}
     <div :class="scrolled
-            ? 'bg-[#FBF5EA] border-[rgba(122,30,30,0.12)] shadow-[0_12px_30px_-18px_rgba(60,30,10,0.5)] py-2.5'
-            : 'bg-[rgba(251,245,234,0.6)] backdrop-blur-xl border-[rgba(255,255,255,0.4)] py-3.5 lg:py-4'"
+            ? 'bg-[rgba(251,245,234,0.72)] backdrop-blur-xl border-[rgba(122,30,30,0.10)] shadow-[0_12px_30px_-18px_rgba(60,30,10,0.5)] py-2.5'
+            : 'bg-transparent border-transparent py-3.5 lg:py-4'"
          class="border-b transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-6">
 

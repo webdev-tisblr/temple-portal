@@ -136,7 +136,7 @@ class SevaResource extends Resource
                                 $component->state(array_values(array_keys(array_filter($state, fn ($v) => (bool) $v))));
                             }
                         })
-                        ->helperText('Leave all unchecked to offer this full-day seva every day; select days to restrict it (e.g. Tue & Sat).')
+                        ->helperText('Leave all unchecked to offer this full-day seva every day; select days to restrict it.')
                         ->visible(fn (Get $get) => ($get('slot_config.slot_type') ?? 'time_slots') === 'full_day'),
 
                     // Acceptance Period

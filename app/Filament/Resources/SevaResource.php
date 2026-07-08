@@ -111,6 +111,22 @@ class SevaResource extends Resource
                             ->helperText('Capacity for each slot / day / week.'),
                     ]),
 
+                    // Available weekdays (full-day mode only)
+                    Forms\Components\CheckboxList::make('slot_config.full_day_days')
+                        ->label('Available on these days')
+                        ->options([
+                            'monday' => 'Monday',
+                            'tuesday' => 'Tuesday',
+                            'wednesday' => 'Wednesday',
+                            'thursday' => 'Thursday',
+                            'friday' => 'Friday',
+                            'saturday' => 'Saturday',
+                            'sunday' => 'Sunday',
+                        ])
+                        ->columns(4)
+                        ->helperText('Leave all unchecked to offer this full-day seva every day. Tick specific days to restrict it (e.g. only Tuesday & Saturday).')
+                        ->visible(fn (Get $get) => ($get('slot_config.slot_type') ?? 'time_slots') === 'full_day'),
+
                     // Acceptance Period
                     Forms\Components\Section::make('Acceptance Period')
                         ->description('When is this seva open for booking?')

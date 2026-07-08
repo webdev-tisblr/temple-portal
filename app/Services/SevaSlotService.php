@@ -36,6 +36,27 @@ class SevaSlotService
     }
 
     /**
+     * For full_day sevas: is the seva offered on this date's weekday?
+     * `full_day_days` is an optional list of weekday names (monday..sunday) —
+     * empty/absent means every day. Only applies to full_day mode.
+     */
+    public function fullDayAllowedOnDate(array $config, string $date): bool
+    {
+        if ($this->slotType($config) !== self::SLOT_TYPE_FULL_DAY) {
+            return true;
+        }
+
+        $days = $config['full_day_days'] ?? [];
+        if (empty($days) || ! is_array($days)) {
+            return true; // no weekday restriction → available every day
+        }
+
+        $dayName = strtolower(Carbon::parse($date)->format('l'));
+
+        return in_array($dayName, array_map('strtolower', $days), true);
+    }
+
+    /**
      * Mon–Sun date range (Y-m-d) for the ISO week the given date is in.
      *
      * @return array{0:string,1:string}
@@ -133,8 +154,11 @@ class SevaSlotService
         // Full-day / full-week sevas have a single synthetic "slot" (the
         // mode string) instead of HH:MM times — the day or week IS the slot.
         $slotType = $this->slotType($config);
-        if ($slotType === self::SLOT_TYPE_FULL_DAY || $slotType === self::SLOT_TYPE_FULL_WEEK) {
-            return [$slotType];
+        if ($slotType === self::SLOT_TYPE_FULL_DAY) {
+            return $this->fullDayAllowedOnDate($config, $date) ? [self::SLOT_TYPE_FULL_DAY] : [];
+        }
+        if ($slotType === self::SLOT_TYPE_FULL_WEEK) {
+            return [self::SLOT_TYPE_FULL_WEEK];
         }
 
         $dayName = strtolower(Carbon::parse($date)->format('l')); // monday, tuesday, etc.
@@ -229,6 +253,18 @@ class SevaSlotService
         // Full-day / full-week: one unit, counted per date or per ISO week.
         $slotType = $this->slotType($config);
         if ($slotType === self::SLOT_TYPE_FULL_DAY || $slotType === self::SLOT_TYPE_FULL_WEEK) {
+            // full_day may be restricted to specific weekdays.
+            if (! $this->fullDayAllowedOnDate($config, $date)) {
+                return [
+                    'available' => [],
+                    'booked' => [],
+                    'blackout' => false,
+                    'blackout_reason' => null,
+                    'message' => null,
+                    'slot_type' => $slotType,
+                ];
+            }
+
             $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
             $isFull = $this->countFullUnitBookings($seva, $slotType, $date) >= $maxPerSlot;
 
@@ -350,6 +386,10 @@ class SevaSlotService
             // ISO week) still has capacity. Memoized so a full_week only
             // hits the DB once per week rather than once per day.
             if ($slotType === self::SLOT_TYPE_FULL_DAY || $slotType === self::SLOT_TYPE_FULL_WEEK) {
+                // full_day may be restricted to specific weekdays.
+                if (! $this->fullDayAllowedOnDate($config, $date)) {
+                    continue;
+                }
                 $key = $slotType === self::SLOT_TYPE_FULL_WEEK
                     ? implode('_', $this->weekRange($date))
                     : $date;
@@ -450,6 +490,10 @@ class SevaSlotService
         // string as slot_time, so incoming $slotTime is not consulted here.
         $slotType = $this->slotType($config);
         if ($slotType === self::SLOT_TYPE_FULL_DAY || $slotType === self::SLOT_TYPE_FULL_WEEK) {
+            if (! $this->fullDayAllowedOnDate($config, $date)) {
+                return 'This seva is not available on this day.';
+            }
+
             $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
             if ($this->countFullUnitBookings($seva, $slotType, $date) >= $maxPerSlot) {
                 return $slotType === self::SLOT_TYPE_FULL_WEEK

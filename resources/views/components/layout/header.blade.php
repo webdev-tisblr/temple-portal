@@ -62,10 +62,27 @@
                 </span>
                 <span class="opacity-40">|</span>
                 @auth('devotee')
-                    <a href="{{ route('dashboard.index') }}" class="inline-flex items-center gap-1.5 hover:text-[#F2B673] transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                        {{ __('nav.dashboard') }}
-                    </a>
+                    <div class="relative" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false">
+                        <a href="{{ route('dashboard.index') }}" class="inline-flex items-center gap-1.5 hover:text-[#F2B673] transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            {{ __('nav.dashboard') }}
+                            <svg class="w-3 h-3 opacity-60 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </a>
+                        <div x-show="open" x-transition.opacity
+                             x-cloak
+                             class="absolute right-0 top-full pt-2 z-50 min-w-[150px]">
+                            <div class="bg-[#2A1A10] rounded-lg shadow-xl border border-white/10 py-1 overflow-hidden">
+                                <a href="{{ route('dashboard.index') }}" class="block px-4 py-2 text-white/85 hover:text-[#F2B673] hover:bg-white/5 transition-colors">{{ __('nav.dashboard') }}</a>
+                                <form method="POST" action="{{ route('logout') }}">
+                                    @csrf
+                                    <button type="submit" class="w-full flex items-center gap-1.5 text-left px-4 py-2 text-white/85 hover:text-red-400 hover:bg-white/5 transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                                        {{ __('nav.logout') }}
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 @else
                     <a href="{{ route('login') }}" class="inline-flex items-center gap-1.5 hover:text-[#F2B673] transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>

@@ -27,7 +27,7 @@
     }
 @endphp
 
-<div x-data="greetingCardEditor(@js($overlays), @js($config))" x-init="init()" class="space-y-4">
+<div wire:ignore x-data="greetingCardEditor(@js($overlays), @js($config))" x-init="init()" class="space-y-4">
 
     {{-- Canvas Area --}}
     <div class="relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800" style="min-height: 300px;">
@@ -44,7 +44,7 @@
         @endif
 
         {{-- Draggable overlays --}}
-        <template x-for="(overlay, idx) in overlays" :key="idx">
+        <template x-for="(overlay, idx) in overlays" :key="overlay._uid">
             <div :style="getOverlayStyle(overlay)"
                  @mousedown.prevent="startDrag(idx, $event)"
                  @touchstart.prevent="startDrag(idx, $event)"
@@ -124,7 +124,12 @@
 <script>
 function greetingCardEditor(initialOverlays, initialConfig) {
     return {
-        overlays: initialOverlays || [],
+        // Stamp a stable _uid on every overlay up-front (before first render)
+        // so the x-for :key is always unique — undefined keys collapse rows.
+        overlays: (Array.isArray(initialOverlays) ? initialOverlays : []).map((o, i) => ({
+            ...o,
+            _uid: 'ov_init_' + i,
+        })),
         selectedIdx: null,
         scale: 1,
         naturalW: 1200,
@@ -141,13 +146,38 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             show_on_thankyou: initialConfig?.show_on_thankyou ?? true,
         },
 
+        _uidSeq: 0,
+
+        nextUid() {
+            return 'ov_' + Date.now().toString(36) + '_' + (this._uidSeq++);
+        },
+
         init() {
+            // Give every overlay a STABLE unique id. The x-for keys on this
+            // (not the array index) so add/delete/reorder update the correct
+            // DOM node — keying on the index made deletes hit the wrong row.
+            this.overlays.forEach((o) => { if (!o._uid) o._uid = this.nextUid(); });
             document.addEventListener('mousemove', (e) => this.onDrag(e));
             document.addEventListener('mouseup', () => this.stopDrag());
             document.addEventListener('touchmove', (e) => this.onDrag(e), { passive: false });
             document.addEventListener('touchend', () => this.stopDrag());
-            // Initial sync
-            this.$nextTick(() => this.syncToForm());
+            // Recompute scale on window resize so drag math stays correct.
+            window.addEventListener('resize', () => this.recomputeScale());
+            this.$nextTick(() => {
+                // If the template image is already cached, @load may have
+                // fired before Alpine mounted — compute scale now.
+                this.recomputeScale();
+                this.syncToForm();
+            });
+        },
+
+        recomputeScale() {
+            let img = this.$refs.bgImage;
+            if (img && img.complete && img.naturalWidth) {
+                this.naturalW = img.naturalWidth;
+                this.naturalH = img.naturalHeight;
+                this.scale = img.clientWidth / this.naturalW;
+            }
         },
 
         onBgLoad(event) {
@@ -159,6 +189,7 @@ function greetingCardEditor(initialOverlays, initialConfig) {
 
         addOverlay(fieldKey, type) {
             this.overlays.push({
+                _uid: this.nextUid(),
                 field_key: fieldKey,
                 type: type,
                 x: 50 + (this.overlays.length * 20),
@@ -234,35 +265,33 @@ function greetingCardEditor(initialOverlays, initialConfig) {
                 show_on_thankyou: this._sendConfig.show_on_thankyou,
             };
 
-            // Sync to Livewire via the Hidden input element
+            // Push straight into THIS form component's state. $wire always
+            // refers to the Livewire component this Alpine widget lives in
+            // (the Edit/Create page), so there's no risk of hitting the
+            // global-search widget like the old querySelector hack did.
+            // The third arg `false` defers the update (no per-keystroke
+            // network round-trip) — the value ships with the next request
+            // (i.e. when the admin clicks Save).
+            try {
+                if (this.$wire) {
+                    this.$wire.set('{{ $statePath }}', config, false);
+                    return;
+                }
+            } catch (e) {}
+
+            // Fallback: write to the Hidden input directly if $wire is
+            // somehow unavailable.
             let jsonStr = JSON.stringify(config);
-            let hiddenInput = document.querySelector('input[wire\\:model\\.defer="{{ $statePath }}"], input[x-model="{{ $statePath }}"]');
-            // Filament Hidden fields have a wire:model attribute — find it by iterating
-            if (!hiddenInput) {
-                document.querySelectorAll('input[type="hidden"]').forEach(el => {
-                    let wm = el.getAttribute('wire:model') || el.getAttribute('wire:model.defer') || '';
-                    if (wm.includes('greeting_card_config')) {
-                        hiddenInput = el;
-                    }
-                });
-            }
+            let hiddenInput = null;
+            document.querySelectorAll('input[type="hidden"]').forEach(el => {
+                let wm = el.getAttribute('wire:model') || el.getAttribute('wire:model.defer') || '';
+                if (wm.includes('greeting_card_config')) {
+                    hiddenInput = el;
+                }
+            });
             if (hiddenInput) {
                 hiddenInput.value = jsonStr;
                 hiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-            // Also try Livewire direct — but scope to the Livewire component
-            // that actually OWNS this field (the form page). Using the first
-            // [wire:id] on the page targets Filament's global-search widget,
-            // which has no `data` property and throws
-            // PublicPropertyNotFoundException on save.
-            if (typeof Livewire !== 'undefined') {
-                try {
-                    let rootEl = (hiddenInput || this.$root)?.closest('[wire\\:id]');
-                    let component = rootEl ? Livewire.find(rootEl.getAttribute('wire:id')) : null;
-                    if (component) {
-                        component.set('{{ $statePath }}', jsonStr);
-                    }
-                } catch(e) {}
             }
         },
     };

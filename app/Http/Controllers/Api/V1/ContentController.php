@@ -296,14 +296,22 @@ class ContentController extends BaseApiController
     public function events(Request $request): JsonResponse
     {
         $type = $request->query('type');
+        $includePast = $request->boolean('include_past');
 
         // Hide events that ended more than 1 day ago; order upcoming first.
         $cutoff = now()->subDay()->toDateString();
 
         $query = Event::query()
             ->with('media')
-            ->where('status', 'published')
-            ->where(function ($q) use ($cutoff) {
+            ->where('status', 'published');
+
+        if ($includePast) {
+            // Include recently-ended events (last 6 months) so the app can
+            // show a "Recent events" section alongside upcoming ones.
+            $pastFloor = now()->subMonths(6)->toDateString();
+            $query->where('start_date', '>=', $pastFloor);
+        } else {
+            $query->where(function ($q) use ($cutoff) {
                 // Event has no end_date AND starts today or later
                 $q->where(function ($qq) use ($cutoff) {
                     $qq->whereNull('end_date')
@@ -311,13 +319,17 @@ class ContentController extends BaseApiController
                 })
                 // OR event has an end_date still today or later
                 ->orWhere('end_date', '>=', $cutoff);
-            })
-            ->orderByDesc('is_featured')
+            });
+        }
+
+        $query->orderByDesc('is_featured')
             ->orderBy('start_date');
 
         if ($type) {
             $query->where('event_type', $type);
         }
+
+        $cutoffDate = now()->subDay();
 
         $events = $query->get()->map(fn (Event $event) => [
             'id' => $event->id,
@@ -343,6 +355,9 @@ class ContentController extends BaseApiController
             ])->filter(fn ($m) => $m['url'] !== null)->values(),
             'is_featured' => $event->is_featured,
             'event_type' => $event->event_type?->value,
+            'is_past' => $event->end_date
+                ? $event->end_date->lt($cutoffDate)
+                : ($event->start_date?->lt($cutoffDate) ?? false),
         ]);
 
         return $this->success($events);

@@ -250,10 +250,15 @@ function greetingCardEditor(initialOverlays, initialConfig) {
                 hiddenInput.value = jsonStr;
                 hiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
             }
-            // Also try Livewire direct
+            // Also try Livewire direct — but scope to the Livewire component
+            // that actually OWNS this field (the form page). Using the first
+            // [wire:id] on the page targets Filament's global-search widget,
+            // which has no `data` property and throws
+            // PublicPropertyNotFoundException on save.
             if (typeof Livewire !== 'undefined') {
                 try {
-                    let component = Livewire.find(document.querySelector('[wire\\:id]')?.getAttribute('wire:id'));
+                    let rootEl = (hiddenInput || this.$root)?.closest('[wire\\:id]');
+                    let component = rootEl ? Livewire.find(rootEl.getAttribute('wire:id')) : null;
                     if (component) {
                         component.set('{{ $statePath }}', jsonStr);
                     }

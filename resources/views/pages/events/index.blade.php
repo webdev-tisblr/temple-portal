@@ -86,7 +86,10 @@
             <h2 class="text-2xl font-bold text-gold mb-6">{{ __('events.recent') }}</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 @foreach($recent as $event)
-                    <div class="card-sacred opacity-70">
+                    <a href="{{ route('events.show', $event) }}" class="card-sacred opacity-80 hover:opacity-100 transition block">
+                        @if($event->image_path)
+                            <img src="{{ image_url($event->image_path) }}" alt="{{ $event->title }}" class="w-full h-36 object-cover">
+                        @endif
                         <div class="p-5">
                             <div class="flex items-start gap-3">
                                 <div class="flex-shrink-0 w-14 h-14 bg-amber-900/20 border border-amber-900/20 rounded-xl flex flex-col items-center justify-center">
@@ -94,7 +97,7 @@
                                     <span class="text-amber-100/30 text-xs uppercase">{{ $event->start_date->format('M') }}</span>
                                 </div>
                                 <div class="flex-1 min-w-0">
-                                    <h3 class="font-semibold text-amber-100/50 leading-tight">{{ $event->title }}</h3>
+                                    <h3 class="font-semibold text-amber-100/60 leading-tight">{{ $event->title }}</h3>
                                     @if($event->location)
                                         <p class="text-xs text-amber-100/30 mt-0.5">{{ $event->location }}</p>
                                     @endif
@@ -105,8 +108,14 @@
                                     @endif
                                 </div>
                             </div>
+                            <div class="mt-4 pt-3 border-t border-amber-900/15">
+                                <span class="text-amber-500 hover:text-gold text-sm font-semibold flex items-center gap-1 transition">
+                                    {{ __('common.read_more') }}
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+                                </span>
+                            </div>
                         </div>
-                    </div>
+                    </a>
                 @endforeach
             </div>
         </div>

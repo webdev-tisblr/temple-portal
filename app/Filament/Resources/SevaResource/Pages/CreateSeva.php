@@ -47,6 +47,12 @@ class CreateSeva extends CreateRecord
             unset($data[$toggleKey]);
         }
 
+        // Map the flat full-day days checkbox field back into slot_config
+        // as a plain list of weekday names (empty = available every day).
+        $fullDayDays = $data['full_day_days'] ?? [];
+        $data['slot_config']['full_day_days'] = is_array($fullDayDays) ? array_values($fullDayDays) : [];
+        unset($data['full_day_days']);
+
         // Stamp version
         if (! empty($data['slot_config'])) {
             $data['slot_config']['version'] = 2;

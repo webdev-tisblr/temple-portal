@@ -111,7 +111,11 @@ class SevaResource extends Resource
                     ]),
 
                     // Available days (full-day mode only) — compact checkbox row.
-                    Forms\Components\CheckboxList::make('slot_config.full_day_days')
+                    // Uses a flat, transient field (mapped to/from
+                    // slot_config.full_day_days in the Create/Edit pages).
+                    // A dotted state path here breaks Livewire's array-checkbox
+                    // binding — clicking one day toggles them all.
+                    Forms\Components\CheckboxList::make('full_day_days')
                         ->label('Available on these days')
                         ->options([
                             'monday' => 'Mon',
@@ -125,17 +129,6 @@ class SevaResource extends Resource
                         ->columns(['default' => 2, 'sm' => 4, 'lg' => 7])
                         ->gridDirection('row')
                         ->bulkToggleable()
-                        // Normalize an older {day: bool} map (from the brief toggle
-                        // version) into a plain list of enabled days.
-                        ->afterStateHydrated(function (Forms\Components\CheckboxList $component, $state): void {
-                            if (! is_array($state) || $state === []) {
-                                return;
-                            }
-                            $isMap = array_keys($state) !== range(0, count($state) - 1);
-                            if ($isMap) {
-                                $component->state(array_values(array_keys(array_filter($state, fn ($v) => (bool) $v))));
-                            }
-                        })
                         ->helperText('Leave all unchecked to offer this full-day seva every day; select days to restrict it.')
                         ->visible(fn (Get $get) => ($get('slot_config.slot_type') ?? 'time_slots') === 'full_day'),
 

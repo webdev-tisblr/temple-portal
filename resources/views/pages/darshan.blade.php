@@ -85,9 +85,7 @@
                     </div>
                     <div class="px-5 py-3 bg-amber-900/20 border-t border-amber-800/30">
                         <p class="text-sm text-gold font-medium text-center">
-                            {{ $dailyDarshanPhoto->captured_on && $dailyDarshanPhoto->captured_on->isToday()
-                                ? __('darshan.todays')
-                                : __('darshan.latest') }}
+                            {{ ($dailyDarshanPhoto->captured_on ?? now())->format('d F Y') }}
                         </p>
                     </div>
                 </div>

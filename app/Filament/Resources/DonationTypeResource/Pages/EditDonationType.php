@@ -22,8 +22,6 @@ class EditDonationType extends EditRecord
     protected function mutateFormDataBeforeFill(array $data): array
     {
         $config = $data['greeting_card_config'] ?? [];
-        $data['_send_via_email'] = $config['send_via_email'] ?? true;
-        $data['_send_via_whatsapp'] = $config['send_via_whatsapp'] ?? true;
         $data['_show_on_thankyou'] = $config['show_on_thankyou'] ?? true;
 
         return $data;
@@ -31,20 +29,20 @@ class EditDonationType extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // Merge sending toggles into greeting_card_config
+        // Merge the thank-you-page toggle into greeting_card_config. Channel
+        // delivery is no longer a per-type toggle — it's controlled by the
+        // donation.greeting_card notification templates.
         $config = $data['greeting_card_config'] ?? [];
         if (is_string($config)) {
             $config = json_decode($config, true) ?? [];
         }
 
-        $config['send_via_email'] = $data['_send_via_email'] ?? true;
-        $config['send_via_whatsapp'] = $data['_send_via_whatsapp'] ?? true;
         $config['show_on_thankyou'] = $data['_show_on_thankyou'] ?? true;
 
         $data['greeting_card_config'] = $config;
 
         // Remove transient fields
-        unset($data['_send_via_email'], $data['_send_via_whatsapp'], $data['_show_on_thankyou']);
+        unset($data['_show_on_thankyou']);
 
         return $data;
     }

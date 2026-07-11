@@ -18,13 +18,11 @@ class CreateDonationType extends CreateRecord
             $config = json_decode($config, true) ?? [];
         }
 
-        $config['send_via_email'] = $data['_send_via_email'] ?? true;
-        $config['send_via_whatsapp'] = $data['_send_via_whatsapp'] ?? true;
         $config['show_on_thankyou'] = $data['_show_on_thankyou'] ?? true;
 
         $data['greeting_card_config'] = $config;
 
-        unset($data['_send_via_email'], $data['_send_via_whatsapp'], $data['_show_on_thankyou']);
+        unset($data['_show_on_thankyou']);
 
         return $data;
     }

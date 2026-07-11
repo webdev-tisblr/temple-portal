@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\Donation;
-use App\Models\NotificationTemplate;
 use App\Models\SystemSetting;
 use App\Services\GreetingCardService;
 use App\Services\Notifications\NotificationService;
@@ -29,11 +28,10 @@ use Illuminate\Support\Facades\Storage;
  *
  * NOTHING is sent unless the admin has created + enabled a
  * NotificationTemplate for `donation.greeting_card` on a channel — same
- * rule as the rest of the platform. On top of that, the per-donation-type
- * `send_via_email` / `send_via_whatsapp` toggles (stored in the donation
- * type's greeting_card_config) gate WHICH channels this dispatch is allowed
- * to use: a disabled toggle removes that channel from the allow-list even
- * if an enabled template exists.
+ * rule as the rest of the platform. Which channels fire is decided SOLELY
+ * by which `donation.greeting_card` templates are enabled (Email / WhatsApp
+ * / SMS); there are no per-donation-type send toggles. The donation type's
+ * `show_on_thankyou` flag only affects the thank-you page, not delivery.
  */
 class GenerateGreetingCard implements ShouldQueue
 {
@@ -57,30 +55,9 @@ class GenerateGreetingCard implements ShouldQueue
 
         Log::info('Greeting card generated', ['donation_id' => $this->donation->id]);
 
-        $this->donation->loadMissing('devotee', 'donationType');
+        $this->donation->loadMissing('devotee');
         $devotee = $this->donation->devotee;
         if (! $devotee) {
-            return;
-        }
-
-        // Resolve which channels the admin allowed for THIS donation type.
-        // Absent config defaults to both on (matches the toggle defaults).
-        $config = $this->donation->donationType?->greeting_card_config ?? [];
-        $onlyChannels = [];
-        if (($config['send_via_email'] ?? true) !== false) {
-            $onlyChannels[] = NotificationTemplate::CHANNEL_EMAIL;
-        }
-        if (($config['send_via_whatsapp'] ?? true) !== false) {
-            $onlyChannels[] = NotificationTemplate::CHANNEL_WHATSAPP;
-        }
-
-        // Both toggles off — the card still exists (thank-you page /
-        // download route can serve it) but the trust doesn't want it pushed.
-        if ($onlyChannels === []) {
-            Log::info('Greeting card send skipped — both channels disabled for donation type', [
-                'donation_id' => $this->donation->id,
-            ]);
-
             return;
         }
 
@@ -124,12 +101,10 @@ class GenerateGreetingCard implements ShouldQueue
                     '_attachments' => $attachments,
                 ],
                 idempotencyKey: "donation:{$this->donation->id}:greeting_card",
-                onlyChannels: $onlyChannels,
             );
 
             Log::info('Greeting card dispatched via NotificationService', [
                 'donation_id' => $this->donation->id,
-                'channels' => $onlyChannels,
             ]);
         } catch (\Throwable $e) {
             Log::error('Greeting card dispatch failed', [

@@ -134,7 +134,14 @@
 
     </div>
 
-    <p class="text-center text-amber-100/20 text-xs mt-6">
+    <p class="text-center mt-6">
+        <a href="{{ route('home') }}" class="inline-flex items-center gap-1.5 text-amber-200/60 hover:text-gold text-sm transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            {{ __('login.back_home') }}
+        </a>
+    </p>
+
+    <p class="text-center text-amber-100/20 text-xs mt-4">
         &copy; {{ date('Y') }} {{ __('common.trust_full') }}
     </p>
 </div>

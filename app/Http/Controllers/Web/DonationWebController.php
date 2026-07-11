@@ -198,12 +198,10 @@ class DonationWebController extends Controller
             }
         }
 
-        // Stream the PNG from R2 inline (Content-Disposition: inline) so it
-        // renders in-browser when shared via WhatsApp etc.
-        return $disk->response(
-            $donation->greeting_card_path,
-            null,
-            ['Content-Type' => 'image/png'],
-        );
+        // Redirect to a presigned R2 URL (inline image/png) so the card
+        // streams straight from storage instead of through PHP. A fresh
+        // presign is minted on every hit, so this permanent public route
+        // keeps working as the greeting_card_url in notifications and shares.
+        return private_file_redirect($donation->greeting_card_path, null, inline: true, contentType: 'image/png');
     }
 }

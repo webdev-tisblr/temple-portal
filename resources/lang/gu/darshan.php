@@ -8,6 +8,8 @@ return [
     'todays' => 'આજનું દર્શન',
     'latest' => 'નવીનતમ દર્શન',
     'weekday_normal' => 'સોમ – શનિ (સામાન્ય દિવસ)',
+    'regular_days' => 'રવિ – શુક્ર (સામાન્ય)',
+    'special_saturday' => 'શનિવાર (વિશેષ)',
     'sunday' => 'રવિવાર',
     'festival' => 'ઉત્સવ / તહેવાર',
     'aarti' => 'આરતી',

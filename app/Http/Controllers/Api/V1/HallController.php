@@ -238,13 +238,9 @@ class HallController extends BaseApiController
             }
         }
 
-        $pdfBytes = \Illuminate\Support\Facades\Storage::disk('r2_private')->get($booking->invoice_path);
+        // Redirect to a presigned R2 URL instead of proxying bytes through PHP.
         $filename = "Hall_Booking_{$booking->id}.pdf";
 
-        return response($pdfBytes, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Length' => (string) strlen($pdfBytes),
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        ]);
+        return private_file_redirect($booking->invoice_path, $filename);
     }
 }

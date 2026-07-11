@@ -193,17 +193,12 @@ class DonationController extends BaseApiController
             return $this->error('Receipt file could not be regenerated.', 500);
         }
 
-        // Pull bytes into memory and return with an explicit Content-Length
-        // header. Streaming via Storage::download() yields chunked transfer
-        // encoding which some mobile HTTP clients struggle with — receipts
-        // are tiny so the memory cost is negligible.
-        $pdfBytes = Storage::disk('r2_private')->get($receipt->pdf_path);
+        // Redirect to a short-lived presigned R2 URL so the PDF streams
+        // straight from storage instead of being pulled into PHP and re-sent.
+        // dio follows the 302; the presign carries its own auth in the query
+        // string, and ResponseContentDisposition sets the download filename.
         $filename = 'receipt-' . str_replace('/', '-', $receipt->receipt_number) . '.pdf';
 
-        return response($pdfBytes, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Length' => (string) strlen($pdfBytes),
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        ]);
+        return private_file_redirect($receipt->pdf_path, $filename);
     }
 }

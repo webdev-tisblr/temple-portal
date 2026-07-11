@@ -8,6 +8,8 @@ return [
     'todays' => 'Today\'s Darshan',
     'latest' => 'Latest Darshan',
     'weekday_normal' => 'Mon – Sat (regular day)',
+    'regular_days' => 'Sunday – Friday (regular)',
+    'special_saturday' => 'Saturday (special)',
     'sunday' => 'Sunday',
     'festival' => 'Festival / Holiday',
     'aarti' => 'Aarti',

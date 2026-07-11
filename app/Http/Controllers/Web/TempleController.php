@@ -20,7 +20,11 @@ class TempleController extends Controller
             DarshanTiming::where('is_active', true)->get()
         );
         $youtubeUrl = SystemSetting::getValue('youtube_live_url');
-        $templeRules = SystemSetting::getValue('temple_rules');
+        // Locale-aware temple rules; fall back to the legacy single-language
+        // key when a translation hasn't been entered.
+        $locale = app()->getLocale();
+        $templeRules = SystemSetting::getValue("temple_rules_{$locale}")
+            ?: SystemSetting::getValue('temple_rules');
 
         // Today's darshan photo prominent at the top of the page.
         // Same logic as HomeController — today's first, latest fallback.

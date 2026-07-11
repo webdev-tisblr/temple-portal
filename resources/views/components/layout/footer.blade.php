@@ -21,6 +21,10 @@
     $todayTiming  = DarshanTiming::where('is_active', true)
         ->where('day_type', 'regular')
         ->first();
+    // Saturday runs on a special schedule — shown alongside the regular one.
+    $saturdayTiming = DarshanTiming::where('is_active', true)
+        ->where('day_type', 'special')
+        ->first();
 @endphp
 
 <footer class="border-t border-[rgba(122,30,30,0.12)]" style="background: linear-gradient(180deg, #F4EAD5, #FBF5EA);">
@@ -143,34 +147,54 @@
                  were dropped at the trust's request because they
                  rendered inconsistently across Windows/Android. --}}
             <div>
-                @if($todayTiming)
+                @if($todayTiming || $saturdayTiming)
                     <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">{{ __('footer.darshan_times') }}</h3>
-                    <ul class="space-y-2 text-sm" style="color: #3E3226;">
-                        @if($todayTiming->morning_open && $todayTiming->morning_close)
-                            <li class="flex justify-between gap-3">
-                                <span>{{ __('footer.morning') }}</span>
-                                <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->morning_open)->format('h:i') }} – {{ \Carbon\Carbon::parse($todayTiming->morning_close)->format('h:i A') }}</span>
-                            </li>
-                        @endif
-                        @if($todayTiming->evening_open && $todayTiming->evening_close)
-                            <li class="flex justify-between gap-3">
-                                <span>{{ __('footer.evening') }}</span>
-                                <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->evening_open)->format('h:i') }} – {{ \Carbon\Carbon::parse($todayTiming->evening_close)->format('h:i A') }}</span>
-                            </li>
-                        @endif
-                        @if($todayTiming->aarti_morning)
-                            <li class="flex justify-between gap-3 pt-1 border-t" style="border-color: rgba(122,30,30,0.10);">
-                                <span>{{ __('footer.morning_aarti') }}</span>
-                                <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->aarti_morning)->format('h:i A') }}</span>
-                            </li>
-                        @endif
-                        @if($todayTiming->aarti_evening)
-                            <li class="flex justify-between gap-3">
-                                <span>{{ __('footer.evening_aarti') }}</span>
-                                <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->aarti_evening)->format('h:i A') }}</span>
-                            </li>
-                        @endif
-                    </ul>
+                    @if($todayTiming)
+                        <p class="text-[11px] uppercase tracking-wide font-semibold mb-1" style="color:#C45F12;">{{ __('darshan.regular_days') }}</p>
+                        <ul class="space-y-2 text-sm" style="color: #3E3226;">
+                            @if($todayTiming->morning_open && $todayTiming->morning_close)
+                                <li class="flex justify-between gap-3">
+                                    <span>{{ __('footer.morning') }}</span>
+                                    <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->morning_open)->format('h:i') }} – {{ \Carbon\Carbon::parse($todayTiming->morning_close)->format('h:i A') }}</span>
+                                </li>
+                            @endif
+                            @if($todayTiming->evening_open && $todayTiming->evening_close)
+                                <li class="flex justify-between gap-3">
+                                    <span>{{ __('footer.evening') }}</span>
+                                    <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->evening_open)->format('h:i') }} – {{ \Carbon\Carbon::parse($todayTiming->evening_close)->format('h:i A') }}</span>
+                                </li>
+                            @endif
+                            @if($todayTiming->aarti_morning)
+                                <li class="flex justify-between gap-3 pt-1 border-t" style="border-color: rgba(122,30,30,0.10);">
+                                    <span>{{ __('footer.morning_aarti') }}</span>
+                                    <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->aarti_morning)->format('h:i A') }}</span>
+                                </li>
+                            @endif
+                            @if($todayTiming->aarti_evening)
+                                <li class="flex justify-between gap-3">
+                                    <span>{{ __('footer.evening_aarti') }}</span>
+                                    <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($todayTiming->aarti_evening)->format('h:i A') }}</span>
+                                </li>
+                            @endif
+                        </ul>
+                    @endif
+                    @if($saturdayTiming)
+                        <p class="text-[11px] uppercase tracking-wide font-semibold mb-1 mt-3" style="color:#C45F12;">{{ __('darshan.special_saturday') }}</p>
+                        <ul class="space-y-2 text-sm" style="color: #3E3226;">
+                            @if($saturdayTiming->morning_open && $saturdayTiming->morning_close)
+                                <li class="flex justify-between gap-3">
+                                    <span>{{ __('footer.morning') }}</span>
+                                    <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($saturdayTiming->morning_open)->format('h:i') }} – {{ \Carbon\Carbon::parse($saturdayTiming->morning_close)->format('h:i A') }}</span>
+                                </li>
+                            @endif
+                            @if($saturdayTiming->evening_open && $saturdayTiming->evening_close)
+                                <li class="flex justify-between gap-3">
+                                    <span>{{ __('footer.evening') }}</span>
+                                    <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($saturdayTiming->evening_open)->format('h:i') }} – {{ \Carbon\Carbon::parse($saturdayTiming->evening_close)->format('h:i A') }}</span>
+                                </li>
+                            @endif
+                        </ul>
+                    @endif
                 @endif
             </div>
 

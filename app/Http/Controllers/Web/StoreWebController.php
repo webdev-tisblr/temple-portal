@@ -601,13 +601,9 @@ class StoreWebController extends Controller
             }
         }
 
-        $pdfBytes = Storage::disk('r2_private')->get($order->invoice_path);
+        // Redirect to a presigned R2 URL instead of proxying bytes through PHP.
         $filename = "Invoice_{$order->order_number}.pdf";
 
-        return response($pdfBytes, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Length' => (string) strlen($pdfBytes),
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        ]);
+        return private_file_redirect($order->invoice_path, $filename);
     }
 }

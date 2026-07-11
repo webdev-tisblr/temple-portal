@@ -12,4 +12,5 @@ return [
     'verify' => 'Verify',
     'verifying' => 'Verifying...',
     'change_number' => '← Change number',
+    'back_home' => 'Back to home',
 ];

@@ -107,7 +107,9 @@
                         <div class="bg-gradient-to-r from-amber-900/60 to-amber-800/40 px-5 py-4 border-b border-amber-800/30">
                             <h3 class="text-lg font-bold text-gold">
                                 @if($timing->day_type === 'regular')
-                                    {{ __('darshan.weekday_normal') }}
+                                    {{ __('darshan.regular_days') }}
+                                @elseif($timing->day_type === 'special')
+                                    {{ __('darshan.special_saturday') }}
                                 @elseif($timing->day_type === 'sunday')
                                     {{ __('darshan.sunday') }}
                                 @elseif($timing->day_type === 'festival')

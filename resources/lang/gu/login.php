@@ -12,4 +12,5 @@ return [
     'verify' => 'ચકાસો',
     'verifying' => 'ચકાસી રહ્યા છીએ...',
     'change_number' => '← નંબર બદલો',
+    'back_home' => 'મુખ્ય પૃષ્ઠ પર પાછા',
 ];

@@ -8,6 +8,7 @@ use App\Models\DailyDarshanPhoto;
 use App\Models\Devotee;
 use App\Models\SystemSetting;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
@@ -109,10 +110,30 @@ class DarshanShareCardService
         $storagePath = $this->storagePathFor($photo, $devotee, $format);
         $disk = Storage::disk('r2');
 
-        // Idempotent: skip the render when we already have this card.
-        if ($disk->exists($storagePath)) {
+        // Fastest path: we already confirmed this exact card exists on a
+        // recent request. The storage path is deterministic (photo id +
+        // updated_at + devotee + format + version), so a cached URL can't go
+        // stale for the wrong image — return it without any R2 round-trip.
+        $cacheKey = 'darshan_card_url:' . $storagePath;
+        $cachedUrl = Cache::get($cacheKey);
+        if (is_string($cachedUrl) && $cachedUrl !== '') {
             return [
-                'url' => $disk->url($storagePath),
+                'url' => $cachedUrl,
+                'format' => $format,
+                'width' => $width,
+                'height' => $height,
+                'cached' => true,
+            ];
+        }
+
+        // Idempotent: skip the render when we already have this card. The
+        // ->exists() is an R2 HTTP call, so memoise the resolved URL below.
+        if ($disk->exists($storagePath)) {
+            $url = $disk->url($storagePath);
+            Cache::put($cacheKey, $url, now()->addHours(12));
+
+            return [
+                'url' => $url,
                 'format' => $format,
                 'width' => $width,
                 'height' => $height,
@@ -129,8 +150,11 @@ class DarshanShareCardService
             'CacheControl' => 'public, max-age=2592000', // 30 days at the edge
         ]);
 
+        $url = $disk->url($storagePath);
+        Cache::put($cacheKey, $url, now()->addHours(12));
+
         return [
-            'url' => $disk->url($storagePath),
+            'url' => $url,
             'format' => $format,
             'width' => $width,
             'height' => $height,

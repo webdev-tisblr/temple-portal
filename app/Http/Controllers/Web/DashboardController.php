@@ -156,16 +156,11 @@ class DashboardController extends Controller
             }
         }
 
-        // In-memory response with explicit Content-Length — more compatible
-        // with older HTTP clients than a chunked streamed download.
-        $pdfBytes = Storage::disk('r2_private')->get($receipt->pdf_path);
+        // Redirect to a short-lived presigned R2 URL — the browser fetches
+        // the PDF straight from storage instead of us proxying the bytes.
         $filename = 'receipt-' . str_replace('/', '-', $receipt->receipt_number) . '.pdf';
 
-        return response($pdfBytes, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Length' => (string) strlen($pdfBytes),
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        ]);
+        return private_file_redirect($receipt->pdf_path, $filename);
     }
 
     public function profile(): View

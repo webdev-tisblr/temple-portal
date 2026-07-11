@@ -8,6 +8,8 @@ return [
     'todays' => 'आज के दर्शन',
     'latest' => 'नवीनतम दर्शन',
     'weekday_normal' => 'सोम – शनि (सामान्य दिन)',
+    'regular_days' => 'रवि – शुक्र (सामान्य)',
+    'special_saturday' => 'शनिवार (विशेष)',
     'sunday' => 'रविवार',
     'festival' => 'उत्सव / त्योहार',
     'aarti' => 'आरती',

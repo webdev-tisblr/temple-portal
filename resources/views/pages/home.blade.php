@@ -473,14 +473,24 @@
 
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             @foreach($galleryPreview as $img)
-                <a href="{{ route('gallery') }}"
-                   class="block aspect-square overflow-hidden rounded-xl border group"
-                   style="border-color: rgba(122,30,30,0.12);">
-                    <img src="{{ image_url($img->thumbnail_path ?: $img->image_path) }}"
-                         alt="{{ $img->title }}"
-                         loading="lazy"
-                         class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
-                </a>
+                @php($thumb = $img->thumb_url)
+                @if($thumb)
+                    <a href="{{ route('gallery') }}"
+                       class="block aspect-square overflow-hidden rounded-xl border group relative"
+                       style="border-color: rgba(122,30,30,0.12);">
+                        <img src="{{ $thumb }}"
+                             alt="{{ $img->title }}"
+                             loading="lazy"
+                             class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+                        @if(($img->type ?? 'photo') === 'video')
+                            <span class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <span class="w-10 h-10 rounded-full bg-black/50 border border-white/40 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                </span>
+                            </span>
+                        @endif
+                    </a>
+                @endif
             @endforeach
         </div>
 

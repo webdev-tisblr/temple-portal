@@ -40,4 +40,33 @@ class GalleryImage extends Model
         'is_wallpaper' => 'boolean',
         'sort_order' => 'integer',
     ];
+
+    /**
+     * A displayable thumbnail URL for any gallery item. Photos use their
+     * (thumbnail → medium → full) image; videos derive a YouTube still, or
+     * fall back to any uploaded image. Returns null when nothing is usable.
+     */
+    public function getThumbUrlAttribute(): ?string
+    {
+        if (($this->type ?? 'photo') === 'video') {
+            $url = $this->video_url;
+            $id = null;
+            if ($url) {
+                if (str_contains($url, 'youtu.be/')) {
+                    $id = explode('?', explode('youtu.be/', $url)[1] ?? '')[0] ?: null;
+                } elseif (preg_match('/[?&]v=([^&]+)/', $url, $m)) {
+                    $id = $m[1];
+                } elseif (preg_match('#youtube\.com/embed/([^?&/]+)#', $url, $m)) {
+                    $id = $m[1];
+                }
+            }
+            if ($id) {
+                return "https://img.youtube.com/vi/{$id}/hqdefault.jpg";
+            }
+            return $this->image_path ? image_url($this->image_path) : null;
+        }
+
+        $key = $this->thumbnail_path ?: ($this->medium_path ?: $this->image_path);
+        return $key ? image_url($key) : null;
+    }
 }

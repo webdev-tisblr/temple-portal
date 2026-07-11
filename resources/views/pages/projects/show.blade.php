@@ -7,7 +7,14 @@
     $pct = $goal > 0 ? min(100, round(($raised / $goal) * 100)) : 0;
     $isEnded = false; // Campaigns no longer have an end date — never auto-expire.
     $isGoalReached = $raised >= $goal && $goal > 0;
-    $mediaItems = $project->media ?? [];
+    {{-- Resolve each media item's stored R2 key into a full CDN URL. The
+         media JSON column stores raw keys (e.g. "campaign-media/x.png"), so
+         without image_url() the carousel <img> src is broken. --}}
+    $mediaItems = collect($project->media ?? [])
+        ->map(fn ($m) => array_merge($m, [
+            'url' => ! empty($m['url']) ? image_url($m['url']) : '',
+        ]))
+        ->all();
     $faqs = $project->faqs ?? [];
     $shareUrl = urlencode(request()->url());
     $shareTitle = urlencode($project->title);

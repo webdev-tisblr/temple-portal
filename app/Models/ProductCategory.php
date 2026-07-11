@@ -40,6 +40,9 @@ class ProductCategory extends Model
         'name_en',
         'slug',
         'description',
+        'description_gu',
+        'description_hi',
+        'description_en',
         'image_path',
         'sort_order',
         'is_active',
@@ -57,6 +60,13 @@ class ProductCategory extends Model
         $locale = app()->getLocale();
         $field = "name_{$locale}";
         return $this->$field ?? $this->name_gu;
+    }
+
+    public function getDescriptionAttribute(): ?string
+    {
+        $locale = app()->getLocale();
+        $field = "description_{$locale}";
+        return $this->$field ?: ($this->description_gu ?: ($this->attributes['description'] ?? null));
     }
 
     public function products(): HasMany

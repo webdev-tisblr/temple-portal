@@ -48,8 +48,14 @@ class DonationTypeResource extends Resource
                     ->required()
                     ->unique(ignoreRecord: true)
                     ->maxLength(255),
-                Forms\Components\Textarea::make('description')
-                    ->label('Description')
+                Forms\Components\Textarea::make('description_gu')
+                    ->label('Description (Gujarati)')
+                    ->columnSpanFull(),
+                Forms\Components\Textarea::make('description_hi')
+                    ->label('Description (Hindi)')
+                    ->columnSpanFull(),
+                Forms\Components\Textarea::make('description_en')
+                    ->label('Description (English)')
                     ->columnSpanFull(),
             ])->columns(2),
 
@@ -63,6 +69,8 @@ class DonationTypeResource extends Resource
                         Forms\Components\TextInput::make('label_gu')
                             ->required()
                             ->placeholder('ગુજરાતી લેબલ'),
+                        Forms\Components\TextInput::make('label_hi')
+                            ->placeholder('हिन्दी लेबल'),
                         Forms\Components\TextInput::make('label_en')
                             ->required()
                             ->placeholder('English Label'),

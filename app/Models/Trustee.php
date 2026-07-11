@@ -35,6 +35,9 @@ class Trustee extends Model
         'role_hi',
         'role_en',
         'location',
+        'location_gu',
+        'location_hi',
+        'location_en',
         'photo_path',
         'sort_order',
         'is_active',
@@ -59,6 +62,15 @@ class Trustee extends Model
         $field = "role_{$locale}";
 
         return $this->$field ?: $this->role_gu;
+    }
+
+    public function getLocationAttribute(): ?string
+    {
+        $locale = app()->getLocale();
+        $field = "location_{$locale}";
+
+        // Fall back to the localized gu value, then the legacy column.
+        return $this->$field ?: ($this->location_gu ?: ($this->attributes['location'] ?? null));
     }
 
     public function scopeActive(Builder $query): Builder

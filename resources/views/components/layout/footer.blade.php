@@ -5,10 +5,12 @@
     use App\Models\DarshanTiming;
 
     $trustName    = SystemSetting::getValue('trust_name', 'શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
-    $trustTagline = SystemSetting::getValue(
-        'trust_tagline',
-        'ગુજરાતમાં હનુમાનજીનું પ્રસિદ્ધ ધામ. ભક્તિ, સેવા અને સમર્પણ સાથે મંદિરનું વ્યવસ્થાપન ટ્રસ્ટ દ્વારા થાય છે.'
-    );
+    // Locale-aware footer tagline; fall back to the Gujarati value.
+    $trustTagline = SystemSetting::getValue('trust_tagline_' . app()->getLocale())
+        ?: SystemSetting::getValue(
+            'trust_tagline',
+            'ગુજરાતમાં હનુમાનજીનું પ્રસિદ્ધ ધામ. ભક્તિ, સેવા અને સમર્પણ સાથે મંદિરનું વ્યવસ્થાપન ટ્રસ્ટ દ્વારા થાય છે.'
+        );
     $trustAddress = SystemSetting::getValue('trust_address', 'અંતરજાળ, ગાંધીધામ, કચ્છ — 370110');
     $trustPhone   = SystemSetting::getValue('trust_phone');
     $trustEmail   = SystemSetting::getValue('trust_email');

@@ -196,7 +196,7 @@
                             <div class="border border-amber-900/20 rounded-xl overflow-hidden">
                                 <button @click="openFaq === {{ $index }} ? openFaq = null : openFaq = {{ $index }}"
                                         class="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-amber-900/10 transition">
-                                    <span class="font-semibold text-amber-100/80 pr-4">{{ $faq['question'] ?? '' }}</span>
+                                    <span class="font-semibold text-amber-100/80 pr-4">{{ $faq['question_'.app()->getLocale()] ?? ($faq['question_gu'] ?? ($faq['question'] ?? '')) }}</span>
                                     <svg class="w-5 h-5 text-amber-600 flex-shrink-0 transition-transform duration-200"
                                          :class="openFaq === {{ $index }} && 'rotate-180'"
                                          fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -207,7 +207,7 @@
                                      x-collapse
                                      x-cloak>
                                     <div class="px-5 pb-4 text-amber-100/50 leading-relaxed text-sm border-t border-amber-900/15 pt-3">
-                                        {{ $faq['answer'] ?? '' }}
+                                        {{ $faq['answer_'.app()->getLocale()] ?? ($faq['answer_gu'] ?? ($faq['answer'] ?? '')) }}
                                     </div>
                                 </div>
                             </div>

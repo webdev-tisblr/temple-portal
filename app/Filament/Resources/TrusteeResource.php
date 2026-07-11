@@ -38,7 +38,9 @@ class TrusteeResource extends Resource
             ])->columns(3),
 
             Forms\Components\Section::make('Details')->schema([
-                Forms\Components\TextInput::make('location')->label('Location')->maxLength(255)->placeholder('ગાંધીધામ, કચ્છ'),
+                Forms\Components\TextInput::make('location_gu')->label('Location (Gujarati)')->maxLength(255)->placeholder('ગાંધીધામ, કચ્છ'),
+                Forms\Components\TextInput::make('location_hi')->label('Location (Hindi)')->maxLength(255),
+                Forms\Components\TextInput::make('location_en')->label('Location (English)')->maxLength(255),
                 Forms\Components\FileUpload::make('photo_path')->label('Photo')->image()->directory('trustees')->maxSize(4096)->imageEditor(),
                 Forms\Components\TextInput::make('sort_order')->numeric()->default(0)->helperText('Lower shows first.'),
                 Forms\Components\Toggle::make('is_active')->label('Active')->default(true),

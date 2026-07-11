@@ -37,6 +37,8 @@ class BlogPostResource extends Resource
                 Forms\Components\RichEditor::make('body_hi')->label('Content (Hindi)'),
                 Forms\Components\RichEditor::make('body_en')->label('Content (English)'),
                 Forms\Components\Textarea::make('excerpt_gu')->label('Excerpt (Gujarati)')->rows(2),
+                Forms\Components\Textarea::make('excerpt_hi')->label('Excerpt (Hindi)')->rows(2),
+                Forms\Components\Textarea::make('excerpt_en')->label('Excerpt (English)')->rows(2),
             ]),
             Forms\Components\Section::make('Settings')->schema([
                 Forms\Components\FileUpload::make('featured_image_path')->image()->directory('blog'),

@@ -102,9 +102,14 @@ class DonationCampaignResource extends Resource
             Forms\Components\Section::make('FAQs')->schema([
                 Forms\Components\Repeater::make('faqs')
                     ->schema([
-                        Forms\Components\TextInput::make('question')->required()->maxLength(500),
-                        Forms\Components\Textarea::make('answer')->required()->rows(3),
+                        Forms\Components\TextInput::make('question_gu')->label('Question (Gujarati)')->maxLength(500),
+                        Forms\Components\TextInput::make('question_hi')->label('Question (Hindi)')->maxLength(500),
+                        Forms\Components\TextInput::make('question_en')->label('Question (English)')->maxLength(500),
+                        Forms\Components\Textarea::make('answer_gu')->label('Answer (Gujarati)')->rows(3),
+                        Forms\Components\Textarea::make('answer_hi')->label('Answer (Hindi)')->rows(3),
+                        Forms\Components\Textarea::make('answer_en')->label('Answer (English)')->rows(3),
                     ])
+                    ->columns(1)
                     ->defaultItems(0)
                     ->addActionLabel('Add FAQ'),
             ]),

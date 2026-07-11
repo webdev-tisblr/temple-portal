@@ -64,6 +64,14 @@ class SystemSettings extends Page implements HasForms
                                 ->rows(3)
                                 ->helperText('Short description shown under the trust logo in the public footer. 1–2 sentences.')
                                 ->columnSpanFull(),
+                            Forms\Components\Textarea::make('trust_tagline_hi')
+                                ->label('Footer tagline (Hindi)')
+                                ->rows(3)
+                                ->columnSpanFull(),
+                            Forms\Components\Textarea::make('trust_tagline_en')
+                                ->label('Footer tagline (English)')
+                                ->rows(3)
+                                ->columnSpanFull(),
                         ])->columns(2),
 
                         Forms\Components\Section::make('80G Details')->schema([

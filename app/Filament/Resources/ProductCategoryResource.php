@@ -34,7 +34,9 @@ class ProductCategoryResource extends Resource
                 Forms\Components\TextInput::make('name_en')->label('Name (English)')->required()->maxLength(255)
                     ->afterStateUpdated(fn (Set $set, ?string $state) => $set('slug', Str::slug($state ?? ''))),
                 Forms\Components\TextInput::make('slug')->required()->unique(ignoreRecord: true)->maxLength(255),
-                Forms\Components\Textarea::make('description')->label('Description'),
+                Forms\Components\Textarea::make('description_gu')->label('Description (Gujarati)')->columnSpanFull(),
+                Forms\Components\Textarea::make('description_hi')->label('Description (Hindi)')->columnSpanFull(),
+                Forms\Components\Textarea::make('description_en')->label('Description (English)')->columnSpanFull(),
                 Forms\Components\FileUpload::make('image_path')->label('Image')->image()->directory('product-categories')->maxSize(2048),
                 Forms\Components\TextInput::make('sort_order')->numeric()->default(0),
                 Forms\Components\Toggle::make('is_active')->label('Active')->default(true),

@@ -26,6 +26,9 @@ class DonationType extends Model
         'name_en',
         'slug',
         'description',
+        'description_gu',
+        'description_hi',
+        'description_en',
         'extra_fields',
         'greeting_card_config',
         'greeting_card_template',
@@ -52,6 +55,14 @@ class DonationType extends Model
             'en' => $this->name_en,
             default => $this->name_gu,
         };
+    }
+
+    public function getDescriptionAttribute(): ?string
+    {
+        $locale = app()->getLocale();
+        $field = "description_{$locale}";
+
+        return $this->$field ?: ($this->description_gu ?: ($this->attributes['description'] ?? null));
     }
 
     /**

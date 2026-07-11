@@ -28,6 +28,8 @@ class BlogPost extends Model
         'body_hi',
         'body_en',
         'excerpt_gu',
+        'excerpt_hi',
+        'excerpt_en',
         'featured_image_path',
         'meta_title',
         'meta_description',
@@ -54,5 +56,12 @@ class BlogPost extends Model
         $locale = app()->getLocale();
         $field = "body_{$locale}";
         return $this->$field ?? $this->body_gu;
+    }
+
+    public function getExcerptAttribute(): ?string
+    {
+        $locale = app()->getLocale();
+        $field = "excerpt_{$locale}";
+        return $this->$field ?: $this->excerpt_gu;
     }
 }

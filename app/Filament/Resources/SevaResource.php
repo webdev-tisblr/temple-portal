@@ -280,6 +280,10 @@ class SevaResource extends Resource
                         ->label('Selection Label (Gujarati)')
                         ->placeholder('દા.ત. વસ્ત્ર પસંદ કરો')
                         ->visible(fn (Get $get) => (bool) $get('enable_product_selection')),
+                    Forms\Components\TextInput::make('linked_products.label_hi')
+                        ->label('Selection Label (Hindi)')
+                        ->placeholder('उदा. वस्त्र चुनें')
+                        ->visible(fn (Get $get) => (bool) $get('enable_product_selection')),
                     Forms\Components\TextInput::make('linked_products.label_en')
                         ->label('Selection Label (English)')
                         ->placeholder('e.g. Choose Vastra')

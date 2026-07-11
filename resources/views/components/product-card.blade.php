@@ -42,7 +42,7 @@
     <div class="p-5">
         <h3 class="text-lg font-bold text-gold group-hover:text-amber-300 transition-colors">{{ $product->name }}</h3>
         @if($product->description)
-            <p class="text-sm text-amber-100/30 mt-1.5 line-clamp-2">{{ strip_tags($product->description) }}</p>
+            <p class="text-sm text-amber-100/30 mt-1.5 line-clamp-2">{{ text_preview($product->description) }}</p>
         @endif
         <div class="flex items-center justify-between mt-4 pt-4 border-t border-amber-900/20">
             <span class="text-xl font-black text-gold">{!! $product->getDisplayPrice() !!}</span>

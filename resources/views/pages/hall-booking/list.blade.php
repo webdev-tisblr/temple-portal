@@ -51,7 +51,7 @@
 
                         @if($hall->description)
                             <p class="text-sm text-amber-100/50 leading-relaxed mb-4 line-clamp-3">
-                                {{ \Illuminate\Support\Str::limit(strip_tags($hall->description), 160) }}
+                                {{ text_preview($hall->description, 160) }}
                             </p>
                         @endif
 

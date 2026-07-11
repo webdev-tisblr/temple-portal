@@ -29,6 +29,27 @@ if (! function_exists('image_url')) {
     }
 }
 
+if (! function_exists('text_preview')) {
+    /**
+     * Plain-text preview of HTML content for cards/lists. Strips tags AND
+     * decodes entities (so `&nbsp;`, `&amp;` don't leak as literal text once
+     * Blade re-escapes with {{ }}), then collapses whitespace. Output with
+     * {{ }} — the returned string is plain text, escaped once by Blade.
+     */
+    function text_preview(?string $html, ?int $limit = null): string
+    {
+        if ($html === null || $html === '') {
+            return '';
+        }
+
+        $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // Collapse runs of whitespace (incl. the non-breaking space U+00A0).
+        $text = trim(preg_replace('/\s+/u', ' ', str_replace("\xC2\xA0", ' ', $text)) ?? '');
+
+        return $limit !== null ? \Illuminate\Support\Str::limit($text, $limit) : $text;
+    }
+}
+
 if (! function_exists('private_file_redirect')) {
     /**
      * Redirect to a short-lived presigned URL for a file on the PRIVATE R2

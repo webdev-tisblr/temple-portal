@@ -24,7 +24,7 @@
         @endif
         @if($event->description)
             <p class="text-sm mt-2 line-clamp-2" style="color: #5E4F3D;">
-                {!! strip_tags($event->description) !!}
+                {{ text_preview($event->description) }}
             </p>
         @endif
     </div>

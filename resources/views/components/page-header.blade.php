@@ -24,10 +24,15 @@
             <x-breadcrumb :items="$breadcrumb" class="mb-4" />
         @endif
 
-        <h1 class="divine-heading text-3xl sm:text-4xl">{{ $title }}</h1>
+        {{-- Decode once before {{ }} re-escapes: some callers pass raw values
+             (:title="$model->name"), others pass pre-escaped strings
+             (title="{{ __('...') }}"). Decoding normalises both so an "&" in a
+             title no longer double-encodes to "&amp;". Still XSS-safe — the
+             final {{ }} escapes. --}}
+        <h1 class="divine-heading text-3xl sm:text-4xl">{{ html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8') }}</h1>
 
         @if($subtitle)
-            <p class="mt-2 divine-subtext">{{ $subtitle }}</p>
+            <p class="mt-2 divine-subtext">{{ html_entity_decode($subtitle, ENT_QUOTES | ENT_HTML5, 'UTF-8') }}</p>
         @endif
 
         {{ $slot ?? '' }}

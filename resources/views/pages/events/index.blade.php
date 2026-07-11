@@ -52,7 +52,7 @@
                         @endif
 
                         @if($event->description)
-                            <p class="text-sm text-amber-100/40 line-clamp-2 flex-1">{!! strip_tags($event->description) !!}</p>
+                            <p class="text-sm text-amber-100/40 line-clamp-2 flex-1">{{ text_preview($event->description) }}</p>
                         @endif
 
                         <div class="mt-4 pt-3 border-t border-amber-900/15">

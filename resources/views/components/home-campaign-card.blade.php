@@ -31,7 +31,7 @@
 
     @if($campaign->description)
         <p class="text-sm leading-relaxed mt-2 line-clamp-2" style="color: #5E4F3D;">
-            {{ \Illuminate\Support\Str::limit(strip_tags($campaign->description), 140) }}
+            {{ text_preview($campaign->description, 140) }}
         </p>
     @endif
 

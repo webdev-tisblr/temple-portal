@@ -46,7 +46,7 @@
 
                         {{-- Excerpt --}}
                         <p class="text-sm text-amber-100/50 leading-relaxed flex-1 mb-4">
-                            {{ $post->excerpt_gu ?? Str::limit(strip_tags($post->body ?? ''), 100) }}
+                            {{ $post->excerpt ?: text_preview($post->body ?? '', 100) }}
                         </p>
 
                         {{-- Footer --}}

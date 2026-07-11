@@ -290,7 +290,7 @@
                 <p class="text-xs uppercase tracking-[0.25em] font-bold" style="color: #C45F12;">{{ __('home.featured_campaign') }}</p>
                 <h3 class="divine-heading text-2xl sm:text-3xl mt-2">{{ $c->title }}</h3>
                 @if($c->description)
-                    <p class="mt-3 max-w-2xl mx-auto" style="color: #5E4F3D;">{{ \Illuminate\Support\Str::limit(strip_tags($c->description), 200) }}</p>
+                    <p class="mt-3 max-w-2xl mx-auto" style="color: #5E4F3D;">{{ text_preview($c->description, 200) }}</p>
                 @endif
             </div>
             <div class="max-w-md mx-auto mt-6">

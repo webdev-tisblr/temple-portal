@@ -17,7 +17,7 @@
     <div class="p-5">
         <h3 class="text-lg font-bold text-gold group-hover:text-amber-300 transition-colors">{{ $seva->name }}</h3>
         @if($seva->description)
-            <p class="text-sm text-amber-100/30 mt-1.5 line-clamp-2">{{ strip_tags($seva->description) }}</p>
+            <p class="text-sm text-amber-100/30 mt-1.5 line-clamp-2">{{ text_preview($seva->description) }}</p>
         @endif
         <div class="flex items-center justify-between mt-4 pt-4 border-t border-amber-900/20">
             <div>

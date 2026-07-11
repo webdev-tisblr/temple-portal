@@ -64,6 +64,39 @@ class DonationCampaign extends Model
         return $this->$field ?? $this->title_gu;
     }
 
+    /**
+     * Best cover image for cards: the uploaded cover, else the first photo in
+     * the media gallery, else a thumbnail from the featured YouTube video.
+     * Returns an absolute URL or null.
+     */
+    public function getCoverImageUrlAttribute(): ?string
+    {
+        if (! empty($this->image_path)) {
+            return image_url($this->image_path);
+        }
+
+        foreach ((array) ($this->media ?? []) as $m) {
+            if (($m['type'] ?? 'image') !== 'video' && ! empty($m['url'])) {
+                return image_url($m['url']);
+            }
+        }
+
+        if (! empty($this->featured_video_url)) {
+            $url = $this->featured_video_url;
+            $id = null;
+            if (str_contains($url, 'youtu.be/')) {
+                $id = explode('?', explode('youtu.be/', $url)[1] ?? '')[0] ?: null;
+            } elseif (preg_match('/[?&]v=([^&]+)/', $url, $mm)) {
+                $id = $mm[1];
+            }
+            if ($id) {
+                return "https://img.youtube.com/vi/{$id}/hqdefault.jpg";
+            }
+        }
+
+        return null;
+    }
+
     public function getDescriptionAttribute(): ?string
     {
         $locale = app()->getLocale();

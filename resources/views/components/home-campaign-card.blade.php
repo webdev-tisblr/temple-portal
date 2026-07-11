@@ -11,10 +11,10 @@
 
     {{-- Optional image header — keeps cards visually rich when the
          campaign has a photo; falls back to a small icon chip otherwise. --}}
-    @if($campaign->image_path)
+    @if($campaign->cover_image_url)
         <div class="aspect-[16/9] rounded-xl overflow-hidden mb-4"
              style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
-            <img src="{{ image_url($campaign->image_path) }}"
+            <img src="{{ $campaign->cover_image_url }}"
                  alt="{{ $campaign->title }}"
                  class="w-full h-full object-cover">
         </div>

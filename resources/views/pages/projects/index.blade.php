@@ -26,8 +26,8 @@
                     {{-- Image --}}
                     <div class="aspect-[16/9] relative overflow-hidden"
                          style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
-                        @if($project->image_path)
-                            <img src="{{ image_url($project->image_path) }}"
+                        @if($project->cover_image_url)
+                            <img src="{{ $project->cover_image_url }}"
                                  alt="{{ $project->title }}"
                                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
                         @else

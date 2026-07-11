@@ -600,9 +600,7 @@ class ContentController extends BaseApiController
             'goal_amount' => (float) $campaign->goal_amount,
             'raised_amount' => (float) $campaign->raised_amount,
             'donor_count' => $campaign->donor_count,
-            'image_url' => $campaign->image_path
-                ? image_url($campaign->image_path)
-                : null,
+            'image_url' => $campaign->cover_image_url,
             'featured_video_url' => $campaign->featured_video_url,
             // Gallery: resolve each stored key/URL through image_url() (idempotent
             // for absolute URLs like uploaded videos / links).

@@ -10,9 +10,18 @@
 <body class="min-h-screen bg-temple flex items-center justify-center p-4">
 
 <div class="w-full max-w-md" x-data="loginForm()">
-    {{-- Header --}}
+    {{-- Prominent back-to-home button --}}
+    <a href="{{ route('home') }}"
+       class="inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-full border border-amber-600/40 text-amber-200/90 hover:text-gold hover:border-amber-500/70 hover:bg-amber-900/20 text-sm font-semibold transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        {{ __('login.back_home') }}
+    </a>
+
+    {{-- Header — the logo also links home --}}
     <div class="text-center mb-8">
-        <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="{{ __('common.temple_name') }}" class="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-amber-600/40 diya-glow" style="box-shadow: 0 0 25px rgba(196,154,42,0.3);">
+        <a href="{{ route('home') }}" title="{{ __('login.back_home') }}" class="inline-block group">
+            <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="{{ __('common.temple_name') }}" class="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-amber-600/40 diya-glow transition-transform group-hover:scale-105" style="box-shadow: 0 0 25px rgba(196,154,42,0.3);">
+        </a>
         <h1 class="text-2xl font-black text-gold tracking-wide">{{ __('common.temple_name') }}</h1>
         <p class="text-amber-200/60 mt-1 text-sm">{{ __('login.portal_sub') }}</p>
     </div>
@@ -134,14 +143,7 @@
 
     </div>
 
-    <p class="text-center mt-6">
-        <a href="{{ route('home') }}" class="inline-flex items-center gap-1.5 text-amber-200/60 hover:text-gold text-sm transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-            {{ __('login.back_home') }}
-        </a>
-    </p>
-
-    <p class="text-center text-amber-100/20 text-xs mt-4">
+    <p class="text-center text-amber-100/20 text-xs mt-6">
         &copy; {{ date('Y') }} {{ __('common.trust_full') }}
     </p>
 </div>

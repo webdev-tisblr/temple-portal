@@ -10,13 +10,6 @@
 <body class="min-h-screen bg-temple flex items-center justify-center p-4">
 
 <div class="w-full max-w-md" x-data="loginForm()">
-    {{-- Prominent back-to-home button --}}
-    <a href="{{ route('home') }}"
-       class="inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-full border border-amber-600/40 text-amber-200/90 hover:text-gold hover:border-amber-500/70 hover:bg-amber-900/20 text-sm font-semibold transition-colors">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-        {{ __('login.back_home') }}
-    </a>
-
     {{-- Header — the logo also links home --}}
     <div class="text-center mb-8">
         <a href="{{ route('home') }}" title="{{ __('login.back_home') }}" class="inline-block group">
@@ -40,6 +33,15 @@
             @endforeach
         </div>
     @endif
+
+    {{-- Back to home — centered, right before the login card --}}
+    <div class="flex justify-center mb-4">
+        <a href="{{ route('home') }}"
+           class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-amber-600/40 text-amber-200/90 hover:text-gold hover:border-amber-500/70 hover:bg-amber-900/20 text-sm font-semibold transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            {{ __('login.back_home') }}
+        </a>
+    </div>
 
     <div class="card-sacred p-6 sm:p-8">
 

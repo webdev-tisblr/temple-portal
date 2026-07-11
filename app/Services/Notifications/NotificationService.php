@@ -91,28 +91,31 @@ final class NotificationService
      *
      * @param array<string,mixed> $context
      * @param string|null $idempotencyKey  Optional dedup token; same key + channel within 5 minutes is skipped.
+     * @param list<string>|null $onlyChannels  When non-null, restrict this dispatch to these channels
+     *                                         (e.g. ['email','whatsapp']); enabled templates on other
+     *                                         channels are left untouched. Null = every channel, as before.
      *
      * @return int Templates delivered when running inline; 0 when deferred
      *             (the actual count is recorded in NotificationLog rows).
      */
-    public function dispatch(string $key, array $context, ?string $idempotencyKey = null): int
+    public function dispatch(string $key, array $context, ?string $idempotencyKey = null, ?array $onlyChannels = null): int
     {
         // DB::afterCommit fires immediately when no transaction is active,
         // so this wrapping is always safe — even outside a transaction
         // context the call behaves exactly like before.
-        DB::afterCommit(function () use ($key, $context, $idempotencyKey) {
+        DB::afterCommit(function () use ($key, $context, $idempotencyKey, $onlyChannels) {
             // CLI / queue worker — no response to flush, run synchronously.
             if (app()->runningInConsole()) {
-                $this->doDispatch($key, $context, $idempotencyKey);
+                $this->doDispatch($key, $context, $idempotencyKey, $onlyChannels);
                 return;
             }
 
             // HTTP — defer expensive driver work to after the response is
             // flushed. The terminating callback runs in the same PHP-FPM
             // worker after fastcgi_finish_request.
-            app()->terminating(function () use ($key, $context, $idempotencyKey) {
+            app()->terminating(function () use ($key, $context, $idempotencyKey, $onlyChannels) {
                 try {
-                    $this->doDispatch($key, $context, $idempotencyKey);
+                    $this->doDispatch($key, $context, $idempotencyKey, $onlyChannels);
                 } catch (\Throwable $e) {
                     Log::error('Notification: deferred dispatch threw', [
                         'key' => $key,
@@ -133,9 +136,9 @@ final class NotificationService
      * Still writes audit log rows. Idempotency is honored — pass a fresh
      * key (or null) when re-running deliberately.
      */
-    public function dispatchNow(string $key, array $context, ?string $idempotencyKey = null): int
+    public function dispatchNow(string $key, array $context, ?string $idempotencyKey = null, ?array $onlyChannels = null): int
     {
-        return $this->doDispatch($key, $context, $idempotencyKey);
+        return $this->doDispatch($key, $context, $idempotencyKey, $onlyChannels);
     }
 
     /**
@@ -306,7 +309,7 @@ final class NotificationService
         return false;
     }
 
-    private function doDispatch(string $key, array $context, ?string $idempotencyKey): int
+    private function doDispatch(string $key, array $context, ?string $idempotencyKey, ?array $onlyChannels = null): int
     {
         // Store-review test number: never send it anything. Keeps the
         // Apple/Google reviewer's login clean (no welcome message, no
@@ -319,10 +322,24 @@ final class NotificationService
             return 0;
         }
 
-        $templates = NotificationTemplate::query()
+        $templatesQuery = NotificationTemplate::query()
             ->where('key', $key)
-            ->where('is_enabled', true)
-            ->get();
+            ->where('is_enabled', true);
+
+        // Optional per-dispatch channel allow-list. Used by callers that
+        // gate delivery per-channel from their own config (e.g. the
+        // greeting-card job honouring the donation-type send_via_* toggles).
+        // Never widens delivery — an enabled template on an excluded channel
+        // simply doesn't fire on this dispatch.
+        if ($onlyChannels !== null) {
+            if ($onlyChannels === []) {
+                Log::info('Notification: dispatch suppressed — empty channel allow-list', ['key' => $key]);
+                return 0;
+            }
+            $templatesQuery->whereIn('channel', $onlyChannels);
+        }
+
+        $templates = $templatesQuery->get();
 
         if ($templates->isEmpty()) {
             Log::info('Notification: no enabled templates for key', ['key' => $key]);

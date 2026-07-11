@@ -220,7 +220,28 @@ class AuditNotificationPlaceholders extends Command
                     'amount' => (string) $donation->amount,
                     'amount_formatted' => number_format((float) $donation->amount, 2),
                     'receipt_pdf_url' => '(presigned URL — generated at dispatch)',
-                    'greeting_card_url' => $donation->greeting_card_path ? route('donation.greeting-card', $donation) : '',
+                    'trust_name' => $trustName,
+                ];
+
+            case 'donation.greeting_card':
+                $donation = Donation::query()
+                    ->whereNotNull('greeting_card_path')
+                    ->whereHas('donationType', fn ($q) => $q
+                        ->whereNotNull('greeting_card_template')
+                        ->whereNotNull('greeting_card_config'))
+                    ->with('devotee', 'donationType')
+                    ->latest('id')->first();
+                if (! $donation) return ['__no_data' => true];
+                // Mirror GenerateGreetingCard::handle()'s dispatch context.
+                // Keep in sync with the real job when either changes.
+                return [
+                    'devotee' => $donation->devotee,
+                    'donation' => $donation,
+                    'name' => $donation->devotee?->name,
+                    'donor_name' => $donation->devotee?->name,
+                    'amount' => (string) $donation->amount,
+                    'amount_formatted' => number_format((float) $donation->amount, 2),
+                    'greeting_card_url' => route('donation.greeting-card', $donation),
                     'trust_name' => $trustName,
                 ];
 

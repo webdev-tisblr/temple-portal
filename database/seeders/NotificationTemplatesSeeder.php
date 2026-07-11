@@ -74,6 +74,28 @@ class NotificationTemplatesSeeder extends Seeder
                 ],
             ],
 
+            // ── GREETING CARD — email ─────────────────────────────────────
+            // Separate deliverable from the 80G receipt. Only fires when the
+            // donation type has a card template AND the type's send_via_email
+            // toggle is on. Enabled by default to preserve the pre-split
+            // behaviour (the card used to ride along the receipt email).
+            [
+                'key' => 'donation.greeting_card',
+                'channel' => NotificationTemplate::CHANNEL_EMAIL,
+                'label' => 'Greeting card — donor email',
+                'description' => 'Sent with the greeting card PNG attached when a donation type has a card template configured. Independent of the 80G receipt.',
+                'is_enabled' => true,
+                'subject' => 'A greeting card from {{ trust_name }}',
+                'body' => $this->greetingCardHtml(),
+                'recipient_strategy' => NotificationTemplate::RECIPIENT_DEVOTEE,
+                'recipient_value' => null,
+                'placeholder_map' => [
+                    'donor_name' => 'devotee.name',
+                    'greeting_card_url' => 'greeting_card_url',
+                    'trust_name' => 'trust_name',
+                ],
+            ],
+
             // ── STORE ORDER — email ───────────────────────────────────────
             [
                 'key' => 'store.order.confirmed',
@@ -305,6 +327,26 @@ class NotificationTemplatesSeeder extends Seeder
             <div style="padding:16px;text-align:center;background:#f5f0ea;border-radius:0 0 8px 8px;border:1px solid #eee;border-top:none;">
                 <p style="margin:0;font-size:11px;color:#999;">{{ trust_name }}</p>
                 <p style="margin:2px 0 0;font-size:11px;color:#bbb;">Antarjal, Gandhidham, Kutch — Gujarat</p>
+            </div>
+        </div>
+        HTML;
+    }
+
+    private function greetingCardHtml(): string
+    {
+        return <<<HTML
+        <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
+            <div style="background:#881337;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
+                <h1 style="color:#e8c36a;margin:0;font-size:20px;">With Gratitude</h1>
+                <p style="color:#ddd;margin:6px 0 0;font-size:13px;">{{ trust_name }}</p>
+            </div>
+            <div style="padding:24px;background:#fff;border:1px solid #eee;border-top:none;border-radius:0 0 8px 8px;">
+                <p style="margin:0 0 16px;">Dear <strong>{{ donor_name }}</strong>,</p>
+                <p style="margin:0 0 16px;color:#555;">Please accept this greeting card as a token of our gratitude. It is attached to this email, and you can also view it below.</p>
+                <p style="text-align:center;margin:18px 0;">
+                    <img src="{{ greeting_card_url }}" alt="Greeting Card" style="max-width:100%;border-radius:8px;border:1px solid #eee;" />
+                </p>
+                <p style="margin:16px 0 0;color:#881337;font-weight:600;">May Shree Hanumanji bless you and your family.</p>
             </div>
         </div>
         HTML;

@@ -118,12 +118,13 @@ class DonationTypeResource extends Resource
 
             Forms\Components\Section::make('Greeting Card — Sending')
                 ->icon('heroicon-o-paper-airplane')
+                ->description('The card is sent separately from the 80G receipt, via the "Donation — greeting card" notification templates. These toggles gate which channels it may use.')
                 ->collapsed()
                 ->schema([
                     Forms\Components\Toggle::make('_send_via_email')
                         ->label('Send greeting card via Email')
                         ->default(true)
-                        ->helperText('Attached to the 80G receipt email.')
+                        ->helperText('Sent as its own email with the card attached (needs the greeting-card email template enabled).')
                         ->afterStateHydrated(function ($component, $record) {
                             $config = $record?->greeting_card_config ?? [];
                             $component->state($config['send_via_email'] ?? true);
@@ -131,7 +132,7 @@ class DonationTypeResource extends Resource
                     Forms\Components\Toggle::make('_send_via_whatsapp')
                         ->label('Send greeting card via WhatsApp')
                         ->default(true)
-                        ->helperText('Sent as image message to the devotee.'),
+                        ->helperText('Sent as an image message (needs the greeting-card WhatsApp template enabled).'),
                     Forms\Components\Toggle::make('_show_on_thankyou')
                         ->label('Show on thank-you page with download button')
                         ->default(true)

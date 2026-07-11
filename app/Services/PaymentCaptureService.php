@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Jobs\Generate80GReceipt;
+use App\Jobs\GenerateGreetingCard;
 use App\Jobs\GenerateHallInvoice;
 use App\Jobs\GenerateStoreInvoice;
 use App\Models\Donation;
@@ -278,6 +279,18 @@ class PaymentCaptureService
                 Generate80GReceipt::dispatchSync($captured['donation']);
             } catch (\Throwable $e) {
                 Log::error('PaymentCapture: 80G receipt generation failed', [
+                    'donation_id' => $captured['donation']->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            // Greeting card is a fully separate deliverable — its own job,
+            // its own `donation.greeting_card` trigger. Isolated so a card
+            // failure never affects the 80G receipt (and vice-versa).
+            try {
+                GenerateGreetingCard::dispatchSync($captured['donation']);
+            } catch (\Throwable $e) {
+                Log::error('PaymentCapture: greeting card generation failed', [
                     'donation_id' => $captured['donation']->id,
                     'error' => $e->getMessage(),
                 ]);

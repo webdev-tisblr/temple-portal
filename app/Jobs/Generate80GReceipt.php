@@ -17,9 +17,13 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Builds the 80G receipt PDF (and optional greeting card) for a
- * captured donation and hands everything to NotificationService::dispatch
- * with the URLs and PDF bytes exposed as placeholders / attachments.
+ * Builds the 80G receipt PDF for a captured donation and hands it to
+ * NotificationService::dispatch with the presigned URL exposed as a
+ * placeholder and the PDF bytes exposed as an email attachment.
+ *
+ * The greeting card is a SEPARATE deliverable — see GenerateGreetingCard,
+ * dispatched independently from PaymentCaptureService under its own
+ * `donation.greeting_card` trigger. This job no longer touches it.
  *
  * NOTHING is sent from inside this job. Channels fire only if the admin
  * has created and enabled a NotificationTemplate row for the
@@ -50,17 +54,6 @@ class Generate80GReceipt implements ShouldQueue
             'receipt_number' => $receipt->receipt_number,
         ]);
 
-        // Optional greeting card — only generated if the donation type
-        // has a card template configured by the admin.
-        try {
-            $cardPath = app(\App\Services\GreetingCardService::class)->generate($this->donation);
-            if ($cardPath) {
-                Log::info('Greeting card generated', ['donation_id' => $this->donation->id]);
-            }
-        } catch (\Exception $e) {
-            Log::error('Greeting card generation failed', ['error' => $e->getMessage()]);
-        }
-
         $this->donation->loadMissing('devotee');
         $devotee = $this->donation->devotee;
 
@@ -85,12 +78,6 @@ class Generate80GReceipt implements ShouldQueue
             ]);
         }
 
-        // Greeting card URL — the public download route is permanent
-        // and unauth, so no presign required.
-        $greetingCardUrl = $this->donation->greeting_card_path
-            ? url('/donate/greeting-card/' . $this->donation->id)
-            : null;
-
         // PDF bytes for email attachment; pulled from R2 once.
         $attachments = [];
         try {
@@ -101,21 +88,6 @@ class Generate80GReceipt implements ShouldQueue
                 'name' => $receiptFilename,
                 'mime' => 'application/pdf',
             ];
-
-            if ($this->donation->greeting_card_path) {
-                try {
-                    $cardBytes = Storage::disk('r2_private')->get($this->donation->greeting_card_path);
-                    if ($cardBytes) {
-                        $attachments[] = [
-                            'data' => $cardBytes,
-                            'name' => 'Greeting_Card.png',
-                            'mime' => 'image/png',
-                        ];
-                    }
-                } catch (\Throwable $e) {
-                    // Card is optional; ignore.
-                }
-            }
         } catch (\Throwable $e) {
             Log::error('Failed to read 80G PDF bytes for attachment', [
                 'donation_id' => $this->donation->id,
@@ -147,7 +119,6 @@ class Generate80GReceipt implements ShouldQueue
                     'amount' => (string) $this->donation->amount,
                     'amount_formatted' => number_format((float) $this->donation->amount, 2),
                     'receipt_pdf_url' => $receiptPdfUrl,
-                    'greeting_card_url' => $greetingCardUrl,
                     'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
                     '_attachments' => $attachments,
                 ],

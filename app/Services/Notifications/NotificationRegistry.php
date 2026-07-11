@@ -24,6 +24,7 @@ namespace App\Services\Notifications;
  * CONTEXT. Cross-reference each entry with the dispatch site:
  *   donation.confirmed     → app/Services/PaymentCaptureService.php
  *   donation.receipt_80g   → app/Jobs/Generate80GReceipt.php
+ *   donation.greeting_card → app/Jobs/GenerateGreetingCard.php
  *   seva.booking.confirmed → app/Services/PaymentCaptureService.php
  *   hall.booking.confirmed → app/Http/Controllers/Web/HallBookingController.php
  *   store.order.confirmed  → app/Jobs/GenerateStoreInvoice.php
@@ -61,9 +62,10 @@ final class NotificationRegistry
             ],
 
             // Context: devotee, receipt (array w/ amount_formatted),
-            //   donation, donor_name, amount, amount_formatted,
-            //   receipt_pdf_url, greeting_card_url, trust_name,
-            //   _attachments.
+            //   donation, name, donor_name, amount, amount_formatted,
+            //   receipt_pdf_url, trust_name, _attachments.
+            // The greeting card is NO LONGER part of this trigger — it has
+            // its own donation.greeting_card trigger (GenerateGreetingCard).
             'donation.receipt_80g' => [
                 'label' => 'Donation — 80G receipt ready',
                 'description' => 'Fires when the 80G receipt PDF is generated. For WhatsApp, point the Header (DOCUMENT) link at {{ receipt_pdf_url }} to attach the PDF; for email the PDF is already attached automatically.',
@@ -76,7 +78,26 @@ final class NotificationRegistry
                     'financial_year' => 'Financial year, eg "2026-27" (receipt.financial_year)',
                     'fiscal_year' => 'Alias of financial_year (receipt.fiscal_year)',
                     'receipt_pdf_url' => 'Presigned 80G PDF URL, 7-day validity (receipt_pdf_url)',
-                    'greeting_card_url' => 'Greeting card download URL — empty when card disabled (greeting_card_url)',
+                    'trust_name' => 'Trust name from System Settings (trust_name)',
+                ],
+            ],
+
+            // Context: devotee, donation (Donation w/ devotee, donationType),
+            //   name, donor_name, amount, amount_formatted,
+            //   greeting_card_url, trust_name, _attachments (the card PNG).
+            // Dispatched by GenerateGreetingCard only when the donation type
+            // has a card template configured. Which channels actually fire
+            // is further gated by the donation type's send_via_email /
+            // send_via_whatsapp toggles (greeting_card_config).
+            'donation.greeting_card' => [
+                'label' => 'Donation — greeting card',
+                'description' => 'Fires after a donation is captured when the donation type has a greeting-card template. For WhatsApp, point the Header (IMAGE) link at {{ greeting_card_url }}; for email the PNG is attached automatically. Delivery per channel also respects the donation type\'s send-via toggles.',
+                'placeholders' => [
+                    'name' => 'Devotee name (name)',
+                    'donor_name' => 'Devotee name — alias of name (donor_name)',
+                    'amount' => 'Donation amount in INR (amount)',
+                    'amount_formatted' => 'Amount with thousands separator (amount_formatted)',
+                    'greeting_card_url' => 'Greeting card image URL — permanent public link (greeting_card_url)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
             ],

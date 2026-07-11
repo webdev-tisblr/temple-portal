@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Requests\CreateDonationRequest;
 use App\Http\Resources\DonationResource;
 use App\Models\Donation;
+use App\Models\DonationType;
 use App\Models\Payment;
 use App\Services\RazorpayService;
 use Illuminate\Http\JsonResponse;
@@ -28,8 +29,26 @@ class DonationController extends BaseApiController
             ? now()->year . '-' . substr((string) (now()->year + 1), -2)
             : (now()->year - 1) . '-' . substr((string) now()->year, -2);
 
+        // Process extra_data image uploads — mirrors DonationWebController.
+        // The app sends image extra-fields as multipart (extra_data[key] =
+        // file); store each to R2 and replace the value with the R2 path so
+        // GreetingCardService can use it as an overlay source. Text fields
+        // pass through untouched.
+        $extraData = $validated['extra_data'] ?? null;
+        if ($extraData && ! empty($validated['donation_type_id'])) {
+            $donationType = DonationType::find($validated['donation_type_id']);
+            if ($donationType && is_array($donationType->extra_fields)) {
+                foreach ($donationType->extra_fields as $field) {
+                    $key = $field['key'] ?? null;
+                    if ($key && ($field['type'] ?? '') === 'image' && $request->hasFile("extra_data.{$key}")) {
+                        $extraData[$key] = $request->file("extra_data.{$key}")->store('donation-extras', 'r2');
+                    }
+                }
+            }
+        }
+
         try {
-            $result = DB::transaction(function () use ($validated, $devotee, $amount, $fy) {
+            $result = DB::transaction(function () use ($validated, $devotee, $amount, $fy, $extraData) {
                 $paymentId = (string) Str::uuid();
                 $receipt = 'DON-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
 
@@ -62,7 +81,7 @@ class DonationController extends BaseApiController
                     'sub_cause_id' => $validated['sub_cause_id'] ?? null,
                     'is_80g_eligible' => true,
                     'anonymous' => $validated['anonymous'] ?? false,
-                    'extra_data' => $validated['extra_data'] ?? null,
+                    'extra_data' => $extraData,
                     'financial_year' => $fy,
                 ]);
 

@@ -25,9 +25,20 @@ class GalleryResource extends Resource
     {
         return $form->schema([
             Forms\Components\Section::make()->schema([
+                Forms\Components\Select::make('type')
+                    ->options(['photo' => 'Photo', 'video' => 'Video'])
+                    ->default('photo')
+                    ->live()
+                    ->required(),
                 Forms\Components\TextInput::make('title')->maxLength(255),
                 Forms\Components\Textarea::make('description')->maxLength(500)->rows(2),
-                Forms\Components\FileUpload::make('image_path')->image()->required()->directory('gallery')->maxSize(5120),
+                Forms\Components\FileUpload::make('image_path')->image()->directory('gallery')->maxSize(5120)
+                    ->required(fn (Forms\Get $get): bool => $get('type') !== 'video')
+                    ->visible(fn (Forms\Get $get): bool => $get('type') !== 'video'),
+                Forms\Components\TextInput::make('video_url')->label('Video URL')->url()->maxLength(500)
+                    ->placeholder('https://youtu.be/xxxxxxxxxxx')
+                    ->required(fn (Forms\Get $get): bool => $get('type') === 'video')
+                    ->visible(fn (Forms\Get $get): bool => $get('type') === 'video'),
                 Forms\Components\Select::make('category')->options([
                     'temple' => 'Temple', 'deity' => 'Deity', 'festival' => 'Festival',
                     'event' => 'Event', 'wallpaper' => 'Wallpaper', 'other' => 'Other',

@@ -277,11 +277,13 @@ class ContentController extends BaseApiController
             // ($this->success([...])) unchanged for app compatibility.
             return $query->limit(200)->get()->map(fn (GalleryImage $image) => [
                 'id' => $image->id,
+                'type' => $image->type ?? 'photo',
                 'title' => $image->title,
                 'description' => $image->description,
                 'image_url' => $image->image_path ? image_url($image->image_path) : null,
                 'thumbnail_url' => $image->thumbnail_path ? image_url($image->thumbnail_path) : null,
                 'medium_url' => $image->medium_path ? image_url($image->medium_path) : null,
+                'video_url' => $image->video_url,
                 'category' => $image->category,
                 'is_wallpaper' => $image->is_wallpaper,
             ]);

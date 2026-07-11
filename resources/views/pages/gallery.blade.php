@@ -7,12 +7,47 @@
     title="{{ __('footer.photo_gallery') }}"
     subtitle="{{ __('gallery.subtitle') }}" />
 
+@php
+    // Build per-item data: photos use their image; videos use a YouTube
+    // thumbnail for the grid tile and an embed URL for the lightbox.
+    $ytId = function (?string $url): ?string {
+        if (! $url) return null;
+        if (str_contains($url, 'youtu.be/')) return explode('?', explode('youtu.be/', $url)[1] ?? '')[0] ?: null;
+        if (preg_match('/[?&]v=([^&]+)/', $url, $m)) return $m[1];
+        if (preg_match('#youtube\.com/embed/([^?&/]+)#', $url, $m)) return $m[1];
+        return null;
+    };
+    $galleryData = $images->map(function ($img) use ($ytId) {
+        if (($img->type ?? 'photo') === 'video') {
+            $id = $ytId($img->video_url);
+            return [
+                'type' => 'video',
+                'title' => $img->title,
+                'category' => $img->category,
+                'src' => $id
+                    ? "https://img.youtube.com/vi/{$id}/hqdefault.jpg"
+                    : ($img->image_path ? image_url($img->image_path) : ''),
+                'embed' => $id ? "https://www.youtube-nocookie.com/embed/{$id}" : $img->video_url,
+                'youtube' => (bool) $id,
+            ];
+        }
+        return [
+            'type' => 'photo',
+            'title' => $img->title,
+            'category' => $img->category,
+            'src' => image_url($img->image_path),
+            'embed' => null,
+            'youtube' => false,
+        ];
+    })->values();
+@endphp
+
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple"
      x-data="{
         activeCategory: 'all',
         lightboxOpen: false,
         currentIndex: 0,
-        images: @js($images->map(fn($img) => ['src' => image_url($img->image_path), 'title' => $img->title, 'category' => $img->category])->values()),
+        images: @js($galleryData),
         get filtered() {
             if (this.activeCategory === 'all') return this.images;
             return this.images.filter(i => i.category === this.activeCategory);
@@ -62,6 +97,14 @@
                  @click="openLightbox(index)">
                 <img :src="img.src" :alt="img.title"
                      class="w-full h-full object-cover transition duration-300 group-hover:scale-105">
+                {{-- Play badge for video items --}}
+                <template x-if="img.type === 'video'">
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="w-12 h-12 rounded-full bg-black/50 border border-white/30 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                    </div>
+                </template>
                 <div class="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition duration-300 flex items-center justify-center">
                     <svg class="w-8 h-8 text-gold opacity-0 group-hover:opacity-100 transition duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/>
@@ -122,11 +165,28 @@
             </svg>
         </button>
 
-        {{-- Image --}}
-        <div class="max-w-4xl max-h-full flex flex-col items-center gap-3">
-            <img :src="filtered[currentIndex]?.src"
-                 :alt="filtered[currentIndex]?.title"
-                 class="max-h-[80vh] max-w-full object-contain rounded-lg shadow-2xl">
+        {{-- Media (photo or video) --}}
+        <div class="max-w-4xl w-full max-h-full flex flex-col items-center gap-3">
+            <template x-if="filtered[currentIndex]?.type === 'video'">
+                <div class="w-full aspect-video max-h-[80vh]" @click.stop>
+                    <template x-if="filtered[currentIndex]?.youtube">
+                        <iframe class="w-full h-full rounded-lg shadow-2xl"
+                                :src="filtered[currentIndex]?.embed"
+                                frameborder="0" loading="lazy"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen></iframe>
+                    </template>
+                    <template x-if="!filtered[currentIndex]?.youtube">
+                        <video class="w-full h-full rounded-lg shadow-2xl object-contain bg-black"
+                               :src="filtered[currentIndex]?.embed" controls></video>
+                    </template>
+                </div>
+            </template>
+            <template x-if="filtered[currentIndex]?.type !== 'video'">
+                <img :src="filtered[currentIndex]?.src"
+                     :alt="filtered[currentIndex]?.title"
+                     class="max-h-[80vh] max-w-full object-contain rounded-lg shadow-2xl">
+            </template>
             <p class="text-amber-100/70 text-sm" x-text="filtered[currentIndex]?.title"></p>
             <p class="text-amber-100/30 text-xs" x-text="(currentIndex + 1) + ' / ' + filtered.length"></p>
         </div>

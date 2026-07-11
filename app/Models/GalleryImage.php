@@ -23,9 +23,11 @@ class GalleryImage extends Model
     }
 
     protected $fillable = [
+        'type',
         'title',
         'description',
         'image_path',
+        'video_url',
         'thumbnail_path',
         'medium_path',
         'category',

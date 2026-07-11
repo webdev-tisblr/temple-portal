@@ -59,7 +59,9 @@
         <h2 class="divine-heading text-xl sm:text-2xl mb-4">{{ $hall->name }}</h2>
 
         @if($hall->description)
-            <p class="text-amber-100/60 leading-relaxed mb-6">{!! nl2br(e($hall->description)) !!}</p>
+            {{-- Hall.description is a RichEditor (HTML). Render it as HTML in
+                 a prose wrapper; e()+nl2br double-escaped the tags before. --}}
+            <div class="prose prose-invert max-w-none text-amber-100/60 leading-relaxed mb-6">{!! $hall->description !!}</div>
         @endif
 
         {{-- Capacity --}}

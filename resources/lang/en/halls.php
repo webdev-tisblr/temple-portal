@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'gallery' => 'Photos & Videos',
     'subtitle' => 'Spacious halls available through Shree Pataliya Hanumanji Seva Trust for weddings, satsang, religious programs and social functions',
     'subtitle_short' => 'Available for weddings, satsang, religious programs and social functions',
     'none_available' => 'No halls are available right now.',

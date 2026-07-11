@@ -86,4 +86,9 @@ class Hall extends Model
     {
         return $this->hasMany(HallBooking::class, 'hall_id');
     }
+
+    public function media(): HasMany
+    {
+        return $this->hasMany(HallMedia::class, 'hall_id')->orderBy('sort_order')->orderBy('id');
+    }
 }

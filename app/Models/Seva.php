@@ -80,6 +80,11 @@ class Seva extends Model
         return $this->hasMany(SevaBooking::class, 'seva_id');
     }
 
+    public function media(): HasMany
+    {
+        return $this->hasMany(SevaMedia::class, 'seva_id')->orderBy('sort_order')->orderBy('id');
+    }
+
     public function hasProductSelection(): bool
     {
         $config = $this->linked_products;

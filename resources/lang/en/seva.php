@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'gallery' => 'Photos & Videos',
     'index_subtitle' => 'Book a seva online at Shree Pataliya Hanumanji Temple',
     'cat_all' => 'All',
     'cat_shringar' => 'Shringar',

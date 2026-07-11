@@ -64,6 +64,38 @@ class HallResource extends Resource
                     ->maxSize(2048),
             ]),
 
+            Forms\Components\Section::make('Photos & Videos')
+                ->description('Gallery of photos and videos for this hall. Photos are uploaded; videos are YouTube / hosted links.')
+                ->schema([
+                    Forms\Components\Repeater::make('media')
+                        ->relationship()
+                        ->schema([
+                            Forms\Components\Select::make('media_type')
+                                ->options(['photo' => 'Photo', 'video' => 'Video'])
+                                ->default('photo')
+                                ->live()
+                                ->required(),
+                            Forms\Components\FileUpload::make('image_path')
+                                ->label('Photo')
+                                ->image()
+                                ->directory('hall-media')
+                                ->maxSize(4096)
+                                ->visible(fn (\Filament\Forms\Get $get): bool => $get('media_type') === 'photo'),
+                            Forms\Components\TextInput::make('video_url')
+                                ->label('Video URL')
+                                ->url()
+                                ->maxLength(500)
+                                ->placeholder('https://youtu.be/xxxxxxxxxxx')
+                                ->visible(fn (\Filament\Forms\Get $get): bool => $get('media_type') === 'video'),
+                            Forms\Components\TextInput::make('sort_order')->numeric()->default(0),
+                        ])
+                        ->columns(2)
+                        ->defaultItems(0)
+                        ->reorderable()
+                        ->orderColumn('sort_order')
+                        ->addActionLabel('Add Photo / Video'),
+                ]),
+
             Forms\Components\Section::make('Amenities')->schema([
                 Forms\Components\TagsInput::make('amenities')
                     ->placeholder('e.g. AC, Sound System'),

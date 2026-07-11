@@ -22,6 +22,7 @@ class HallController extends BaseApiController
     {
         $halls = Cache::remember('halls.active', 900, function () {
             return Hall::where('is_active', true)
+                ->with('media')
                 ->get()
                 ->map(fn (Hall $h) => [
                     'id' => $h->id,
@@ -44,6 +45,12 @@ class HallController extends BaseApiController
                     'rules_hi' => $h->rules_hi,
                     'rules_en' => $h->rules_en,
                     'image_url' => $h->image_path ? image_url($h->image_path) : null,
+                    'media' => $h->media->map(fn ($m) => [
+                        'type' => $m->media_type,
+                        'url' => $m->media_type === 'video'
+                            ? $m->video_url
+                            : ($m->image_path ? image_url($m->image_path) : null),
+                    ])->filter(fn ($x) => $x['url'] !== null)->values(),
                 ]);
         });
 

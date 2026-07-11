@@ -45,6 +45,8 @@
                 </div>
             @endif
 
+            @include('partials.media-gallery', ['media' => $seva->media, 'title' => $seva->name, 'heading' => __('seva.gallery')])
+
             {{-- Booking Section --}}
             @if($seva->requires_booking)
                 <div class="mt-8 border-t border-amber-900/20 pt-6" x-data="slotPicker({{ $seva->id }})">

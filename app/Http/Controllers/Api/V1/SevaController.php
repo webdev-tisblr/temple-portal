@@ -45,6 +45,9 @@ class SevaController extends BaseApiController
 
     public function show(Seva $seva): SevaResource
     {
+        // Load the gallery only on detail (kept out of the cached list payload).
+        $seva->load('media');
+
         return new SevaResource($seva);
     }
 

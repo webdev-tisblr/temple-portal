@@ -90,6 +90,8 @@
             </div>
         @endif
 
+        @include('partials.media-gallery', ['media' => $hall->media, 'title' => $hall->name, 'heading' => __('halls.gallery')])
+
         {{-- Pricing Table --}}
         <div>
             <h3 class="text-sm font-semibold text-amber-500 mb-3">{{ __('halls.rent_details') }}</h3>

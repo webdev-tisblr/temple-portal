@@ -49,6 +49,12 @@ class SevaResource extends JsonResource
             'slot_duration_minutes' => $this->getSlotDurationMinutes(),
             'product_selection' => $selection,
             'starts_from' => $startsFrom,
+            'media' => $this->whenLoaded('media', fn () => $this->media->map(fn ($m) => [
+                'type' => $m->media_type,
+                'url' => $m->media_type === 'video'
+                    ? $m->video_url
+                    : ($m->image_path ? image_url($m->image_path) : null),
+            ])->filter(fn ($x) => $x['url'] !== null)->values(), []),
         ];
     }
 

@@ -68,6 +68,8 @@ class RolePermissionSeeder extends Seeder
         'role',
         'seva',
         'seva::booking',
+        'seva::reminder::rule',
+        'trustee',
     ];
 
     private const RESOURCE_ACTIONS = [
@@ -226,9 +228,11 @@ class RolePermissionSeeder extends Seeder
 
                 // Communication
                 $crud('notification::template'),
+                $crud('seva::reminder::rule'),
                 $crud('notification', ['view_any', 'view', 'create', 'update', 'delete', 'delete_any']),
                 $readOnly('notification::log'),
                 $readOnly('contact::submission'),
+                $crud('trustee'),
 
                 // Pages, widgets, actions
                 ['page_FinancialReports', 'page_SystemSettings', 'page_DarshanTimingsPage'],

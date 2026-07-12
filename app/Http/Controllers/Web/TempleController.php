@@ -52,12 +52,6 @@ class TempleController extends Controller
         return view('pages.trustees', compact('trustees'));
     }
 
-    public function pujari(): View
-    {
-        SEOMeta::setTitle('પૂજારી — શ્રી પાતાળિયા હનુમાનજી');
-        return view('pages.pujari');
-    }
-
     public function rules(): View
     {
         SEOMeta::setTitle('નિયમો — શ્રી પાતાળિયા હનુમાનજી');

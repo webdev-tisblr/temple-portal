@@ -126,7 +126,6 @@
                     <li><a href="/parichay"                style="color: #3E3226;" class="hover:underline">{{ __('nav.parichay') }}</a></li>
                     <li><a href="/itihas"                  style="color: #3E3226;" class="hover:underline">{{ __('nav.itihas') }}</a></li>
                     <li><a href="{{ route('trustees') }}"  style="color: #3E3226;" class="hover:underline">{{ __('nav.trustees') }}</a></li>
-                    <li><a href="{{ route('pujari') }}"    style="color: #3E3226;" class="hover:underline">{{ __('footer.pujari') }}</a></li>
                     <li><a href="{{ route('gallery') }}"   style="color: #3E3226;" class="hover:underline">{{ __('footer.photo_gallery') }}</a></li>
                     <li><a href="{{ route('contact') }}"   style="color: #3E3226;" class="hover:underline">{{ __('nav.contact') }}</a></li>
                 </ul>

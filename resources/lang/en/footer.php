@@ -1,7 +1,6 @@
 <?php
 
 return [
-    'pujari' => 'Pujari',
     'photo_gallery' => 'Photo Gallery',
     'booking_donation' => 'Booking & Donation',
     'online_donation' => 'Online Donation',

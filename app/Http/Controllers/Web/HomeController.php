@@ -10,6 +10,7 @@ use App\Models\DonationCampaign;
 use App\Models\Event;
 use App\Models\GalleryImage;
 use App\Models\Seva;
+use App\Models\SystemSetting;
 use Artesaos\SEOTools\Facades\OpenGraph;
 use Artesaos\SEOTools\Facades\SEOMeta;
 use Illuminate\Support\Facades\Cache;
@@ -69,6 +70,53 @@ class HomeController extends Controller
             \App\Models\HeroSlide::live()->orderBy('sort_order')->orderBy('id')->get()
         );
 
+        // ── Redesign data (2026-07-12 design import) ────────────────────
+        // Live open/closed state + today's timing row for the badge,
+        // ticker and sticky darshan widget. All IST-aware via scheduleNow.
+        $schedule = DarshanTiming::scheduleNow();
+        $todayTiming = Cache::remember('home.today_timing.v1', 1800, function () {
+            $type = now()->setTimezone('Asia/Kolkata')->isSaturday() ? 'special' : 'regular';
+
+            return DarshanTiming::where('is_active', true)->where('day_type', $type)->first()
+                ?? DarshanTiming::where('is_active', true)->where('day_type', 'regular')->first();
+        });
+        // When open, find the current window's closing time for the badge.
+        $closesAt = null;
+        if ($schedule['is_open'] && $todayTiming) {
+            $nowIst = now()->setTimezone('Asia/Kolkata');
+            foreach ([['morning_open', 'morning_close'], ['afternoon_open', 'afternoon_close'], ['evening_open', 'evening_close']] as [$o, $c]) {
+                $open = $todayTiming->getAttributes()[$o] ?? null;
+                $close = $todayTiming->getAttributes()[$c] ?? null;
+                if ($open && $close) {
+                    $start = $nowIst->copy()->setTimeFromTimeString($open);
+                    $end = $nowIst->copy()->setTimeFromTimeString($close);
+                    if ($nowIst->between($start, $end)) {
+                        $closesAt = $end->format('h:i A');
+                        break;
+                    }
+                }
+            }
+        }
+
+        $hall = Cache::remember('home.hall.v1', 900, fn () =>
+            \App\Models\Hall::where('is_active', true)->first()
+        );
+
+        $announcement = Cache::remember('home.announcement.v1', 600, fn () =>
+            \App\Models\Announcement::where('is_active', true)
+                ->where(fn ($q) => $q->whereNull('published_at')->orWhere('published_at', '<=', now()))
+                ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>=', now()))
+                ->latest('published_at')
+                ->first()
+        );
+
+        $visit = [
+            'address' => SystemSetting::getValue('trust_address', 'અંતરજાળ, ગાંધીધામ, કચ્છ — 370110'),
+            'phone' => SystemSetting::getValue('trust_phone', ''),
+            'email' => SystemSetting::getValue('trust_email', ''),
+            'map_url' => SystemSetting::getValue('trust_map_url', ''),
+        ];
+
         SEOMeta::setTitle('શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ | અંતરજાળ, ગાંધીધામ');
         SEOMeta::setDescription('ગુજરાતમાં હનુમાનજીનું પ્રસિદ્ધ ધામ. ઓનલાઇન સેવા બુકિંગ, દાન, લાઇવ દર્શન.');
         OpenGraph::setUrl(url('/'));
@@ -81,6 +129,12 @@ class HomeController extends Controller
             'campaigns',
             'galleryPreview',
             'heroSlides',
+            'schedule',
+            'todayTiming',
+            'closesAt',
+            'hall',
+            'announcement',
+            'visit',
         ));
     }
 }

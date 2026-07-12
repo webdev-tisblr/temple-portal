@@ -709,4 +709,7 @@
     </div>
 </section>
 
+@include('partials.home-hall-band')
+@include('partials.home-darshan-widget')
+
 @endsection

@@ -1,6 +1,12 @@
 <?php
 
 return [
+    'community_hall' => 'Community Hall',
+    'guest_capacity' => 'guest capacity',
+    'per_day' => 'per day',
+    'check_availability' => 'Check Availability',
+    'temple_closes' => 'Temple closes',
+    'go_to_darshan' => 'Go to Darshan page',
     'hero_jai' => '|| Jai Shri Ram ||',
     'hero_line1' => 'Shree Pataliya',
     'hero_line2' => 'Hanumanji Dham',

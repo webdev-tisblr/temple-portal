@@ -1,6 +1,12 @@
 <?php
 
 return [
+    'community_hall' => 'સમુદાય હોલ',
+    'guest_capacity' => 'મહેમાન ક્ષમતા',
+    'per_day' => 'પ્રતિ દિવસ',
+    'check_availability' => 'ઉપલબ્ધતા તપાસો',
+    'temple_closes' => 'મંદિર બંધ થાય',
+    'go_to_darshan' => 'દર્શન પેજ પર જાઓ',
     'hero_jai' => '|| જય શ્રી રામ ||',
     'hero_line1' => 'શ્રી પાતાળિયા',
     'hero_line2' => 'હનુમાનજી ધામ',

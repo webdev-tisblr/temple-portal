@@ -1,6 +1,12 @@
 <?php
 
 return [
+    'community_hall' => 'सामुदायिक हॉल',
+    'guest_capacity' => 'अतिथि क्षमता',
+    'per_day' => 'प्रति दिन',
+    'check_availability' => 'उपलब्धता जांचें',
+    'temple_closes' => 'मंदिर बंद होता है',
+    'go_to_darshan' => 'दर्शन पेज पर जाएं',
     'hero_jai' => '|| जय श्री राम ||',
     'hero_line1' => 'श्री पातालिया',
     'hero_line2' => 'हनुमानजी धाम',

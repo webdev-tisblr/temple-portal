@@ -289,8 +289,10 @@ class StoreController extends BaseApiController
         }
 
         // Use InvoiceService directly (not the GenerateStoreInvoice job)
-        // so the customer doesn't get re-emailed on every download.
-        if (! $order->invoice_path || ! Storage::disk('r2_private')->exists($order->invoice_path)) {
+        // so the customer doesn't get re-emailed on every download. No R2
+        // ->exists() probe — S3 HEADs from Hostinger hang, and the sweep
+        // NULLs invoice_path when it deletes the object, so non-null == present.
+        if (! $order->invoice_path) {
             try {
                 app(\App\Services\InvoiceService::class)->generateInvoice($order);
                 $order->refresh();
@@ -300,7 +302,7 @@ class StoreController extends BaseApiController
                     'error' => $e->getMessage(),
                 ]);
             }
-            if (! $order->invoice_path || ! Storage::disk('r2_private')->exists($order->invoice_path)) {
+            if (! $order->invoice_path) {
                 return $this->error('Invoice could not be generated. Try again shortly.', 500);
             }
         }

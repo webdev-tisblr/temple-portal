@@ -164,14 +164,15 @@ class DonationController extends BaseApiController
             return $this->error('Receipt is generated only after the payment is confirmed.', 404);
         }
 
-        // Self-heal: if the receipt was never generated OR the PDF on R2 is
-        // gone, regenerate JUST the PDF via the service. Do NOT dispatch the
-        // Generate80GReceipt job here — that path also emails + WhatsApps the
-        // donor, which should only happen once on initial confirmation.
+        // Self-heal: regenerate JUST the PDF when the receipt row/path is
+        // missing. No R2 ->exists() probe here — S3 HEADs from Hostinger hang
+        // (see AppServiceProvider), and the sweep command NULLs pdf_path in
+        // the same iteration it deletes the object, so a non-null pdf_path
+        // means the file is present. Do NOT dispatch the Generate80GReceipt
+        // job here — that path also emails + WhatsApps the donor.
         $needsRegen = ! $donation->receipt_generated
             || ! $donation->receipt
-            || ! $donation->receipt->pdf_path
-            || ! Storage::disk('r2_private')->exists($donation->receipt->pdf_path);
+            || ! $donation->receipt->pdf_path;
 
         if ($needsRegen) {
             try {
@@ -189,7 +190,7 @@ class DonationController extends BaseApiController
         }
 
         $receipt = $donation->receipt;
-        if (! $receipt || ! $receipt->pdf_path || ! Storage::disk('r2_private')->exists($receipt->pdf_path)) {
+        if (! $receipt || ! $receipt->pdf_path) {
             return $this->error('Receipt file could not be regenerated.', 500);
         }
 

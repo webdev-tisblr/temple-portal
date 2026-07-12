@@ -582,11 +582,12 @@ class StoreWebController extends Controller
             abort(403);
         }
 
-        // Self-heal: only confirmed orders should ever produce an invoice,
-        // and if the R2 object is gone, regenerate it inline before serving.
+        // Self-heal: regenerate when invoice_path is null. No R2 ->exists()
+        // probe — S3 HEADs from Hostinger hang, and the sweep NULLs
+        // invoice_path when it deletes the object, so non-null == present.
         // Use InvoiceService directly (not the GenerateStoreInvoice job)
         // so we don't re-email the customer every download.
-        if (! $order->invoice_path || ! Storage::disk('r2_private')->exists($order->invoice_path)) {
+        if (! $order->invoice_path) {
             try {
                 app(\App\Services\InvoiceService::class)->generateInvoice($order);
                 $order->refresh();
@@ -596,7 +597,7 @@ class StoreWebController extends Controller
                     'error' => $e->getMessage(),
                 ]);
             }
-            if (! $order->invoice_path || ! Storage::disk('r2_private')->exists($order->invoice_path)) {
+            if (! $order->invoice_path) {
                 abort(404, 'ઇનવૉઇસ બનાવી શકાયો નથી. કૃપા કરી થોડી વાર પછી પ્રયાસ કરો.');
             }
         }

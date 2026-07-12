@@ -309,7 +309,9 @@ class HallBookingController extends Controller
             abort(404, 'ઇનવૉઇસ બુકિંગ કન્ફર્મ થયા પછી જ ઉપલબ્ધ થશે.');
         }
 
-        if (! $booking->invoice_path || ! Storage::disk('r2_private')->exists($booking->invoice_path)) {
+        // No R2 ->exists() probe — S3 HEADs from Hostinger hang, and the
+        // sweep NULLs invoice_path when it deletes the object.
+        if (! $booking->invoice_path) {
             try {
                 // false = self-heal regen, don't re-email the customer.
                 $this->generateHallInvoice($booking, sendEmail: false);
@@ -320,7 +322,7 @@ class HallBookingController extends Controller
                     'error' => $e->getMessage(),
                 ]);
             }
-            if (! $booking->invoice_path || ! Storage::disk('r2_private')->exists($booking->invoice_path)) {
+            if (! $booking->invoice_path) {
                 abort(404, 'ઇનવૉઇસ બનાવી શકાયો નથી. કૃપા કરી થોડી વાર પછી પ્રયાસ કરો.');
             }
         }

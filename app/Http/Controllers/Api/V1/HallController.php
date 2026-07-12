@@ -226,7 +226,9 @@ class HallController extends BaseApiController
             return $this->error('Invoice is generated only after booking is confirmed.', 404);
         }
 
-        if (! $booking->invoice_path || ! \Illuminate\Support\Facades\Storage::disk('r2_private')->exists($booking->invoice_path)) {
+        // No R2 ->exists() probe — S3 HEADs from Hostinger hang, and the
+        // sweep NULLs invoice_path when it deletes the object.
+        if (! $booking->invoice_path) {
             // The web controller has the inline generator; call it as a
             // service-like action. sendEmail=false so we don't re-email the
             // customer every time they redownload from the mobile app.
@@ -240,7 +242,7 @@ class HallController extends BaseApiController
                     'error' => $e->getMessage(),
                 ]);
             }
-            if (! $booking->invoice_path || ! \Illuminate\Support\Facades\Storage::disk('r2_private')->exists($booking->invoice_path)) {
+            if (! $booking->invoice_path) {
                 return $this->error('Invoice could not be generated. Try again shortly.', 500);
             }
         }

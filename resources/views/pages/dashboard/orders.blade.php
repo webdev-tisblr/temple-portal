@@ -44,7 +44,11 @@
                         </div>
                     </div>
 
-                    @if($order->invoice_path)
+                    {{-- Gate on STATUS, not invoice_path: the retention sweep
+                         NULLs invoice_path (file is regenerated on demand), so
+                         a path-based guard made the button vanish for older
+                         orders even though the download endpoint self-heals. --}}
+                    @if(in_array($order->status?->value ?? (string) $order->status, ['confirmed', 'processing', 'shipped', 'delivered'], true))
                         <div class="mt-3 pt-3 border-t border-amber-900/15">
                             <a href="{{ route('store.order.invoice', $order) }}" class="text-amber-500 hover:text-gold text-sm font-semibold flex items-center gap-1 transition">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>

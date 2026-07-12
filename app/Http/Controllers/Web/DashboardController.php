@@ -137,11 +137,12 @@ class DashboardController extends Controller
             abort(403);
         }
 
-        // Self-heal: regenerate JUST the PDF via the service if the R2
-        // object is missing. Don't dispatch the Generate80GReceipt job —
-        // that path also emails + WhatsApps the donor, which should only
-        // happen once on initial payment confirmation, not every download.
-        if (!$receipt->pdf_path || !Storage::disk('r2_private')->exists($receipt->pdf_path)) {
+        // Self-heal: regenerate JUST the PDF when pdf_path is null. No R2
+        // ->exists() probe — S3 HEADs from Hostinger hang, and the sweep
+        // NULLs pdf_path when it deletes the object, so non-null == present.
+        // Don't dispatch the Generate80GReceipt job — that path also emails
+        // + WhatsApps the donor.
+        if (!$receipt->pdf_path) {
             try {
                 app(\App\Services\ReceiptService::class)->generateReceipt($donation);
                 $receipt = $receipt->fresh();
@@ -151,7 +152,7 @@ class DashboardController extends Controller
                     'error' => $e->getMessage(),
                 ]);
             }
-            if (!$receipt || !$receipt->pdf_path || !Storage::disk('r2_private')->exists($receipt->pdf_path)) {
+            if (!$receipt || !$receipt->pdf_path) {
                 return back()->withErrors(['receipt' => 'રસીદ PDF ઉપલબ્ધ નથી. કૃપા કરી થોડી વારે ફરી પ્રયાસ કરો.']);
             }
         }

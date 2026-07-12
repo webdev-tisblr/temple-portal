@@ -40,6 +40,7 @@ class Seva extends Model
         'sort_order',
         'assignee_id',
         'reminder_offsets',
+        'reminder_mode',
         'linked_products',
     ];
 
@@ -83,6 +84,12 @@ class Seva extends Model
     public function media(): HasMany
     {
         return $this->hasMany(SevaMedia::class, 'seva_id')->orderBy('sort_order')->orderBy('id');
+    }
+
+    /** Custom reminder rules for this seva (used when reminder_mode=custom). */
+    public function reminderRules(): HasMany
+    {
+        return $this->hasMany(SevaReminderRule::class, 'seva_id')->orderBy('sort_order')->orderBy('id');
     }
 
     public function hasProductSelection(): bool

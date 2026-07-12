@@ -29,6 +29,7 @@ class SevaReminderSchedule extends Model
     protected $fillable = [
         'seva_booking_id',
         'offset',
+        'rule_id',
         'fire_at',
         'status',
         'sent_at',
@@ -42,5 +43,11 @@ class SevaReminderSchedule extends Model
     public function booking(): BelongsTo
     {
         return $this->belongsTo(SevaBooking::class, 'seva_booking_id');
+    }
+
+    /** The reminder rule that produced this row; null for legacy offset rows. */
+    public function rule(): BelongsTo
+    {
+        return $this->belongsTo(SevaReminderRule::class, 'rule_id');
     }
 }

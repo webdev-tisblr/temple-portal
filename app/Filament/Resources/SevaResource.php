@@ -249,26 +249,27 @@ class SevaResource extends Resource
 
             Forms\Components\Section::make('Reminders')
                 ->icon('heroicon-o-bell')
+                ->description('Each rule = when + who + channel + message. Global rules are managed under Communication → Seva Reminders.')
                 ->collapsed()
                 ->schema([
-                    Forms\Components\Repeater::make('reminder_offsets')
+                    Forms\Components\Select::make('reminder_mode')
+                        ->label('Reminder configuration')
+                        ->options([
+                            'global' => 'Use global reminder rules',
+                            'custom' => 'Custom rules for this seva',
+                            'none' => 'No reminders for this seva',
+                        ])
+                        ->default('global')
+                        ->live()
+                        ->required(),
+                    Forms\Components\Repeater::make('reminderRules')
+                        ->relationship()
                         ->hiddenLabel()
-                        ->simple(
-                            Forms\Components\Select::make('offset')
-                                ->options([
-                                    '3h' => '3 hours before',
-                                    '6h' => '6 hours before',
-                                    '12h' => '12 hours before',
-                                    '24h' => '24 hours before',
-                                    '48h' => '2 days before',
-                                    '72h' => '3 days before',
-                                    '168h' => '7 days before',
-                                ])
-                                ->required(),
-                        )
+                        ->schema(\App\Filament\Support\ReminderRuleFields::schema())
+                        ->columns(2)
                         ->defaultItems(0)
-                        ->addActionLabel('Add reminder')
-                        ->reorderable(false),
+                        ->addActionLabel('Add reminder rule')
+                        ->visible(fn (Get $get): bool => $get('reminder_mode') === 'custom'),
                 ]),
 
             Forms\Components\Section::make('Product Selection for Devotee')

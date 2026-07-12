@@ -39,8 +39,7 @@ class SevaReminderScheduler
         }
 
         $seva = $booking->seva ?? $booking->seva()->first();
-        $offsets = $seva?->reminder_offsets;
-        if (! is_array($offsets) || $offsets === []) {
+        if (! $seva) {
             return 0;
         }
 
@@ -48,24 +47,66 @@ class SevaReminderScheduler
         $now = Carbon::now();
         $created = 0;
 
-        foreach ($offsets as $offset) {
-            $offsetMinutes = self::parseOffset(is_string($offset) ? $offset : null);
-            if ($offsetMinutes === null) {
-                continue;
-            }
+        // ── Rule-based reminders (the current system) ──────────────────
+        // reminder_mode: global → the global default rule set; custom →
+        // this seva's own rules; none → no reminders at all.
+        $mode = $seva->reminder_mode ?? 'global';
+        if ($mode === 'none') {
+            return 0;
+        }
 
-            $fireAt = $moment->copy()->subMinutes($offsetMinutes);
+        $rules = \App\Models\SevaReminderRule::query()
+            ->active()
+            ->when($mode === 'custom',
+                fn ($q) => $q->where('seva_id', $seva->getKey()),
+                fn ($q) => $q->whereNull('seva_id'))
+            ->get();
+
+        foreach ($rules as $rule) {
+            $fireAt = $moment->copy()->subMinutes($rule->offset_minutes);
             if ($fireAt->lessThanOrEqualTo($now)) {
-                // Reminder point already passed at confirmation time.
-                continue;
+                continue; // reminder point already passed at confirmation
             }
 
             $row = SevaReminderSchedule::firstOrCreate(
-                ['seva_booking_id' => $booking->getKey(), 'offset' => (string) $offset],
-                ['fire_at' => $fireAt, 'status' => SevaReminderSchedule::STATUS_PENDING],
+                ['seva_booking_id' => $booking->getKey(), 'rule_id' => $rule->getKey()],
+                [
+                    'offset' => $rule->offset_minutes . 'm',
+                    'fire_at' => $fireAt,
+                    'status' => SevaReminderSchedule::STATUS_PENDING,
+                ],
             );
             if ($row->wasRecentlyCreated) {
                 $created++;
+            }
+        }
+
+        // ── Legacy offsets fallback ────────────────────────────────────
+        // Sevas configured before rules existed keep working: when NO rule
+        // matched (none defined yet), fall back to reminder_offsets +
+        // template-driven dispatch, exactly as before.
+        if ($rules->isEmpty()) {
+            $offsets = $seva->reminder_offsets;
+            if (is_array($offsets)) {
+                foreach ($offsets as $offset) {
+                    $offsetMinutes = self::parseOffset(is_string($offset) ? $offset : null);
+                    if ($offsetMinutes === null) {
+                        continue;
+                    }
+
+                    $fireAt = $moment->copy()->subMinutes($offsetMinutes);
+                    if ($fireAt->lessThanOrEqualTo($now)) {
+                        continue;
+                    }
+
+                    $row = SevaReminderSchedule::firstOrCreate(
+                        ['seva_booking_id' => $booking->getKey(), 'offset' => (string) $offset, 'rule_id' => null],
+                        ['fire_at' => $fireAt, 'status' => SevaReminderSchedule::STATUS_PENDING],
+                    );
+                    if ($row->wasRecentlyCreated) {
+                        $created++;
+                    }
+                }
             }
         }
 

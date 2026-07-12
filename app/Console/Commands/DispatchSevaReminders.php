@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\AdminUser;
+use App\Models\NotificationTemplate;
+use App\Models\SevaBooking;
+use App\Models\SevaReminderRule;
 use App\Models\SevaReminderSchedule;
 use App\Models\SystemSetting;
 use App\Services\Notifications\NotificationService;
@@ -15,29 +19,21 @@ use Illuminate\Support\Facades\Log;
 /**
  * Fires reminder notifications for confirmed seva bookings.
  *
- * Reminders are now PRE-COMPUTED: when a booking is confirmed,
- * SevaReminderScheduler (via SevaBookingObserver) writes one
- * SevaReminderSchedule row per offset, stamped with the exact moment it
- * should fire. This command just drains the due ones — it asks "which
- * pending rows have a fire_at in the past?" and dispatches them.
+ * Reminders are PRE-COMPUTED: when a booking is confirmed,
+ * SevaReminderScheduler writes one SevaReminderSchedule row per applicable
+ * REMINDER RULE (or per legacy offset), stamped with the exact fire moment.
+ * This command drains the due rows.
  *
- * Why this replaced the old scan-every-booking-every-tick approach:
- *   • RELIABILITY — the old version only sent a reminder if a cron tick
- *     happened to run during the 5-minute window the fire moment fell in.
- *     A missed tick (deploy / server blip / over-long previous run) lost
- *     the reminder forever. Now a row whose fire_at passed while the cron
- *     was down is still `pending`, so it goes out on the next run — late,
- *     but delivered. The --max-late-minutes guard drops reminders so
- *     stale they'd only confuse.
- *   • SCALABILITY — the query hits only due rows via the
- *     (status, fire_at) index instead of loading every upcoming booking.
- *
- * The trigger + audience side is unchanged: one dispatch of
- * `seva.booking.reminder` per due row; NotificationService fans out to
- * every enabled template (devotee + admin-role audiences) and the
- * admin_role strategy expands per role-holder inside the service. The
- * idempotency key `seva-reminder:{booking}:{offset}` remains the
- * belt-and-braces dedup at the NotificationLog layer.
+ * Two dispatch paths per row:
+ *   • rule_id set  → the rule carries recipient + channel + message. We
+ *     build an in-memory NotificationTemplate per recipient and hand it to
+ *     NotificationService::sendTemplate() — the audit log, drivers and
+ *     recipient resolution all behave exactly as for stored templates.
+ *     WhatsApp rules reference a real (Meta-approved) template row and
+ *     only override its recipient.
+ *   • rule_id null → legacy path: one dispatch of `seva.booking.reminder`,
+ *     fanning out to every enabled template for that key (pre-rules
+ *     behaviour, kept for sevas still on reminder_offsets).
  */
 class DispatchSevaReminders extends Command
 {
@@ -45,7 +41,7 @@ class DispatchSevaReminders extends Command
         {--max-late-minutes=720 : Skip (don\'t send) reminders whose fire_at is older than this — too stale to be useful. Default 12h.}
         {--limit=500 : Maximum reminders to dispatch in a single run.}';
 
-    protected $description = 'Dispatch seva.booking.reminder for due rows in the pre-computed reminder schedule';
+    protected $description = 'Dispatch due rows in the pre-computed seva reminder schedule (rule-based + legacy)';
 
     public function handle(NotificationService $notifier, SevaReminderScheduler $scheduler): int
     {
@@ -59,7 +55,7 @@ class DispatchSevaReminders extends Command
         $due = SevaReminderSchedule::query()
             ->where('status', SevaReminderSchedule::STATUS_PENDING)
             ->where('fire_at', '<=', $now)
-            ->with(['booking.devotee', 'booking.seva'])
+            ->with(['booking.devotee', 'booking.seva', 'rule.template'])
             ->orderBy('fire_at')
             ->limit($limit)
             ->get();
@@ -91,17 +87,31 @@ class DispatchSevaReminders extends Command
 
                 $offsetMinutes = SevaReminderScheduler::parseOffset($row->offset) ?? 0;
 
-                $notifier->dispatch(
-                    'seva.booking.reminder',
-                    [
-                        'booking' => $booking,
-                        'devotee' => $booking->devotee,
-                        'hours_remaining' => max(0, (int) round($offsetMinutes / 60)),
-                        'time_remaining_label' => SevaReminderScheduler::humanLabel($offsetMinutes),
-                        'trust_name' => $trustName,
-                    ],
-                    idempotencyKey: "seva-reminder:{$booking->getKey()}:{$row->offset}",
-                );
+                $context = [
+                    'booking' => $booking,
+                    'devotee' => $booking->devotee,
+                    'hours_remaining' => max(0, (int) round($offsetMinutes / 60)),
+                    'time_remaining_label' => SevaReminderScheduler::humanLabel($offsetMinutes),
+                    'trust_name' => $trustName,
+                ];
+
+                if ($row->rule !== null) {
+                    $delivered = $this->dispatchRule($notifier, $row->rule, $booking, $context);
+                    if ($delivered === 0) {
+                        // Nothing usable to deliver to (no recipients / no
+                        // template). Mark skipped for visibility, not failed.
+                        $row->update(['status' => SevaReminderSchedule::STATUS_SKIPPED]);
+                        $stats['skipped']++;
+                        continue;
+                    }
+                } else {
+                    // Legacy: fan out to every enabled template for the key.
+                    $notifier->dispatch(
+                        'seva.booking.reminder',
+                        $context,
+                        idempotencyKey: "seva-reminder:{$booking->getKey()}:{$row->offset}",
+                    );
+                }
 
                 $row->update([
                     'status' => SevaReminderSchedule::STATUS_SENT,
@@ -125,5 +135,137 @@ class DispatchSevaReminders extends Command
         Log::info('seva:dispatch-reminders', $stats);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Deliver one reminder rule: expand its recipient into concrete
+     * deliveries and send each via an in-memory template. Returns the
+     * number of deliveries attempted (0 = nothing usable).
+     */
+    private function dispatchRule(
+        NotificationService $notifier,
+        SevaReminderRule $rule,
+        SevaBooking $booking,
+        array $context,
+    ): int {
+        // Recipient expansion → list of [strategy, value, extraContext].
+        $recipients = [];
+        switch ($rule->recipient_type) {
+            case SevaReminderRule::RECIPIENT_DEVOTEE:
+                $recipients[] = [NotificationTemplate::RECIPIENT_DEVOTEE, null, []];
+                break;
+
+            case SevaReminderRule::RECIPIENT_ADMIN_ROLE:
+                $role = trim((string) $rule->recipient_value);
+                if ($role === '') {
+                    Log::warning('Reminder rule: admin_role with no role name', ['rule_id' => $rule->id]);
+                    break;
+                }
+                foreach (AdminUser::role($role)->where('is_active', true)->get() as $admin) {
+                    $recipients[] = [NotificationTemplate::RECIPIENT_ADMIN_ROLE, $role, ['admin' => $admin]];
+                }
+                break;
+
+            case SevaReminderRule::RECIPIENT_ASSIGNEE:
+                $assigneeId = $booking->seva?->assignee_id;
+                $admin = $assigneeId ? AdminUser::find($assigneeId) : null;
+                if ($admin) {
+                    $recipients[] = [NotificationTemplate::RECIPIENT_ADMIN_USER, (string) $assigneeId, ['admin' => $admin]];
+                } else {
+                    Log::warning('Reminder rule: seva has no (active) assignee', ['rule_id' => $rule->id, 'seva_id' => $booking->seva?->id]);
+                }
+                break;
+
+            case SevaReminderRule::RECIPIENT_CUSTOM_PHONE:
+                foreach (preg_split('/[,\s]+/', (string) $rule->recipient_value) ?: [] as $phone) {
+                    if (trim($phone) !== '') {
+                        $recipients[] = [NotificationTemplate::RECIPIENT_FIXED_PHONE, trim($phone), []];
+                    }
+                }
+                break;
+        }
+
+        if ($recipients === []) {
+            return 0;
+        }
+
+        // Message language: the devotee's own language for devotee rules,
+        // Gujarati for staff/custom recipients.
+        $locale = 'gu';
+        if ($rule->recipient_type === SevaReminderRule::RECIPIENT_DEVOTEE) {
+            $lang = $booking->devotee?->language;
+            $locale = $lang instanceof \BackedEnum ? $lang->value : (is_string($lang) && $lang !== '' ? $lang : 'gu');
+        }
+
+        $attempted = 0;
+        foreach ($recipients as [$strategy, $value, $extra]) {
+            $template = $this->templateForRule($rule, $strategy, $value, $locale);
+            if ($template === null) {
+                continue;
+            }
+
+            $ctx = new \App\Services\Notifications\NotificationContext(array_merge($context, $extra));
+            $notifier->sendTemplate($template, $ctx);
+            $attempted++;
+        }
+
+        return $attempted;
+    }
+
+    /**
+     * The in-memory NotificationTemplate for a rule delivery. WhatsApp
+     * rules clone their referenced (Meta-approved) template row and only
+     * override the recipient; push/email rules carry their inline message.
+     */
+    private function templateForRule(SevaReminderRule $rule, string $strategy, ?string $value, string $locale): ?NotificationTemplate
+    {
+        if ($rule->channel === NotificationTemplate::CHANNEL_WHATSAPP) {
+            $base = $rule->template;
+            if (! $base) {
+                Log::warning('Reminder rule: whatsapp rule has no template reference', ['rule_id' => $rule->id]);
+                return null;
+            }
+            $t = (new NotificationTemplate())->setRawAttributes($base->getAttributes(), sync: true);
+            $t->exists = true; // clone of a stored row — keep its id for the audit log
+            $t->recipient_strategy = $strategy;
+            $t->recipient_value = $value;
+            $t->recipients = null; // rule recipient only — ignore the row's own list
+
+            return $t;
+        }
+
+        $title = $rule->titleFor($locale);
+        $body = $rule->bodyFor($locale);
+        if (($title === null || $title === '') && ($body === null || $body === '')) {
+            Log::warning('Reminder rule: no inline message configured', ['rule_id' => $rule->id, 'channel' => $rule->channel]);
+            return null;
+        }
+
+        $t = new NotificationTemplate();
+        $t->forceFill([
+            'key' => 'seva.booking.reminder',
+            'label' => "Reminder rule #{$rule->id}",
+            'channel' => $rule->channel,
+            'is_enabled' => true,
+            'subject' => $title,
+            'body' => $body,
+            'push_title' => $title,
+            'push_body' => $body,
+            'recipient_strategy' => $strategy,
+            'recipient_value' => $value,
+            'placeholder_map' => [
+                'devotee_name' => 'devotee.name',
+                'admin_name' => 'admin.name',
+                'seva_name' => 'booking.seva.name_gu',
+                'booking_date' => 'booking.booking_date',
+                'slot_time' => 'booking.slot_time',
+                'hours_remaining' => 'hours_remaining',
+                'time_remaining_label' => 'time_remaining_label',
+                'booking_id' => 'booking.id',
+                'trust_name' => 'trust_name',
+            ],
+        ]);
+
+        return $t;
     }
 }

@@ -79,14 +79,65 @@ final class ReminderRuleFields
 
             Forms\Components\Select::make('notification_template_id')
                 ->label('WhatsApp template')
-                ->helperText('WhatsApp only sends Meta-approved templates — pick one. Manage them under Notification Templates.')
+                ->helperText('Only templates created for the "Seva — reminder before booking" trigger are listed — their {{1}}, {{2}}… variables are already mapped to booking data. To change the wording or variables, edit the template under Notification Templates (or create a new one on that trigger).')
                 ->options(fn () => NotificationTemplate::query()
                     ->where('channel', NotificationTemplate::CHANNEL_WHATSAPP)
+                    ->where('key', 'seva.booking.reminder')
                     ->orderBy('label')
                     ->pluck('label', 'id')->all())
                 ->searchable()
+                ->live()
                 ->visible(fn (Get $get): bool => $get('channel') === NotificationTemplate::CHANNEL_WHATSAPP)
                 ->required(fn (Get $get): bool => $get('channel') === NotificationTemplate::CHANNEL_WHATSAPP),
+
+            Forms\Components\Placeholder::make('wa_template_preview')
+                ->label('Message preview')
+                ->content(function (Get $get): \Illuminate\Support\HtmlString {
+                    $id = $get('notification_template_id');
+                    if (! $id) {
+                        return new \Illuminate\Support\HtmlString('<em>Select a template above to preview its message and variables.</em>');
+                    }
+                    $t = NotificationTemplate::find($id);
+                    if (! $t) {
+                        return new \Illuminate\Support\HtmlString('<em>Template not found.</em>');
+                    }
+
+                    // Approved body text from the synced Meta template cache.
+                    $cache = \App\Models\WhatsAppTemplateCache::query()
+                        ->where('name', $t->wa_template_name)
+                        ->when($t->wa_template_language, fn ($q) => $q->where('language', $t->wa_template_language))
+                        ->first();
+                    $body = null;
+                    foreach ((array) ($cache->components ?? []) as $component) {
+                        if (strtolower((string) ($component['type'] ?? '')) === 'body') {
+                            $body = (string) ($component['text'] ?? '');
+                            break;
+                        }
+                    }
+
+                    // Which data each {{n}} gets — tokens configured on the
+                    // template row's wa_components blueprint.
+                    preg_match_all('/\{\{\s*([a-z0-9_.]+)\s*\}\}/i', json_encode($t->wa_components ?? []), $m);
+                    $tokens = array_values(array_unique($m[1] ?? []));
+
+                    $html = '';
+                    if ($body) {
+                        $html .= '<div style="white-space:pre-wrap;border:1px solid rgba(120,120,120,.3);border-radius:8px;padding:10px;margin-bottom:6px;">' . e($body) . '</div>';
+                    }
+                    if ($tokens !== []) {
+                        $vars = [];
+                        foreach ($tokens as $i => $token) {
+                            $vars[] = '{{' . ($i + 1) . '}} → <strong>' . e($token) . '</strong>';
+                        }
+                        $html .= '<div>Variables: ' . implode(' &nbsp; ', $vars) . '</div>';
+                    } else {
+                        $html .= '<div style="color:#d97706;">⚠ This template has no variables mapped yet — open it in Notification Templates and map each {{n}} to booking data, or the send may be rejected.</div>';
+                    }
+
+                    return new \Illuminate\Support\HtmlString($html);
+                })
+                ->visible(fn (Get $get): bool => $get('channel') === NotificationTemplate::CHANNEL_WHATSAPP
+                    && filled($get('notification_template_id'))),
 
             Forms\Components\Group::make([
                 TranslatableTabs::make(fn (string $locale, string $label) => [

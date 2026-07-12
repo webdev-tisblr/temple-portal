@@ -30,7 +30,12 @@
 @layer components {
     /* Sacred section heading with ornamental divider */
     .divine-heading {
-        @apply text-3xl sm:text-4xl lg:text-5xl font-black text-center tracking-tight font-serif;
+        @apply text-3xl sm:text-4xl lg:text-5xl text-center tracking-tight;
+        /* Marcellus (Latin) with gu/hi serif fallbacks — one heading face
+           across the whole site, matching the redesigned homepage. Weight
+           500 keeps Gujarati/Devanagari substantial; Marcellus is 400 only. */
+        font-family: 'Marcellus', 'Noto Serif Gujarati', 'Noto Serif Devanagari', serif;
+        font-weight: 500;
         color: #7A1E1E;             /* maroon-500 — sacred ink */
     }
     .divine-subtext {

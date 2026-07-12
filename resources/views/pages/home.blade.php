@@ -88,7 +88,7 @@
                  x-data="{ i: 0, n: {{ count($cards) }}, t: null,
                            arm() { clearTimeout(this.t); if (this.n > 1) this.t = setTimeout(() => this.go(this.i + 1), 6000); },
                            go(k) { this.i = (k + this.n) % this.n; this.arm(); }, init() { this.arm(); } }">
-                <div class="rounded-2xl overflow-hidden" style="background:rgba(250,246,236,.97); box-shadow:0 18px 44px rgba(30,10,4,.45);">
+                <div class="rounded-2xl overflow-hidden" style="background:rgba(251,245,234,.97); box-shadow:0 18px 44px rgba(30,10,4,.45);">
                     {{-- Fixed-height stage: slides are absolutely stacked so the
                          card never grows/shrinks while one fades into the next. --}}
                     <div class="relative" style="height:330px;">
@@ -97,18 +97,18 @@
                                  class="absolute inset-0 flex flex-col">
                                 <div class="h-32 flex-shrink-0 bg-cover bg-center" style="background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@if($card['img']) background-image:url('{{ $card['img'] }}'); @endif"></div>
                                 <div class="p-5 flex flex-col flex-1">
-                                    <div class="text-[10px] tracking-[0.2em] font-extrabold" style="color:#B06A2A;">{{ strtoupper($card['label']) }}</div>
+                                    <div class="text-[10px] tracking-[0.2em] font-extrabold" style="color:#C45F12;">{{ strtoupper($card['label']) }}</div>
                                     <div class="font-marcellus text-lg mt-1.5 line-clamp-2" style="color:#7A1E1E;">{{ $card['title'] }}</div>
                                     @if(isset($card['pct']))
                                         <div class="mt-3 h-[7px] rounded-full" style="background:#f0e6cf;">
-                                            <div class="h-[7px] rounded-full" style="width:{{ $card['pct'] }}%; background:linear-gradient(90deg,#E8751A,#C25C1F);"></div>
+                                            <div class="h-[7px] rounded-full" style="width:{{ $card['pct'] }}%; background:linear-gradient(90deg,#E8751A,#C45F12);"></div>
                                         </div>
                                         <div class="flex justify-between mt-2 text-xs">
                                             <span class="font-extrabold" style="color:#7A1E1E;">₹{{ number_format($card['raised']) }}</span>
-                                            <span style="color:#9a7a54;">{{ __('home.of') }} ₹{{ number_format($card['goal']) }}</span>
+                                            <span style="color:#5E4F3D;">{{ __('home.of') }} ₹{{ number_format($card['goal']) }}</span>
                                         </div>
                                     @elseif(!empty($card['text']))
-                                        <div class="text-xs mt-2 leading-relaxed line-clamp-3" style="color:#7a5a3e;">{{ $card['text'] }}</div>
+                                        <div class="text-xs mt-2 leading-relaxed line-clamp-3" style="color:#5E4F3D;">{{ $card['text'] }}</div>
                                     @endif
                                     <a href="{{ $card['url'] }}" class="block mt-auto text-center font-extrabold text-xs py-2.5 rounded-full text-white transition hover:opacity-90" style="background:#7A1E1E;">{{ $card['cta'] }}</a>
                                 </div>
@@ -136,9 +136,9 @@
 @if(isset($campaigns) && $campaigns->isNotEmpty())
     <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div class="text-center mb-11">
-            <div class="text-[11px] tracking-[0.24em] font-extrabold" style="color:#B06A2A;">{{ __('home.support_dham') }}</div>
+            <div class="text-[11px] tracking-[0.24em] font-extrabold" style="color:#C45F12;">{{ __('home.support_dham') }}</div>
             <h2 class="font-marcellus text-3xl sm:text-4xl mt-2.5" style="color:#7A1E1E;">{{ __('home.donation_campaigns') }}</h2>
-            <p class="text-sm mt-2" style="color:#7a5a3e;">{{ __('home.campaigns_sub') }}</p>
+            <p class="text-sm mt-2" style="color:#5E4F3D;">{{ __('home.campaigns_sub') }}</p>
         </div>
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             @foreach($campaigns->take(3) as $c)
@@ -152,14 +152,14 @@
                     <div class="p-6">
                         <div class="font-marcellus text-xl" style="color:#7A1E1E;">{{ $c->title }}</div>
                         @if($c->description)
-                            <div class="text-sm mt-1.5 leading-relaxed line-clamp-2" style="color:#7a5a3e;">{{ text_preview($c->description, 110) }}</div>
+                            <div class="text-sm mt-1.5 leading-relaxed line-clamp-2" style="color:#5E4F3D;">{{ text_preview($c->description, 110) }}</div>
                         @endif
                         <div class="mt-4 h-2 rounded-full" style="background:#f0e6cf;">
-                            <div class="h-2 rounded-full" style="width:{{ $pct }}%; background:linear-gradient(90deg,#E8751A,#C25C1F);"></div>
+                            <div class="h-2 rounded-full" style="width:{{ $pct }}%; background:linear-gradient(90deg,#E8751A,#C45F12);"></div>
                         </div>
                         <div class="flex justify-between mt-2.5 text-xs">
                             <span class="font-extrabold" style="color:#7A1E1E;">₹{{ number_format($raised) }}</span>
-                            <span style="color:#9a7a54;">{{ __('home.of') }} ₹{{ number_format($goal) }} · {{ $pct }}%</span>
+                            <span style="color:#5E4F3D;">{{ __('home.of') }} ₹{{ number_format($goal) }} · {{ $pct }}%</span>
                         </div>
                         <div class="mt-4 text-center font-extrabold text-sm py-2.5 rounded-full text-white" style="background:#7A1E1E;">{{ __('home.contribute') }}</div>
                     </div>
@@ -173,14 +173,14 @@
      SEVA & PUJA
      ================================================================= --}}
 @if(isset($sevas) && $sevas->isNotEmpty())
-    <section class="py-16" style="background:#F3ECD9; border-top:1px solid #e9dfc8; border-bottom:1px solid #e9dfc8;">
+    <section class="py-16" style="background:#F4EAD5; border-top:1px solid #e9dfc8; border-bottom:1px solid #e9dfc8;">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-end justify-between mb-9">
                 <div>
-                    <div class="text-[11px] tracking-[0.24em] font-extrabold" style="color:#B06A2A;">{{ __('home.receive_blessings') }}</div>
+                    <div class="text-[11px] tracking-[0.24em] font-extrabold" style="color:#C45F12;">{{ __('home.receive_blessings') }}</div>
                     <h2 class="font-marcellus text-3xl sm:text-4xl mt-2.5" style="color:#7A1E1E;">{{ __('home.seva_puja') }}</h2>
                 </div>
-                <a href="{{ route('seva.index') }}" class="text-sm font-extrabold" style="color:#B06A2A;">{{ __('home.view_all_sevas') }} →</a>
+                <a href="{{ route('seva.index') }}" class="text-sm font-extrabold" style="color:#C45F12;">{{ __('home.view_all_sevas') }} →</a>
             </div>
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
                 @foreach($sevas->take(4) as $seva)
@@ -191,9 +191,9 @@
                         </div>
                         <div class="font-marcellus text-base sm:text-lg mt-4" style="color:#7A1E1E;">{{ $seva->name }}</div>
                         @if($seva->description)
-                            <div class="text-xs mt-1 px-3 leading-snug line-clamp-2" style="color:#7a5a3e;">{{ text_preview($seva->description, 60) }}</div>
+                            <div class="text-xs mt-1 px-3 leading-snug line-clamp-2" style="color:#5E4F3D;">{{ text_preview($seva->description, 60) }}</div>
                         @endif
-                        <div class="font-extrabold text-[15px] mt-3" style="color:#E8751A;">
+                        <div class="font-extrabold text-[15px] mt-3" style="color:#C45F12;">
                             @if($seva->is_variable_price && $seva->min_price)₹{{ number_format((float) $seva->min_price) }}+@else₹{{ number_format((float) $seva->price) }}@endif
                         </div>
                     </a>
@@ -212,10 +212,10 @@
     <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div class="flex items-end justify-between mb-8">
             <div>
-                <div class="text-[11px] tracking-[0.24em] font-extrabold" style="color:#B06A2A;">{{ __('home.festival') }}</div>
+                <div class="text-[11px] tracking-[0.24em] font-extrabold" style="color:#C45F12;">{{ __('home.festival') }}</div>
                 <h2 class="font-marcellus text-3xl sm:text-4xl mt-2.5" style="color:#7A1E1E;">{{ __('home.upcoming') }}</h2>
             </div>
-            <a href="{{ route('events.index') }}" class="text-sm font-extrabold" style="color:#B06A2A;">{{ __('home.all_events') }}</a>
+            <a href="{{ route('events.index') }}" class="text-sm font-extrabold" style="color:#C45F12;">{{ __('home.all_events') }}</a>
         </div>
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             @foreach($events->take(3) as $e)
@@ -224,7 +224,7 @@
                     <div class="h-40 bg-cover bg-center" style="background:repeating-linear-gradient(45deg,#e8d3b4 0 12px,#f1e0c4 12px 24px);@if($e->image_path) background-image:url('{{ image_url($e->image_path) }}'); @endif"></div>
                     <div class="p-5">
                         @if($e->start_date)
-                            <div class="text-[11px] font-extrabold" style="color:#B06A2A;">{{ $e->start_date->format('d M Y') }}</div>
+                            <div class="text-[11px] font-extrabold" style="color:#C45F12;">{{ $e->start_date->format('d M Y') }}</div>
                         @endif
                         <div class="font-marcellus text-lg mt-1" style="color:#7A1E1E;">{{ $e->title }}</div>
                     </div>
@@ -242,20 +242,20 @@
         <div class="flex flex-col gap-4">
             <h2 class="font-marcellus text-3xl" style="color:#7A1E1E;">{{ __('home.come_for_darshan') }}</h2>
             <div class="rounded-2xl p-6" style="background:#fff; border:1px solid #ecdfc4;">
-                <div class="text-[11px] tracking-[0.18em] font-extrabold" style="color:#B06A2A;">{{ __('common.address_label') }}</div>
-                <div class="text-sm mt-2 leading-relaxed" style="color:#3d2418;">{{ __('common.trust_full') }}<br>{{ $visit['address'] ?? __('common.address') }}</div>
+                <div class="text-[11px] tracking-[0.18em] font-extrabold" style="color:#C45F12;">{{ __('common.address_label') }}</div>
+                <div class="text-sm mt-2 leading-relaxed" style="color:#3E3226;">{{ __('common.trust_full') }}<br>{{ $visit['address'] ?? __('common.address') }}</div>
             </div>
             <div class="rounded-2xl p-6" style="background:#fff; border:1px solid #ecdfc4;">
-                <div class="text-[11px] tracking-[0.18em] font-extrabold" style="color:#B06A2A;">{{ __('nav.contact') }}</div>
-                <div class="text-sm mt-2 leading-relaxed" style="color:#3d2418;">
+                <div class="text-[11px] tracking-[0.18em] font-extrabold" style="color:#C45F12;">{{ __('nav.contact') }}</div>
+                <div class="text-sm mt-2 leading-relaxed" style="color:#3E3226;">
                     @if(!empty($visit['phone'])){{ $visit['phone'] }}<br>@endif
                     @if(!empty($visit['email'])){{ $visit['email'] }}@endif
                 </div>
             </div>
             @if(isset($todayTiming) && $todayTiming)
                 <div class="rounded-2xl p-6" style="background:#fff; border:1px solid #ecdfc4;">
-                    <div class="text-[11px] tracking-[0.18em] font-extrabold" style="color:#B06A2A;">{{ __('footer.darshan_times') }}</div>
-                    <div class="text-sm mt-2 leading-relaxed" style="color:#3d2418;">
+                    <div class="text-[11px] tracking-[0.18em] font-extrabold" style="color:#C45F12;">{{ __('footer.darshan_times') }}</div>
+                    <div class="text-sm mt-2 leading-relaxed" style="color:#3E3226;">
                         {{ __('footer.morning') }} {{ $fmtT($todayTiming->morning_open) }} – {{ $fmtT($todayTiming->morning_close) }}<br>
                         @if($todayTiming->evening_open){{ __('footer.evening') }} {{ $fmtT($todayTiming->evening_open) }} – {{ $fmtT($todayTiming->evening_close) }}@endif
                     </div>

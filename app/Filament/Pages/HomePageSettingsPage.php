@@ -157,11 +157,13 @@ class HomePageSettingsPage extends Page implements HasForms
                     Forms\Components\Select::make('card_campaign_ids')
                         ->label('Campaigns to feature')
                         ->multiple()->searchable()->preload()
-                        ->options(fn () => DonationCampaign::where('is_active', true)->orderByDesc('id')->pluck('title', 'id')),
+                        // title is a localized accessor (title_gu/hi/en), not a
+                        // real column — load models before plucking.
+                        ->options(fn () => DonationCampaign::where('is_active', true)->orderByDesc('id')->get()->pluck('title', 'id')),
                     Forms\Components\Select::make('card_event_ids')
                         ->label('Events to feature')
                         ->multiple()->searchable()->preload()
-                        ->options(fn () => Event::where('status', 'published')->orderBy('start_date')->pluck('title', 'id')),
+                        ->options(fn () => Event::where('status', 'published')->orderBy('start_date')->get()->pluck('title', 'id')),
                     Forms\Components\Toggle::make('card_show_hall')
                         ->label('Show the community hall card'),
                 ])->columns(2),

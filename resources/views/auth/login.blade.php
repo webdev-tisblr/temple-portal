@@ -136,11 +136,12 @@
 
     </div>
 
-    {{-- Back to home — below the card, centered. Solid white text for real
-         contrast on the dark bg; hover inverts to a filled white pill. --}}
+    {{-- Back to home — below the card, centered. The page bg is CREAM
+         (#FBF5EA), so the button is deep maroon on cream (site palette);
+         hover inverts to a filled maroon pill with cream text. --}}
     <div class="flex justify-center mt-5">
         <a href="{{ route('home') }}"
-           class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full border border-white/40 text-white text-sm font-bold tracking-wide transition-all duration-200 hover:bg-white hover:text-[#7A1E1E] hover:border-white hover:shadow-lg">
+           class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full border-2 border-[#7A1E1E]/60 text-[#7A1E1E] text-sm font-bold tracking-wide transition-all duration-200 hover:bg-[#7A1E1E] hover:text-[#FBF5EA] hover:border-[#7A1E1E] hover:shadow-lg">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
             {{ __('login.back_home') }}
         </a>

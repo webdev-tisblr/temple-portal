@@ -6,7 +6,10 @@
      HERO — admin slider when slides exist, static identity hero otherwise
      ================================================================= --}}
 @if(isset($heroSlides) && $heroSlides->isNotEmpty())
-    @php($heroLocale = app()->getLocale())
+    {{-- NOTE: must be the @php…@endphp BLOCK form. The inline @php(...)
+         form pairs with the loop's @endphp below and swallows the whole
+         section as raw PHP (took the homepage down on 2026-07-12). --}}
+    @php $heroLocale = app()->getLocale(); @endphp
     <section class="relative min-h-[72vh] overflow-hidden -mt-16 lg:-mt-20"
              style="background:#FBF5EA;"
              x-data="{

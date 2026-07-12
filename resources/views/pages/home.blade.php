@@ -217,7 +217,7 @@
                 <div class="text-[11px] tracking-[0.24em] font-extrabold" style="color:#C45F12;">{{ __('home.festival') }}</div>
                 <h2 class="font-marcellus text-3xl sm:text-4xl mt-2.5" style="color:#7A1E1E;">{{ __('home.upcoming') }}</h2>
             </div>
-            <a href="{{ route('events.index') }}" class="text-sm font-extrabold" style="color:#C45F12;">{{ __('home.all_events') }}</a>
+            <a href="{{ route('events.index') }}" class="text-sm font-extrabold" style="color:#C45F12;">{{ __('home.view_all_events') }}</a>
         </div>
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             @foreach($events->take(3) as $e)

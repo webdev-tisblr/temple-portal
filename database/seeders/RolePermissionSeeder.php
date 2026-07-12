@@ -56,7 +56,6 @@ class RolePermissionSeeder extends Seeder
         'donation::type',
         'event',
         'gallery',
-        'hero::slide',
         'hall',
         'hall::booking',
         'notification',
@@ -84,7 +83,7 @@ class RolePermissionSeeder extends Seeder
 
     private const PAGES = [
         'DarshanTimingsPage',
-        'WebsiteDisplayPage',
+        'HomePageSettingsPage',
         'FinancialReports',
         'SystemSettings',
     ];
@@ -240,7 +239,7 @@ class RolePermissionSeeder extends Seeder
                 $crud('trustee'),
 
                 // Pages, widgets, actions
-                ['page_FinancialReports', 'page_SystemSettings', 'page_DarshanTimingsPage', 'page_WebsiteDisplayPage'],
+                ['page_FinancialReports', 'page_SystemSettings', 'page_DarshanTimingsPage', 'page_HomePageSettingsPage'],
                 array_map(fn ($w) => "widget_{$w}", self::WIDGETS),
                 [
                     'approve_refund',

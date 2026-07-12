@@ -65,10 +65,49 @@ class HomeController extends Controller
             return GalleryImage::orderByDesc('id')->take(8)->get();
         });
 
-        // Admin-managed hero slides (falls back to the static hero when none).
-        $heroSlides = Cache::remember('home.hero_slides.v1', 600, fn () =>
-            \App\Models\HeroSlide::live()->orderBy('sort_order')->orderBy('id')->get()
-        );
+        // Hero background + text overrides (Admin → Home Page Settings).
+        // A single image OR looping video; falls back to the bundled photo.
+        $hero = Cache::remember('home.hero_config.v1', 300, function () {
+            $g = fn (string $k, string $d = '') => (string) SystemSetting::getValue("site_{$k}", $d);
+
+            return [
+                'media_type' => $g('hero_media_type', 'image') ?: 'image',
+                'image' => $g('hero_image'),
+                'video_type' => $g('hero_video_type', 'upload') ?: 'upload',
+                'video_file' => $g('hero_video_file'),
+                'video_url' => $g('hero_video_url'),
+                'overlay' => (int) ($g('hero_overlay', '40') ?: '40'),
+                'heading' => ['gu' => $g('hero_heading_gu'), 'hi' => $g('hero_heading_hi'), 'en' => $g('hero_heading_en')],
+                'sub' => ['gu' => $g('hero_sub_gu'), 'hi' => $g('hero_sub_hi'), 'en' => $g('hero_sub_en')],
+            ];
+        });
+
+        // Admin-selected featured cards for the hero-side highlight slider.
+        // Empty pickers fall back to the latest campaign / event (previous
+        // auto behaviour). The hall card shows unless explicitly turned off.
+        $cardCfg = Cache::remember('home.hero_cards.v1', 300, function () {
+            $ids = fn (string $k) => collect(json_decode(SystemSetting::getValue("site_{$k}", '[]'), true) ?: [])
+                ->map(fn ($v) => (int) $v)->filter()->values();
+            $hallRaw = (string) SystemSetting::getValue('site_card_show_hall', '');
+
+            return [
+                'campaign_ids' => $ids('card_campaign_ids'),
+                'event_ids' => $ids('card_event_ids'),
+                'show_hall' => $hallRaw === '' || $hallRaw === '1',
+            ];
+        });
+
+        $heroCampaigns = $cardCfg['campaign_ids']->isNotEmpty()
+            ? DonationCampaign::whereIn('id', $cardCfg['campaign_ids'])->get()
+                ->sortBy(fn ($c) => $cardCfg['campaign_ids']->search($c->id))->values()
+            : $campaigns->take(1);
+
+        $heroEvents = $cardCfg['event_ids']->isNotEmpty()
+            ? Event::whereIn('id', $cardCfg['event_ids'])->get()
+                ->sortBy(fn ($e) => $cardCfg['event_ids']->search($e->id))->values()
+            : $events->take(1);
+
+        $heroShowHall = $cardCfg['show_hall'];
 
         // ── Redesign data (2026-07-12 design import) ────────────────────
         // Live open/closed state + today's timing row for the badge,
@@ -128,7 +167,10 @@ class HomeController extends Controller
             'timings',
             'campaigns',
             'galleryPreview',
-            'heroSlides',
+            'hero',
+            'heroCampaigns',
+            'heroEvents',
+            'heroShowHall',
             'schedule',
             'todayTiming',
             'closesAt',

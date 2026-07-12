@@ -6,21 +6,61 @@
     $loc = app()->getLocale();
     $isOpenNow = $schedule['is_open'] ?? false;
     $fmtT = fn ($t) => $t ? \Carbon\Carbon::parse($t)->format('h:i A') : null;
-    // Hero background: first admin slide, else the bundled temple photo.
-    $heroImg = (isset($heroSlides) && $heroSlides->isNotEmpty() && $heroSlides->first()->image_path)
-        ? image_url($heroSlides->first()->image_path)
-        : asset('images/hanumanji-hero.jpg');
-    $heroSlide = (isset($heroSlides) && $heroSlides->isNotEmpty()) ? $heroSlides->first() : null;
+
+    // Hero background (Admin → Home Page Settings): one image OR one video.
+    $hero = $hero ?? [];
+    $pickLoc = function (array $bag) use ($loc) {
+        $v = $bag[$loc] ?? '';
+        return $v !== '' ? $v : ($bag['gu'] ?? '');
+    };
+    $heroImg = !empty($hero['image']) ? image_url($hero['image']) : asset('images/hanumanji-hero.jpg');
+    $heroOverlay = isset($hero['overlay']) ? max(0, min(90, (int) $hero['overlay'])) : 40;
+    $heroHeading = $pickLoc($hero['heading'] ?? []);
+    $heroHeadingText = $heroHeading !== '' ? $heroHeading : __('common.temple_name');
+    $heroSub = $pickLoc($hero['sub'] ?? []);
+    $heroSubText = $heroSub !== '' ? $heroSub : __('home.hero_subtitle');
+
+    // Resolve the video source into either a direct file or an embed iframe.
+    $heroIsVideo = ($hero['media_type'] ?? 'image') === 'video';
+    $heroVideoFile = null; $heroVideoIframe = null;
+    if ($heroIsVideo) {
+        if (($hero['video_type'] ?? 'upload') === 'upload' && !empty($hero['video_file'])) {
+            $heroVideoFile = image_url($hero['video_file']);
+        } elseif (($hero['video_type'] ?? '') === 'url' && !empty($hero['video_url'])) {
+            $u = $hero['video_url'];
+            if (preg_match('~(?:youtube\.com/(?:watch\?v=|embed/|shorts/)|youtu\.be/)([\w-]{6,})~', $u, $m)) {
+                $heroVideoIframe = "https://www.youtube.com/embed/{$m[1]}?autoplay=1&mute=1&loop=1&playlist={$m[1]}&controls=0&showinfo=0&modestbranding=1&rel=0&playsinline=1";
+            } elseif (preg_match('~vimeo\.com/(\d+)~', $u, $m)) {
+                $heroVideoIframe = "https://player.vimeo.com/video/{$m[1]}?autoplay=1&muted=1&loop=1&background=1";
+            } else {
+                $heroVideoFile = $u; // assume a direct .mp4/.webm link
+            }
+        }
+    }
+    $heroHasVideo = $heroVideoFile || $heroVideoIframe;
 @endphp
 
 {{-- =================================================================
      HERO
      ================================================================= --}}
 <section class="relative -mt-16 lg:-mt-20 min-h-[95vh] flex items-end overflow-hidden">
-    <img src="{{ $heroImg }}" alt="{{ __('common.temple_name') }}"
-         class="absolute inset-0 w-full h-full object-cover object-center">
+    @if($heroIsVideo && $heroVideoIframe)
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+            <iframe src="{{ $heroVideoIframe }}" allow="autoplay; encrypted-media" allowfullscreen tabindex="-1"
+                    class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-0"
+                    style="width:100vw; height:56.25vw; min-height:100%; min-width:177.78vh;"></iframe>
+        </div>
+    @elseif($heroIsVideo && $heroVideoFile)
+        <video class="absolute inset-0 w-full h-full object-cover object-center"
+               autoplay muted loop playsinline poster="{{ $heroImg }}">
+            <source src="{{ $heroVideoFile }}" type="video/mp4">
+        </video>
+    @else
+        <img src="{{ $heroImg }}" alt="{{ __('common.temple_name') }}"
+             class="absolute inset-0 w-full h-full object-cover object-center">
+    @endif
     <div class="absolute inset-0"
-         style="background:linear-gradient(180deg, rgba(41,15,8,.35) 0%, rgba(41,15,8,.05) 35%, rgba(58,22,10,.82) 100%);"></div>
+         style="background:linear-gradient(180deg, rgba(41,15,8,{{ $heroOverlay/100 * 0.9 }}) 0%, rgba(41,15,8,{{ $heroOverlay/100 * 0.13 }}) 35%, rgba(58,22,10,{{ max(0.82, $heroOverlay/100 + 0.4) }}) 100%);"></div>
 
     <div class="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-14 pt-28
                 flex flex-col lg:flex-row lg:items-end gap-10">
@@ -39,10 +79,10 @@
 
             <h1 class="font-marcellus leading-[1.05] text-4xl sm:text-5xl lg:text-6xl"
                 style="color:#FFF7EC; text-shadow:0 2px 24px rgba(0,0,0,.45);">
-                {{ $heroSlide?->headingFor($loc) ?? __('common.temple_name') }}
+                {{ $heroHeadingText }}
             </h1>
             <p class="mt-4 text-base sm:text-lg" style="color:rgba(253,246,230,.88);">
-                {{ $heroSlide?->subFor($loc) ?? __('home.hero_subtitle') }}
+                {{ $heroSubText }}
             </p>
 
             <div class="flex flex-wrap items-center gap-3 mt-8">
@@ -59,24 +99,23 @@
             </div>
         </div>
 
-        {{-- Right: highlight slider (campaign / hall / event) --}}
+        {{-- Right: highlight slider — admin-selected campaigns, hall, events
+             (Admin → Home Page Settings → Featured Cards). --}}
         @php
             $cards = [];
-            if (isset($campaigns) && $campaigns->isNotEmpty()) {
-                $c = $campaigns->first();
+            foreach (($heroCampaigns ?? collect()) as $c) {
                 $goal = (float) $c->goal_amount; $raised = (float) $c->raised_amount;
                 $pct = $goal > 0 ? min(100, round($raised / $goal * 100)) : 0;
                 $cards[] = ['label' => __('home.featured'), 'img' => $c->cover_image_url, 'title' => $c->title,
                     'pct' => $pct, 'raised' => $raised, 'goal' => $goal,
                     'cta' => __('home.contribute'), 'url' => route('projects.show', $c->slug)];
             }
-            if (isset($hall) && $hall) {
+            if (($heroShowHall ?? true) && isset($hall) && $hall) {
                 $cards[] = ['label' => __('home.community_hall'), 'img' => $hall->image_path ? image_url($hall->image_path) : null,
                     'title' => $hall->name, 'text' => text_preview($hall->description ?? '', 90),
                     'cta' => __('home.check_availability'), 'url' => route('halls.index')];
             }
-            if (isset($events) && $events->isNotEmpty()) {
-                $e = $events->first();
+            foreach (($heroEvents ?? collect()) as $e) {
                 $cards[] = ['label' => optional($e->start_date)->format('d M') . ' · ' . __('home.festival'),
                     'img' => $e->image_path ? image_url($e->image_path) : null, 'title' => $e->title,
                     'text' => text_preview($e->description ?? '', 90),

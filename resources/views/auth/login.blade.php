@@ -34,10 +34,11 @@
         </div>
     @endif
 
-    {{-- Back to home — centered, right before the login card --}}
+    {{-- Back to home — centered, right before the login card. Filled pill
+         with near-white text: the earlier dim amber-on-dark failed contrast. --}}
     <div class="flex justify-center mb-4">
         <a href="{{ route('home') }}"
-           class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-amber-600/40 text-amber-200/90 hover:text-gold hover:border-amber-500/70 hover:bg-amber-900/20 text-sm font-semibold transition-colors">
+           class="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white/10 border border-white/25 text-amber-50 hover:bg-white/20 hover:text-white text-sm font-semibold transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
             {{ __('login.back_home') }}
         </a>

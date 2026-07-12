@@ -54,6 +54,7 @@ class HomePageSettingsPage extends Page implements HasForms
         // Hero background
         'hero_media_type', 'hero_image',
         'hero_video_type', 'hero_video_file', 'hero_video_url',
+        'hero_video_audio', 'hero_video_controls',
         'hero_overlay',
         'hero_heading_gu', 'hero_heading_hi', 'hero_heading_en',
         'hero_sub_gu', 'hero_sub_hi', 'hero_sub_en',
@@ -73,7 +74,7 @@ class HomePageSettingsPage extends Page implements HasForms
     private const JSON_KEYS = ['card_campaign_ids', 'card_event_ids'];
 
     /** Keys that are booleans (toggles). */
-    private const BOOL_KEYS = ['card_show_hall', 'ribbon_enabled', 'popup_enabled'];
+    private const BOOL_KEYS = ['hero_video_audio', 'hero_video_controls', 'card_show_hall', 'ribbon_enabled', 'popup_enabled'];
 
     public function mount(): void
     {
@@ -137,6 +138,14 @@ class HomePageSettingsPage extends Page implements HasForms
                         ->placeholder('https://youtu.be/…  ·  https://vimeo.com/…  ·  https://…/clip.mp4')
                         ->maxLength(600)
                         ->visible(fn (Get $get) => $get('hero_media_type') === 'video' && $get('hero_video_type') === 'url'),
+
+                    Forms\Components\Group::make([
+                        Forms\Components\Toggle::make('hero_video_audio')
+                            ->label('Play with sound')
+                            ->helperText('Most browsers still start muted until the visitor clicks — turn on controls so they can unmute.'),
+                        Forms\Components\Toggle::make('hero_video_controls')
+                            ->label('Show play / pause controls'),
+                    ])->visible(fn (Get $get) => $get('hero_media_type') === 'video'),
 
                     Forms\Components\TextInput::make('hero_overlay')
                         ->label('Darkening veil (%)')

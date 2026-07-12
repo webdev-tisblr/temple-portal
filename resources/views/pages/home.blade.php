@@ -21,7 +21,12 @@
     $heroSubText = $heroSub !== '' ? $heroSub : __('home.hero_subtitle');
 
     // Resolve the video source into either a direct file or an embed iframe.
+    // Audio + controls are admin-configurable (Home Page Settings). Note:
+    // browsers block autoplay-with-sound until the visitor interacts, so
+    // "sound on" realistically needs controls shown too.
     $heroIsVideo = ($hero['media_type'] ?? 'image') === 'video';
+    $heroAudio = !empty($hero['video_audio']);
+    $heroControls = !empty($hero['video_controls']);
     $heroVideoFile = null; $heroVideoIframe = null;
     if ($heroIsVideo) {
         if (($hero['video_type'] ?? 'upload') === 'upload' && !empty($hero['video_file'])) {
@@ -29,9 +34,16 @@
         } elseif (($hero['video_type'] ?? '') === 'url' && !empty($hero['video_url'])) {
             $u = $hero['video_url'];
             if (preg_match('~(?:youtube\.com/(?:watch\?v=|embed/|shorts/)|youtu\.be/)([\w-]{6,})~', $u, $m)) {
-                $heroVideoIframe = "https://www.youtube.com/embed/{$m[1]}?autoplay=1&mute=1&loop=1&playlist={$m[1]}&controls=0&showinfo=0&modestbranding=1&rel=0&playsinline=1";
+                $mute = $heroAudio ? '0' : '1';
+                $ctrl = $heroControls ? '1' : '0';
+                $heroVideoIframe = "https://www.youtube.com/embed/{$m[1]}?autoplay=1&mute={$mute}&loop=1&playlist={$m[1]}&controls={$ctrl}&showinfo=0&modestbranding=1&rel=0&playsinline=1";
             } elseif (preg_match('~vimeo\.com/(\d+)~', $u, $m)) {
-                $heroVideoIframe = "https://player.vimeo.com/video/{$m[1]}?autoplay=1&muted=1&loop=1&background=1";
+                $muted = $heroAudio ? '0' : '1';
+                // Vimeo's background=1 forces muted + hides controls; only use it
+                // when the admin wants neither sound nor controls.
+                $heroVideoIframe = ($heroAudio || $heroControls)
+                    ? "https://player.vimeo.com/video/{$m[1]}?autoplay=1&muted={$muted}&loop=1&controls=" . ($heroControls ? '1' : '0')
+                    : "https://player.vimeo.com/video/{$m[1]}?autoplay=1&muted=1&loop=1&background=1";
             } else {
                 $heroVideoFile = $u; // assume a direct .mp4/.webm link
             }
@@ -45,14 +57,15 @@
      ================================================================= --}}
 <section class="relative -mt-16 lg:-mt-20 min-h-[95vh] flex items-end overflow-hidden">
     @if($heroIsVideo && $heroVideoIframe)
-        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute inset-0 overflow-hidden {{ $heroControls ? '' : 'pointer-events-none' }}">
             <iframe src="{{ $heroVideoIframe }}" allow="autoplay; encrypted-media" allowfullscreen tabindex="-1"
                     class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-0"
                     style="width:100vw; height:56.25vw; min-height:100%; min-width:177.78vh;"></iframe>
         </div>
     @elseif($heroIsVideo && $heroVideoFile)
         <video class="absolute inset-0 w-full h-full object-cover object-center"
-               autoplay muted loop playsinline poster="{{ $heroImg }}">
+               autoplay loop playsinline poster="{{ $heroImg }}"
+               @if(!$heroAudio) muted @endif @if($heroControls) controls @endif>
             <source src="{{ $heroVideoFile }}" type="video/mp4">
         </video>
     @else

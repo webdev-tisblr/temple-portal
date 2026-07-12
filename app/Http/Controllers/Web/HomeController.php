@@ -76,6 +76,8 @@ class HomeController extends Controller
                 'video_type' => $g('hero_video_type', 'upload') ?: 'upload',
                 'video_file' => $g('hero_video_file'),
                 'video_url' => $g('hero_video_url'),
+                'video_audio' => $g('hero_video_audio') === '1',
+                'video_controls' => $g('hero_video_controls') === '1',
                 'overlay' => (int) ($g('hero_overlay', '40') ?: '40'),
                 'heading' => ['gu' => $g('hero_heading_gu'), 'hi' => $g('hero_heading_hi'), 'en' => $g('hero_heading_en')],
                 'sub' => ['gu' => $g('hero_sub_gu'), 'hi' => $g('hero_sub_hi'), 'en' => $g('hero_sub_en')],

@@ -34,16 +34,6 @@
         </div>
     @endif
 
-    {{-- Back to home — centered, right before the login card. Filled pill
-         with near-white text: the earlier dim amber-on-dark failed contrast. --}}
-    <div class="flex justify-center mb-4">
-        <a href="{{ route('home') }}"
-           class="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white/10 border border-white/25 text-amber-50 hover:bg-white/20 hover:text-white text-sm font-semibold transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-            {{ __('login.back_home') }}
-        </a>
-    </div>
-
     <div class="card-sacred p-6 sm:p-8">
 
         {{-- Step 1: Phone Number --}}
@@ -144,6 +134,16 @@
             </button>
         </div>
 
+    </div>
+
+    {{-- Back to home — below the card, centered. Solid white text for real
+         contrast on the dark bg; hover inverts to a filled white pill. --}}
+    <div class="flex justify-center mt-5">
+        <a href="{{ route('home') }}"
+           class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full border border-white/40 text-white text-sm font-bold tracking-wide transition-all duration-200 hover:bg-white hover:text-[#7A1E1E] hover:border-white hover:shadow-lg">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            {{ __('login.back_home') }}
+        </a>
     </div>
 
     <p class="text-center text-amber-100/20 text-xs mt-6">

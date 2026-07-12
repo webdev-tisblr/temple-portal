@@ -40,10 +40,10 @@ class DailyDarshanPhotoResource extends Resource
                     ->default(true),
             ])->columns(2),
             Forms\Components\Section::make('Caption (optional)')->schema([
-                Forms\Components\TextInput::make('caption_gu')->label('Gujarati')->maxLength(500),
-                Forms\Components\TextInput::make('caption_hi')->label('Hindi')->maxLength(500),
-                Forms\Components\TextInput::make('caption_en')->label('English')->maxLength(500),
-            ])->columns(3)->collapsed(),
+                \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                    Forms\Components\TextInput::make("caption_{$locale}")->label("Caption {$label}")->maxLength(500),
+                ]),
+            ])->collapsed(),
         ]);
     }
 

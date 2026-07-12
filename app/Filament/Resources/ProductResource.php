@@ -29,10 +29,13 @@ class ProductResource extends Resource
     {
         return $form->schema([
             Forms\Components\Section::make('Basic Info')->schema([
-                Forms\Components\TextInput::make('name_gu')->label('Name (Gujarati)')->required()->maxLength(255),
-                Forms\Components\TextInput::make('name_hi')->label('Name (Hindi)')->required()->maxLength(255),
-                Forms\Components\TextInput::make('name_en')->label('Name (English)')->required()->maxLength(255)
-                    ->afterStateUpdated(fn (Set $set, ?string $state) => $set('slug', Str::slug($state ?? ''))),
+                \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                    Forms\Components\TextInput::make("name_{$locale}")->label("Name {$label}")->required()->maxLength(255)
+                        ->afterStateUpdated($locale === 'en'
+                            ? fn (Set $set, ?string $state) => $set('slug', Str::slug($state ?? ''))
+                            : null),
+                    Forms\Components\RichEditor::make("description_{$locale}")->label("Description {$label}"),
+                ]),
                 Forms\Components\TextInput::make('slug')->required()->unique(ignoreRecord: true)->maxLength(255),
                 Forms\Components\Select::make('category_id')
                     ->label('Category')
@@ -41,12 +44,6 @@ class ProductResource extends Resource
                     ->preload()
                     ->required(),
             ])->columns(2),
-
-            Forms\Components\Section::make('Description')->schema([
-                Forms\Components\RichEditor::make('description_gu')->label('Description (Gujarati)'),
-                Forms\Components\RichEditor::make('description_hi')->label('Description (Hindi)'),
-                Forms\Components\RichEditor::make('description_en')->label('Description (English)'),
-            ]),
 
             Forms\Components\Section::make('Pricing & Stock')->schema([
                 Forms\Components\Toggle::make('has_variants')->label('Variable Pricing (multiple options)')

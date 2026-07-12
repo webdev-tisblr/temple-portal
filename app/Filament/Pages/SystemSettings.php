@@ -59,19 +59,12 @@ class SystemSettings extends Page implements HasForms
                             // logo/name on every page via the footer
                             // partial. Plain text only — line breaks
                             // are honoured by Tailwind's leading-relaxed.
-                            Forms\Components\Textarea::make('trust_tagline')
-                                ->label('Footer tagline (Gujarati)')
-                                ->rows(3)
-                                ->helperText('Short description shown under the trust logo in the public footer. 1–2 sentences.')
-                                ->columnSpanFull(),
-                            Forms\Components\Textarea::make('trust_tagline_hi')
-                                ->label('Footer tagline (Hindi)')
-                                ->rows(3)
-                                ->columnSpanFull(),
-                            Forms\Components\Textarea::make('trust_tagline_en')
-                                ->label('Footer tagline (English)')
-                                ->rows(3)
-                                ->columnSpanFull(),
+                            \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                                Forms\Components\Textarea::make($locale === 'gu' ? 'trust_tagline' : "trust_tagline_{$locale}")
+                                    ->label("Footer tagline {$label}")
+                                    ->rows(3)
+                                    ->helperText($locale === 'gu' ? 'Short description shown under the trust logo in the public footer. 1–2 sentences.' : null),
+                            ], id: 'tagline_translations'),
                         ])->columns(2),
 
                         Forms\Components\Section::make('80G Details')->schema([

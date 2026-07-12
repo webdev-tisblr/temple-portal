@@ -26,15 +26,11 @@ class AnnouncementResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Title')->schema([
-                Forms\Components\TextInput::make('title_gu')->label('Title (Gujarati)')->required()->maxLength(500),
-                Forms\Components\TextInput::make('title_hi')->label('Title (Hindi)')->maxLength(500),
-                Forms\Components\TextInput::make('title_en')->label('Title (English)')->maxLength(500),
-            ])->columns(3),
-            Forms\Components\Section::make('Body')->schema([
-                Forms\Components\RichEditor::make('body_gu')->label('Body (Gujarati)')->required(),
-                Forms\Components\RichEditor::make('body_hi')->label('Body (Hindi)'),
-                Forms\Components\RichEditor::make('body_en')->label('Body (English)'),
+            Forms\Components\Section::make('Content')->schema([
+                \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                    Forms\Components\TextInput::make("title_{$locale}")->label("Title {$label}")->required($locale === 'gu')->maxLength(500),
+                    Forms\Components\RichEditor::make("body_{$locale}")->label("Body {$label}")->required($locale === 'gu'),
+                ]),
             ]),
             Forms\Components\Section::make('Settings')->schema([
                 Forms\Components\FileUpload::make('image_path')->image()->directory('announcements'),

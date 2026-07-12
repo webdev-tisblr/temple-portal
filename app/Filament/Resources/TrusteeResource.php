@@ -25,22 +25,17 @@ class TrusteeResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Name')->schema([
-                Forms\Components\TextInput::make('name_gu')->label('Name (Gujarati)')->required()->maxLength(255),
-                Forms\Components\TextInput::make('name_hi')->label('Name (Hindi)')->maxLength(255),
-                Forms\Components\TextInput::make('name_en')->label('Name (English)')->maxLength(255),
-            ])->columns(3),
-
-            Forms\Components\Section::make('Role / Designation')->schema([
-                Forms\Components\TextInput::make('role_gu')->label('Role (Gujarati)')->maxLength(255)->placeholder('પ્રમુખ (Chairman)'),
-                Forms\Components\TextInput::make('role_hi')->label('Role (Hindi)')->maxLength(255),
-                Forms\Components\TextInput::make('role_en')->label('Role (English)')->maxLength(255),
-            ])->columns(3),
+            Forms\Components\Section::make('Content')->schema([
+                \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                    Forms\Components\TextInput::make("name_{$locale}")->label("Name {$label}")->required($locale === 'gu')->maxLength(255),
+                    Forms\Components\TextInput::make("role_{$locale}")->label("Role {$label}")->maxLength(255)
+                        ->placeholder($locale === 'gu' ? 'પ્રમુખ (Chairman)' : null),
+                    Forms\Components\TextInput::make("location_{$locale}")->label("Location {$label}")->maxLength(255)
+                        ->placeholder($locale === 'gu' ? 'ગાંધીધામ, કચ્છ' : null),
+                ]),
+            ]),
 
             Forms\Components\Section::make('Details')->schema([
-                Forms\Components\TextInput::make('location_gu')->label('Location (Gujarati)')->maxLength(255)->placeholder('ગાંધીધામ, કચ્છ'),
-                Forms\Components\TextInput::make('location_hi')->label('Location (Hindi)')->maxLength(255),
-                Forms\Components\TextInput::make('location_en')->label('Location (English)')->maxLength(255),
                 Forms\Components\FileUpload::make('photo_path')->label('Photo')->image()->directory('trustees')->maxSize(4096)->imageEditor(),
                 Forms\Components\TextInput::make('sort_order')->numeric()->default(0)->helperText('Lower shows first.'),
                 Forms\Components\Toggle::make('is_active')->label('Active')->default(true),

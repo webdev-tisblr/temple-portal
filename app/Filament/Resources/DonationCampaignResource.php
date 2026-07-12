@@ -28,27 +28,19 @@ class DonationCampaignResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Basic Info')->schema([
-                Forms\Components\TextInput::make('title_gu')->label('Title (Gujarati)')->required()->maxLength(500),
-                Forms\Components\TextInput::make('title_hi')->label('Title (Hindi)')->maxLength(500),
-                Forms\Components\TextInput::make('title_en')->label('Title (English)')->maxLength(500)
-                    ->live(onBlur: true)
-                    ->afterStateUpdated(fn (Set $set, ?string $state) => $set('slug', Str::slug($state ?? ''))),
+            Forms\Components\Section::make('Content')->schema([
+                \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                    Forms\Components\TextInput::make("title_{$locale}")->label("Title {$label}")->required($locale === 'gu')->maxLength(500)
+                        ->live(onBlur: $locale === 'en')
+                        ->afterStateUpdated($locale === 'en'
+                            ? fn (Set $set, ?string $state) => $set('slug', Str::slug($state ?? ''))
+                            : null),
+                    Forms\Components\Textarea::make("description_{$locale}")->label("Short Description {$label}")->rows(3),
+                    Forms\Components\RichEditor::make("writeup_{$locale}")->label("Detailed Writeup {$label}"),
+                ]),
                 Forms\Components\TextInput::make('slug')->required()->unique(ignoreRecord: true)->maxLength(255),
                 Forms\Components\FileUpload::make('image_path')->label('Cover Image')->image()->directory('campaigns')->maxSize(2048),
             ])->columns(2),
-
-            Forms\Components\Section::make('Description')->schema([
-                Forms\Components\Textarea::make('description_gu')->label('Description (Gujarati)')->rows(3),
-                Forms\Components\Textarea::make('description_hi')->label('Description (Hindi)')->rows(3),
-                Forms\Components\Textarea::make('description_en')->label('Description (English)')->rows(3),
-            ])->columns(1),
-
-            Forms\Components\Section::make('Detailed Writeup')->schema([
-                Forms\Components\RichEditor::make('writeup_gu')->label('Writeup (Gujarati)'),
-                Forms\Components\RichEditor::make('writeup_hi')->label('Writeup (Hindi)'),
-                Forms\Components\RichEditor::make('writeup_en')->label('Writeup (English)'),
-            ]),
 
             Forms\Components\Section::make('Featured Video')->schema([
                 Forms\Components\TextInput::make('featured_video_url')
@@ -85,9 +77,9 @@ class DonationCampaignResource extends Resource
                     Forms\Components\Repeater::make('subCauses')
                         ->relationship()
                         ->schema([
-                            Forms\Components\TextInput::make('title_gu')->label('Title (Gujarati)')->required()->maxLength(255),
-                            Forms\Components\TextInput::make('title_hi')->label('Title (Hindi)')->maxLength(255),
-                            Forms\Components\TextInput::make('title_en')->label('Title (English)')->maxLength(255),
+                            \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                                Forms\Components\TextInput::make("title_{$locale}")->label("Title {$label}")->required($locale === 'gu')->maxLength(255),
+                            ]),
                             Forms\Components\TextInput::make('goal_amount')->label('Goal Amount (optional)')->numeric()->prefix('₹'),
                             Forms\Components\Toggle::make('is_active')->label('Active')->default(true)->inline(false),
                             Forms\Components\TextInput::make('sort_order')->numeric()->default(0),
@@ -102,12 +94,10 @@ class DonationCampaignResource extends Resource
             Forms\Components\Section::make('FAQs')->schema([
                 Forms\Components\Repeater::make('faqs')
                     ->schema([
-                        Forms\Components\TextInput::make('question_gu')->label('Question (Gujarati)')->maxLength(500),
-                        Forms\Components\TextInput::make('question_hi')->label('Question (Hindi)')->maxLength(500),
-                        Forms\Components\TextInput::make('question_en')->label('Question (English)')->maxLength(500),
-                        Forms\Components\Textarea::make('answer_gu')->label('Answer (Gujarati)')->rows(3),
-                        Forms\Components\Textarea::make('answer_hi')->label('Answer (Hindi)')->rows(3),
-                        Forms\Components\Textarea::make('answer_en')->label('Answer (English)')->rows(3),
+                        \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                            Forms\Components\TextInput::make("question_{$locale}")->label("Question {$label}")->maxLength(500),
+                            Forms\Components\Textarea::make("answer_{$locale}")->label("Answer {$label}")->rows(3),
+                        ]),
                     ])
                     ->columns(1)
                     ->defaultItems(0)

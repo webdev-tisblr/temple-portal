@@ -27,16 +27,11 @@ class EventResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Title')->schema([
-                Forms\Components\TextInput::make('title_gu')->label('Title (Gujarati)')->required()->maxLength(500),
-                Forms\Components\TextInput::make('title_hi')->label('Title (Hindi)')->maxLength(500),
-                Forms\Components\TextInput::make('title_en')->label('Title (English)')->maxLength(500),
-            ])->columns(3),
-
-            Forms\Components\Section::make('Description')->schema([
-                Forms\Components\RichEditor::make('description_gu')->label('Description (Gujarati)'),
-                Forms\Components\RichEditor::make('description_hi')->label('Description (Hindi)'),
-                Forms\Components\RichEditor::make('description_en')->label('Description (English)'),
+            Forms\Components\Section::make('Content')->schema([
+                \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                    Forms\Components\TextInput::make("title_{$locale}")->label("Title {$label}")->required($locale === 'gu')->maxLength(500),
+                    Forms\Components\RichEditor::make("description_{$locale}")->label("Description {$label}"),
+                ]),
             ]),
 
             Forms\Components\Section::make('Schedule')->schema([

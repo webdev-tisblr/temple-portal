@@ -29,16 +29,11 @@ class SevaResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Basic Info')->schema([
-                Forms\Components\TextInput::make('name_gu')->label('Name (Gujarati)')->required()->maxLength(255),
-                Forms\Components\TextInput::make('name_hi')->label('Name (Hindi)')->required()->maxLength(255),
-                Forms\Components\TextInput::make('name_en')->label('Name (English)')->required()->maxLength(255),
-            ])->columns(3),
-
-            Forms\Components\Section::make('Description')->schema([
-                Forms\Components\RichEditor::make('description_gu')->label('Description (Gujarati)'),
-                Forms\Components\RichEditor::make('description_hi')->label('Description (Hindi)'),
-                Forms\Components\RichEditor::make('description_en')->label('Description (English)'),
+            Forms\Components\Section::make('Content')->schema([
+                \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                    Forms\Components\TextInput::make("name_{$locale}")->label("Name {$label}")->required()->maxLength(255),
+                    Forms\Components\RichEditor::make("description_{$locale}")->label("Description {$label}"),
+                ]),
             ]),
 
             Forms\Components\Section::make('Pricing & Config')->schema([

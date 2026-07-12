@@ -29,14 +29,14 @@ class ProductCategoryResource extends Resource
     {
         return $form->schema([
             Forms\Components\Section::make('Basic Info')->schema([
-                Forms\Components\TextInput::make('name_gu')->label('Name (Gujarati)')->required()->maxLength(255),
-                Forms\Components\TextInput::make('name_hi')->label('Name (Hindi)')->required()->maxLength(255),
-                Forms\Components\TextInput::make('name_en')->label('Name (English)')->required()->maxLength(255)
-                    ->afterStateUpdated(fn (Set $set, ?string $state) => $set('slug', Str::slug($state ?? ''))),
+                \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                    Forms\Components\TextInput::make("name_{$locale}")->label("Name {$label}")->required()->maxLength(255)
+                        ->afterStateUpdated($locale === 'en'
+                            ? fn (Set $set, ?string $state) => $set('slug', Str::slug($state ?? ''))
+                            : null),
+                    Forms\Components\Textarea::make("description_{$locale}")->label("Description {$label}"),
+                ]),
                 Forms\Components\TextInput::make('slug')->required()->unique(ignoreRecord: true)->maxLength(255),
-                Forms\Components\Textarea::make('description_gu')->label('Description (Gujarati)')->columnSpanFull(),
-                Forms\Components\Textarea::make('description_hi')->label('Description (Hindi)')->columnSpanFull(),
-                Forms\Components\Textarea::make('description_en')->label('Description (English)')->columnSpanFull(),
                 Forms\Components\FileUpload::make('image_path')->label('Image')->image()->directory('product-categories')->maxSize(2048),
                 Forms\Components\TextInput::make('sort_order')->numeric()->default(0),
                 Forms\Components\Toggle::make('is_active')->label('Active')->default(true),

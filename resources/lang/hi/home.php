@@ -1,6 +1,10 @@
 <?php
 
 return [
+    'hero_subtitle' => 'अंतरजाल, गांधीधाम, कच्छ — हनुमानजी की कृपा का जीवंत धाम',
+    'of' => 'में से',
+    'support_dham' => 'धाम का सहयोग करें',
+    'receive_blessings' => 'उनके आशीर्वाद पाएं',
     'community_hall' => 'सामुदायिक हॉल',
     'guest_capacity' => 'अतिथि क्षमता',
     'per_day' => 'प्रति दिन',

@@ -1,6 +1,10 @@
 <?php
 
 return [
+    'hero_subtitle' => 'Antarjaal, Gandhidham, Kutch — a living seat of Hanumanji\'s grace',
+    'of' => 'of',
+    'support_dham' => 'SUPPORT THE DHAM',
+    'receive_blessings' => 'RECEIVE HIS BLESSINGS',
     'community_hall' => 'Community Hall',
     'guest_capacity' => 'guest capacity',
     'per_day' => 'per day',

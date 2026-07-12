@@ -1,6 +1,10 @@
 <?php
 
 return [
+    'hero_subtitle' => 'અંતરજાળ, ગાંધીધામ, કચ્છ — હનુમાનજીની કૃપાનું જીવંત ધામ',
+    'of' => 'માંથી',
+    'support_dham' => 'ધામને સહયોગ કરો',
+    'receive_blessings' => 'તેમના આશીર્વાદ મેળવો',
     'community_hall' => 'સમુદાય હોલ',
     'guest_capacity' => 'મહેમાન ક્ષમતા',
     'per_day' => 'પ્રતિ દિવસ',

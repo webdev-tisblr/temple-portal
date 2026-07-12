@@ -167,18 +167,29 @@ class ContentController extends BaseApiController
     {
         $streamUrl = SystemSetting::getValue('live_darshan_stream_url', '')
             ?: SystemSetting::getValue('youtube_live_url', '');
-        $isLive = SystemSetting::getValue('live_darshan_is_live', '0');
         $channelId = SystemSetting::getValue('live_darshan_channel_id', '')
             ?: SystemSetting::getValue('youtube_channel_id', '');
 
-        // If stream URL exists, consider it live
-        if (empty($isLive) || $isLive === '0') {
-            $isLive = !empty($streamUrl) ? '1' : '0';
-        }
+        // Schedule gate: live only when a stream URL exists AND the current
+        // IST time falls inside a darshan window (regular Sun–Fri / special
+        // Saturday). Outside the window clients show the placeholder with
+        // the next-darshan time.
+        $schedule = \App\Models\DarshanTiming::scheduleNow();
+        $isLive = ! empty($streamUrl) && $schedule['is_open'];
+
+        // Placeholder for the off state: today's daily darshan photo.
+        $photo = \App\Models\DailyDarshanPhoto::where('is_active', true)
+            ->orderByDesc('captured_on')->orderByDesc('id')->first();
 
         return $this->success([
             'stream_url' => $streamUrl,
-            'is_live' => (bool) (int) $isLive,
+            'is_live' => $isLive,
+            'within_hours' => $schedule['is_open'],
+            'next_darshan_at' => $schedule['next_opening']?->format('h:i A'),
+            'next_darshan_day' => $schedule['next_opening']?->isToday()
+                ? 'today'
+                : ($schedule['next_opening']?->isTomorrow() ? 'tomorrow' : $schedule['next_opening']?->format('D')),
+            'placeholder_image_url' => $photo?->image_path ? image_url($photo->image_path) : null,
             'channel_id' => $channelId,
         ]);
     }

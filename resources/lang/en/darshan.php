@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'live_offline' => 'Live darshan is currently off',
+    'next_darshan' => 'Next darshan',
+    'tomorrow' => 'tomorrow',
     'subtitle' => 'Shree Pataliya Hanumanji Temple — darshan, aarti and timings',
     'live_caption' => '|| Jai Shri Ram || — Live Darshan, Shree Pataliya Hanumanji',
     'live_coming' => 'Live Darshan coming soon',

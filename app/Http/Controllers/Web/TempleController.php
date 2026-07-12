@@ -39,10 +39,16 @@ class TempleController extends Controller
                     ->first();
         });
 
+        // Schedule gate for the live embed: outside darshan hours we show
+        // the daily photo + next-darshan time instead of the player.
+        $schedule = DarshanTiming::scheduleNow();
+        $isLiveNow = ! empty($youtubeUrl) && $schedule['is_open'];
+        $nextDarshanAt = $schedule['next_opening'];
+
         SEOMeta::setTitle('દર્શન સમય — શ્રી પાતાળિયા હનુમાનજી');
         SEOMeta::setDescription('મંદિરના દૈનિક દર્શન સમય અને લાઇવ દર્શન.');
 
-        return view('pages.darshan', compact('timings', 'youtubeUrl', 'templeRules', 'dailyDarshanPhoto'));
+        return view('pages.darshan', compact('timings', 'youtubeUrl', 'templeRules', 'dailyDarshanPhoto', 'isLiveNow', 'nextDarshanAt'));
     }
 
     public function trustees(): View

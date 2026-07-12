@@ -28,12 +28,13 @@
                 {{ __('home.live_darshan') }}
             </h2>
 
-            @if(!empty($youtubeUrl))
+            @if(!empty($youtubeUrl) && ($isLiveNow ?? true))
                 <div class="card-sacred overflow-hidden">
                     <div class="aspect-video">
                         @php
                             $embedUrl = preg_replace('/watch\?v=/', 'embed/', $youtubeUrl);
                             $embedUrl = preg_replace('/youtu\.be\//', 'www.youtube.com/embed/', $embedUrl);
+                            $embedUrl = preg_replace('#youtube\.com/live/#', 'youtube.com/embed/', $embedUrl);
                         @endphp
                         <iframe
                             src="{{ $embedUrl }}"
@@ -49,16 +50,48 @@
                     </div>
                 </div>
             @else
-                <div class="card-sacred p-12 text-center">
-                    <div class="w-16 h-16 bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                        </svg>
-                    </div>
-                    <h3 class="text-xl font-bold text-gold mb-2">{{ __('darshan.live_coming') }}</h3>
-                    <p class="divine-subtext max-w-sm mx-auto">
-                        {{ __('darshan.live_coming_sub') }}
-                    </p>
+                {{-- Off-hours / no-stream placeholder: daily darshan photo (if
+                     any) + when darshan is next available. --}}
+                <div class="card-sacred overflow-hidden">
+                    @if(isset($dailyDarshanPhoto) && $dailyDarshanPhoto?->image_path)
+                        <div class="aspect-video relative">
+                            <img src="{{ image_url($dailyDarshanPhoto->image_path) }}"
+                                 alt="{{ __('darshan.today') }}"
+                                 class="absolute inset-0 w-full h-full object-cover">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent"></div>
+                            <div class="absolute bottom-0 left-0 right-0 p-5 text-center">
+                                <h3 class="text-lg font-bold text-gold">{{ __('darshan.live_offline') }}</h3>
+                                @if(!empty($nextDarshanAt))
+                                    <p class="text-amber-100/85 text-sm mt-1">
+                                        {{ __('darshan.next_darshan') }}:
+                                        <span class="font-semibold tabular-nums">{{ $nextDarshanAt->format('h:i A') }}</span>
+                                        @if(!$nextDarshanAt->isToday())
+                                            <span class="opacity-75">({{ $nextDarshanAt->isTomorrow() ? __('darshan.tomorrow') : $nextDarshanAt->format('D') }})</span>
+                                        @endif
+                                    </p>
+                                @endif
+                            </div>
+                        </div>
+                    @else
+                        <div class="p-12 text-center">
+                            <div class="w-16 h-16 bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bold text-gold mb-2">{{ __('darshan.live_offline') }}</h3>
+                            @if(!empty($nextDarshanAt))
+                                <p class="divine-subtext max-w-sm mx-auto">
+                                    {{ __('darshan.next_darshan') }}: <span class="font-semibold tabular-nums">{{ $nextDarshanAt->format('h:i A') }}</span>
+                                    @if(!$nextDarshanAt->isToday())
+                                        ({{ $nextDarshanAt->isTomorrow() ? __('darshan.tomorrow') : $nextDarshanAt->format('D') }})
+                                    @endif
+                                </p>
+                            @else
+                                <p class="divine-subtext max-w-sm mx-auto">{{ __('darshan.live_coming_sub') }}</p>
+                            @endif
+                        </div>
+                    @endif
                 </div>
             @endif
         </div>

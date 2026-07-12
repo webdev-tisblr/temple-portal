@@ -38,7 +38,7 @@
             </div>
 
             <h1 class="font-marcellus leading-[1.05] text-4xl sm:text-5xl lg:text-6xl"
-                style="text-shadow:0 2px 24px rgba(0,0,0,.45);">
+                style="color:#FFF7EC; text-shadow:0 2px 24px rgba(0,0,0,.45);">
                 {{ $heroSlide?->headingFor($loc) ?? __('common.temple_name') }}
             </h1>
             <p class="mt-4 text-base sm:text-lg" style="color:rgba(253,246,230,.88);">
@@ -47,8 +47,8 @@
 
             <div class="flex flex-wrap items-center gap-3 mt-8">
                 <a href="{{ route('donate') }}"
-                   class="px-7 py-3.5 rounded-full font-extrabold text-white text-sm sm:text-base transition hover:opacity-90"
-                   style="background:#E8751A; box-shadow:0 6px 18px rgba(0,0,0,.35);">{{ __('home.donate') }}</a>
+                   class="px-7 py-3.5 rounded-full font-extrabold text-sm sm:text-base transition hover:opacity-90"
+                   style="background:#E8751A; color:#FFF7EC; box-shadow:0 6px 18px rgba(0,0,0,.35);">{{ __('home.donate') }}</a>
                 <a href="{{ route('seva.index') }}"
                    class="px-6 py-3.5 rounded-full font-bold text-sm sm:text-base transition"
                    style="background:rgba(253,246,230,.14); border:1.5px solid rgba(253,246,230,.6); color:#FDF6E6; backdrop-filter:blur(4px);">{{ __('home.book_seva') }}</a>
@@ -91,11 +91,11 @@
                 <div class="rounded-2xl overflow-hidden" style="background:rgba(251,245,234,.97); box-shadow:0 18px 44px rgba(30,10,4,.45);">
                     {{-- Fixed-height stage: slides are absolutely stacked so the
                          card never grows/shrinks while one fades into the next. --}}
-                    <div class="relative" style="height:330px;">
+                    <div class="relative" style="height:380px;">
                         @foreach($cards as $k => $card)
                             <div x-show="i === {{ $k }}" x-transition.opacity.duration.500ms
                                  class="absolute inset-0 flex flex-col">
-                                <div class="h-32 flex-shrink-0 bg-cover bg-center" style="background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@if($card['img']) background-image:url('{{ $card['img'] }}'); @endif"></div>
+                                <div class="h-44 flex-shrink-0 bg-cover bg-center" style="background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@if($card['img']) background-image:url('{{ $card['img'] }}'); @endif"></div>
                                 <div class="p-5 flex flex-col flex-1">
                                     <div class="text-[10px] tracking-[0.2em] font-extrabold" style="color:#C45F12;">{{ strtoupper($card['label']) }}</div>
                                     <div class="font-marcellus text-lg mt-1.5 line-clamp-2" style="color:#7A1E1E;">{{ $card['title'] }}</div>
@@ -110,7 +110,7 @@
                                     @elseif(!empty($card['text']))
                                         <div class="text-xs mt-2 leading-relaxed line-clamp-3" style="color:#5E4F3D;">{{ $card['text'] }}</div>
                                     @endif
-                                    <a href="{{ $card['url'] }}" class="block mt-auto text-center font-extrabold text-xs py-2.5 rounded-full text-white transition hover:opacity-90" style="background:#7A1E1E;">{{ $card['cta'] }}</a>
+                                    <a href="{{ $card['url'] }}" class="block mt-auto text-center font-extrabold text-xs py-2.5 rounded-full transition hover:opacity-90" style="background:#7A1E1E; color:#FFF7EC;">{{ $card['cta'] }}</a>
                                 </div>
                             </div>
                         @endforeach
@@ -161,7 +161,7 @@
                             <span class="font-extrabold" style="color:#7A1E1E;">₹{{ number_format($raised) }}</span>
                             <span style="color:#5E4F3D;">{{ __('home.of') }} ₹{{ number_format($goal) }} · {{ $pct }}%</span>
                         </div>
-                        <div class="mt-4 text-center font-extrabold text-sm py-2.5 rounded-full text-white" style="background:#7A1E1E;">{{ __('home.contribute') }}</div>
+                        <div class="mt-4 text-center font-extrabold text-sm py-2.5 rounded-full" style="background:#7A1E1E; color:#FFF7EC;">{{ __('home.contribute') }}</div>
                     </div>
                 </a>
             @endforeach

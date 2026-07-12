@@ -17,8 +17,8 @@
                     @endif
                 </div>
                 <a href="{{ route('halls.index') }}"
-                   class="inline-block mt-8 px-7 py-3 rounded-full text-sm font-extrabold text-white transition hover:opacity-90"
-                   style="background:#E8751A;">{{ __('home.check_availability') }}</a>
+                   class="inline-block mt-8 px-7 py-3 rounded-full text-sm font-extrabold transition hover:opacity-90"
+                   style="background:#E8751A; color:#FFF7EC;">{{ __('home.check_availability') }}</a>
             </div>
             <div class="min-h-[240px] relative"
                  style="background: repeating-linear-gradient(45deg,#571410 0 14px,#642018 14px 28px);">

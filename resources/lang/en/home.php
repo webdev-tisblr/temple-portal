@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'donate' => 'Donate Now',
+    'book_seva' => 'Book a Seva',
     'hero_subtitle' => 'Antarjaal, Gandhidham, Kutch — a living seat of Hanumanji\'s grace',
     'of' => 'of',
     'support_dham' => 'SUPPORT THE DHAM',

@@ -38,8 +38,8 @@
                 @endif
             </div>
             <a href="{{ route('darshan') }}"
-               class="block mt-5 text-center px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition hover:opacity-90"
-               style="background:#E8751A;">{{ __('home.go_to_darshan') }} →</a>
+               class="block mt-5 text-center px-4 py-2.5 rounded-full text-xs font-extrabold transition hover:opacity-90"
+               style="background:#E8751A; color:#FFF7EC;">{{ __('home.go_to_darshan') }} →</a>
         </div>
     </div>
 @endif

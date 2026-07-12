@@ -93,7 +93,9 @@
                          card never grows/shrinks while one fades into the next. --}}
                     <div class="relative" style="height:380px;">
                         @foreach($cards as $k => $card)
-                            <div x-show="i === {{ $k }}" x-transition.opacity.duration.500ms
+                            <div x-show="i === {{ $k }}"
+                                 x-transition:enter.opacity.duration.600ms
+                                 x-transition:leave.opacity.duration.0ms
                                  class="absolute inset-0 flex flex-col">
                                 <div class="h-44 flex-shrink-0 bg-cover bg-center" style="background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@if($card['img']) background-image:url('{{ $card['img'] }}'); @endif"></div>
                                 <div class="p-5 flex flex-col flex-1">

@@ -95,9 +95,12 @@
     </div>
 
     {{-- ===================== MAIN BAR ===================== --}}
+    {{-- At rest the bar floats over the hero: a translucent dark blur with
+         cream text (see .nav-over-hero rules in app.css). On scroll it
+         condenses into the light parchment-glass bar with dark text. --}}
     <div :class="scrolled
-            ? 'bg-[rgba(251,245,234,0.72)] backdrop-blur-xl border-[rgba(122,30,30,0.10)] shadow-[0_12px_30px_-18px_rgba(60,30,10,0.5)] py-2.5'
-            : 'bg-transparent border-transparent py-3.5 lg:py-4'"
+            ? 'nav-scrolled bg-[rgba(251,245,234,0.82)] backdrop-blur-xl border-[rgba(122,30,30,0.10)] shadow-[0_12px_30px_-18px_rgba(60,30,10,0.5)] py-2.5'
+            : 'nav-over-hero bg-[rgba(33,20,13,0.55)] backdrop-blur-md border-[rgba(255,246,238,0.10)] py-3.5 lg:py-4'"
          class="border-b transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-6">
 
@@ -107,8 +110,8 @@
                     <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="{{ __('common.temple_name') }}" class="w-full h-full object-cover">
                 </span>
                 <span class="leading-none">
-                    <span class="block font-marcellus text-lg lg:text-xl text-stone-700">{{ __('common.temple_name') }}</span>
-                    <span class="block text-[10px] lg:text-[11px] tracking-[0.24em] text-saffron-500 font-semibold uppercase mt-1">{{ __('common.trust_subtitle') }}</span>
+                    <span class="hdr-item block font-marcellus text-lg lg:text-xl text-stone-700">{{ __('common.temple_name') }}</span>
+                    <span class="hdr-sub block text-[10px] lg:text-[11px] tracking-[0.24em] text-saffron-500 font-semibold uppercase mt-1">{{ __('common.trust_subtitle') }}</span>
                 </span>
             </a>
 
@@ -116,7 +119,7 @@
             <nav class="hidden lg:flex items-center gap-7">
                 {{-- Temple ▾ --}}
                 <div class="relative" x-data="{ open:false, t:null }" @mouseenter="clearTimeout(t); open=true" @mouseleave="t=setTimeout(()=>open=false,180)">
-                    <button class="flex items-center gap-1.5 py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">
+                    <button class="hdr-item flex items-center gap-1.5 py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">
                         {{ __('nav.mandir') }}<svg class="w-2.5 h-2.5 opacity-55" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
                     </button>
                     <div x-show="open" x-cloak x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 -translate-y-1.5" x-transition:enter-end="opacity-100 translate-y-0"
@@ -130,7 +133,7 @@
                 </div>
                 {{-- Seva ▾ --}}
                 <div class="relative" x-data="{ open:false, t:null }" @mouseenter="clearTimeout(t); open=true" @mouseleave="t=setTimeout(()=>open=false,180)">
-                    <button class="flex items-center gap-1.5 py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">
+                    <button class="hdr-item flex items-center gap-1.5 py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">
                         {{ __('nav.seva') }}<svg class="w-2.5 h-2.5 opacity-55" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
                     </button>
                     <div x-show="open" x-cloak x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 -translate-y-1.5" x-transition:enter-end="opacity-100 translate-y-0"
@@ -142,15 +145,15 @@
                         </div>
                     </div>
                 </div>
-                <a href="{{ route('events.index') }}" class="py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">{{ __('nav.events') }}</a>
-                <a href="{{ route('halls.index') }}" class="py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">{{ __('nav.halls') }}</a>
-                <a href="{{ route('store.index') }}" class="py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">{{ __('nav.store') }}</a>
+                <a href="{{ route('events.index') }}" class="hdr-item py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">{{ __('nav.events') }}</a>
+                <a href="{{ route('halls.index') }}" class="hdr-item py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">{{ __('nav.halls') }}</a>
+                <a href="{{ route('store.index') }}" class="hdr-item py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">{{ __('nav.store') }}</a>
             </nav>
 
             {{-- Right cluster --}}
             <div class="flex items-center gap-2 sm:gap-3 flex-none">
                 @auth('devotee')
-                    <a href="{{ route('store.cart') }}" class="relative hidden sm:flex items-center p-2 text-stone-600 hover:text-maroon-500 transition-colors" title="{{ __('nav.cart') }}">
+                    <a href="{{ route('store.cart') }}" class="hdr-item relative hidden sm:flex items-center p-2 text-stone-600 hover:text-maroon-500 transition-colors" title="{{ __('nav.cart') }}">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
                         @if(count(session('cart', [])) > 0)
                             <span class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold text-white bg-saffron-400 rounded-full leading-none">{{ array_sum(session('cart')) }}</span>
@@ -158,7 +161,7 @@
                     </a>
                 @endauth
                 <a href="{{ route('donate') }}" class="hidden sm:inline-flex btn-divine text-xs px-6 py-3">{{ __('nav.donate') }}</a>
-                <button @click="mobileMenu = true" class="lg:hidden p-2 text-stone-700 hover:text-maroon-500 transition" aria-label="{{ __('nav.menu') }}">
+                <button @click="mobileMenu = true" class="hdr-item lg:hidden p-2 text-stone-700 hover:text-maroon-500 transition" aria-label="{{ __('nav.menu') }}">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
             </div>

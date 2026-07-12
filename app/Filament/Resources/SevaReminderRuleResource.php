@@ -31,6 +31,17 @@ class SevaReminderRuleResource extends Resource
     protected static ?string $modelLabel = 'Seva Reminder Rule';
     protected static ?int $navigationSort = 3;
 
+    /**
+     * Hidden from the menu by user preference — reminder rules are managed
+     * inline on the Edit Seva page ("Reminders" section). This resource
+     * stays routable (/admin/seva-reminder-rules) as the only place to
+     * manage GLOBAL (all-seva, seva_id NULL) rules if ever needed.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function form(Form $form): Form
     {
         return $form->schema([

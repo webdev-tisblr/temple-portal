@@ -249,19 +249,9 @@ class SevaResource extends Resource
 
             Forms\Components\Section::make('Reminders')
                 ->icon('heroicon-o-bell')
-                ->description('Each rule = when + who + channel + message. Global rules are managed under Communication → Seva Reminders.')
+                ->description('Add any number of rules — each one is when + who + channel + message. Applies to bookings confirmed after the rule exists.')
                 ->collapsed()
                 ->schema([
-                    Forms\Components\Select::make('reminder_mode')
-                        ->label('Reminder configuration')
-                        ->options([
-                            'global' => 'Use global reminder rules',
-                            'custom' => 'Custom rules for this seva',
-                            'none' => 'No reminders for this seva',
-                        ])
-                        ->default('global')
-                        ->live()
-                        ->required(),
                     Forms\Components\Repeater::make('reminderRules')
                         ->relationship()
                         ->hiddenLabel()
@@ -269,7 +259,11 @@ class SevaResource extends Resource
                         ->columns(2)
                         ->defaultItems(0)
                         ->addActionLabel('Add reminder rule')
-                        ->visible(fn (Get $get): bool => $get('reminder_mode') === 'custom'),
+                        ->collapsible()
+                        ->itemLabel(fn (array $state): ?string => isset($state['offset_minutes'])
+                            ? \App\Services\SevaReminderScheduler::humanLabel((int) $state['offset_minutes'])
+                                . ' before → ' . ($state['recipient_type'] ?? '') . ' → ' . ($state['channel'] ?? '')
+                            : null),
                 ]),
 
             Forms\Components\Section::make('Product Selection for Devotee')

@@ -48,19 +48,20 @@ class SevaReminderScheduler
         $created = 0;
 
         // ── Rule-based reminders (the current system) ──────────────────
-        // reminder_mode: global → the global default rule set; custom →
-        // this seva's own rules; none → no reminders at all.
-        $mode = $seva->reminder_mode ?? 'global';
-        if ($mode === 'none') {
-            return 0;
-        }
-
+        // Precedence: the seva's own rules win; otherwise any global
+        // (seva_id NULL) rules apply; otherwise the legacy offsets below.
+        // Rules are managed on the Edit Seva page ("Reminders" section).
         $rules = \App\Models\SevaReminderRule::query()
             ->active()
-            ->when($mode === 'custom',
-                fn ($q) => $q->where('seva_id', $seva->getKey()),
-                fn ($q) => $q->whereNull('seva_id'))
+            ->where('seva_id', $seva->getKey())
             ->get();
+
+        if ($rules->isEmpty()) {
+            $rules = \App\Models\SevaReminderRule::query()
+                ->active()
+                ->whereNull('seva_id')
+                ->get();
+        }
 
         foreach ($rules as $rule) {
             $fireAt = $moment->copy()->subMinutes($rule->offset_minutes);

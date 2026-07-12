@@ -171,6 +171,13 @@ jobs:
           port: ${{ secrets.HOSTINGER_PORT }}
           script: |
             cd ~/domains/patadiyahanumanji.com/public_html
+            # Abort the deploy on ANY unguarded failure — most importantly a
+            # failed `migrate --force`. Without this, a migration error left
+            # the deploy green while silently blocking every later migration
+            # (2026-07-12 incident: clean_rich_html_content FAIL hid the
+            # missing temple_seva_reminder_rules table). Commands that are
+            # allowed to fail keep their explicit `|| true` guards.
+            set -e
             # Take a fresh DB snapshot to the offsite r2_backup disk BEFORE
             # running migrations, so a bad/destructive migration can be
             # rolled back from the most recent pre-migration dump. Tolerant

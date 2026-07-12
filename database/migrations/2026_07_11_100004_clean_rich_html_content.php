@@ -67,7 +67,9 @@ return new class extends Migration
                 });
         }
 
-        // Temple rules live as SystemSetting rows, not columns.
+        // Temple rules live as SystemSetting rows, not columns. NOTE:
+        // temple_system_settings has NO id column — `key` is the primary
+        // key ($row->id here failed in prod and blocked later migrations).
         if (Schema::hasTable('temple_system_settings')) {
             $keys = ['temple_rules', 'temple_rules_gu', 'temple_rules_hi', 'temple_rules_en'];
             foreach (DB::table('temple_system_settings')->whereIn('key', $keys)->get() as $row) {
@@ -76,7 +78,7 @@ return new class extends Migration
                 }
                 $clean = clean_rich_html($row->value);
                 if ($clean !== $row->value) {
-                    DB::table('temple_system_settings')->where('id', $row->id)->update(['value' => $clean]);
+                    DB::table('temple_system_settings')->where('key', $row->key)->update(['value' => $clean]);
                 }
             }
         }

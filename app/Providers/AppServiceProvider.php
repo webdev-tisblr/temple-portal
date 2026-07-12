@@ -9,6 +9,7 @@ use App\Observers\SevaBookingObserver;
 use App\Observers\SevaObserver;
 use Filament\Actions\DeleteAction as PageDeleteAction;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\RichEditor;
 use Filament\Notifications\Notification;
 use Filament\Tables\Actions\DeleteAction as TableDeleteAction;
 use Filament\Tables\Actions\DeleteBulkAction;
@@ -89,6 +90,18 @@ class AppServiceProvider extends ServiceProvider
               });
         }, isImportant: true);
         ImageColumn::configureUsing(fn (ImageColumn $c) => $c->disk('r2'));
+
+        // Clean every RichEditor's HTML on save (admin-wide, including
+        // page-builder blocks): pasted content arrives padded with &nbsp;
+        // runs and empty paragraphs which then leak into cards/previews.
+        // clean_rich_html() only normalises whitespace — never the author's
+        // words or markup. Existing rows were swept once by the
+        // 2026_07_11_100004 data migration.
+        RichEditor::configureUsing(function (RichEditor $editor) {
+            $editor->dehydrateStateUsing(
+                fn ($state) => is_string($state) ? clean_rich_html($state) : $state
+            );
+        }, isImportant: true);
 
         $this->configureMailFromDatabase();
         $this->configureFilamentDeleteActions();

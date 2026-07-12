@@ -29,6 +29,35 @@ if (! function_exists('image_url')) {
     }
 }
 
+if (! function_exists('clean_rich_html')) {
+    /**
+     * Conservative cleanup for RichEditor HTML before it is persisted.
+     * Pasted content (Word / web pages) arrives padded with &nbsp; runs and
+     * empty paragraphs; this normalises whitespace WITHOUT touching the
+     * author's words or markup:
+     *   • &nbsp; / U+00A0 → regular space
+     *   • runs of spaces/tabs collapsed to one
+     *   • spaces trimmed just inside <p>/<h*>/<li> boundaries
+     *   • paragraphs left empty by the above are dropped
+     * Applied globally on RichEditor save (AppServiceProvider) and by the
+     * one-time content cleanup migration.
+     */
+    function clean_rich_html(?string $html): ?string
+    {
+        if ($html === null || trim($html) === '') {
+            return $html;
+        }
+
+        $out = str_replace(["\xC2\xA0", '&nbsp;', '&#160;'], ' ', $html);
+        $out = preg_replace('/[ \t]{2,}/u', ' ', $out) ?? $out;
+        $out = preg_replace('/(<(?:p|h[1-6]|li)[^>]*>)\s+/iu', '$1', $out) ?? $out;
+        $out = preg_replace('/\s+(<\/(?:p|h[1-6]|li)>)/iu', '$1', $out) ?? $out;
+        $out = preg_replace('/<p[^>]*>\s*<\/p>/iu', '', $out) ?? $out;
+
+        return trim($out);
+    }
+}
+
 if (! function_exists('text_preview')) {
     /**
      * Plain-text preview of HTML content for cards/lists. Strips tags AND

@@ -10,9 +10,8 @@ use Filament\Forms;
 use Filament\Forms\Get;
 
 /**
- * The shared form schema for one seva reminder rule — used by both the
- * central SevaReminderRuleResource and the per-seva rules repeater on
- * the Edit Seva page, so the two UIs can never drift apart.
+ * The form schema for one seva reminder rule, rendered by the rules
+ * repeater in the Edit Seva page's "Reminders" section.
  *
  * A rule = WHEN (offset) + WHO (recipient) + HOW (channel) + WHAT
  * (inline gu/hi/en message, or an approved WhatsApp template).

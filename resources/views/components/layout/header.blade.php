@@ -33,7 +33,7 @@
 
 <header x-data="{ mobileMenu: false, scrolled: false, m: null }"
         @scroll.window="scrolled = (window.scrollY > 40)"
-        class="fixed top-0 left-0 right-0 z-50">
+        class="fixed top-0 left-0 right-0 z-50 {{ request()->routeIs('home') ? 'home-page' : '' }}">
 
     {{-- Announcement ribbon (Admin → Website Display) — lives inside the
          fixed header so it never overlaps the strip/nav. --}}
@@ -95,12 +95,13 @@
     </div>
 
     {{-- ===================== MAIN BAR ===================== --}}
-    {{-- At rest the bar floats over the hero: a translucent dark blur with
-         cream text (see .nav-over-hero rules in app.css). On scroll it
+    {{-- At rest the bar is transparent. On the home page (.home-page on the
+         header) its nav items flip to cream so they stay legible over the
+         hero image; every other page keeps the dark stone text. On scroll it
          condenses into the light parchment-glass bar with dark text. --}}
     <div :class="scrolled
             ? 'nav-scrolled bg-[rgba(251,245,234,0.82)] backdrop-blur-xl border-[rgba(122,30,30,0.10)] shadow-[0_12px_30px_-18px_rgba(60,30,10,0.5)] py-2.5'
-            : 'nav-over-hero bg-[rgba(33,20,13,0.55)] backdrop-blur-md border-[rgba(255,246,238,0.10)] py-3.5 lg:py-4'"
+            : 'nav-over-hero bg-transparent border-transparent py-3.5 lg:py-4'"
          class="border-b transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-6">
 

@@ -131,13 +131,19 @@
     letter-spacing: 0.005em;
 }
 
-/* Header over-hero state: when the main bar floats over the hero image
-   (un-scrolled) it uses a dark blur, so its wordmark + nav items must be
-   cream to stay legible. On scroll (.nav-scrolled) the tags fall back to
-   their normal dark stone colours (set inline via Tailwind classes). */
-.nav-over-hero .hdr-item { color: #F5E9D6 !important; }
-.nav-over-hero .hdr-item:hover { color: #FFFFFF !important; }
-.nav-over-hero .hdr-sub { color: #F0B36A !important; }
+/* Home-page over-hero header: the un-scrolled bar is transparent over the
+   hero image, so on the home page only its wordmark + nav items flip to
+   cream (with a soft shadow) to stay legible. Every other page keeps the
+   dark stone text. On scroll (.nav-scrolled) it reverts to dark stone. */
+.home-page .nav-over-hero .hdr-item {
+    color: #F7ECDA !important;
+    text-shadow: 0 1px 10px rgba(20, 8, 3, 0.55);
+}
+.home-page .nav-over-hero .hdr-item:hover { color: #FFFFFF !important; }
+.home-page .nav-over-hero .hdr-sub {
+    color: #F0B36A !important;
+    text-shadow: 0 1px 10px rgba(20, 8, 3, 0.55);
+}
 
 /* Gold-text helpers — map onto sacred maroon ink for headings */
 .text-gold     { color: #7A1E1E; }   /* maroon-500 — sacred ink for headings */

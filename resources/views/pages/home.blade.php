@@ -16,7 +16,7 @@
 {{-- =================================================================
      HERO
      ================================================================= --}}
-<section class="relative -mt-16 lg:-mt-20 min-h-screen flex items-end overflow-hidden">
+<section class="relative -mt-16 lg:-mt-20 min-h-[95vh] flex items-end overflow-hidden">
     <img src="{{ $heroImg }}" alt="{{ __('common.temple_name') }}"
          class="absolute inset-0 w-full h-full object-cover object-center">
     <div class="absolute inset-0"

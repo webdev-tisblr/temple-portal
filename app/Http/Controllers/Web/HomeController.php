@@ -64,6 +64,11 @@ class HomeController extends Controller
             return GalleryImage::orderByDesc('id')->take(8)->get();
         });
 
+        // Admin-managed hero slides (falls back to the static hero when none).
+        $heroSlides = Cache::remember('home.hero_slides.v1', 600, fn () =>
+            \App\Models\HeroSlide::live()->orderBy('sort_order')->orderBy('id')->get()
+        );
+
         SEOMeta::setTitle('શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ | અંતરજાળ, ગાંધીધામ');
         SEOMeta::setDescription('ગુજરાતમાં હનુમાનજીનું પ્રસિદ્ધ ધામ. ઓનલાઇન સેવા બુકિંગ, દાન, લાઇવ દર્શન.');
         OpenGraph::setUrl(url('/'));
@@ -75,6 +80,7 @@ class HomeController extends Controller
             'timings',
             'campaigns',
             'galleryPreview',
+            'heroSlides',
         ));
     }
 }

@@ -33,6 +33,8 @@
 
     <x-app-install-banner />
 
+    @include('partials.site-popup')
+
     @stack('scripts')
 </body>
 </html>

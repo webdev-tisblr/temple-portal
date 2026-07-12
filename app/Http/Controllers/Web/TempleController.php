@@ -58,6 +58,19 @@ class TempleController extends Controller
         return view('pages.trustees', compact('trustees'));
     }
 
+    public function statusMaker(): View
+    {
+        $templates = Cache::remember('content.status_templates.web.v1', 900, fn () =>
+            \App\Models\StatusTemplate::active()->orderBy('sort_order')->orderBy('id')->get()
+        );
+        $androidUrl = SystemSetting::getValue('app_android_store_url', '');
+        $iosUrl = SystemSetting::getValue('app_ios_store_url', '');
+
+        SEOMeta::setTitle(__('status.title') . ' — શ્રી પાતાળિયા હનુમાનજી');
+
+        return view('pages.status-maker', compact('templates', 'androidUrl', 'iosUrl'));
+    }
+
     public function rules(): View
     {
         SEOMeta::setTitle('નિયમો — શ્રી પાતાળિયા હનુમાનજી');

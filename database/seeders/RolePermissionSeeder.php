@@ -56,6 +56,7 @@ class RolePermissionSeeder extends Seeder
         'donation::type',
         'event',
         'gallery',
+        'hero::slide',
         'hall',
         'hall::booking',
         'notification',
@@ -69,6 +70,7 @@ class RolePermissionSeeder extends Seeder
         'seva',
         'seva::booking',
         'seva::reminder::rule',
+        'status::template',
         'trustee',
     ];
 
@@ -82,6 +84,7 @@ class RolePermissionSeeder extends Seeder
 
     private const PAGES = [
         'DarshanTimingsPage',
+        'WebsiteDisplayPage',
         'FinancialReports',
         'SystemSettings',
     ];
@@ -228,6 +231,8 @@ class RolePermissionSeeder extends Seeder
 
                 // Communication
                 $crud('notification::template'),
+                $crud('hero::slide'),
+                $crud('status::template'),
                 $crud('seva::reminder::rule'),
                 $crud('notification', ['view_any', 'view', 'create', 'update', 'delete', 'delete_any']),
                 $readOnly('notification::log'),
@@ -235,7 +240,7 @@ class RolePermissionSeeder extends Seeder
                 $crud('trustee'),
 
                 // Pages, widgets, actions
-                ['page_FinancialReports', 'page_SystemSettings', 'page_DarshanTimingsPage'],
+                ['page_FinancialReports', 'page_SystemSettings', 'page_DarshanTimingsPage', 'page_WebsiteDisplayPage'],
                 array_map(fn ($w) => "widget_{$w}", self::WIDGETS),
                 [
                     'approve_refund',

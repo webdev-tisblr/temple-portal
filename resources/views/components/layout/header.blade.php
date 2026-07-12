@@ -35,6 +35,10 @@
         @scroll.window="scrolled = (window.scrollY > 40)"
         class="fixed top-0 left-0 right-0 z-50">
 
+    {{-- Announcement ribbon (Admin → Website Display) — lives inside the
+         fixed header so it never overlaps the strip/nav. --}}
+    @include('partials.site-ribbon')
+
     {{-- ===================== UTILITY STRIP (desktop) ===================== --}}
     <div :class="scrolled ? 'lg:h-0 lg:opacity-0 lg:pointer-events-none' : 'lg:h-10 lg:opacity-100'"
          class="hidden lg:block overflow-hidden transition-all duration-300"

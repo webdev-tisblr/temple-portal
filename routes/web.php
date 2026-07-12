@@ -58,6 +58,7 @@ Route::get('/donate/greeting-card/{donation}', [DonationWebController::class, 'g
 // Temple info
 Route::get('/darshan', [TempleController::class, 'darshan'])->name('darshan');
 Route::get('/trustees', [TempleController::class, 'trustees'])->name('trustees');
+Route::get('/status-maker', [TempleController::class, 'statusMaker'])->name('status-maker');
 Route::get('/rules', [TempleController::class, 'rules'])->name('rules');
 
 // Events

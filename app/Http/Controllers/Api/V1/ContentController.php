@@ -161,6 +161,64 @@ class ContentController extends BaseApiController
     }
 
     /**
+     * Active status/greeting templates the devotee can personalise.
+     */
+    public function statusTemplates(): JsonResponse
+    {
+        $templates = \Illuminate\Support\Facades\Cache::remember('content.status_templates.v1', 900, function () {
+            return \App\Models\StatusTemplate::active()
+                ->orderBy('sort_order')->orderBy('id')
+                ->get()
+                ->map(fn (\App\Models\StatusTemplate $t) => [
+                    'id' => $t->id,
+                    'title' => $t->title,
+                    'title_gu' => $t->title_gu,
+                    'title_hi' => $t->title_hi,
+                    'title_en' => $t->title_en,
+                    'preview_url' => image_url($t->greeting_card_template),
+                ])->values();
+        });
+
+        return $this->success($templates);
+    }
+
+    /**
+     * Generate (or return the cached) personalised status card for one
+     * template. Auth-optional, mirroring dailyDarshanShareCard: logged-in
+     * devotees get their name/photo composited; guests get the plain card.
+     */
+    public function statusCard(Request $request, \App\Services\StatusCardService $service): JsonResponse
+    {
+        $template = \App\Models\StatusTemplate::active()->find($request->input('template_id'));
+        if (! $template) {
+            return $this->error('Template not found.', 404);
+        }
+
+        /** @var Devotee|null $devotee */
+        $devotee = auth('sanctum')->user() ?? auth('devotee')->user();
+
+        $bucketKey = 'status-card:' . ($devotee
+            ? 'dev:' . $devotee->getKey()
+            : 'ip:' . sha1((string) $request->ip()));
+        if (RateLimiter::tooManyAttempts($bucketKey, 20)) {
+            $retry = RateLimiter::availableIn($bucketKey);
+            return $this->error("Too many requests. Try again in {$retry}s.", 429);
+        }
+        RateLimiter::hit($bucketKey, 3600);
+
+        $result = $service->generate($template, $devotee);
+        if ($result === null) {
+            return $this->error('Could not generate the card. Try again shortly.', 500);
+        }
+
+        return $this->success([
+            'url' => $result['url'],
+            'cached' => $result['cached'],
+            'title' => $template->title,
+        ]);
+    }
+
+    /**
      * Return live darshan stream configuration from system settings.
      */
     public function liveDarshan(): JsonResponse

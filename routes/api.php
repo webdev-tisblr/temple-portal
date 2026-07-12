@@ -61,6 +61,10 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     // a logged-in devotee gets a personalised card, anonymous callers
     // get the generic one.
     Route::post('/content/daily-darshan-card', [ContentController::class, 'dailyDarshanShareCard']);
+    // Status maker — admin templates the devotee personalises on demand
+    // (same auth-optional pattern as the darshan card above).
+    Route::get('/content/status-templates', [ContentController::class, 'statusTemplates']);
+    Route::post('/content/status-card', [ContentController::class, 'statusCard']);
     Route::get('/content/temple-info', [ContentController::class, 'templeInfo']);
     Route::get('/content/trustees', [ContentController::class, 'trustees']);
     Route::get('/campaigns', [ContentController::class, 'campaigns']);

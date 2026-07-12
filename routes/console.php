@@ -148,6 +148,11 @@ Schedule::command('sitemap:generate')
 // sweep). CDN edge-cache (30 days max-age) keeps already-shared
 // URLs working past R2 deletion until natural eviction. Minute :30
 // chosen to stagger off the queue:work pulse at *:00 and *:05.
+// Generated status cards are a 30-day regenerable cache on r2 public.
+Schedule::command('status-cards:clean')
+    ->dailyAt('04:45')
+    ->withoutOverlapping();
+
 Schedule::command('darshan:clean-share-cards')
     ->hourlyAt(30)
     ->withoutOverlapping();

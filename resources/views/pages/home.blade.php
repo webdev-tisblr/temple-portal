@@ -3,8 +3,125 @@
 @section('content')
 
 {{-- =================================================================
-     HERO — Temple Identity
+     HERO — admin slider when slides exist, static identity hero otherwise
      ================================================================= --}}
+@if(isset($heroSlides) && $heroSlides->isNotEmpty())
+    @php($heroLocale = app()->getLocale())
+    <section class="relative min-h-[72vh] overflow-hidden -mt-16 lg:-mt-20"
+             style="background:#FBF5EA;"
+             x-data="{
+                current: 0,
+                count: {{ $heroSlides->count() }},
+                durations: @js($heroSlides->pluck('duration_seconds')->map(fn ($d) => max(3, (int) $d) * 1000)),
+                timer: null,
+                touchX: null,
+                go(i) { this.current = (i + this.count) % this.count; this.arm(); },
+                next() { this.go(this.current + 1) },
+                prev() { this.go(this.current - 1) },
+                arm() { clearTimeout(this.timer); if (this.count > 1) this.timer = setTimeout(() => this.next(), this.durations[this.current]); },
+                init() { this.arm(); },
+             }"
+             @touchstart.passive="touchX = $event.touches[0].clientX"
+             @touchend.passive="if (touchX !== null) { const dx = $event.changedTouches[0].clientX - touchX; if (dx > 45) prev(); else if (dx < -45) next(); touchX = null; }">
+        @foreach($heroSlides as $i => $slide)
+            @php
+                $alignWrap = match ($slide->align) {
+                    'left' => 'items-start text-left',
+                    'right' => 'items-end text-right',
+                    default => 'items-center text-center',
+                };
+                $isLight = $slide->theme === 'light';
+                $veil = $isLight
+                    ? 'rgba(0,0,0,' . ($slide->overlay_opacity / 100) . ')'
+                    : 'rgba(251,245,234,' . ($slide->overlay_opacity / 100) . ')';
+                $headColor = $isLight ? '#FFFFFF' : '#7A1E1E';
+                $subColor = $isLight ? 'rgba(255,255,255,0.88)' : '#5E4F3D';
+            @endphp
+            <div x-show="current === {{ $i }}"
+                 x-cloak
+                 @if($slide->transition === 'slide')
+                     x-transition:enter="transition-transform ease-out duration-700"
+                     x-transition:enter-start="translate-x-full"
+                     x-transition:enter-end="translate-x-0"
+                     x-transition:leave="transition-transform ease-in duration-700 absolute"
+                     x-transition:leave-start="translate-x-0"
+                     x-transition:leave-end="-translate-x-full"
+                 @else
+                     x-transition:enter="transition-opacity ease-out duration-1000"
+                     x-transition:enter-start="opacity-0"
+                     x-transition:enter-end="opacity-100"
+                     x-transition:leave="transition-opacity ease-in duration-700 absolute"
+                     x-transition:leave-start="opacity-100"
+                     x-transition:leave-end="opacity-0"
+                 @endif
+                 class="absolute inset-0">
+                {{-- Slide image (mobile variant when provided) --}}
+                <picture>
+                    @if($slide->image_path_mobile)
+                        <source media="(max-width: 640px)" srcset="{{ image_url($slide->image_path_mobile) }}">
+                    @endif
+                    <img src="{{ image_url($slide->image_path) }}"
+                         alt="{{ $slide->headingFor($heroLocale) ?? '' }}"
+                         class="w-full h-full object-cover object-center {{ $slide->transition === 'zoom' ? 'hero-kenburns' : '' }}"
+                         @if($slide->transition === 'zoom') style="animation-duration: {{ max(3, $slide->duration_seconds) + 2 }}s;" @endif>
+                </picture>
+                <div class="absolute inset-0" style="background: {{ $veil }};"></div>
+                <div class="absolute inset-0" style="background: linear-gradient(to top, #FBF5EA, transparent 30%);"></div>
+
+                {{-- Text block --}}
+                <div class="absolute inset-0 flex flex-col justify-center {{ $alignWrap }} px-6 sm:px-14 lg:px-24 pt-20 pb-16">
+                    <div class="max-w-2xl">
+                        @if($slide->headingFor($heroLocale))
+                            <h2 class="text-3xl sm:text-5xl font-black leading-tight drop-shadow-sm" style="color: {{ $headColor }};">
+                                {{ $slide->headingFor($heroLocale) }}
+                            </h2>
+                        @endif
+                        @if($slide->subFor($heroLocale))
+                            <p class="mt-4 text-base sm:text-lg leading-relaxed" style="color: {{ $subColor }};">
+                                {{ $slide->subFor($heroLocale) }}
+                            </p>
+                        @endif
+                        @if($slide->ctaLabelFor($heroLocale) && $slide->cta_url)
+                            <a href="{{ $slide->cta_url }}"
+                               class="inline-block mt-6 px-8 py-3 rounded-full text-sm sm:text-base font-bold text-white shadow-lg transition hover:opacity-90 hover:shadow-xl"
+                               style="background: linear-gradient(90deg, #E8751A, #C89434);">
+                                {{ $slide->ctaLabelFor($heroLocale) }}
+                            </a>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        @endforeach
+
+        @if($heroSlides->count() > 1)
+            {{-- Arrows (desktop) --}}
+            <button type="button" @click="prev()" aria-label="Previous"
+                    class="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 items-center justify-center rounded-full bg-black/25 text-white hover:bg-black/45 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <button type="button" @click="next()" aria-label="Next"
+                    class="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 items-center justify-center rounded-full bg-black/25 text-white hover:bg-black/45 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+            </button>
+            {{-- Dots --}}
+            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-2.5">
+                @foreach($heroSlides as $i => $slide)
+                    <button type="button" @click="go({{ $i }})" aria-label="Slide {{ $i + 1 }}"
+                            class="w-2.5 h-2.5 rounded-full transition-all"
+                            :class="current === {{ $i }} ? 'w-7' : 'opacity-50'"
+                            style="background:#C45F12;"></button>
+                @endforeach
+            </div>
+        @endif
+
+        @push('head')
+        <style>
+            .hero-kenburns { animation-name: heroKenburns; animation-timing-function: ease-out; animation-fill-mode: forwards; }
+            @keyframes heroKenburns { from { transform: scale(1); } to { transform: scale(1.08); } }
+        </style>
+        @endpush
+    </section>
+@else
 <section class="relative min-h-[72vh] flex items-center justify-center overflow-hidden -mt-16 lg:-mt-20"
          style="background: #FBF5EA;">
 
@@ -116,6 +233,7 @@
     <div class="absolute bottom-0 left-0 right-0 h-20"
          style="background: linear-gradient(to top, #FBF5EA, transparent);"></div>
 </section>
+@endif
 
 {{-- =================================================================
      ACTION TILES — quick-access to the most-used flows.

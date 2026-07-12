@@ -16,7 +16,7 @@
 {{-- =================================================================
      HERO
      ================================================================= --}}
-<section class="relative -mt-16 lg:-mt-20 min-h-[86vh] flex items-end overflow-hidden">
+<section class="relative -mt-16 lg:-mt-20 min-h-screen flex items-end overflow-hidden">
     <img src="{{ $heroImg }}" alt="{{ __('common.temple_name') }}"
          class="absolute inset-0 w-full h-full object-cover object-center">
     <div class="absolute inset-0"
@@ -89,27 +89,32 @@
                            arm() { clearTimeout(this.t); if (this.n > 1) this.t = setTimeout(() => this.go(this.i + 1), 6000); },
                            go(k) { this.i = (k + this.n) % this.n; this.arm(); }, init() { this.arm(); } }">
                 <div class="rounded-2xl overflow-hidden" style="background:rgba(250,246,236,.97); box-shadow:0 18px 44px rgba(30,10,4,.45);">
-                    @foreach($cards as $k => $card)
-                        <div x-show="i === {{ $k }}" x-transition.opacity.duration.400ms>
-                            <div class="h-32 bg-cover bg-center" style="background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@if($card['img']) background-image:url('{{ $card['img'] }}'); @endif"></div>
-                            <div class="p-5">
-                                <div class="text-[10px] tracking-[0.2em] font-extrabold" style="color:#B06A2A;">{{ strtoupper($card['label']) }}</div>
-                                <div class="font-marcellus text-lg mt-1.5" style="color:#7A1E1E;">{{ $card['title'] }}</div>
-                                @if(isset($card['pct']))
-                                    <div class="mt-3 h-[7px] rounded-full" style="background:#f0e6cf;">
-                                        <div class="h-[7px] rounded-full" style="width:{{ $card['pct'] }}%; background:linear-gradient(90deg,#E8751A,#C25C1F);"></div>
-                                    </div>
-                                    <div class="flex justify-between mt-2 text-xs">
-                                        <span class="font-extrabold" style="color:#7A1E1E;">₹{{ number_format($card['raised']) }}</span>
-                                        <span style="color:#9a7a54;">{{ __('home.of') }} ₹{{ number_format($card['goal']) }}</span>
-                                    </div>
-                                @elseif(!empty($card['text']))
-                                    <div class="text-xs mt-2 leading-relaxed" style="color:#7a5a3e;">{{ $card['text'] }}</div>
-                                @endif
-                                <a href="{{ $card['url'] }}" class="block mt-3 text-center font-extrabold text-xs py-2.5 rounded-full text-white transition hover:opacity-90" style="background:#7A1E1E;">{{ $card['cta'] }}</a>
+                    {{-- Fixed-height stage: slides are absolutely stacked so the
+                         card never grows/shrinks while one fades into the next. --}}
+                    <div class="relative" style="height:330px;">
+                        @foreach($cards as $k => $card)
+                            <div x-show="i === {{ $k }}" x-transition.opacity.duration.500ms
+                                 class="absolute inset-0 flex flex-col">
+                                <div class="h-32 flex-shrink-0 bg-cover bg-center" style="background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@if($card['img']) background-image:url('{{ $card['img'] }}'); @endif"></div>
+                                <div class="p-5 flex flex-col flex-1">
+                                    <div class="text-[10px] tracking-[0.2em] font-extrabold" style="color:#B06A2A;">{{ strtoupper($card['label']) }}</div>
+                                    <div class="font-marcellus text-lg mt-1.5 line-clamp-2" style="color:#7A1E1E;">{{ $card['title'] }}</div>
+                                    @if(isset($card['pct']))
+                                        <div class="mt-3 h-[7px] rounded-full" style="background:#f0e6cf;">
+                                            <div class="h-[7px] rounded-full" style="width:{{ $card['pct'] }}%; background:linear-gradient(90deg,#E8751A,#C25C1F);"></div>
+                                        </div>
+                                        <div class="flex justify-between mt-2 text-xs">
+                                            <span class="font-extrabold" style="color:#7A1E1E;">₹{{ number_format($card['raised']) }}</span>
+                                            <span style="color:#9a7a54;">{{ __('home.of') }} ₹{{ number_format($card['goal']) }}</span>
+                                        </div>
+                                    @elseif(!empty($card['text']))
+                                        <div class="text-xs mt-2 leading-relaxed line-clamp-3" style="color:#7a5a3e;">{{ $card['text'] }}</div>
+                                    @endif
+                                    <a href="{{ $card['url'] }}" class="block mt-auto text-center font-extrabold text-xs py-2.5 rounded-full text-white transition hover:opacity-90" style="background:#7A1E1E;">{{ $card['cta'] }}</a>
+                                </div>
                             </div>
-                        </div>
-                    @endforeach
+                        @endforeach
+                    </div>
                     @if(count($cards) > 1)
                         <div class="flex gap-2 justify-center pb-4">
                             @foreach($cards as $k => $card)

@@ -175,14 +175,14 @@
                            arm() { clearTimeout(this.t); if (this.n > 1) this.t = setTimeout(() => this.go(this.i + 1), 6000); },
                            go(k) { this.i = (k + this.n) % this.n; this.arm(); }, init() { this.arm(); } }">
                 <div class="rounded-2xl overflow-hidden" style="background:rgba(251,245,234,.97); box-shadow:0 18px 44px rgba(30,10,4,.45);">
-                    {{-- Fixed-height stage: slides are absolutely stacked so the
-                         card never grows/shrinks while one fades into the next. --}}
-                    <div class="relative" style="height:380px;">
+                    {{-- Fixed-height stage: slides sit side-by-side in a track that
+                         slides horizontally, so there's no blank frame or text
+                         overlap between slides (unlike a cross-fade). --}}
+                    <div class="relative overflow-hidden" style="height:380px;">
+                        <div class="flex h-full transition-transform duration-500 ease-out"
+                             :style="'transform: translateX(-' + (i * 100) + '%)'">
                         @foreach($cards as $k => $card)
-                            <div x-show="i === {{ $k }}"
-                                 x-transition:enter.opacity.duration.600ms
-                                 x-transition:leave.opacity.duration.0ms
-                                 class="absolute inset-0 flex flex-col">
+                            <div class="w-full h-full flex-shrink-0 flex flex-col">
                                 <div class="h-44 flex-shrink-0 bg-contain bg-no-repeat bg-center" style="@if($card['img'])background-color:#fff;background-image:url('{{ $card['img'] }}');@else background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@endif"></div>
                                 <div class="p-5 flex flex-col flex-1">
                                     <div class="text-[10px] tracking-[0.2em] font-extrabold" style="color:#C45F12;">{{ strtoupper($card['label']) }}</div>
@@ -202,6 +202,7 @@
                                 </div>
                             </div>
                         @endforeach
+                        </div>
                     </div>
                     @if(count($cards) > 1)
                         <div class="flex gap-2 justify-center pb-4">

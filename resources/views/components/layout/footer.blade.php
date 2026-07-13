@@ -127,7 +127,6 @@
                     <li><a href="/itihas"                  style="color: #3E3226;" class="hover:underline">{{ __('nav.itihas') }}</a></li>
                     <li><a href="{{ route('trustees') }}"  style="color: #3E3226;" class="hover:underline">{{ __('nav.trustees') }}</a></li>
                     <li><a href="{{ route('gallery') }}"   style="color: #3E3226;" class="hover:underline">{{ __('footer.photo_gallery') }}</a></li>
-                    <li><a href="{{ route('status-maker') }}" style="color: #3E3226;" class="hover:underline">{{ __('status.title') }}</a></li>
                     <li><a href="{{ route('contact') }}"   style="color: #3E3226;" class="hover:underline">{{ __('nav.contact') }}</a></li>
                 </ul>
             </div>

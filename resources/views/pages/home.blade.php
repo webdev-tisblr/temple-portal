@@ -35,20 +35,25 @@
             $u = $hero['video_url'];
             if (preg_match('~(?:youtube\.com/(?:watch\?v=|embed/|shorts/)|youtu\.be/)([\w-]{6,})~', $u, $m)) {
                 $mute = $heroAudio ? '0' : '1';
-                $ctrl = $heroControls ? '1' : '0';
-                $heroVideoIframe = "https://www.youtube.com/embed/{$m[1]}?autoplay=1&mute={$mute}&loop=1&playlist={$m[1]}&controls={$ctrl}&showinfo=0&modestbranding=1&rel=0&playsinline=1";
+                // A custom hover play/pause button drives playback via the JS
+                // API, so hide YouTube's own chrome (controls=0) and enable the
+                // API (enablejsapi=1). autoplay stays muted per browser policy.
+                $heroVideoIframe = "https://www.youtube.com/embed/{$m[1]}?autoplay=1&mute={$mute}&loop=1&playlist={$m[1]}&controls=0&showinfo=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1";
+                $heroVideoKind = 'youtube';
             } elseif (preg_match('~vimeo\.com/(\d+)~', $u, $m)) {
                 $muted = $heroAudio ? '0' : '1';
-                // Vimeo's background=1 forces muted + hides controls; only use it
-                // when the admin wants neither sound nor controls.
+                // background=1 forces muted + hides the API; only use it when the
+                // admin wants neither sound nor a play/pause button.
                 $heroVideoIframe = ($heroAudio || $heroControls)
-                    ? "https://player.vimeo.com/video/{$m[1]}?autoplay=1&muted={$muted}&loop=1&controls=" . ($heroControls ? '1' : '0')
+                    ? "https://player.vimeo.com/video/{$m[1]}?autoplay=1&muted={$muted}&loop=1&controls=0"
                     : "https://player.vimeo.com/video/{$m[1]}?autoplay=1&muted=1&loop=1&background=1";
+                $heroVideoKind = 'vimeo';
             } else {
                 $heroVideoFile = $u; // assume a direct .mp4/.webm link
             }
         }
     }
+    $heroVideoKind = $heroVideoKind ?? 'file';
     $heroHasVideo = $heroVideoFile || $heroVideoIframe;
 @endphp
 
@@ -56,23 +61,39 @@
      HERO
      ================================================================= --}}
 <section class="relative -mt-16 lg:-mt-20 min-h-[95vh] flex items-end overflow-hidden">
-    @if($heroIsVideo && $heroVideoIframe)
-        <div class="absolute inset-0 overflow-hidden {{ $heroControls ? '' : 'pointer-events-none' }}">
-            <iframe src="{{ $heroVideoIframe }}" allow="autoplay; encrypted-media" allowfullscreen tabindex="-1"
-                    class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-0"
-                    style="width:100vw; height:56.25vw; min-height:100%; min-width:177.78vh;"></iframe>
+    @if($heroIsVideo && $heroHasVideo)
+        {{-- Video background + a custom hover play/pause button. The player
+             chrome is hidden; playback is driven via the provider JS API
+             (YouTube/Vimeo) or the native element (file), so one button works
+             uniformly. The media itself is pointer-events-none so it never
+             steals clicks from the hero CTAs; only the button is clickable. --}}
+        <div class="hero-video group absolute inset-0 overflow-hidden"
+             data-kind="{{ $heroVideoKind }}" data-controls="{{ $heroControls ? '1' : '0' }}">
+            @if($heroVideoIframe)
+                <iframe class="hero-video-frame absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-0 pointer-events-none"
+                        src="{{ $heroVideoIframe }}" allow="autoplay; encrypted-media" allowfullscreen tabindex="-1"
+                        style="width:100vw; height:56.25vw; min-height:100%; min-width:177.78vh;"></iframe>
+            @else
+                <video class="hero-video-el absolute inset-0 w-full h-full object-cover object-center pointer-events-none"
+                       autoplay loop playsinline poster="{{ $heroImg }}" @if(!$heroAudio) muted @endif>
+                    <source src="{{ $heroVideoFile }}" type="video/mp4">
+                </video>
+            @endif
+            @if($heroControls)
+                <button type="button"
+                        class="hero-video-btn absolute bottom-6 right-6 z-30 w-12 h-12 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-200"
+                        style="background:rgba(20,10,6,.55); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); color:#FFF7EC; pointer-events:auto;"
+                        aria-label="Play / pause background video">
+                    <svg class="hero-ic-pause w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+                    <svg class="hero-ic-play w-5 h-5 hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+            @endif
         </div>
-    @elseif($heroIsVideo && $heroVideoFile)
-        <video class="absolute inset-0 w-full h-full object-cover object-center"
-               autoplay loop playsinline poster="{{ $heroImg }}"
-               @if(!$heroAudio) muted @endif @if($heroControls) controls @endif>
-            <source src="{{ $heroVideoFile }}" type="video/mp4">
-        </video>
     @else
         <img src="{{ $heroImg }}" alt="{{ __('common.temple_name') }}"
              class="absolute inset-0 w-full h-full object-cover object-center">
     @endif
-    <div class="absolute inset-0"
+    <div class="absolute inset-0 pointer-events-none"
          style="background:linear-gradient(180deg, rgba(41,15,8,{{ $heroOverlay/100 * 0.9 }}) 0%, rgba(41,15,8,{{ $heroOverlay/100 * 0.13 }}) 35%, rgba(58,22,10,{{ max(0.82, $heroOverlay/100 + 0.4) }}) 100%);"></div>
 
     <div class="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-14 pt-28
@@ -326,3 +347,72 @@
 @include('partials.home-darshan-widget')
 
 @endsection
+
+@push('scripts')
+<script>
+// Hero background-video play/pause. One custom button drives YouTube (IFrame
+// API), Vimeo (Player API) or a native <video>, so the control works the same
+// everywhere and never collides with the hero CTAs.
+(function () {
+    var wrap = document.querySelector('.hero-video');
+    if (!wrap || wrap.dataset.controls !== '1') return;
+
+    var btn = wrap.querySelector('.hero-video-btn');
+    var icPause = wrap.querySelector('.hero-ic-pause');
+    var icPlay = wrap.querySelector('.hero-ic-play');
+    var kind = wrap.dataset.kind;
+    var playing = true;
+
+    function paint() {
+        if (!icPause || !icPlay) return;
+        icPause.classList.toggle('hidden', !playing);
+        icPlay.classList.toggle('hidden', playing);
+    }
+
+    var api = null; // { play, pause }
+
+    if (kind === 'youtube') {
+        var frame = wrap.querySelector('.hero-video-frame');
+        var tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(tag);
+        window.onYouTubeIframeAPIReady = function () {
+            var p = new YT.Player(frame, {
+                events: {
+                    onStateChange: function (e) {
+                        if (e.data === YT.PlayerState.PLAYING) { playing = true; paint(); }
+                        else if (e.data === YT.PlayerState.PAUSED) { playing = false; paint(); }
+                    }
+                }
+            });
+            api = { play: function () { p.playVideo(); }, pause: function () { p.pauseVideo(); } };
+        };
+    } else if (kind === 'vimeo') {
+        var vframe = wrap.querySelector('.hero-video-frame');
+        var vtag = document.createElement('script');
+        vtag.src = 'https://player.vimeo.com/api/player.js';
+        vtag.onload = function () {
+            var vp = new Vimeo.Player(vframe);
+            vp.on('play', function () { playing = true; paint(); });
+            vp.on('pause', function () { playing = false; paint(); });
+            api = { play: function () { vp.play(); }, pause: function () { vp.pause(); } };
+        };
+        document.head.appendChild(vtag);
+    } else {
+        var vid = wrap.querySelector('.hero-video-el');
+        if (vid) {
+            vid.addEventListener('play', function () { playing = true; paint(); });
+            vid.addEventListener('pause', function () { playing = false; paint(); });
+            api = { play: function () { vid.play(); }, pause: function () { vid.pause(); } };
+        }
+    }
+
+    btn && btn.addEventListener('click', function () {
+        if (!api) return;
+        if (playing) { api.pause(); } else { api.play(); }
+        // Optimistic flip; the provider event will confirm/correct.
+        playing = !playing; paint();
+    });
+})();
+</script>
+@endpush

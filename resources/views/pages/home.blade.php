@@ -94,16 +94,17 @@
          style="background:linear-gradient(180deg, rgba(41,15,8,{{ $heroOverlay/100 * 0.9 }}) 0%, rgba(41,15,8,{{ $heroOverlay/100 * 0.13 }}) 35%, rgba(58,22,10,{{ max(0.82, $heroOverlay/100 + 0.4) }}) 100%);"></div>
 
     @if($heroIsVideo && $heroHasVideo && $heroControls)
-        {{-- Play/pause button: a direct child of the hero (z-40, above the
-             content + veil) so it's always clickable. Reveals on hover of the
-             whole hero (group), and stays visible on touch devices. --}}
+        {{-- Play/pause button: centred over the video (where YouTube's own
+             control would be), a direct child of the hero at z-40 so it sits
+             above the content/veil and is always clickable. Softly visible so
+             visitors notice it; brightens on hover. --}}
         <button type="button" id="hero-video-btn"
-                class="hero-video-btn absolute bottom-6 right-6 z-40 w-12 h-12 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-200"
-                style="background:rgba(20,10,6,.6); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); color:#FFF7EC;"
+                class="hero-video-btn absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full flex items-center justify-center opacity-70 hover:opacity-100 focus:opacity-100 transition-all duration-200 hover:scale-105"
+                style="background:rgba(20,10,6,.55); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); color:#FFF7EC; box-shadow:0 4px 18px rgba(0,0,0,.4);"
                 data-kind="{{ $heroVideoKind }}"
                 aria-label="Play / pause background video">
-            <svg class="hero-ic-pause w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-            <svg class="hero-ic-play w-5 h-5 hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <svg class="hero-ic-pause w-7 h-7" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+            <svg class="hero-ic-play w-7 h-7 hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
         </button>
     @endif
 
@@ -413,7 +414,11 @@
                     fs: 0, disablekb: 1, iv_load_policy: 3
                 },
                 events: {
-                    onReady: function (e) { styleCover(e.target.getIframe()); },
+                    onReady: function (e) {
+                        styleCover(e.target.getIframe());
+                        // Nudge muted autoplay (some browsers need the explicit call).
+                        try { if (mute) { e.target.mute(); } e.target.playVideo(); } catch (err) {}
+                    },
                     onStateChange: function (e) {
                         // The poster cover hides YouTube's own UI except while
                         // the video is actually playing.

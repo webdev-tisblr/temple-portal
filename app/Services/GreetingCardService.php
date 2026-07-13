@@ -234,6 +234,10 @@ class GreetingCardService
             return;
         }
 
+        // Overlay images can be devotee-uploaded phone photos (donation extra
+        // fields); GD drops EXIF orientation, so re-orient before compositing.
+        $overlayImage = $this->applyExifOrientation($overlayImage, $bytes);
+
         $x = (int) ($overlay['x'] ?? 0);
         $y = (int) ($overlay['y'] ?? 0);
         $width = (int) ($overlay['width'] ?? imagesx($overlayImage));
@@ -261,5 +265,50 @@ class GreetingCardService
         sscanf($hex, '%02x%02x%02x', $r, $g, $b);
 
         return [(int) $r, (int) $g, (int) $b];
+    }
+
+    /**
+     * Re-orient a GD image per its source EXIF Orientation tag. GD drops EXIF
+     * on load, so phone photos otherwise composite rotated/mirrored. Safe
+     * no-op for images without an orientation tag (PNGs, already-upright JPEGs).
+     */
+    private function applyExifOrientation(\GdImage $photo, string $bytes): \GdImage
+    {
+        if (! function_exists('exif_read_data')) {
+            return $photo;
+        }
+
+        try {
+            $exif = @exif_read_data('data://image/jpeg;base64,' . base64_encode($bytes));
+        } catch (\Throwable) {
+            return $photo;
+        }
+
+        $orientation = (int) ($exif['Orientation'] ?? 0);
+        if ($orientation <= 1) {
+            return $photo;
+        }
+
+        if (in_array($orientation, [2, 4, 5, 7], true) && function_exists('imageflip')) {
+            imageflip($photo, IMG_FLIP_HORIZONTAL);
+        }
+
+        $angle = match ($orientation) {
+            3, 4 => 180,
+            5, 6 => -90,
+            7, 8 => 90,
+            default => 0,
+        };
+
+        if ($angle !== 0) {
+            $rotated = imagerotate($photo, $angle, 0);
+            if ($rotated instanceof \GdImage) {
+                imagedestroy($photo);
+
+                return $rotated;
+            }
+        }
+
+        return $photo;
     }
 }

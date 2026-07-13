@@ -26,16 +26,27 @@
          even for visitors who dismissed the previous one. --}}
     <div x-data="{ open: localStorage.getItem('ribbon_{{ substr(sha1($rbText), 0, 8) }}') !== '1' }"
          x-show="open" x-cloak
-         class="relative z-[60] text-center text-sm font-semibold px-10 py-2"
+         class="ribbon-ticker relative z-[60] text-sm font-semibold py-2"
          style="background:#7A1E1E; color:#FBF5EA;">
-        @if($rbLink)
-            <a href="{{ $rbLink }}" class="hover:underline">{{ $rbText }}</a>
-        @else
-            {{ $rbText }}
-        @endif
+        {{-- The track is two identical halves; the animation translates by
+             -50% so the second half seamlessly takes over. Each half repeats
+             the message enough times to exceed any viewport width, so short
+             messages scroll without a gap. Only the first copy is read aloud. --}}
+        <div class="ribbon-track">
+            @for ($i = 0; $i < 8; $i++)
+                <span class="ribbon-item" @if($i > 0) aria-hidden="true" @endif>
+                    @if($rbLink)
+                        <a href="{{ $rbLink }}" class="hover:underline">{{ $rbText }}</a>
+                    @else
+                        {{ $rbText }}
+                    @endif
+                </span>
+            @endfor
+        </div>
         <button type="button"
                 @click="open = false; localStorage.setItem('ribbon_{{ substr(sha1($rbText), 0, 8) }}', '1')"
-                class="absolute right-3 top-1/2 -translate-y-1/2 opacity-70 hover:opacity-100"
+                class="absolute right-0 top-0 bottom-0 px-3 opacity-70 hover:opacity-100"
+                style="background:#7A1E1E;"
                 aria-label="Close">✕</button>
     </div>
 @endif

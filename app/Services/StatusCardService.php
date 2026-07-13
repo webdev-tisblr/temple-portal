@@ -197,6 +197,11 @@ class StatusCardService
             return;
         }
 
+        // Phone photos carry an EXIF orientation tag; GD ignores it, so a
+        // portrait shot composites sideways (the "6 o'clock → 9 o'clock"
+        // rotation). Re-orient the pixels before compositing.
+        $photo = $this->applyExifOrientation($photo, $bytes);
+
         $x = (int) ($overlay['x'] ?? 0);
         $y = (int) ($overlay['y'] ?? 0);
         $w = (int) ($overlay['width'] ?? imagesx($photo));
@@ -204,5 +209,52 @@ class StatusCardService
 
         imagecopyresampled($image, $photo, $x, $y, 0, 0, $w, $h, imagesx($photo), imagesy($photo));
         imagedestroy($photo);
+    }
+
+    /**
+     * Re-orient a GD image per its source EXIF Orientation tag. GD's
+     * imagecreatefromstring drops EXIF, so phone photos otherwise composite
+     * rotated/mirrored. Handles all 8 orientations; returns the (possibly new)
+     * GdImage and destroys the original when it rotates.
+     */
+    private function applyExifOrientation(\GdImage $photo, string $bytes): \GdImage
+    {
+        if (! function_exists('exif_read_data')) {
+            return $photo;
+        }
+
+        try {
+            $exif = @exif_read_data('data://image/jpeg;base64,' . base64_encode($bytes));
+        } catch (\Throwable) {
+            return $photo;
+        }
+
+        $orientation = (int) ($exif['Orientation'] ?? 0);
+        if ($orientation <= 1) {
+            return $photo; // 0/1 = already upright, or no tag
+        }
+
+        // Mirror first for the flipped orientations, then rotate.
+        if (in_array($orientation, [2, 4, 5, 7], true) && function_exists('imageflip')) {
+            imageflip($photo, IMG_FLIP_HORIZONTAL);
+        }
+
+        $angle = match ($orientation) {
+            3, 4 => 180,
+            5, 6 => -90,
+            7, 8 => 90,
+            default => 0,
+        };
+
+        if ($angle !== 0) {
+            $rotated = imagerotate($photo, $angle, 0);
+            if ($rotated instanceof \GdImage) {
+                imagedestroy($photo);
+
+                return $rotated;
+            }
+        }
+
+        return $photo;
     }
 }

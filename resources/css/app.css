@@ -131,6 +131,26 @@
     letter-spacing: 0.005em;
 }
 
+/* Top-ribbon ticker: text streams continuously right-to-left. Two copies of
+   the message sit side by side and the track translates by -50%, so the second
+   copy seamlessly takes over as the first scrolls off. Pauses on hover. */
+.ribbon-ticker { overflow: hidden; white-space: nowrap; }
+.ribbon-track {
+    display: inline-flex;
+    align-items: center;
+    will-change: transform;
+    animation: ribbon-scroll 26s linear infinite;
+}
+.ribbon-ticker:hover .ribbon-track { animation-play-state: paused; }
+.ribbon-item { padding-right: 4rem; }
+@keyframes ribbon-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ribbon-track { animation: none; }
+}
+
 /* Home-page over-hero header: the un-scrolled bar is transparent over the
    hero image, so on the home page only its wordmark + nav items flip to
    cream (with a soft shadow) to stay legible. Every other page keeps the

@@ -25,7 +25,9 @@ use Illuminate\Support\Facades\Storage;
  */
 class StatusCardService
 {
-    private const VERSION = 'v1';
+    // Bump to invalidate cached cards when the compositing logic changes
+    // (v2: EXIF-orientation correction + aspect-preserving "cover" photo fit).
+    private const VERSION = 'v2';
 
     /** @return array{url: string, cached: bool}|null */
     public function generate(StatusTemplate $template, ?Devotee $devotee): ?array
@@ -249,11 +251,45 @@ class StatusCardService
 
         $x = (int) ($overlay['x'] ?? 0);
         $y = (int) ($overlay['y'] ?? 0);
-        $w = (int) ($overlay['width'] ?? imagesx($photo));
-        $h = (int) ($overlay['height'] ?? imagesy($photo));
+        $srcW = imagesx($photo);
+        $srcH = imagesy($photo);
+        $w = (int) ($overlay['width'] ?? $srcW);
+        $h = (int) ($overlay['height'] ?? $srcH);
 
-        imagecopyresampled($image, $photo, $x, $y, 0, 0, $w, $h, imagesx($photo), imagesy($photo));
+        $this->coverInto($image, $photo, $x, $y, $w, $h, $srcW, $srcH);
         imagedestroy($photo);
+    }
+
+    /**
+     * Composite $photo into the $w×$h box at ($x,$y) using "cover" scaling:
+     * the photo is scaled to fill the box while preserving its aspect ratio,
+     * center-cropping the overflow. This keeps a user photo from being
+     * squeezed/stretched when the box shape doesn't match the photo's.
+     */
+    private function coverInto(\GdImage $dst, \GdImage $src, int $x, int $y, int $w, int $h, int $srcW, int $srcH): void
+    {
+        if ($w <= 0 || $h <= 0 || $srcW <= 0 || $srcH <= 0) {
+            return;
+        }
+
+        $targetRatio = $w / $h;
+        $srcRatio = $srcW / $srcH;
+
+        if ($srcRatio > $targetRatio) {
+            // Source wider than the box → crop the sides.
+            $cropH = $srcH;
+            $cropW = (int) round($srcH * $targetRatio);
+            $srcX = (int) round(($srcW - $cropW) / 2);
+            $srcY = 0;
+        } else {
+            // Source taller than the box → crop top/bottom.
+            $cropW = $srcW;
+            $cropH = (int) round($srcW / $targetRatio);
+            $srcX = 0;
+            $srcY = (int) round(($srcH - $cropH) / 2);
+        }
+
+        imagecopyresampled($dst, $src, $x, $y, $srcX, $srcY, $w, $h, max(1, $cropW), max(1, $cropH));
     }
 
     /**

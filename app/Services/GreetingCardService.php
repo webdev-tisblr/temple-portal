@@ -291,8 +291,37 @@ class GreetingCardService
         $srcWidth = imagesx($overlayImage);
         $srcHeight = imagesy($overlayImage);
 
-        imagecopyresampled($image, $overlayImage, $x, $y, 0, 0, $width, $height, $srcWidth, $srcHeight);
+        $this->coverInto($image, $overlayImage, $x, $y, $width, $height, $srcWidth, $srcHeight);
         imagedestroy($overlayImage);
+    }
+
+    /**
+     * Composite $src into the $w×$h box at ($x,$y) using "cover" scaling: fill
+     * the box while preserving aspect ratio, center-cropping the overflow, so
+     * a user photo is never squeezed when the box shape differs from the photo.
+     */
+    private function coverInto(\GdImage $dst, \GdImage $src, int $x, int $y, int $w, int $h, int $srcW, int $srcH): void
+    {
+        if ($w <= 0 || $h <= 0 || $srcW <= 0 || $srcH <= 0) {
+            return;
+        }
+
+        $targetRatio = $w / $h;
+        $srcRatio = $srcW / $srcH;
+
+        if ($srcRatio > $targetRatio) {
+            $cropH = $srcH;
+            $cropW = (int) round($srcH * $targetRatio);
+            $srcX = (int) round(($srcW - $cropW) / 2);
+            $srcY = 0;
+        } else {
+            $cropW = $srcW;
+            $cropH = (int) round($srcW / $targetRatio);
+            $srcX = 0;
+            $srcY = (int) round(($srcH - $cropH) / 2);
+        }
+
+        imagecopyresampled($dst, $src, $x, $y, $srcX, $srcY, $w, $h, max(1, $cropW), max(1, $cropH));
     }
 
     /**

@@ -52,8 +52,8 @@
                  :class="selectedIdx === idx ? 'ring-2 ring-blue-500 ring-offset-1' : 'hover:ring-2 hover:ring-blue-300'"
                  @click.stop="selectedIdx = idx">
                 <template x-if="overlay.type === 'text'">
-                    <span :style="'font-size:' + Math.max(8, (overlay.font_size || 24) * scale) + 'px; color:' + (overlay.color || '#333') + '; font-weight:bold; white-space:nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.4); line-height:1.2;'"
-                          x-text="getSampleText(overlay.field_key)"></span>
+                    <div :style="'width:' + ((overlay.width || 300) * scale) + 'px; font-size:' + Math.max(8, (overlay.font_size || 24) * scale) + 'px; color:' + (overlay.color || '#333') + '; font-weight:bold; text-align:center; white-space:normal; overflow-wrap:break-word; word-break:break-word; text-shadow: 0 1px 3px rgba(0,0,0,0.4); line-height:1.4;'"
+                         x-text="getSampleText(overlay.field_key)"></div>
                 </template>
                 <template x-if="overlay.type === 'image'">
                     <div :style="'width:' + ((overlay.width || 100) * scale) + 'px; height:' + ((overlay.height || 100) * scale) + 'px;'"
@@ -119,9 +119,10 @@
                     <label class="text-xs font-medium text-gray-500">Color</label>
                     <input type="color" x-model="overlays[selectedIdx].color" @input="syncToForm()" class="w-full h-9 rounded-lg border-gray-300 dark:border-gray-600 cursor-pointer">
                 </div>
-                <div x-show="overlays[selectedIdx]?.type === 'image'">
+                <div>
                     <label class="text-xs font-medium text-gray-500">Width (px)</label>
                     <input type="number" x-model.number="overlays[selectedIdx].width" @input="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
+                    <span x-show="overlays[selectedIdx]?.type === 'text'" class="text-[10px] text-gray-400">Text wraps & centers in this width</span>
                 </div>
                 <div x-show="overlays[selectedIdx]?.type === 'image'">
                     <label class="text-xs font-medium text-gray-500">Height (px)</label>
@@ -141,6 +142,9 @@ function greetingCardEditor(initialOverlays, initialConfig) {
         // so the x-for :key is always unique — undefined keys collapse rows.
         overlays: (Array.isArray(initialOverlays) ? initialOverlays : []).map((o, i) => ({
             ...o,
+            // Text overlays wrap+center within a width; backfill a default for
+            // templates saved before widths existed.
+            width: (o.type === 'text' && !o.width) ? 300 : o.width,
             _uid: 'ov_init_' + i,
         })),
         selectedIdx: null,
@@ -216,7 +220,7 @@ function greetingCardEditor(initialOverlays, initialConfig) {
                 y: 50 + (this.overlays.length * 20),
                 font_size: type === 'text' ? 32 : undefined,
                 color: type === 'text' ? '#881337' : undefined,
-                width: type === 'image' ? 150 : undefined,
+                width: type === 'image' ? 150 : 300,
                 height: type === 'image' ? 150 : undefined,
             });
             this.selectedIdx = this.overlays.length - 1;
@@ -266,7 +270,7 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             this.resizeStartX = pos.clientX;
             this.resizeStartY = pos.clientY;
             let o = this.overlays[idx];
-            this.resizeOrigW = o.width || 150;
+            this.resizeOrigW = o.width || (o.type === 'image' ? 150 : 300);
             this.resizeOrigH = o.height || 150;
             this.resizeOrigFont = o.font_size || 24;
         },
@@ -282,8 +286,10 @@ function greetingCardEditor(initialOverlays, initialConfig) {
                 o.width = Math.max(20, Math.round(this.resizeOrigW + dx));
                 o.height = Math.max(20, Math.round(this.resizeOrigH + dy));
             } else {
-                // Text: scale the font from the diagonal drag (down/right = bigger).
-                o.font_size = Math.max(8, Math.round(this.resizeOrigFont + (dx + dy) / 2));
+                // Text: horizontal drag changes the wrap width, vertical drag
+                // changes the font size.
+                o.width = Math.max(40, Math.round(this.resizeOrigW + dx));
+                o.font_size = Math.max(8, Math.round(this.resizeOrigFont + dy));
             }
         },
 
@@ -313,7 +319,7 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             let config = {
                 overlays: this.overlays.map(o => {
                     let c = { field_key: o.field_key, type: o.type, x: o.x, y: o.y };
-                    if (o.type === 'text') { c.font_size = o.font_size || 24; c.color = o.color || '#333'; }
+                    if (o.type === 'text') { c.font_size = o.font_size || 24; c.color = o.color || '#333'; c.width = o.width || 300; }
                     if (o.type === 'image') { c.width = o.width || 150; c.height = o.height || 150; }
                     return c;
                 }),

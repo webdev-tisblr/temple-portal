@@ -131,6 +131,12 @@
     letter-spacing: 0.005em;
 }
 
+/* Hero video play/pause button reveals on hover; on touch devices (no hover)
+   it stays visible so the control is reachable. */
+@media (hover: none) {
+    .hero-video-btn { opacity: 1 !important; }
+}
+
 /* Top-ribbon ticker: text streams continuously right-to-left. Two copies of
    the message sit side by side and the track translates by -50%, so the second
    copy seamlessly takes over as the first scrolls off. Pauses on hover. */

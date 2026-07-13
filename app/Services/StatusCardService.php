@@ -174,11 +174,56 @@ class StatusCardService
         sscanf($colorHex, '%02x%02x%02x', $r, $g, $b);
         $color = imagecolorallocate($image, (int) $r, (int) $g, (int) $b);
 
-        if ($fontPath) {
+        $width = (int) ($overlay['width'] ?? 0);
+
+        if ($fontPath && $width > 0) {
+            // Centre each line within the overlay's width box, wrapping long
+            // text onto new lines.
+            $lines = $this->wrapText($text, $fontSize, $fontPath, $width);
+            $lineHeight = $fontSize * 1.4;
+            $ly = $y + $fontSize; // first baseline
+            foreach ($lines as $line) {
+                $bbox = imagettfbbox($fontSize, 0, $fontPath, $line);
+                $lineW = abs($bbox[2] - $bbox[0]);
+                $lx = $x + (int) round(($width - $lineW) / 2);
+                imagettftext($image, $fontSize, 0, $lx, (int) round($ly), $color, $fontPath, $line);
+                $ly += $lineHeight;
+            }
+        } elseif ($fontPath) {
             imagettftext($image, $fontSize, (float) ($overlay['angle'] ?? 0), $x, $y + (int) round($fontSize * 1.2), $color, $fontPath, $text);
         } else {
             imagestring($image, min(5, max(1, (int) round($fontSize / 4))), $x, $y, $text, $color);
         }
+    }
+
+    /**
+     * Greedy word-wrap: split $text into lines that each fit within $maxWidth
+     * px at the given font size. Very long single words are left intact.
+     *
+     * @return list<string>
+     */
+    private function wrapText(string $text, float $fontSize, string $fontPath, int $maxWidth): array
+    {
+        $words = preg_split('/\s+/', trim($text)) ?: [];
+        $lines = [];
+        $current = '';
+
+        foreach ($words as $word) {
+            $trial = $current === '' ? $word : $current . ' ' . $word;
+            $bbox = imagettfbbox($fontSize, 0, $fontPath, $trial);
+            $trialWidth = abs($bbox[2] - $bbox[0]);
+            if ($trialWidth > $maxWidth && $current !== '') {
+                $lines[] = $current;
+                $current = $word;
+            } else {
+                $current = $trial;
+            }
+        }
+        if ($current !== '') {
+            $lines[] = $current;
+        }
+
+        return $lines ?: [$text];
     }
 
     private function applyImageOverlay(\GdImage $image, array $overlay, string $storagePath): void

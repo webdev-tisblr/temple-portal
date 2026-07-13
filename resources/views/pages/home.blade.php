@@ -96,10 +96,11 @@
     @if($heroIsVideo && $heroHasVideo && $heroControls)
         {{-- Play/pause button: centred over the video (where YouTube's own
              control would be), a direct child of the hero at z-40 so it sits
-             above the content/veil and is always clickable. Softly visible so
-             visitors notice it; brightens on hover. --}}
+             above the content/veil and is always clickable. Hidden while idle;
+             fades in when the cursor is over the hero (and always shown on
+             touch — see .hero-video-btn rule in app.css). --}}
         <button type="button" id="hero-video-btn"
-                class="hero-video-btn absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full flex items-center justify-center opacity-70 hover:opacity-100 focus:opacity-100 transition-all duration-200 hover:scale-105"
+                class="hero-video-btn absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all duration-200 hover:scale-105"
                 style="background:rgba(20,10,6,.55); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); color:#FFF7EC; box-shadow:0 4px 18px rgba(0,0,0,.4);"
                 data-kind="{{ $heroVideoKind }}"
                 aria-label="Play / pause background video">

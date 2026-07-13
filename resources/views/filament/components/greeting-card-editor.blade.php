@@ -61,6 +61,14 @@
                         <span class="text-xs text-gray-600 font-medium" x-text="overlay.field_key"></span>
                     </div>
                 </template>
+
+                {{-- Resize handle (bottom-right). Drag to grow/shrink: image
+                     overlays resize width+height, text overlays scale font. --}}
+                <div x-show="selectedIdx === idx"
+                     @mousedown.stop.prevent="startResize(idx, $event)"
+                     @touchstart.stop.prevent="startResize(idx, $event)"
+                     class="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-blue-500 border-2 border-white rounded-sm shadow cursor-se-resize"
+                     title="Drag to resize"></div>
             </div>
         </template>
     </div>
@@ -123,7 +131,7 @@
         </div>
     </template>
 
-    <p class="text-xs text-gray-400 dark:text-gray-500">Drag overlays to position. Click to select & edit properties. Coordinates saved relative to original image size.</p>
+    <p class="text-xs text-gray-400 dark:text-gray-500">Drag an overlay to position it. Click to select, then drag the blue corner handle to resize (photo size / text size). Coordinates saved relative to original image size.</p>
 </div>
 
 <script>
@@ -145,6 +153,13 @@ function greetingCardEditor(initialOverlays, initialConfig) {
         dragStartY: 0,
         dragOrigX: 0,
         dragOrigY: 0,
+        resizing: false,
+        resizeIdx: null,
+        resizeStartX: 0,
+        resizeStartY: 0,
+        resizeOrigW: 0,
+        resizeOrigH: 0,
+        resizeOrigFont: 0,
         _sendConfig: {
             send_via_email: initialConfig?.send_via_email ?? true,
             send_via_whatsapp: initialConfig?.send_via_whatsapp ?? true,
@@ -162,10 +177,10 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             // (not the array index) so add/delete/reorder update the correct
             // DOM node — keying on the index made deletes hit the wrong row.
             this.overlays.forEach((o) => { if (!o._uid) o._uid = this.nextUid(); });
-            document.addEventListener('mousemove', (e) => this.onDrag(e));
-            document.addEventListener('mouseup', () => this.stopDrag());
-            document.addEventListener('touchmove', (e) => this.onDrag(e), { passive: false });
-            document.addEventListener('touchend', () => this.stopDrag());
+            document.addEventListener('mousemove', (e) => { this.onDrag(e); this.onResize(e); });
+            document.addEventListener('mouseup', () => { this.stopDrag(); this.stopResize(); });
+            document.addEventListener('touchmove', (e) => { this.onDrag(e); this.onResize(e); }, { passive: false });
+            document.addEventListener('touchend', () => { this.stopDrag(); this.stopResize(); });
             // Recompute scale on window resize so drag math stays correct.
             window.addEventListener('resize', () => this.recomputeScale());
             this.$nextTick(() => {
@@ -239,6 +254,43 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             if (this.dragging) {
                 this.dragging = false;
                 this.dragIdx = null;
+                this.syncToForm();
+            }
+        },
+
+        startResize(idx, event) {
+            this.resizing = true;
+            this.resizeIdx = idx;
+            this.selectedIdx = idx;
+            let pos = event.touches ? event.touches[0] : event;
+            this.resizeStartX = pos.clientX;
+            this.resizeStartY = pos.clientY;
+            let o = this.overlays[idx];
+            this.resizeOrigW = o.width || 150;
+            this.resizeOrigH = o.height || 150;
+            this.resizeOrigFont = o.font_size || 24;
+        },
+
+        onResize(event) {
+            if (!this.resizing || this.resizeIdx === null) return;
+            if (event.cancelable) event.preventDefault();
+            let pos = event.touches ? event.touches[0] : event;
+            let dx = (pos.clientX - this.resizeStartX) / this.scale;
+            let dy = (pos.clientY - this.resizeStartY) / this.scale;
+            let o = this.overlays[this.resizeIdx];
+            if (o.type === 'image') {
+                o.width = Math.max(20, Math.round(this.resizeOrigW + dx));
+                o.height = Math.max(20, Math.round(this.resizeOrigH + dy));
+            } else {
+                // Text: scale the font from the diagonal drag (down/right = bigger).
+                o.font_size = Math.max(8, Math.round(this.resizeOrigFont + (dx + dy) / 2));
+            }
+        },
+
+        stopResize() {
+            if (this.resizing) {
+                this.resizing = false;
+                this.resizeIdx = null;
                 this.syncToForm();
             }
         },

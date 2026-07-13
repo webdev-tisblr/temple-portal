@@ -70,6 +70,11 @@
                 {{-- The YouTube IFrame API replaces this div with the player;
                      the resulting iframe is styled full-bleed on ready. --}}
                 <div id="hero-yt-target" data-yt-id="{{ $heroYtId }}" data-mute="{{ $heroAudio ? '0' : '1' }}"></div>
+                {{-- Poster cover: masks YouTube's own UI (center arrow, controls,
+                     loading state) whenever the video isn't actively playing.
+                     JS fades it out on PLAYING and back in on pause/load/end. --}}
+                <div id="hero-yt-cover" class="absolute inset-0 bg-cover bg-center transition-opacity duration-500"
+                     style="background-image:url('{{ $heroImg }}');"></div>
             @elseif($heroVideoIframe)
                 <iframe class="hero-video-frame absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-0"
                         src="{{ $heroVideoIframe }}" allow="autoplay; encrypted-media" allowfullscreen tabindex="-1"
@@ -394,19 +399,27 @@
         if (!target) return;
         var vid = target.dataset.ytId;
         var mute = target.dataset.mute === '1' ? 1 : 0;
+        var cover = document.getElementById('hero-yt-cover');
+        var showCover = function (on) { if (cover) cover.style.opacity = on ? '1' : '0'; };
 
         window.onYouTubeIframeAPIReady = function () {
             var p = new YT.Player('hero-yt-target', {
                 videoId: vid,
                 playerVars: {
-                    autoplay: 1, mute: mute, loop: 1, playlist: vid, controls: 0,
-                    showinfo: 0, modestbranding: 1, rel: 0, playsinline: 1
+                    // No playlist/loop params (they add YouTube's prev/next UI);
+                    // we loop manually on ENDED instead. controls:0 hides chrome.
+                    autoplay: 1, mute: mute, controls: 0,
+                    showinfo: 0, modestbranding: 1, rel: 0, playsinline: 1,
+                    fs: 0, disablekb: 1, iv_load_policy: 3
                 },
                 events: {
                     onReady: function (e) { styleCover(e.target.getIframe()); },
                     onStateChange: function (e) {
-                        if (e.data === YT.PlayerState.PLAYING) { playing = true; paint(); }
-                        else if (e.data === YT.PlayerState.PAUSED) { playing = false; paint(); }
+                        // The poster cover hides YouTube's own UI except while
+                        // the video is actually playing.
+                        if (e.data === YT.PlayerState.PLAYING) { playing = true; showCover(false); paint(); }
+                        else if (e.data === YT.PlayerState.PAUSED) { playing = false; showCover(true); paint(); }
+                        else if (e.data === YT.PlayerState.ENDED) { e.target.seekTo(0); e.target.playVideo(); }
                     }
                 }
             });

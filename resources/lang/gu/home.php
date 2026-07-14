@@ -10,7 +10,7 @@ return [
     'featured' => 'વિશેષ',
     'donation_campaigns' => 'દાન અભિયાન',
     'festival' => 'ઉત્સવ અને કાર્યક્રમ',
-    'upcoming' => 'ધામમાં આગામી',
+    'upcoming' => 'આગામી કાર્યક્રમો',
     'details' => 'વિગત જુઓ',
     'community_hall' => 'સમુદાય હોલ',
     'guest_capacity' => 'મહેમાન ક્ષમતા',

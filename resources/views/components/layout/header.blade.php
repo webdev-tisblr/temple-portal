@@ -12,13 +12,7 @@
         ['label' => __('nav.itihas'),   'url' => url('/itihas')],
         ['label' => __('nav.mahima'),   'url' => url('/mahima')],
         ['label' => __('nav.trustees'), 'url' => route('trustees')],
-        ['label' => __('nav.darshan'),  'url' => route('darshan')],
         ['label' => __('nav.gallery'),  'url' => route('gallery')],
-    ];
-    $sevaMenu = [
-        ['label' => __('nav.seva'),     'url' => route('seva.index')],
-        ['label' => __('nav.projects'), 'url' => route('projects.index')],
-        ['label' => __('nav.donate'),   'url' => route('donate')],
     ];
 
     // Live darshan/aarti line for the utility strip. Cached so it costs nothing
@@ -118,6 +112,7 @@
 
             {{-- Desktop nav --}}
             <nav class="hidden lg:flex items-center gap-7">
+                <a href="{{ route('darshan') }}" class="hdr-item py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">{{ __('nav.darshan') }}</a>
                 {{-- Temple ▾ --}}
                 <div class="relative" x-data="{ open:false, t:null }" @mouseenter="clearTimeout(t); open=true" @mouseleave="t=setTimeout(()=>open=false,180)">
                     <button class="hdr-item flex items-center gap-1.5 py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">
@@ -132,20 +127,9 @@
                         </div>
                     </div>
                 </div>
-                {{-- Seva ▾ --}}
-                <div class="relative" x-data="{ open:false, t:null }" @mouseenter="clearTimeout(t); open=true" @mouseleave="t=setTimeout(()=>open=false,180)">
-                    <button class="hdr-item flex items-center gap-1.5 py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">
-                        {{ __('nav.seva') }}<svg class="w-2.5 h-2.5 opacity-55" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
-                    </button>
-                    <div x-show="open" x-cloak x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 -translate-y-1.5" x-transition:enter-end="opacity-100 translate-y-0"
-                         class="absolute top-full left-[-16px] pt-3 z-[60]">
-                        <div class="min-w-[240px] rounded-2xl p-2 border" style="background:rgba(255,253,250,0.97);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-color:rgba(234,217,195,0.9);box-shadow:0 26px 46px -20px rgba(60,30,10,0.5);">
-                            @foreach($sevaMenu as $item)
-                                <a href="{{ $item['url'] }}" class="block px-3.5 py-2.5 rounded-xl text-[15px] text-stone-700 whitespace-nowrap hover:bg-[#FBEFE2] hover:text-maroon-500 transition">{{ $item['label'] }}</a>
-                            @endforeach
-                        </div>
-                    </div>
-                </div>
+                {{-- Seva & Projects — separate top-level items (Donate has its own button). --}}
+                <a href="{{ route('seva.index') }}" class="hdr-item py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">{{ __('nav.seva') }}</a>
+                <a href="{{ route('projects.index') }}" class="hdr-item py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">{{ __('nav.projects') }}</a>
                 <a href="{{ route('events.index') }}" class="hdr-item py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">{{ __('nav.events') }}</a>
                 <a href="{{ route('halls.index') }}" class="hdr-item py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">{{ __('nav.halls') }}</a>
                 <a href="{{ route('store.index') }}" class="hdr-item py-2 text-[15px] font-medium text-stone-700 hover:text-maroon-500 transition-colors">{{ __('nav.store') }}</a>
@@ -182,6 +166,7 @@
             </div>
 
             <div class="flex-1 overflow-y-auto px-3 py-2">
+                <a href="{{ route('darshan') }}" class="block px-3 py-3.5 text-base font-medium text-stone-700 border-b border-[#F0E5D6] hover:text-maroon-500">{{ __('nav.darshan') }}</a>
                 {{-- Temple (accordion) --}}
                 <div class="border-b border-[#F0E5D6]">
                     <button @click="m = (m === 'temple' ? null : 'temple')" class="w-full flex items-center justify-between px-3 py-3.5 text-base font-medium text-stone-700">
@@ -193,17 +178,9 @@
                         @endforeach
                     </div>
                 </div>
-                {{-- Seva (accordion) --}}
-                <div class="border-b border-[#F0E5D6]">
-                    <button @click="m = (m === 'seva' ? null : 'seva')" class="w-full flex items-center justify-between px-3 py-3.5 text-base font-medium text-stone-700">
-                        {{ __('nav.seva') }}<svg class="w-3 h-3 opacity-55 transition-transform" :class="m==='seva' && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
-                    </button>
-                    <div x-show="m === 'seva'" x-transition class="pl-5 pb-2 flex flex-col gap-2.5">
-                        @foreach($sevaMenu as $item)
-                            <a href="{{ $item['url'] }}" class="text-[15px] text-stone-500 hover:text-maroon-500 transition">{{ $item['label'] }}</a>
-                        @endforeach
-                    </div>
-                </div>
+                {{-- Seva & Projects — separate items (Donate has its own button below). --}}
+                <a href="{{ route('seva.index') }}" class="block px-3 py-3.5 text-base font-medium text-stone-700 border-b border-[#F0E5D6] hover:text-maroon-500">{{ __('nav.seva') }}</a>
+                <a href="{{ route('projects.index') }}" class="block px-3 py-3.5 text-base font-medium text-stone-700 border-b border-[#F0E5D6] hover:text-maroon-500">{{ __('nav.projects') }}</a>
                 <a href="{{ route('events.index') }}" class="block px-3 py-3.5 text-base font-medium text-stone-700 border-b border-[#F0E5D6] hover:text-maroon-500">{{ __('nav.events') }}</a>
                 <a href="{{ route('halls.index') }}" class="block px-3 py-3.5 text-base font-medium text-stone-700 border-b border-[#F0E5D6] hover:text-maroon-500">{{ __('nav.halls') }}</a>
                 <a href="{{ route('store.index') }}" class="flex items-center justify-between px-3 py-3.5 text-base font-medium text-stone-700 border-b border-[#F0E5D6] hover:text-maroon-500">

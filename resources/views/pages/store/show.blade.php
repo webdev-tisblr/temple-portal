@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-temple">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-temple">
 
     @php
         $crumbs = [['label' => __('footer.temple_store'), 'url' => route('store.index')]];
@@ -12,13 +12,19 @@
     @endphp
     <x-breadcrumb :items="$crumbs" class="mb-6" />
 
-    {{-- Product Detail --}}
-    <div class="card-sacred overflow-hidden" x-data="productPage()">
-        <div class="flex flex-col lg:flex-row">
+    {{-- Title (mobile) --}}
+    <h1 class="divine-heading text-2xl sm:text-3xl mb-6 lg:hidden">{{ $product->name }}</h1>
 
-            {{-- Left: Image Gallery --}}
-            <div class="lg:w-1/2 flex-shrink-0">
-                {{-- Main Image --}}
+    {{-- Two-Column Layout — content left, purchase action in a sticky sidebar. --}}
+    <div class="lg:flex lg:gap-8" x-data="productPage()">
+
+        {{-- ========================================== --}}
+        {{-- LEFT COLUMN (Content) --}}
+        {{-- ========================================== --}}
+        <div class="lg:w-2/3 space-y-8">
+
+            {{-- Image Gallery --}}
+            <div class="card-sacred overflow-hidden">
                 <div class="aspect-square flex items-center justify-center overflow-hidden"
                      style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
                     <template x-if="currentImage">
@@ -47,8 +53,8 @@
                 </div>
             </div>
 
-            {{-- Right: Product Details --}}
-            <div class="lg:w-1/2 p-6 sm:p-8">
+            {{-- Details --}}
+            <div class="card-sacred p-6 sm:p-8">
                 {{-- Category Badge --}}
                 @if($product->category)
                     <span class="inline-block px-3 py-1 text-xs font-medium rounded-full mb-3 bg-amber-900/30 text-amber-400">
@@ -56,17 +62,37 @@
                     </span>
                 @endif
 
-                <h1 class="divine-heading text-2xl sm:text-3xl">{{ $product->name }}</h1>
+                <h1 class="divine-heading text-2xl sm:text-3xl hidden lg:block">{{ $product->name }}</h1>
 
-                {{-- Price --}}
-                <div class="mt-4">
-                    <span class="text-3xl font-black text-gold">₹{{ number_format((float) $product->price) }}</span>
+                {{-- Description --}}
+                @if($product->description)
+                    <div class="mt-6 text-amber-100/60 leading-relaxed prose prose-invert prose-sm max-w-none">
+                        {!! $product->description !!}
+                    </div>
+                @endif
+            </div>
+
+        </div>
+
+        {{-- ========================================== --}}
+        {{-- RIGHT COLUMN (Sticky Purchase Action) --}}
+        {{-- ========================================== --}}
+        <div class="lg:w-1/3">
+            <div class="lg:sticky lg:top-24 card-sacred p-6">
+
+                {{-- Price (variant-aware) --}}
+                <div class="mb-3">
+                    @if($product->has_variants && !empty($product->variants))
+                        <span class="text-3xl font-black text-gold" x-text="'₹' + selectedPrice.toLocaleString('en-IN', {minimumFractionDigits: 2})"></span>
+                    @else
+                        <span class="text-3xl font-black text-gold">₹{{ number_format((float) $product->price) }}</span>
+                    @endif
                 </div>
 
                 {{-- Stock Status — for variable products the badge updates
                      when the user picks a variant; for non-variant products
                      it's static. maxStock is wired in the Alpine bag below. --}}
-                <div class="mt-3">
+                <div class="mb-6">
                     @if($product->inStock())
                         <template x-if="maxStock > 0">
                             <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-emerald-950/50 text-emerald-400 border border-emerald-800/30">
@@ -88,15 +114,8 @@
                     @endif
                 </div>
 
-                {{-- Description --}}
-                @if($product->description)
-                    <div class="mt-6 text-amber-100/60 leading-relaxed prose prose-invert prose-sm max-w-none">
-                        {!! $product->description !!}
-                    </div>
-                @endif
-
                 {{-- Add to Cart Section --}}
-                <div class="mt-8 border-t border-amber-900/20 pt-6">
+                <div class="border-t border-amber-900/20 pt-6">
                     @auth('devotee')
                         @if($product->inStock())
                             {{-- Variant Selector --}}
@@ -127,13 +146,10 @@
                                         @endforeach
                                     </div>
                                 </div>
-                                <div class="mb-4">
-                                    <span class="text-2xl font-black text-gold" x-text="'₹' + selectedPrice.toLocaleString('en-IN', {minimumFractionDigits: 2})"></span>
-                                </div>
                             @endif
 
                             {{-- Quantity Selector --}}
-                            <div class="mb-4">
+                            <div class="mb-5">
                                 <label class="block text-sm font-medium text-amber-600 mb-2">{{ __('store.quantity') }}</label>
                                 <div class="inline-flex items-center border border-amber-800/30 rounded-lg overflow-hidden">
                                     <button type="button"
@@ -155,27 +171,20 @@
                                 </div>
                             </div>
 
-                            {{-- Add to Cart / Login Button --}}
-                            @auth('devotee')
-                                <button @click="addToCart()"
-                                        :disabled="adding"
-                                        class="w-full sm:w-auto px-8 py-3 btn-divine disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                                    <svg x-show="!adding" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
-                                    </svg>
-                                    <svg x-show="adding" class="animate-spin w-5 h-5" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                                    </svg>
-                                    <span x-text="adding ? @js(__('store.adding')) : @js(__('store.add_to_cart'))"></span>
-                                </button>
-                            @else
-                                <a href="{{ route('login') }}" class="w-full sm:w-auto px-8 py-3 btn-divine inline-flex items-center justify-center gap-2">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
-                                    {{ __('store.login_to_buy') }}
-                                </a>
-                            @endauth
+                            {{-- Add to Cart Button --}}
+                            <button @click="addToCart()"
+                                    :disabled="adding"
+                                    class="w-full px-8 py-3 btn-divine disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                                <svg x-show="!adding" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
+                                </svg>
+                                <svg x-show="adding" class="animate-spin w-5 h-5" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                </svg>
+                                <span x-text="adding ? @js(__('store.adding')) : @js(__('store.add_to_cart'))"></span>
+                            </button>
 
                             {{-- Success Toast --}}
                             <div x-show="showToast"
@@ -196,12 +205,12 @@
                                 <span x-text="toastMessage"></span>
                             </div>
                         @else
-                            <button disabled class="w-full sm:w-auto px-8 py-3 btn-divine opacity-40 cursor-not-allowed">
+                            <button disabled class="w-full px-8 py-3 btn-divine opacity-40 cursor-not-allowed">
                                 Out of Stock
                             </button>
                         @endif
                     @else
-                        <a href="{{ route('login') }}" class="inline-flex items-center px-8 py-3 btn-divine gap-2">
+                        <a href="{{ route('login') }}" class="flex items-center justify-center w-full px-8 py-3 btn-divine gap-2">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
@@ -210,8 +219,10 @@
                         </a>
                     @endauth
                 </div>
+
             </div>
         </div>
+
     </div>
 </div>
 

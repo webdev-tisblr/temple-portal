@@ -292,8 +292,6 @@
     </section>
 @endif
 
-@include('partials.home-hall-band')
-
 {{-- =================================================================
      UPCOMING EVENTS (compact strip)
      ================================================================= --}}
@@ -323,10 +321,13 @@
     </section>
 @endif
 
+{{-- Community Hall band — sits between Upcoming Events and Come for Darshan. --}}
+@include('partials.home-hall-band')
+
 {{-- =================================================================
      VISIT
      ================================================================= --}}
-<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-20">
     <div class="grid lg:grid-cols-[380px_1fr] gap-6 items-stretch">
         <div class="flex flex-col gap-4">
             <h2 class="font-marcellus text-3xl" style="color:#7A1E1E;">{{ __('home.come_for_darshan') }}</h2>

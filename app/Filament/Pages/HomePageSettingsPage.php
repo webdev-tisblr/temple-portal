@@ -59,7 +59,7 @@ class HomePageSettingsPage extends Page implements HasForms
         'hero_heading_gu', 'hero_heading_hi', 'hero_heading_en',
         'hero_sub_gu', 'hero_sub_hi', 'hero_sub_en',
         // Featured cards
-        'card_campaign_ids', 'card_event_ids', 'card_show_hall',
+        'card_campaign_ids', 'card_event_ids', 'card_show_hall', 'card_hall_id',
         // Top ribbon
         'ribbon_enabled', 'ribbon_text_gu', 'ribbon_text_hi', 'ribbon_text_en',
         'ribbon_link', 'ribbon_starts_at', 'ribbon_ends_at',
@@ -174,7 +174,18 @@ class HomePageSettingsPage extends Page implements HasForms
                         ->multiple()->searchable()->preload()
                         ->options(fn () => Event::where('status', 'published')->orderBy('start_date')->get()->pluck('title', 'id')),
                     Forms\Components\Toggle::make('card_show_hall')
-                        ->label('Show the community hall card'),
+                        ->label('Show the community hall card')
+                        ->live(),
+                    Forms\Components\Select::make('card_hall_id')
+                        ->label('Which hall to feature')
+                        ->searchable()->preload()
+                        // name is a locale-aware accessor (name_gu/hi/en), so
+                        // load models before plucking — a raw pluck reads the
+                        // legacy `name` column, blank on newer halls.
+                        ->options(fn () => \App\Models\Hall::where('is_active', true)->get()->pluck('name', 'id'))
+                        ->placeholder('Latest active hall')
+                        ->helperText('The hall shown in the home card and hall band (its button links straight to that hall). Leave empty to use the most recent active hall.')
+                        ->visible(fn (Get $get) => (bool) $get('card_show_hall')),
                 ])->columns(2),
 
             Forms\Components\Section::make('Top Ribbon')
@@ -230,6 +241,7 @@ class HomePageSettingsPage extends Page implements HasForms
         Cache::forget('site.display.v1');
         Cache::forget('home.hero_config.v1');
         Cache::forget('home.hero_cards.v1');
+        Cache::forget('home.hall.v1');
 
         Notification::make()->title('Home page settings saved')->success()->send();
     }

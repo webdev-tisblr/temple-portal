@@ -16,7 +16,7 @@
                         <div><div class="font-marcellus text-2xl" style="color:#F3DCAE;">₹{{ number_format((float) $hall->price_per_day) }}</div><div class="opacity-70">{{ __('home.per_day') }}</div></div>
                     @endif
                 </div>
-                <a href="{{ route('halls.index') }}"
+                <a href="{{ route('halls.show', $hall) }}"
                    class="inline-block mt-8 px-7 py-3 rounded-full text-sm font-extrabold transition hover:opacity-90"
                    style="background:#E8751A; color:#FFF7EC;">{{ __('home.check_availability') }}</a>
             </div>

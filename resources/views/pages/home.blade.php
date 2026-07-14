@@ -160,7 +160,7 @@
             if (($heroShowHall ?? true) && isset($hall) && $hall) {
                 $cards[] = ['label' => __('home.community_hall'), 'img' => $hall->image_path ? image_url($hall->image_path) : null,
                     'title' => $hall->name, 'text' => text_preview($hall->description ?? '', 90),
-                    'cta' => __('home.check_availability'), 'url' => route('halls.index')];
+                    'cta' => __('home.check_availability'), 'url' => route('halls.show', $hall)];
             }
             foreach (($heroEvents ?? collect()) as $e) {
                 $cards[] = ['label' => optional($e->start_date)->format('d M') . ' · ' . __('home.festival'),

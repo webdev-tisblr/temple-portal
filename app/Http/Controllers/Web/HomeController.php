@@ -139,9 +139,22 @@ class HomeController extends Controller
             }
         }
 
-        $hall = Cache::remember('home.hall.v1', 900, fn () =>
-            \App\Models\Hall::where('is_active', true)->first()
-        );
+        // Which hall shows in the home card / band is admin-configurable
+        // (Home Page Settings → Featured Cards → "Which hall to feature").
+        // Falls back to the most recent active hall when unset or the chosen
+        // one is inactive/deleted.
+        $hall = Cache::remember('home.hall.v1', 900, function () {
+            $configuredId = (int) SystemSetting::getValue('site_card_hall_id', '');
+
+            if ($configuredId > 0) {
+                $chosen = \App\Models\Hall::where('is_active', true)->find($configuredId);
+                if ($chosen) {
+                    return $chosen;
+                }
+            }
+
+            return \App\Models\Hall::where('is_active', true)->first();
+        });
 
         $announcement = Cache::remember('home.announcement.v1', 600, fn () =>
             \App\Models\Announcement::where('is_active', true)

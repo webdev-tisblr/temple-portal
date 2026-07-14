@@ -1,6 +1,6 @@
 {{-- Community Hall band (design import). Expects $hall (nullable). --}}
 @if(isset($hall) && $hall)
-    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div class="grid md:grid-cols-2 rounded-3xl overflow-hidden" style="background:#7A1E1E; color:#F7EAD0;">
             <div class="p-8 sm:p-12">
                 <p class="text-[11px] tracking-[0.24em] font-bold" style="color:#E0A35C;">{{ __('home.community_hall') }}</p>

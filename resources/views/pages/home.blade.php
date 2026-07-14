@@ -296,7 +296,7 @@
      UPCOMING EVENTS (compact strip)
      ================================================================= --}}
 @if(isset($events) && $events->count() > 0)
-    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8">
         <div class="flex items-end justify-between mb-8">
             <div>
                 <div class="text-[11px] tracking-[0.24em] font-extrabold" style="color:#C45F12;">{{ __('home.festival') }}</div>
@@ -327,7 +327,7 @@
 {{-- =================================================================
      VISIT
      ================================================================= --}}
-<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20">
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-20">
     <div class="grid lg:grid-cols-[380px_1fr] gap-6 items-stretch">
         <div class="flex flex-col gap-4">
             <h2 class="font-marcellus text-3xl" style="color:#7A1E1E;">{{ __('home.come_for_darshan') }}</h2>

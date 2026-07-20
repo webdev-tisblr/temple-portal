@@ -27,6 +27,12 @@ class RazorpayService
             'currency' => 'INR',
             'receipt' => $receipt,
             'notes' => $notes,
+            // Auto-capture on authorisation so money is never left in the
+            // "authorized" limbo (which Razorpay voids after ~5 days) and a
+            // `payment.captured` webhook fires — the server-side backup that
+            // confirms the booking even if the app's /payments/verify call
+            // never reaches us.
+            'payment_capture' => 1,
         ]);
     }
 
@@ -38,6 +44,7 @@ class RazorpayService
                 $signature,
                 SystemSetting::getValue('razorpay_webhook_secret', config('razorpay.webhook_secret'))
             );
+
             return true;
         } catch (SignatureVerificationError) {
             return false;
@@ -52,6 +59,7 @@ class RazorpayService
                 'razorpay_payment_id' => $paymentId,
                 'razorpay_signature' => $signature,
             ]);
+
             return true;
         } catch (SignatureVerificationError) {
             return false;

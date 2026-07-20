@@ -6,7 +6,12 @@ namespace App\Filament\Resources;
 
 use App\Enums\SevaCategory;
 use App\Filament\Resources\SevaResource\Pages;
+use App\Filament\Support\ReminderRuleFields;
+use App\Filament\Support\TranslatableTabs;
+use App\Models\Product;
+use App\Models\ProductCategory;
 use App\Models\Seva;
+use App\Services\SevaReminderScheduler;
 use Closure;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -17,7 +22,6 @@ use Filament\Tables\Table;
 
 class SevaResource extends Resource
 {
-
     protected static ?string $model = Seva::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-hand-raised';
@@ -30,7 +34,7 @@ class SevaResource extends Resource
     {
         return $form->schema([
             Forms\Components\Section::make('Content')->schema([
-                \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                TranslatableTabs::make(fn (string $locale, string $label) => [
                     Forms\Components\TextInput::make("name_{$locale}")->label("Name {$label}")->required()->maxLength(255),
                     Forms\Components\RichEditor::make("description_{$locale}")->label("Description {$label}"),
                 ]),
@@ -159,6 +163,24 @@ class SevaResource extends Resource
                         ->helperText('Leave all unchecked to offer this full-day seva every day; select days to restrict it.')
                         ->visible(fn (Get $get) => ($get('slot_config.slot_type') ?? 'time_slots') === 'full_day'),
 
+                    // Reminder anchor (full-day / full-week only). These sevas
+                    // have no start time, so reminders count back from this
+                    // time on the booking day. Stored as "HH:MM" straight into
+                    // slot_config — a dotted TimePicker path binds fine (only
+                    // the CheckboxList above needed the flat-field workaround).
+                    Forms\Components\TimePicker::make('slot_config.reminder_anchor_time')
+                        ->label('Reminder Anchor Time')
+                        ->native(false)
+                        ->seconds(false)
+                        ->format('H:i')
+                        ->displayFormat('h:i A')
+                        ->helperText('Full-day sevas have no start time, so reminders (e.g. "3 hours before") are counted back from this time on the booking day. Leave blank to use the temple default (9:00 AM).')
+                        ->visible(fn (Get $get) => in_array(
+                            $get('slot_config.slot_type'),
+                            ['full_day', 'full_week'],
+                            true,
+                        )),
+
                     // Acceptance Period
                     Forms\Components\Section::make('Acceptance Period')
                         ->description('When is this seva open for booking?')
@@ -208,11 +230,11 @@ class SevaResource extends Resource
                                     collect(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'])
                                         ->flatMap(fn (string $day) => [
                                             Forms\Components\Toggle::make("customize_{$day}")
-                                                ->label(ucfirst($day) . ' — custom schedule')
+                                                ->label(ucfirst($day).' — custom schedule')
                                                 ->inline()
                                                 ->live(),
                                             Forms\Components\Repeater::make("slot_config.weekly_schedule.{$day}")
-                                                ->label(ucfirst($day) . ' slots')
+                                                ->label(ucfirst($day).' slots')
                                                 ->simple(
                                                     Forms\Components\TimePicker::make('time')
                                                         ->seconds(false),
@@ -220,7 +242,7 @@ class SevaResource extends Resource
                                                 ->defaultItems(0)
                                                 ->addActionLabel('Add Slot')
                                                 ->visible(fn (Get $get) => (bool) $get("customize_{$day}"))
-                                                ->helperText('No slots = closed on ' . ucfirst($day) . '.'),
+                                                ->helperText('No slots = closed on '.ucfirst($day).'.'),
                                         ])->toArray()
                                 )->columns(2),
                         ]),
@@ -255,14 +277,14 @@ class SevaResource extends Resource
                     Forms\Components\Repeater::make('reminderRules')
                         ->relationship()
                         ->hiddenLabel()
-                        ->schema(\App\Filament\Support\ReminderRuleFields::schema())
+                        ->schema(ReminderRuleFields::schema())
                         ->columns(2)
                         ->defaultItems(0)
                         ->addActionLabel('Add reminder rule')
                         ->collapsible()
                         ->itemLabel(fn (array $state): ?string => isset($state['offset_minutes'])
-                            ? \App\Services\SevaReminderScheduler::humanLabel((int) $state['offset_minutes'])
-                                . ' before → ' . ($state['recipient_type'] ?? '') . ' → ' . ($state['channel'] ?? '')
+                            ? SevaReminderScheduler::humanLabel((int) $state['offset_minutes'])
+                                .' before → '.($state['recipient_type'] ?? '').' → '.($state['channel'] ?? '')
                             : null),
                 ]),
 
@@ -275,7 +297,7 @@ class SevaResource extends Resource
                         ->helperText('Devotee will see linked products as visual options during seva booking.')
                         ->live()
                         ->afterStateHydrated(function ($component, $state, $record) {
-                            if ($record && !empty($record->linked_products)) {
+                            if ($record && ! empty($record->linked_products)) {
                                 $component->state(true);
                             }
                         }),
@@ -288,13 +310,13 @@ class SevaResource extends Resource
                     Forms\Components\Select::make('linked_products.product_ids')
                         ->label('Select Products')
                         ->multiple()
-                        ->options(fn () => \App\Models\Product::where('is_active', true)->pluck('name_en', 'id'))
+                        ->options(fn () => Product::where('is_active', true)->pluck('name_en', 'id'))
                         ->searchable()
                         ->preload()
                         ->visible(fn (Get $get) => $get('enable_product_selection') && $get('linked_products.type') === 'products'),
                     Forms\Components\Select::make('linked_products.category_id')
                         ->label('Select Category')
-                        ->options(fn () => \App\Models\ProductCategory::where('is_active', true)->pluck('name_en', 'id'))
+                        ->options(fn () => ProductCategory::where('is_active', true)->pluck('name_en', 'id'))
                         ->searchable()
                         ->preload()
                         ->visible(fn (Get $get) => $get('enable_product_selection') && $get('linked_products.type') === 'category'),
@@ -363,6 +385,7 @@ class SevaResource extends Resource
         $currentMinutes = self::timeToMinutes($value);
         if ($currentMinutes === null) {
             $fail('Invalid time format.');
+
             return;
         }
 
@@ -382,8 +405,10 @@ class SevaResource extends Resource
                 $count++;
                 if ($count > 1) {
                     $fail("Duplicate slot time: {$value}.");
+
                     return;
                 }
+
                 continue;
             }
 
@@ -393,6 +418,7 @@ class SevaResource extends Resource
             if ($currentMinutes < $otherEnd && $otherMinutes < $currentEnd) {
                 $otherFormatted = sprintf('%02d:%02d', intdiv($otherMinutes, 60), $otherMinutes % 60);
                 $fail("This slot overlaps with {$otherFormatted} (each slot is {$durationMinutes} min).");
+
                 return;
             }
         }
@@ -412,6 +438,7 @@ class SevaResource extends Resource
         if ($h < 0 || $h > 23 || $m < 0 || $m > 59) {
             return null;
         }
+
         return $h * 60 + $m;
     }
 

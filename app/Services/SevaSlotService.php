@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\Seva;
 use App\Models\SevaBooking;
+use App\Models\SystemSetting;
 use Carbon\Carbon;
 
 class SevaSlotService
@@ -20,8 +21,17 @@ class SevaSlotService
      * template guard needs a non-empty slot_time).
      */
     public const SLOT_TYPE_TIME = 'time_slots';
+
     public const SLOT_TYPE_FULL_DAY = 'full_day';
+
     public const SLOT_TYPE_FULL_WEEK = 'full_week';
+
+    /**
+     * Fallback reminder anchor (HH:MM) for full-day / full-week sevas that
+     * have no start time. Used when neither the per-seva config nor the
+     * global system setting supplies one. See fullDayAnchorTime().
+     */
+    public const DEFAULT_FULLDAY_ANCHOR = '09:00';
 
     /**
      * Resolve the slot mode from a normalized config, defaulting safely.
@@ -67,6 +77,32 @@ class SevaSlotService
 
         // Legacy list format ['tuesday', 'saturday'].
         return in_array($dayName, array_map('strtolower', $days), true);
+    }
+
+    /**
+     * Reminder anchor for a full-day / full-week seva as [hour, minute].
+     * These sevas have no start time, so reminders count back from this
+     * moment on the booking date instead of from midnight. Resolution:
+     *   1. per-seva slot_config['reminder_anchor_time'] (HH:MM), if valid
+     *   2. global default system setting 'seva_fullday_reminder_anchor'
+     *   3. hard fallback DEFAULT_FULLDAY_ANCHOR (09:00)
+     *
+     * @return array{0:int,1:int}
+     */
+    public function fullDayAnchorTime(array $config): array
+    {
+        $global = SystemSetting::getValue('seva_fullday_reminder_anchor', self::DEFAULT_FULLDAY_ANCHOR);
+
+        $raw = $config['reminder_anchor_time'] ?? null;
+        $value = (is_string($raw) && preg_match('/^\d{1,2}:\d{2}$/', $raw)) ? $raw : $global;
+
+        // Guard against a malformed global setting too — never fall back to
+        // an implicit midnight anchor.
+        if (! preg_match('/^(\d{1,2}):(\d{2})$/', (string) $value, $m)) {
+            preg_match('/^(\d{1,2}):(\d{2})$/', self::DEFAULT_FULLDAY_ANCHOR, $m);
+        }
+
+        return [(int) $m[1], (int) $m[2]];
     }
 
     /**
@@ -319,7 +355,7 @@ class SevaSlotService
             // is mid-Razorpay. PaymentCaptureService::markFailed flips
             // failed payments to `cancelled`, releasing the hold.
             ->whereIn('status', ['pending', 'confirmed', 'completed'])
-            ->selectRaw("LEFT(slot_time, 5) as slot, COUNT(*) as cnt")
+            ->selectRaw('LEFT(slot_time, 5) as slot, COUNT(*) as cnt')
             ->groupBy('slot')
             ->pluck('cnt', 'slot')
             ->toArray();
@@ -353,7 +389,7 @@ class SevaSlotService
      * to hide non-bookable dates entirely. One bulk booking-count query
      * powers the whole window.
      *
-     * @return list<string>  Dates in 'Y-m-d' format, ascending.
+     * @return list<string> Dates in 'Y-m-d' format, ascending.
      */
     public function getAvailableDates(Seva $seva, int $days = 30): array
     {
@@ -371,7 +407,7 @@ class SevaSlotService
             // is mid-Razorpay. PaymentCaptureService::markFailed flips
             // failed payments to `cancelled`, releasing the hold.
             ->whereIn('status', ['pending', 'confirmed', 'completed'])
-            ->selectRaw("DATE(booking_date) as bdate, LEFT(slot_time, 5) as slot, COUNT(*) as cnt")
+            ->selectRaw('DATE(booking_date) as bdate, LEFT(slot_time, 5) as slot, COUNT(*) as cnt')
             ->groupBy('bdate', 'slot')
             ->get();
 
@@ -412,6 +448,7 @@ class SevaSlotService
                 if ($fullUnitMemo[$key] < $maxPerSlot) {
                     $available[] = $date;
                 }
+
                 continue;
             }
 
@@ -428,6 +465,7 @@ class SevaSlotService
             // the acceptance window.
             if (! $seva->requires_booking) {
                 $available[] = $date;
+
                 continue;
             }
 
@@ -459,7 +497,7 @@ class SevaSlotService
      * Drop slot strings ('HH:MM') whose start time is already in the past.
      * Used only when the date is *today*, so future dates aren't affected.
      *
-     * @param  list<string> $slots  HH:MM
+     * @param  list<string>  $slots  HH:MM
      * @return list<string>
      */
     private function filterPastSlots(array $slots): array
@@ -467,13 +505,16 @@ class SevaSlotService
         $now = now();
         $result = [];
         foreach ($slots as $slot) {
-            if (! is_string($slot) || strlen($slot) < 4) continue;
+            if (! is_string($slot) || strlen($slot) < 4) {
+                continue;
+            }
             [$h, $m] = array_pad(explode(':', $slot, 2), 2, '0');
             $slotMoment = $now->copy()->setTime((int) $h, (int) $m, 0);
             if ($slotMoment->greaterThan($now)) {
                 $result[] = $slot;
             }
         }
+
         return $result;
     }
 
@@ -530,6 +571,7 @@ class SevaSlotService
             if (! empty($configuredSlots)) {
                 return 'Please select a slot time.';
             }
+
             return null; // seva genuinely has no slots configured for this date
         }
 

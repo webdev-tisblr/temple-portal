@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\SevaBooking;
+use App\Models\SevaReminderRule;
 use App\Models\SevaReminderSchedule;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -52,7 +53,7 @@ class SevaReminderScheduler
         // section). A seva with no rules falls back to the legacy offsets
         // below. (The global seva_id-NULL rule concept was retired
         // 2026-07-12 along with its admin page.)
-        $rules = \App\Models\SevaReminderRule::query()
+        $rules = SevaReminderRule::query()
             ->active()
             ->where('seva_id', $seva->getKey())
             ->get();
@@ -66,7 +67,7 @@ class SevaReminderScheduler
             $row = SevaReminderSchedule::firstOrCreate(
                 ['seva_booking_id' => $booking->getKey(), 'rule_id' => $rule->getKey()],
                 [
-                    'offset' => $rule->offset_minutes . 'm',
+                    'offset' => $rule->offset_minutes.'m',
                     'fire_at' => $fireAt,
                     'status' => SevaReminderSchedule::STATUS_PENDING,
                 ],
@@ -130,8 +131,16 @@ class SevaReminderScheduler
 
     /**
      * The actual seva moment — booking_date combined with slot_time when
-     * present, otherwise the start of the booking day. Reminders count
-     * back from this. (Mirrors the original DispatchSevaReminders logic.)
+     * present. Reminders count back from this.
+     *
+     * Time-slotted sevas store a real "HH:MM" in slot_time, so the anchor
+     * is that exact time. Full-day / full-week sevas store the sentinel
+     * string 'full_day'/'full_week' instead (no real start time), so we
+     * anchor to the seva's configured reminder time — falling back to the
+     * global 09:00 default — rather than to midnight. Anchoring full-day
+     * reminders at midnight would push every offset onto the previous day
+     * and make the "already passed" guard drop same-day reminders the
+     * instant the clock ticks past 00:00.
      */
     public function bookingMoment(SevaBooking $booking): Carbon
     {
@@ -140,9 +149,21 @@ class SevaReminderScheduler
             : Carbon::parse((string) $booking->booking_date)->startOfDay();
 
         $slot = $booking->slot_time;
+
+        // Time-slotted seva: anchor to the picked HH:MM.
         if (is_string($slot) && preg_match('/^(\d{1,2}):(\d{2})/', $slot, $m)) {
             $date->setTime((int) $m[1], (int) $m[2]);
+
+            return $date;
         }
+
+        // Full-day / full-week (or any non-time slot): anchor to the
+        // configured reminder time on the booking day, never midnight.
+        $seva = $booking->seva ?? $booking->seva()->first();
+        $slotSvc = app(SevaSlotService::class);
+        $config = $slotSvc->normalizeConfig($seva?->slot_config);
+        [$hour, $minute] = $slotSvc->fullDayAnchorTime($config);
+        $date->setTime($hour, $minute);
 
         return $date;
     }
@@ -161,6 +182,7 @@ class SevaReminderScheduler
         }
 
         $value = (int) $m[1];
+
         return match (strtolower($m[2])) {
             'm' => $value,
             'h' => $value * 60,
@@ -176,12 +198,15 @@ class SevaReminderScheduler
     {
         if ($minutes >= 1440 && $minutes % 1440 === 0) {
             $days = intdiv($minutes, 1440);
+
             return $days === 1 ? '1 day' : "{$days} days";
         }
         if ($minutes >= 60 && $minutes % 60 === 0) {
             $hours = intdiv($minutes, 60);
+
             return $hours === 1 ? '1 hour' : "{$hours} hours";
         }
+
         return "{$minutes} minutes";
     }
 }

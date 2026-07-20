@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exceptions\SlotUnavailableException;
 use App\Http\Requests\BookSevaRequest;
 use App\Http\Resources\SevaCollection;
 use App\Http\Resources\SevaResource;
 use App\Models\Payment;
 use App\Models\Seva;
 use App\Models\SevaBooking;
+use App\Models\SystemSetting;
+use App\Services\RazorpayService;
 use App\Services\SevaSlotService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -198,22 +201,22 @@ class SevaController extends BaseApiController
         }
 
         try {
-            $result = DB::transaction(function () use ($seva, $validated, $devotee, $quantity, $totalAmount) {
+            $result = DB::transaction(function () use ($seva, $validated, $devotee, $quantity, $totalAmount, $variantLabel) {
                 // Race-safe capacity re-check under a row lock (see
                 // SevaSlotService::hasSlotCapacityForUpdate). Closes the
                 // window between validateBooking() and the insert.
                 if (! $this->slotService->hasSlotCapacityForUpdate(
                     $seva, $validated['booking_date'], $validated['slot_time'] ?? null
                 )) {
-                    throw new \App\Exceptions\SlotUnavailableException(
+                    throw new SlotUnavailableException(
                         'This slot was just booked by someone else. Please choose another.'
                     );
                 }
 
                 $paymentId = (string) Str::uuid();
-                $receipt = 'SEVA-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
+                $receipt = 'SEVA-'.now()->format('Ymd').'-'.strtoupper(Str::random(6));
 
-                $razorpayService = app(\App\Services\RazorpayService::class);
+                $razorpayService = app(RazorpayService::class);
                 $amountInPaise = (int) round($totalAmount * 100);
 
                 $razorpayOrder = $razorpayService->createOrder($amountInPaise, $receipt, [
@@ -263,16 +266,17 @@ class SevaController extends BaseApiController
                 'amount' => $totalAmount,
                 'status' => 'pending',
                 'razorpay_order_id' => $result['razorpay_order']->id,
-                'razorpay_key_id' => \App\Models\SystemSetting::getValue('razorpay_key_id', config('razorpay.key_id')),
+                'razorpay_key_id' => SystemSetting::getValue('razorpay_key_id', config('razorpay.key_id')),
                 'amount_paise' => (int) round($totalAmount * 100),
                 'devotee_name' => $devotee->name,
                 'devotee_phone' => $devotee->phone,
             ], 'સેવા બુકિંગ બનાવ્યું. પેમેન્ટ પૂર્ણ કરો.');
 
-        } catch (\App\Exceptions\SlotUnavailableException $e) {
+        } catch (SlotUnavailableException $e) {
             return $this->error($e->getMessage(), 409);
         } catch (\Exception $e) {
             Log::error('Seva booking failed', ['error' => $e->getMessage()]);
+
             return $this->error('બુકિંગ નિષ્ફળ. ફરી પ્રયાસ કરો.', 500);
         }
     }

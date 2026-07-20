@@ -196,6 +196,11 @@ jobs:
             # first time; harmless on every subsequent deploy. New
             # confirmations are scheduled automatically via the observer.
             php artisan seva:backfill-reminder-schedule || true
+            # Re-stamp fire_at for pending full-day/full-week reminders that
+            # were generated with the old midnight anchor (before the
+            # configurable 09:00 anchor landed). Idempotent — recomputes the
+            # same value on subsequent deploys, no effect once corrected.
+            php artisan seva:restamp-fullday-reminders || true
             # Roles — idempotent via Spatie's firstOrCreate. Without
             # this, any new role added in code (eg `pujari` in
             # 2026-05-13) wouldn't exist in production's `roles`

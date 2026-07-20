@@ -5,25 +5,35 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\NotificationTemplateResource\Pages;
+use App\Models\AdminUser;
 use App\Models\NotificationTemplate;
 use App\Models\WhatsAppTemplateCache;
 use App\Services\Notifications\NotificationRegistry;
 use App\Services\Notifications\WhatsAppTemplateBlueprint;
 use Filament\Forms;
+use Filament\Forms\Components\Component;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
+use Spatie\Permission\Models\Role;
 
 class NotificationTemplateResource extends Resource
 {
-
     protected static ?string $model = NotificationTemplate::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-envelope-open';
+
     protected static ?string $navigationGroup = 'Communication';
+
     protected static ?int $navigationSort = 2;
+
     protected static ?string $navigationLabel = 'Email · WhatsApp · SMS';
+
     protected static ?string $modelLabel = 'Email / WhatsApp / SMS template';
+
     protected static ?string $pluralModelLabel = 'Email · WhatsApp · SMS';
 
     public static function form(Form $form): Form
@@ -51,14 +61,14 @@ class NotificationTemplateResource extends Resource
                             ->required()
                             ->live()
                             ->columnSpan(1),
-                            // Multiple templates per (trigger × channel) are
-                            // intentionally allowed — eg seva.booking.reminder
-                            // PUSH to the devotee AND a separate PUSH to an
-                            // admin role with different body + recipient
-                            // strategy. NotificationService iterates every
-                            // enabled row and fans out independently. The
-                            // matching DB unique index was dropped in
-                            // 2026_05_16_120000.
+                        // Multiple templates per (trigger × channel) are
+                        // intentionally allowed — eg seva.booking.reminder
+                        // PUSH to the devotee AND a separate PUSH to an
+                        // admin role with different body + recipient
+                        // strategy. NotificationService iterates every
+                        // enabled row and fans out independently. The
+                        // matching DB unique index was dropped in
+                        // 2026_05_16_120000.
                     ]),
 
                     Forms\Components\Grid::make(2)->schema([
@@ -79,16 +89,19 @@ class NotificationTemplateResource extends Resource
                         ->content(function (Forms\Get $get) {
                             $key = $get('key');
                             if (! $key) {
-                                return new \Illuminate\Support\HtmlString('<em>Pick a trigger above to see the placeholders this event publishes.</em>');
+                                return new HtmlString('<em>Pick a trigger above to see the placeholders this event publishes.</em>');
                             }
                             $info = NotificationRegistry::describe($key);
-                            if (! $info) return '';
+                            if (! $info) {
+                                return '';
+                            }
                             $rows = collect($info['placeholders'])
-                                ->map(fn ($desc, $token) => '<li><code>{{ ' . $token . ' }}</code> — ' . e($desc) . '</li>')
+                                ->map(fn ($desc, $token) => '<li><code>{{ '.$token.' }}</code> — '.e($desc).'</li>')
                                 ->implode('');
-                            return new \Illuminate\Support\HtmlString(
-                                '<p style="margin-bottom:.5rem">' . e($info['description']) . '</p>'
-                                . '<ul style="list-style: disc; padding-left: 1.25rem">' . $rows . '</ul>'
+
+                            return new HtmlString(
+                                '<p style="margin-bottom:.5rem">'.e($info['description']).'</p>'
+                                .'<ul style="list-style: disc; padding-left: 1.25rem">'.$rows.'</ul>'
                             );
                         }),
 
@@ -136,7 +149,7 @@ class NotificationTemplateResource extends Resource
                                 ->orderBy('name')
                                 ->get()
                                 ->mapWithKeys(fn ($t) => [
-                                    $t->name => $t->name . ' (' . $t->language . ')',
+                                    $t->name => $t->name.' ('.$t->language.')',
                                 ])
                                 ->all())
                             ->searchable()
@@ -145,9 +158,13 @@ class NotificationTemplateResource extends Resource
                             ->afterStateUpdated(function ($state, Forms\Set $set) {
                                 // Mirror the template's language code into the
                                 // language field so admins don't double-enter it.
-                                if (! $state) return;
+                                if (! $state) {
+                                    return;
+                                }
                                 $row = WhatsAppTemplateCache::where('name', $state)->first();
-                                if ($row) $set('wa_template_language', $row->language);
+                                if ($row) {
+                                    $set('wa_template_language', $row->language);
+                                }
                             })
                             ->helperText('Sync templates from Settings → Integrations → WhatsApp before they appear here.'),
                         Forms\Components\TextInput::make('wa_template_language')
@@ -193,9 +210,24 @@ class NotificationTemplateResource extends Resource
             // on the push channel; NotificationService falls back to
             // the legacy single-recipient logic via the
             // recipient_strategy / recipient_value columns for push.
+            // For the seva reminder trigger, recipients are chosen per-rule
+            // on the Seva → Reminders page ("Who receives it"), and the
+            // dispatcher (DispatchSevaReminders) builds recipients from the
+            // rule, ignoring this column. Show a pointer instead of the field.
+            Forms\Components\Section::make('Recipients')
+                ->visible(fn (Forms\Get $get) => $get('key') === 'seva.booking.reminder')
+                ->schema([
+                    Forms\Components\Placeholder::make('reminder_recipients_note')
+                        ->hiddenLabel()
+                        ->content(new HtmlString(
+                            'Recipients for seva reminders are set per-rule on the <strong>Seva → Reminders</strong> section ("Who receives it"). This template only supplies the wording &amp; variables.'
+                        )),
+                ]),
+
             Forms\Components\Section::make('Recipients')
                 ->description('Each row resolves independently — add more to send the same message to multiple recipients in one go.')
-                ->visible(fn (Forms\Get $get) => $get('channel') !== NotificationTemplate::CHANNEL_PUSH)
+                ->visible(fn (Forms\Get $get) => $get('channel') !== NotificationTemplate::CHANNEL_PUSH
+                    && $get('key') !== 'seva.booking.reminder')
                 ->schema([
                     Forms\Components\Repeater::make('recipients')
                         ->hiddenLabel()
@@ -206,14 +238,15 @@ class NotificationTemplateResource extends Resource
                         ->grid(1)
                         ->itemLabel(function (array $state): ?string {
                             $strategy = $state['strategy'] ?? null;
+
                             return match ($strategy) {
                                 NotificationTemplate::RECIPIENT_DEVOTEE => 'Devotee in the event',
                                 NotificationTemplate::RECIPIENT_TRUST_ADMIN => 'Trust admin',
                                 NotificationTemplate::RECIPIENT_ADMIN_USER => 'Specific admin user',
-                                NotificationTemplate::RECIPIENT_ADMIN_ROLE => 'Admin role: ' . ($state['value'] ?: '—'),
-                                NotificationTemplate::RECIPIENT_FIXED_EMAIL => 'Fixed email: ' . ($state['value'] ?: '—'),
-                                NotificationTemplate::RECIPIENT_FIXED_PHONE => 'Fixed phone: ' . ($state['value'] ?: '—'),
-                                NotificationTemplate::RECIPIENT_CONTEXT_PATH => 'Context path: ' . ($state['value'] ?: '—'),
+                                NotificationTemplate::RECIPIENT_ADMIN_ROLE => 'Admin role: '.($state['value'] ?: '—'),
+                                NotificationTemplate::RECIPIENT_FIXED_EMAIL => 'Fixed email: '.($state['value'] ?: '—'),
+                                NotificationTemplate::RECIPIENT_FIXED_PHONE => 'Fixed phone: '.($state['value'] ?: '—'),
+                                NotificationTemplate::RECIPIENT_CONTEXT_PATH => 'Context path: '.($state['value'] ?: '—'),
                                 default => 'Recipient',
                             };
                         })
@@ -237,15 +270,15 @@ class NotificationTemplateResource extends Resource
                             Forms\Components\Select::make('value')
                                 ->label('Admin user')
                                 ->options(function () {
-                                    return \App\Models\AdminUser::query()
+                                    return AdminUser::query()
                                         ->where('is_active', true)
                                         ->orderBy('name')
                                         ->get()
                                         ->mapWithKeys(fn ($u) => [
                                             $u->id => trim(
                                                 $u->name
-                                                . ($u->email ? "  ·  {$u->email}" : '')
-                                                . ($u->phone ? "  ·  {$u->phone}" : '')
+                                                .($u->email ? "  ·  {$u->email}" : '')
+                                                .($u->phone ? "  ·  {$u->phone}" : '')
                                             ),
                                         ])
                                         ->all();
@@ -258,7 +291,7 @@ class NotificationTemplateResource extends Resource
                             Forms\Components\Select::make('value')
                                 ->label('Admin role')
                                 ->options(function () {
-                                    return \Spatie\Permission\Models\Role::query()
+                                    return Role::query()
                                         ->where('guard_name', 'admin')
                                         ->orderBy('name')
                                         ->pluck('name', 'name')
@@ -285,7 +318,8 @@ class NotificationTemplateResource extends Resource
             // users have no FCM tokens, so any admin-role entry would
             // silently no-op. Keep the legacy single dropdown for push.
             Forms\Components\Section::make('Recipient')
-                ->visible(fn (Forms\Get $get) => $get('channel') === NotificationTemplate::CHANNEL_PUSH)
+                ->visible(fn (Forms\Get $get) => $get('channel') === NotificationTemplate::CHANNEL_PUSH
+                    && $get('key') !== 'seva.booking.reminder')
                 ->schema([
                     Forms\Components\Select::make('recipient_strategy')
                         ->label('Send to')
@@ -314,7 +348,7 @@ class NotificationTemplateResource extends Resource
      * Create/Edit page hooks serialise them into `wa_components` JSON
      * + `placeholder_map` before save.
      *
-     * @return array<int, \Filament\Forms\Components\Component>
+     * @return array<int, Component>
      */
     private static function buildWhatsAppVariableInputs(Forms\Get $get): array
     {
@@ -325,10 +359,10 @@ class NotificationTemplateResource extends Resource
             return [
                 Forms\Components\Placeholder::make('wa_pick_template_first')
                     ->label('')
-                    ->content(new \Illuminate\Support\HtmlString(
+                    ->content(new HtmlString(
                         '<div style="padding:.75rem 1rem; background:#f9fafb; border:1px dashed #d1d5db; border-radius:.5rem; font-size:.875rem;">'
-                        . 'Pick an approved template above. The fields you need to fill will appear here automatically — one per <code>{{n}}</code> variable Meta detected.'
-                        . '</div>'
+                        .'Pick an approved template above. The fields you need to fill will appear here automatically — one per <code>{{n}}</code> variable Meta detected.'
+                        .'</div>'
                     )),
             ];
         }
@@ -339,10 +373,10 @@ class NotificationTemplateResource extends Resource
             return [
                 Forms\Components\Placeholder::make('wa_no_vars')
                     ->label('')
-                    ->content(new \Illuminate\Support\HtmlString(
+                    ->content(new HtmlString(
                         '<div style="padding:.75rem 1rem; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:.5rem; font-size:.875rem;">'
-                        . 'This template has no variables — Meta will send the body verbatim. Nothing to fill in.'
-                        . '</div>'
+                        .'This template has no variables — Meta will send the body verbatim. Nothing to fill in.'
+                        .'</div>'
                     )),
             ];
         }
@@ -354,7 +388,7 @@ class NotificationTemplateResource extends Resource
             $info = NotificationRegistry::describe($triggerKey);
             if ($info) {
                 foreach ($info['placeholders'] as $token => $desc) {
-                    $tokenOptions['{{ ' . $token . ' }}'] = '{{ ' . $token . ' }} — ' . $desc;
+                    $tokenOptions['{{ '.$token.' }}'] = '{{ '.$token.' }} — '.$desc;
                 }
             }
         }
@@ -362,10 +396,10 @@ class NotificationTemplateResource extends Resource
         $fields = [
             Forms\Components\Placeholder::make('wa_vars_header')
                 ->label('')
-                ->content(new \Illuminate\Support\HtmlString(
+                ->content(new HtmlString(
                     '<div style="font-size:.875rem; color:#4b5563; margin-bottom:.25rem;">'
-                    . 'Fill in each variable below. Pick a <code>{{ token }}</code> from the dropdown to insert dynamic data from the event, or type a literal value.'
-                    . '</div>'
+                    .'Fill in each variable below. Pick a <code>{{ token }}</code> from the dropdown to insert dynamic data from the event, or type a literal value.'
+                    .'</div>'
                 )),
         ];
 
@@ -374,7 +408,7 @@ class NotificationTemplateResource extends Resource
             // dots in field names into nested state paths, which would
             // scramble our flat lookup. Group statePath keeps these
             // under `wa_vars` without further nesting.
-            $stateKey = 'wa_vars.' . $slot['key'];
+            $stateKey = 'wa_vars.'.$slot['key'];
 
             // Both inputs MUST be dehydrated (default true). Earlier
             // versions used dehydrated(false) which silently stripped
@@ -388,6 +422,7 @@ class NotificationTemplateResource extends Resource
                     ->placeholder('e.g. 80G_Receipt.pdf')
                     ->helperText($slot['help'] ?: null)
                     ->columnSpanFull();
+
                 continue;
             }
 
@@ -398,9 +433,9 @@ class NotificationTemplateResource extends Resource
             // input + the placeholders panel at the top of the form
             // gives the same UX without the constraint.
             $tokenHint = $tokenOptions
-                ? 'Available tokens: ' . implode(', ', array_keys($tokenOptions))
+                ? 'Available tokens: '.implode(', ', array_keys($tokenOptions))
                 : '';
-            $helper = trim(($slot['help'] ?: '') . ($tokenHint ? "  •  {$tokenHint}" : ''));
+            $helper = trim(($slot['help'] ?: '').($tokenHint ? "  •  {$tokenHint}" : ''));
 
             $fields[] = Forms\Components\TextInput::make($stateKey)
                 ->label($slot['label'])
@@ -412,7 +447,7 @@ class NotificationTemplateResource extends Resource
         return $fields;
     }
 
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
         // Push rows are managed in the separate Push Notifications resource.
         return parent::getEloquentQuery()->whereIn('channel', [

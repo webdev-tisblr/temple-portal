@@ -9,7 +9,6 @@ use App\Filament\Resources\OrderResource;
 use App\Helpers\NumberToWords;
 use App\Models\Product;
 use App\Models\SystemSetting;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -48,10 +47,17 @@ class ViewOrder extends ViewRecord
                     $trustAddress = SystemSetting::getValue('trust_address', 'Antarjal, Gandhidham, Kutch - 370205');
                     $trustPhone = SystemSetting::getValue('trust_phone', '');
 
-                    $pdf = Pdf::loadView('invoices.packing-slip', compact('order', 'trustName', 'trustAddress', 'trustPhone'));
-                    $pdf->setPaper([0, 0, 288, 432], 'portrait'); // 4x6 inches in points
-
-                    $output = $pdf->output();
+                    // mPDF (not DomPDF) — shapes the Gujarati names and
+                    // addresses correctly. 102×152mm = 4×6in label.
+                    $output = \App\Support\Pdf\GujaratiPdf::render(
+                        'invoices.packing-slip',
+                        compact('order', 'trustName', 'trustAddress', 'trustPhone'),
+                        [
+                            'format' => [102, 152],
+                            'margin_left' => 5, 'margin_right' => 5,
+                            'margin_top' => 5, 'margin_bottom' => 5,
+                        ],
+                    );
                     return response()->streamDownload(
                         fn () => print($output),
                         "PackingSlip_{$order->order_number}.pdf",

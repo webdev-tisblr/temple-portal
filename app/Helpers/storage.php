@@ -90,7 +90,14 @@ if (! function_exists('private_file_redirect')) {
      * @param  string|null  $filename  Suggested download name; null keeps stored name.
      * @param  bool         $inline    true = render inline (e.g. an image), false = attachment.
      */
-    function private_file_redirect(string $path, ?string $filename = null, bool $inline = false, ?string $contentType = null): \Illuminate\Http\RedirectResponse
+    /**
+     * NOTE: no return type — inside a Livewire/Filament action redirect()
+     * returns Livewire's Redirector (not RedirectResponse), and a strict
+     * type here TypeError'd every admin PDF download button.
+     *
+     * @return \Illuminate\Http\RedirectResponse|\Livewire\Features\SupportRedirects\Redirector
+     */
+    function private_file_redirect(string $path, ?string $filename = null, bool $inline = false, ?string $contentType = null)
     {
         $disposition = $inline ? 'inline' : 'attachment';
 

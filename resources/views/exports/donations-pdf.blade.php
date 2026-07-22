@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <style>
+        @include('pdf._fonts')
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'DejaVu Sans', sans-serif; font-size: 10px; color: #333; padding: 20px; }
+        body { font-family: 'Noto Sans Gujarati', 'DejaVu Sans', sans-serif; font-size: 10px; color: #333; padding: 20px; }
         .header { text-align: center; margin-bottom: 15px; border-bottom: 2px solid #881337; padding-bottom: 10px; }
         .header h1 { font-size: 16px; color: #881337; margin-bottom: 3px; }
         .header p { font-size: 10px; color: #666; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background: #881337; color: #fff; padding: 6px 8px; text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
+        th { background: #881337; color: #fff; padding: 6px 8px; text-align: left; font-size: 9px; text-transform: uppercase; }
         td { padding: 5px 8px; border-bottom: 1px solid #eee; font-size: 9px; }
         tr:nth-child(even) td { background: #fdf6ee; }
         .total-row td { border-top: 2px solid #881337; font-weight: bold; font-size: 10px; background: #FFF7ED; }

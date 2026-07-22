@@ -24,7 +24,7 @@
                    class="card-sacred group block overflow-hidden">
 
                     {{-- Image --}}
-                    <div class="aspect-[16/9] relative overflow-hidden"
+                    <div class="aspect-[4/3] relative overflow-hidden"
                          style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
                         @if($project->cover_image_url)
                             <img src="{{ $project->cover_image_url }}"

@@ -106,7 +106,7 @@
                 </span>
                 <span class="leading-none">
                     <span class="hdr-item block font-marcellus text-lg lg:text-xl text-stone-700">{{ __('common.temple_name') }}</span>
-                    <span class="hdr-sub block text-[10px] lg:text-[11px] tracking-[0.24em] text-saffron-500 font-semibold uppercase mt-1">{{ __('common.trust_subtitle') }}</span>
+                    <span class="hdr-sub block text-[10px] lg:text-[11px] text-saffron-500 font-semibold mt-1">{{ __('common.trust_subtitle') }}</span>
                 </span>
             </a>
 
@@ -207,7 +207,7 @@
                 @endauth
                 {{-- Language (mobile) --}}
                 <div class="pt-3 border-t border-[#EAD9C3]">
-                    <p class="pb-2 text-[11px] uppercase tracking-widest text-saffron-500">{{ __('common.language') }}</p>
+                    <p class="pb-2 text-[11px] text-saffron-500">{{ __('common.language') }}</p>
                     <div class="flex gap-2">
                         @foreach (['gu' => 'ગુજરાતી', 'hi' => 'हिन्दी', 'en' => 'English'] as $code => $label)
                             <a href="{{ route('locale.set', $code) }}"

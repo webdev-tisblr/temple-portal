@@ -93,7 +93,7 @@
                 {{-- Dynamic Extra Fields (inside form so they submit properly) --}}
                 <template x-if="currentExtraFields.length > 0">
                     <div class="mb-6 space-y-4 p-4 border border-amber-800/20 rounded-lg bg-amber-900/10">
-                        <p class="text-xs text-amber-500 font-medium uppercase tracking-wide">{{ __('donation.extra_info') }}</p>
+                        <p class="text-xs text-amber-500 font-medium">{{ __('donation.extra_info') }}</p>
                         <template x-for="(field, index) in currentExtraFields" :key="field.key">
                             <div>
                                 <label class="block text-sm font-medium text-amber-600 mb-1" x-text="field.label_gu || field.label_en"></label>

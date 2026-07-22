@@ -30,7 +30,7 @@
                     </div>
                 @elseif($m->image_path)
                     <a href="{{ image_url($m->image_path) }}" target="_blank" rel="noopener"
-                       class="block aspect-square rounded-xl overflow-hidden border border-amber-900/20">
+                       class="block aspect-[4/3] rounded-xl overflow-hidden border border-amber-900/20">
                         <img src="{{ image_url($m->image_path) }}" alt="{{ $title }}" loading="lazy"
                              class="w-full h-full object-cover hover:scale-105 transition duration-300">
                     </a>

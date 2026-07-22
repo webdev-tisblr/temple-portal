@@ -19,10 +19,10 @@
                         <a href="{{ route('blog.show', $post->slug ?? $post) }}" class="block overflow-hidden">
                             <img src="{{ image_url($post->featured_image_path) }}"
                                  alt="{{ $post->title }}"
-                                 class="w-full h-48 object-cover hover:scale-105 transition duration-300">
+                                 class="w-full aspect-[4/3] object-cover hover:scale-105 transition duration-300">
                         </a>
                     @else
-                        <div class="w-full h-48 bg-amber-900/20 flex items-center justify-center">
+                        <div class="w-full aspect-[4/3] bg-amber-900/20 flex items-center justify-center">
                             <svg class="w-10 h-10 text-amber-800/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                             </svg>

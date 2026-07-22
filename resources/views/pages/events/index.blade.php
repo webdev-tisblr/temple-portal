@@ -18,9 +18,9 @@
                 <div class="card-sacred overflow-hidden flex flex-col">
 
                     @if($event->image_path)
-                        <img src="{{ image_url($event->image_path) }}" alt="{{ $event->title }}" class="w-full h-44 object-cover">
+                        <img src="{{ image_url($event->image_path) }}" alt="{{ $event->title }}" class="w-full aspect-[4/3] object-cover">
                     @else
-                        <div class="w-full h-44 bg-amber-900/20 flex items-center justify-center">
+                        <div class="w-full aspect-[4/3] bg-amber-900/20 flex items-center justify-center">
                             <svg class="w-12 h-12 text-amber-800/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                             </svg>
@@ -35,7 +35,7 @@
                                 <span class="text-amber-500 text-xs uppercase">{{ $event->start_date->format('M') }}</span>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <h3 class="font-semibold text-amber-100/70 leading-tight">{{ $event->title }}</h3>
+                                <h3 class="font-semibold text-amber-100/70 leading-snug">{{ $event->title }}</h3>
                                 @if($event->location)
                                     <p class="text-xs text-amber-100/40 mt-0.5 flex items-center gap-1">
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -88,7 +88,7 @@
                 @foreach($recent as $event)
                     <a href="{{ route('events.show', $event) }}" class="card-sacred opacity-80 hover:opacity-100 transition block">
                         @if($event->image_path)
-                            <img src="{{ image_url($event->image_path) }}" alt="{{ $event->title }}" class="w-full h-36 object-cover">
+                            <img src="{{ image_url($event->image_path) }}" alt="{{ $event->title }}" class="w-full aspect-[4/3] object-cover">
                         @endif
                         <div class="p-5">
                             <div class="flex items-start gap-3">
@@ -97,7 +97,7 @@
                                     <span class="text-amber-100/30 text-xs uppercase">{{ $event->start_date->format('M') }}</span>
                                 </div>
                                 <div class="flex-1 min-w-0">
-                                    <h3 class="font-semibold text-amber-100/60 leading-tight">{{ $event->title }}</h3>
+                                    <h3 class="font-semibold text-amber-100/60 leading-snug">{{ $event->title }}</h3>
                                     @if($event->location)
                                         <p class="text-xs text-amber-100/30 mt-0.5">{{ $event->location }}</p>
                                     @endif

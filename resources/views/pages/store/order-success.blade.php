@@ -15,7 +15,7 @@
 
             {{-- Order Details --}}
             <div class="bg-amber-900/20 border border-amber-800/30 rounded-xl p-5 text-left mt-6 text-sm space-y-0">
-                <p class="text-xs text-amber-500 uppercase tracking-wider font-semibold mb-3">{{ __('store.order_details') }}</p>
+                <p class="text-xs text-amber-500 font-semibold mb-3">{{ __('store.order_details') }}</p>
 
                 <div class="flex justify-between py-2.5 border-b border-amber-900/20">
                     <span class="text-amber-100/40">{{ __('store.order_number') }}</span>

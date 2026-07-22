@@ -25,7 +25,7 @@
 
             {{-- Image Gallery --}}
             <div class="card-sacred overflow-hidden">
-                <div class="aspect-square flex items-center justify-center overflow-hidden"
+                <div class="aspect-[4/3] flex items-center justify-center overflow-hidden"
                      style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
                     <template x-if="currentImage">
                         <img :src="currentImage" alt="{{ $product->name }}"

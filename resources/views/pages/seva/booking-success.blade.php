@@ -15,7 +15,7 @@
 
             {{-- Booking Details --}}
             <div class="bg-amber-900/20 border border-amber-800/30 rounded-xl p-5 text-left mt-6 text-sm space-y-0">
-                <p class="text-xs text-amber-500 uppercase tracking-wider font-semibold mb-3">{{ __('seva.booking_details') }}</p>
+                <p class="text-xs text-amber-500 font-semibold mb-3">{{ __('seva.booking_details') }}</p>
 
                 <div class="flex justify-between py-2.5 border-b border-amber-900/20">
                     <span class="text-amber-100/40">{{ __('nav.seva') }}</span>
@@ -64,7 +64,7 @@
             @if($booking->seva->assignee)
                 @php $assignee = $booking->seva->assignee; @endphp
                 <div class="bg-amber-900/15 border border-amber-800/20 rounded-xl p-5 text-left mt-4 text-sm">
-                    <p class="text-xs text-amber-500 uppercase tracking-wider font-semibold mb-3">{{ __('seva.seva_contact') }}</p>
+                    <p class="text-xs text-amber-500 font-semibold mb-3">{{ __('seva.seva_contact') }}</p>
                     <div class="flex items-start gap-3">
                         <div class="w-10 h-10 bg-amber-900/30 rounded-full flex items-center justify-center flex-shrink-0">
                             <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -13,7 +13,7 @@
     {{-- Featured Image --}}
     @if($event->image_path)
         <div class="rounded-2xl overflow-hidden mb-8 border border-amber-900/20">
-            <img src="{{ image_url($event->image_path) }}" alt="{{ $event->title }}" class="w-full h-72 sm:h-96 object-cover">
+            <img src="{{ image_url($event->image_path) }}" alt="{{ $event->title }}" class="w-full aspect-[4/3] object-cover">
         </div>
     @endif
 
@@ -40,7 +40,7 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-xs text-amber-600 uppercase tracking-wide">{{ __('common.date') }}</p>
+                    <p class="text-xs text-amber-600">{{ __('common.date') }}</p>
                     <p class="text-amber-100/70 font-semibold text-sm">
                         {{ $event->start_date->format('d M Y') }}
                         @if($event->end_date && !$event->start_date->isSameDay($event->end_date))
@@ -59,7 +59,7 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-xs text-amber-600 uppercase tracking-wide">{{ __('events.time') }}</p>
+                    <p class="text-xs text-amber-600">{{ __('events.time') }}</p>
                     <p class="text-amber-100/70 font-semibold text-sm">
                         {{ \Carbon\Carbon::parse($event->start_time)->format('h:i A') }}
                         @if($event->end_time)
@@ -80,7 +80,7 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="text-xs text-amber-600 uppercase tracking-wide">{{ __('events.venue') }}</p>
+                    <p class="text-xs text-amber-600">{{ __('events.venue') }}</p>
                     <p class="text-amber-100/70 font-semibold text-sm">{{ $event->location }}</p>
                 </div>
             </div>
@@ -121,7 +121,7 @@
                             </div>
                         @elseif($m->image_path)
                             <a href="{{ image_url($m->image_path) }}" target="_blank" rel="noopener"
-                               class="block aspect-square rounded-xl overflow-hidden border border-amber-900/20">
+                               class="block aspect-[4/3] rounded-xl overflow-hidden border border-amber-900/20">
                                 <img src="{{ image_url($m->image_path) }}" alt="{{ $event->title }}" loading="lazy"
                                      class="w-full h-full object-cover hover:scale-105 transition duration-300">
                             </a>

@@ -19,11 +19,11 @@
                 <table class="w-full text-sm">
                     <thead class="bg-amber-900/15 border-b border-amber-900/20">
                         <tr>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">{{ __('common.date') }}</th>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">{{ __('common.amount') }}</th>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">{{ __('donation.type_label') }}</th>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">{{ __('dashboard.purpose') }}</th>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">{{ __('dashboard.receipt') }}</th>
+                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600">{{ __('common.date') }}</th>
+                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600">{{ __('common.amount') }}</th>
+                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600">{{ __('donation.type_label') }}</th>
+                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600">{{ __('dashboard.purpose') }}</th>
+                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600">{{ __('dashboard.receipt') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-amber-900/15">

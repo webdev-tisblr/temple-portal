@@ -13,7 +13,7 @@
                 class="rounded-l-xl px-3 py-4 flex flex-col items-center gap-2 shadow-lg"
                 style="background:#7A1E1E; color:#F3DCAE;">
             <span class="w-2.5 h-2.5 rounded-full" style="background:{{ $dotColor }};"></span>
-            <span class="text-xs font-extrabold tracking-widest" style="writing-mode:vertical-rl;">{{ __('nav.darshan') }}</span>
+            <span class="text-xs font-extrabold" style="writing-mode:vertical-rl;">{{ __('nav.darshan') }}</span>
         </button>
         <div x-show="open" x-transition
              class="w-72 rounded-l-2xl p-6 shadow-2xl" style="background:#FBF5EA;">

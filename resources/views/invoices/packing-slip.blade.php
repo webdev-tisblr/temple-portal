@@ -8,10 +8,10 @@
         body { font-family: 'Noto Sans Gujarati', 'DejaVu Sans', sans-serif; font-size: 9px; color: #333; padding: 10px; }
         .slip { border: 2px solid #333; padding: 10px; height: 100%; }
         .header { text-align: center; border-bottom: 2px dashed #333; padding-bottom: 8px; margin-bottom: 8px; }
-        .header h1 { font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        .header h1 { font-size: 12px; font-weight: bold; text-transform: uppercase; }
         .header p { font-size: 8px; color: #666; }
         .section { margin-bottom: 8px; }
-        .section-title { font-size: 8px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: #888; border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 4px; }
+        .section-title { font-size: 8px; font-weight: bold; text-transform: uppercase; color: #888; border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 4px; }
         .from-to { display: table; width: 100%; }
         .from-to .col { display: table-cell; width: 50%; vertical-align: top; padding: 4px; }
         .from-to .col:first-child { border-right: 1px dashed #ccc; }
@@ -22,7 +22,7 @@
         .items th { font-size: 7px; text-transform: uppercase; color: #888; border-bottom: 1px solid #ddd; padding: 3px 4px; text-align: left; }
         .items td { font-size: 8px; padding: 3px 4px; border-bottom: 1px dotted #eee; }
         .items td:last-child { text-align: right; }
-        .order-bar { background: #333; color: #fff; text-align: center; padding: 5px; font-size: 11px; font-weight: bold; letter-spacing: 1px; margin-bottom: 8px; }
+        .order-bar { background: #333; color: #fff; text-align: center; padding: 5px; font-size: 11px; font-weight: bold; margin-bottom: 8px; }
         .footer { text-align: center; font-size: 7px; color: #999; border-top: 1px dashed #ccc; padding-top: 4px; margin-top: 6px; }
         .total-row td { border-top: 1px solid #333; font-weight: bold; font-size: 9px; }
     </style>

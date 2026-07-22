@@ -20,8 +20,7 @@
         color: #2A1810;             /* stone-700 — deep ink */
     }
     h1, h2, h3, h4, h5, h6 {
-        font-family: '"Noto Serif Gujarati"', '"Noto Serif Devanagari"', serif;
-        letter-spacing: -0.01em;
+        font-family: 'Noto Serif Gujarati', 'Noto Serif Devanagari', serif;
         color: #2A1810;
     }
     [x-cloak] { display: none !important; }
@@ -30,7 +29,7 @@
 @layer components {
     /* Sacred section heading with ornamental divider */
     .divine-heading {
-        @apply text-3xl sm:text-4xl lg:text-5xl text-center tracking-tight;
+        @apply text-3xl sm:text-4xl lg:text-5xl text-center;
         /* Marcellus (Latin) with gu/hi serif fallbacks — one heading face
            across the whole site, matching the redesigned homepage. Weight
            500 keeps Gujarati/Devanagari substantial; Marcellus is 400 only. */
@@ -53,7 +52,7 @@
 
     /* Buttons */
     .btn-divine {
-        @apply inline-flex items-center justify-center gap-2 px-8 py-3.5 font-bold rounded-full transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 uppercase tracking-wider text-sm;
+        @apply inline-flex items-center justify-center gap-2 px-8 py-3.5 font-bold rounded-full transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 text-sm;
         background: linear-gradient(135deg, #E8751A, #C45F12);
         color: #FFFCF5;
     }
@@ -61,7 +60,7 @@
         background: linear-gradient(135deg, #ECA557, #E8751A);
     }
     .btn-temple {
-        @apply inline-flex items-center justify-center gap-2 px-8 py-3.5 font-bold rounded-full transition-all duration-300 border-2 uppercase tracking-wider text-sm;
+        @apply inline-flex items-center justify-center gap-2 px-8 py-3.5 font-bold rounded-full transition-all duration-300 border-2 text-sm;
         border-color: #C89434;
         color: #7A1E1E;
         background: transparent;
@@ -128,7 +127,6 @@
    their native script — Marcellus only supplies the Latin glyphs. */
 .font-marcellus {
     font-family: 'Marcellus', 'Noto Serif Gujarati', 'Noto Serif Devanagari', serif;
-    letter-spacing: 0.005em;
 }
 
 /* Hero video play/pause button reveals on hover; on touch devices (no hover)

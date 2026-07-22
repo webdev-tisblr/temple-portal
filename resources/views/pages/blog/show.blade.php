@@ -15,7 +15,7 @@
         <div class="rounded-2xl overflow-hidden mb-8 border border-amber-900/20">
             <img src="{{ image_url($post->featured_image_path) }}"
                  alt="{{ $post->title }}"
-                 class="w-full h-72 sm:h-96 object-cover">
+                 class="w-full aspect-[4/3] object-cover">
         </div>
     @endif
 
@@ -34,7 +34,7 @@
         </div>
 
         {{-- Title --}}
-        <h1 class="divine-heading text-2xl sm:text-3xl mb-8 leading-tight">{{ $post->title }}</h1>
+        <h1 class="divine-heading text-2xl sm:text-3xl mb-8 leading-snug">{{ $post->title }}</h1>
 
         {{-- Body --}}
         <div class="prose prose-invert prose-headings:text-gold prose-a:text-amber-500 max-w-none leading-relaxed text-amber-100/60">

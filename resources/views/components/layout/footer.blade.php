@@ -55,8 +55,8 @@
                          class="w-12 h-12 rounded-full border diya-glow object-cover"
                          style="border-color: rgba(200,148,52,0.45); box-shadow: 0 0 14px rgba(196,154,42,0.25);">
                     <div>
-                        <h3 class="text-base font-bold leading-tight" style="color: #7A1E1E;">{{ __('common.temple_name') }}</h3>
-                        <p class="text-[10px] tracking-widest uppercase font-semibold mt-0.5" style="color: #C45F12;">{{ __('common.trust_subtitle') }}</p>
+                        <h3 class="text-base font-bold leading-snug" style="color: #7A1E1E;">{{ __('common.temple_name') }}</h3>
+                        <p class="text-[10px] font-semibold mt-0.5" style="color: #C45F12;">{{ __('common.trust_subtitle') }}</p>
                     </div>
                 </div>
                 <p class="text-sm leading-relaxed" style="color: #5E4F3D;">
@@ -118,7 +118,7 @@
 
             {{-- ── 2. Mandir — about / history / people / contact ───── --}}
             <div>
-                <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">{{ __('nav.mandir') }}</h3>
+                <h3 class="text-xs font-bold mb-4" style="color: #C45F12;">{{ __('nav.mandir') }}</h3>
                 <ul class="space-y-2.5 text-sm">
                     {{-- /parichay, /itihas, /mahima are CMS pages
                          served by the catch-all /{slug} route — same
@@ -133,7 +133,7 @@
 
             {{-- ── 3. Booking & donation ────────────────────────────── --}}
             <div>
-                <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">{{ __('footer.booking_donation') }}</h3>
+                <h3 class="text-xs font-bold mb-4" style="color: #C45F12;">{{ __('footer.booking_donation') }}</h3>
                 <ul class="space-y-2.5 text-sm">
                     <li><a href="{{ route('donate') }}"        style="color: #3E3226;" class="hover:underline">{{ __('footer.online_donation') }}</a></li>
                     <li><a href="{{ route('seva.index') }}"    style="color: #3E3226;" class="hover:underline">{{ __('footer.seva_booking') }}</a></li>
@@ -149,9 +149,9 @@
                  rendered inconsistently across Windows/Android. --}}
             <div>
                 @if($todayTiming || $saturdayTiming)
-                    <h3 class="text-xs uppercase tracking-widest font-bold mb-4" style="color: #C45F12;">{{ __('footer.darshan_times') }}</h3>
+                    <h3 class="text-xs font-bold mb-4" style="color: #C45F12;">{{ __('footer.darshan_times') }}</h3>
                     @if($todayTiming)
-                        <p class="text-[11px] uppercase tracking-wide font-semibold mb-1" style="color:#C45F12;">{{ __('darshan.regular_days') }}</p>
+                        <p class="text-[11px] font-semibold mb-1" style="color:#C45F12;">{{ __('darshan.regular_days') }}</p>
                         <ul class="space-y-2 text-sm" style="color: #3E3226;">
                             @if($todayTiming->morning_open && $todayTiming->morning_close)
                                 <li class="flex justify-between gap-3">
@@ -180,7 +180,7 @@
                         </ul>
                     @endif
                     @if($saturdayTiming)
-                        <p class="text-[11px] uppercase tracking-wide font-semibold mb-1 mt-3" style="color:#C45F12;">{{ __('darshan.special_saturday') }}</p>
+                        <p class="text-[11px] font-semibold mb-1 mt-3" style="color:#C45F12;">{{ __('darshan.special_saturday') }}</p>
                         <ul class="space-y-2 text-sm" style="color: #3E3226;">
                             @if($saturdayTiming->morning_open && $saturdayTiming->morning_close)
                                 <li class="flex justify-between gap-3">

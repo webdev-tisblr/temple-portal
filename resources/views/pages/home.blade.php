@@ -114,7 +114,7 @@
         {{-- Left: identity + CTAs --}}
         <div class="flex-1 text-parch-50" style="color:#FDF6E6;">
             {{-- Open / closed pill --}}
-            <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide mb-5"
+            <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold mb-5"
                  style="background:{{ $isOpenNow ? 'rgba(31,90,42,.85)' : 'rgba(90,60,31,.85)' }};">
                 <span class="w-2 h-2 rounded-full" style="background:{{ $isOpenNow ? '#7be08a' : '#e0b47b' }};"></span>
                 @if($isOpenNow)
@@ -183,7 +183,13 @@
                              :style="'transform: translateX(-' + (i * 100) + '%)'">
                         @foreach($cards as $k => $card)
                             <div class="w-full h-full flex-shrink-0 flex flex-col">
-                                <div class="h-44 flex-shrink-0 bg-contain bg-no-repeat bg-center" style="@if($card['img'])background-color:#fff;background-image:url('{{ $card['img'] }}');@else background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@endif"></div>
+                                {{-- Stage is height-locked (380px), so the image box keeps h-44 and
+                                     derives its width from the 4:3 ratio, centered — no overflow. --}}
+                                <div class="h-44 flex-shrink-0 flex justify-center" style="@if($card['img'])background-color:#fff;@else background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@endif">
+                                    @if($card['img'])
+                                        <div class="h-full aspect-[4/3] bg-cover bg-no-repeat bg-center" style="background-image:url('{{ $card['img'] }}');"></div>
+                                    @endif
+                                </div>
                                 <div class="p-5 flex flex-col flex-1">
                                     <div class="text-[10px] tracking-[0.2em] font-extrabold" style="color:#C45F12;">{{ strtoupper($card['label']) }}</div>
                                     <div class="font-marcellus text-lg mt-1.5 line-clamp-2" style="color:#7A1E1E;">{{ $card['title'] }}</div>
@@ -237,7 +243,7 @@
                 @endphp
                 <a href="{{ route('projects.show', $c->slug) }}" class="block rounded-2xl overflow-hidden transition hover:-translate-y-0.5"
                    style="background:#fff; border:1px solid #ecdfc4; box-shadow:0 2px 10px rgba(122,30,30,.06);">
-                    <div class="h-40 bg-contain bg-no-repeat bg-center" style="@if($c->cover_image_url)background-color:#fff;background-image:url('{{ $c->cover_image_url }}');@else background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@endif"></div>
+                    <div class="w-full aspect-[4/3] bg-cover bg-no-repeat bg-center" style="@if($c->cover_image_url)background-color:#fff;background-image:url('{{ $c->cover_image_url }}');@else background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@endif"></div>
                     <div class="p-6">
                         <div class="font-marcellus text-xl" style="color:#7A1E1E;">{{ $c->title }}</div>
                         @if($c->description)
@@ -273,10 +279,10 @@
             </div>
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
                 @foreach($sevas->take(4) as $seva)
-                    <a href="{{ route('seva.show', $seva) }}" class="block text-center p-2.5 pb-6 transition hover:shadow-lg"
-                       style="background:#fff; border:1px solid #ecdfc4; border-radius:120px 120px 16px 16px;">
-                        <div class="h-40 sm:h-44 bg-contain bg-no-repeat bg-center flex items-center justify-center"
-                             style="border-radius:110px 110px 8px 8px;@if($seva->image_path)background-color:#fff;background-image:url('{{ image_url($seva->image_path) }}');@else background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@endif">
+                    <a href="{{ route('seva.show', $seva) }}" class="block text-center rounded-2xl p-2.5 pb-6 transition hover:shadow-lg"
+                       style="background:#fff; border:1px solid #ecdfc4;">
+                        <div class="w-full aspect-[4/3] rounded-xl overflow-hidden bg-cover bg-no-repeat bg-center"
+                             style="@if($seva->image_path)background-color:#fff;background-image:url('{{ image_url($seva->image_path) }}');@else background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@endif">
                         </div>
                         <div class="font-marcellus text-base sm:text-lg mt-4" style="color:#7A1E1E;">{{ $seva->name }}</div>
                         @if($seva->description)
@@ -308,7 +314,7 @@
             @foreach($events->take(3) as $e)
                 <a href="{{ route('events.show', $e) }}" class="block rounded-2xl overflow-hidden transition hover:-translate-y-0.5"
                    style="background:#fff; border:1px solid #ecdfc4;">
-                    <div class="h-40 bg-contain bg-no-repeat bg-center" style="@if($e->image_path)background-color:#fff;background-image:url('{{ image_url($e->image_path) }}');@else background:repeating-linear-gradient(45deg,#e8d3b4 0 12px,#f1e0c4 12px 24px);@endif"></div>
+                    <div class="w-full aspect-[4/3] bg-cover bg-no-repeat bg-center" style="@if($e->image_path)background-color:#fff;background-image:url('{{ image_url($e->image_path) }}');@else background:repeating-linear-gradient(45deg,#e8d3b4 0 12px,#f1e0c4 12px 24px);@endif"></div>
                     <div class="p-5">
                         @if($e->start_date)
                             <div class="text-[11px] font-extrabold" style="color:#C45F12;">{{ $e->start_date->format('d M Y') }}</div>

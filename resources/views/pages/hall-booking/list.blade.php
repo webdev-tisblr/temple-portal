@@ -24,7 +24,7 @@
                    class="card-sacred group block overflow-hidden flex flex-col">
 
                     {{-- Image --}}
-                    <div class="aspect-video relative overflow-hidden"
+                    <div class="aspect-[4/3] relative overflow-hidden"
                          style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
                         @if($hall->image_path)
                             <img src="{{ image_url($hall->image_path) }}"
@@ -39,7 +39,7 @@
                             </div>
                         @endif
                         {{-- Capacity chip --}}
-                        <span class="absolute top-3 left-3 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full shadow-sm"
+                        <span class="absolute top-3 left-3 px-2.5 py-1 text-[10px] font-bold rounded-full shadow-sm"
                               style="background: rgba(255,252,245,0.92); color: #7A1E1E; border: 1px solid rgba(200,148,52,0.55); backdrop-filter: blur(4px);">
                             {{ __('halls.capacity') }} {{ $hall->capacity }}
                         </span>
@@ -69,7 +69,7 @@
                         {{-- Pricing + CTA --}}
                         <div class="mt-auto pt-4 flex items-center justify-between border-t border-amber-900/15">
                             <div>
-                                <p class="text-[11px] text-amber-600 uppercase tracking-wider">{{ __('halls.full_day') }}</p>
+                                <p class="text-[11px] text-amber-600">{{ __('halls.full_day') }}</p>
                                 <p class="text-lg font-black text-gold leading-tight">₹{{ number_format((float) $hall->price_per_day) }}</p>
                             </div>
                             <span class="text-amber-600 text-sm font-semibold group-hover:translate-x-1 transition-transform flex items-center gap-1">

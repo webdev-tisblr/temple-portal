@@ -12,7 +12,7 @@
     {{-- Optional image header — keeps cards visually rich when the
          campaign has a photo; falls back to a small icon chip otherwise. --}}
     @if($campaign->cover_image_url)
-        <div class="aspect-[16/9] rounded-xl overflow-hidden mb-4"
+        <div class="aspect-[4/3] rounded-xl overflow-hidden mb-4"
              style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
             <img src="{{ $campaign->cover_image_url }}"
                  alt="{{ $campaign->title }}"
@@ -27,7 +27,7 @@
         </span>
     @endif
 
-    <h3 class="text-lg font-bold leading-tight" style="color: #7A1E1E;">{{ $campaign->title }}</h3>
+    <h3 class="text-lg font-bold leading-snug" style="color: #7A1E1E;">{{ $campaign->title }}</h3>
 
     @if($campaign->description)
         <p class="text-sm leading-relaxed mt-2 line-clamp-2" style="color: #5E4F3D;">

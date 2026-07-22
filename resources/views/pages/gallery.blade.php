@@ -93,7 +93,7 @@
     {{-- Image Grid --}}
     <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
         <template x-for="(img, index) in filtered" :key="index">
-            <div class="relative group cursor-pointer overflow-hidden rounded-xl bg-amber-900/20 aspect-square border border-amber-900/15"
+            <div class="relative group cursor-pointer overflow-hidden rounded-xl bg-amber-900/20 aspect-[4/3] border border-amber-900/15"
                  @click="openLightbox(index)">
                 <img :src="img.src" :alt="img.title"
                      class="w-full h-full object-cover transition duration-300 group-hover:scale-105">

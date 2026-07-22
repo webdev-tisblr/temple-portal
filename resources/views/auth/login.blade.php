@@ -15,7 +15,7 @@
         <a href="{{ route('home') }}" title="{{ __('login.back_home') }}" class="inline-block group">
             <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="{{ __('common.temple_name') }}" class="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-amber-600/40 diya-glow transition-transform group-hover:scale-105" style="box-shadow: 0 0 25px rgba(196,154,42,0.3);">
         </a>
-        <h1 class="text-2xl font-black text-gold tracking-wide">{{ __('common.temple_name') }}</h1>
+        <h1 class="text-2xl font-black text-gold">{{ __('common.temple_name') }}</h1>
         <p class="text-amber-200/60 mt-1 text-sm">{{ __('login.portal_sub') }}</p>
     </div>
 
@@ -141,7 +141,7 @@
          hover inverts to a filled maroon pill with cream text. --}}
     <div class="flex justify-center mt-5">
         <a href="{{ route('home') }}"
-           class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full border-2 border-[#7A1E1E]/60 text-[#7A1E1E] text-sm font-bold tracking-wide transition-all duration-200 hover:bg-[#7A1E1E] hover:text-[#FBF5EA] hover:border-[#7A1E1E] hover:shadow-lg">
+           class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full border-2 border-[#7A1E1E]/60 text-[#7A1E1E] text-sm font-bold transition-all duration-200 hover:bg-[#7A1E1E] hover:text-[#FBF5EA] hover:border-[#7A1E1E] hover:shadow-lg">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
             {{ __('login.back_home') }}
         </a>

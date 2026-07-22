@@ -19,7 +19,7 @@
 
         {{-- Category Badge --}}
         @if($product->category)
-            <span class="absolute top-3 left-3 px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest rounded-full shadow-sm"
+            <span class="absolute top-3 left-3 px-2.5 py-1 text-[9px] font-bold rounded-full shadow-sm"
                   style="background: rgba(255,252,245,0.92); color: #7A1E1E; border: 1px solid rgba(200,148,52,0.55); backdrop-filter: blur(4px);">
                 {{ $product->category->name }}
             </span>
@@ -27,12 +27,12 @@
 
         {{-- Stock Badge --}}
         @if($product->inStock())
-            <span class="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full shadow-sm"
+            <span class="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-bold uppercase rounded-full shadow-sm"
                   style="background: rgba(63,122,63,0.14); color: #2D5F2D; border: 1px solid rgba(63,122,63,0.40);">
                 In Stock
             </span>
         @else
-            <span class="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full shadow-sm"
+            <span class="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-bold uppercase rounded-full shadow-sm"
                   style="background: rgba(168,50,50,0.12); color: #7A1E1E; border: 1px solid rgba(168,50,50,0.40);">
                 Out of Stock
             </span>

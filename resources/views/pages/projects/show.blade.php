@@ -139,16 +139,16 @@
             @elseif($project->image_path)
                 {{-- Single Image --}}
                 <div class="card-sacred overflow-hidden">
-                    <div class="aspect-video bg-black/40">
+                    <div class="aspect-[4/3] bg-black/40">
                         <img src="{{ image_url($project->image_path) }}"
                              alt="{{ $project->title }}"
-                             class="w-full h-full object-contain">
+                             class="w-full h-full object-cover">
                     </div>
                 </div>
             @else
                 {{-- Placeholder --}}
                 <div class="card-sacred overflow-hidden">
-                    <div class="aspect-video flex items-center justify-center"
+                    <div class="aspect-[4/3] flex items-center justify-center"
                          style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
                         <svg class="w-20 h-20 text-amber-800/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"

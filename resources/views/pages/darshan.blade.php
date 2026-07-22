@@ -54,7 +54,7 @@
                      any) + when darshan is next available. --}}
                 <div class="card-sacred overflow-hidden">
                     @if(isset($dailyDarshanPhoto) && $dailyDarshanPhoto?->image_path)
-                        <div class="aspect-video relative">
+                        <div class="aspect-[4/3] relative">
                             <img src="{{ image_url($dailyDarshanPhoto->image_path) }}"
                                  alt="{{ __('darshan.today') }}"
                                  class="absolute inset-0 w-full h-full object-cover">
@@ -106,15 +106,15 @@
                         : __('darshan.latest') }}
                 </h2>
                 <div class="card-sacred overflow-hidden">
-                    {{-- Image rendered at natural aspect ratio. Centered
-                         horizontally inside the card with the parchment
-                         surface showing around it for portrait crops. --}}
-                    <div class="flex items-center justify-center"
+                    {{-- 4:3 frame; deity photos may not be 4:3, so contain
+                         (never crop) — the parchment surface shows around
+                         portrait crops. --}}
+                    <div class="w-full aspect-[4/3] flex items-center justify-center"
                          style="background: radial-gradient(ellipse at bottom, #F4EAD5, #FBF5EA);">
                         <img src="{{ image_url($dailyDarshanPhoto->image_path) }}"
                              alt="{{ __('darshan.todays') }}"
                              loading="lazy"
-                             class="block max-w-full h-auto">
+                             class="max-w-full max-h-full object-contain">
                     </div>
                     <div class="px-5 py-3 bg-amber-900/20 border-t border-amber-800/30">
                         <p class="text-sm text-gold font-medium text-center">
@@ -162,7 +162,7 @@
                                     </svg>
                                 </div>
                                 <div>
-                                    <p class="text-xs text-amber-600 uppercase tracking-wide font-medium">{{ __('footer.morning') }}</p>
+                                    <p class="text-xs text-amber-600 font-medium">{{ __('footer.morning') }}</p>
                                     <p class="text-amber-100/70 font-semibold">
                                         {{ \Carbon\Carbon::parse($timing->morning_open)->format('h:i A') }}
                                         &ndash;
@@ -179,7 +179,7 @@
                                     </svg>
                                 </div>
                                 <div>
-                                    <p class="text-xs text-amber-600 uppercase tracking-wide font-medium">{{ __('footer.evening') }}</p>
+                                    <p class="text-xs text-amber-600 font-medium">{{ __('footer.evening') }}</p>
                                     <p class="text-amber-100/70 font-semibold">
                                         {{ \Carbon\Carbon::parse($timing->evening_open)->format('h:i A') }}
                                         &ndash;
@@ -196,7 +196,7 @@
                                     </svg>
                                 </div>
                                 <div>
-                                    <p class="text-xs text-amber-600 uppercase tracking-wide font-medium">{{ __('darshan.aarti') }}</p>
+                                    <p class="text-xs text-amber-600 font-medium">{{ __('darshan.aarti') }}</p>
                                     <p class="text-amber-100/70 font-semibold text-sm">
                                         {{ __('footer.morning') }}: {{ $timing->aarti_morning ? \Carbon\Carbon::parse($timing->aarti_morning)->format('h:i A') : '—' }}
                                     </p>

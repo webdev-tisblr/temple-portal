@@ -16,11 +16,11 @@
         .trust-name { font-size: 18px; font-weight: bold; color: #881337; margin-bottom: 3px; }
         .trust-address { font-size: 9px; color: #666; margin-bottom: 2px; }
         .trust-reg { font-size: 9px; color: #888; }
-        .receipt-title { font-size: 13px; font-weight: bold; color: #C87533; margin-top: 10px; text-transform: uppercase; letter-spacing: 2px; border: 1px solid #C87533; display: inline-block; padding: 4px 18px; }
+        .receipt-title { font-size: 13px; font-weight: bold; color: #C87533; margin-top: 10px; text-transform: uppercase; border: 1px solid #C87533; display: inline-block; padding: 4px 18px; }
 
         /* Sections */
         .section { margin-bottom: 14px; }
-        .section-title { font-size: 11px; font-weight: bold; color: #881337; border-bottom: 1px solid #E5D3B3; padding-bottom: 4px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .section-title { font-size: 11px; font-weight: bold; color: #881337; border-bottom: 1px solid #E5D3B3; padding-bottom: 4px; margin-bottom: 8px; text-transform: uppercase; }
 
         /* Two-column layout */
         .two-col { width: 100%; }
@@ -38,7 +38,7 @@
         .meta-bar { width: 100%; border-collapse: collapse; background: #FDF6EE; border: 1px solid #E5D3B3; margin-bottom: 16px; }
         .meta-bar td { padding: 8px 12px; text-align: center; border-right: 1px solid #E5D3B3; }
         .meta-bar td:last-child { border-right: none; }
-        .meta-bar .meta-label { font-size: 8px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; display: block; }
+        .meta-bar .meta-label { font-size: 8px; color: #888; text-transform: uppercase; display: block; }
         .meta-bar .meta-value { font-size: 12px; font-weight: bold; color: #881337; display: block; margin-top: 2px; }
 
         /* Amount box */

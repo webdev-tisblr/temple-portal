@@ -32,7 +32,7 @@
                             <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">Daan Tarikh</th>
                             <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">Rakam</th>
                             <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">Financial Year</th>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">{{ __('dashboard.download') }}</th>
+                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600">{{ __('dashboard.download') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-amber-900/15">

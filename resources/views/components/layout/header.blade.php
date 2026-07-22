@@ -23,6 +23,30 @@
             ->first();
     });
     $fmt = fn ($t) => $t ? \Carbon\Carbon::parse($t)->format('g:i A') : null;
+
+    // Announcement ribbon state (Admin → Website Display). Computed here —
+    // not in the partial — because the flow spacer below the header must
+    // mirror the ribbon's visibility, and include vars don't leak upward.
+    $display = \Illuminate\Support\Facades\Cache::remember('site.display.v1', 300, function () {
+        return \App\Models\SystemSetting::query()
+            ->where('key', 'like', 'site_%')
+            ->pluck('value', 'key')
+            ->all();
+    });
+
+    $rbEnabled = ($display['site_ribbon_enabled'] ?? '') === '1';
+    $now = now();
+    $rbFrom = $display['site_ribbon_starts_at'] ?? '';
+    $rbTo = $display['site_ribbon_ends_at'] ?? '';
+    $rbLive = $rbEnabled
+        && ($rbFrom === '' || $now->greaterThanOrEqualTo($rbFrom))
+        && ($rbTo === '' || $now->lessThanOrEqualTo($rbTo));
+
+    $locale = app()->getLocale();
+    $rbText = $display["site_ribbon_text_{$locale}"] ?? '';
+    $rbText = $rbText !== '' ? $rbText : ($display['site_ribbon_text_gu'] ?? '');
+    $rbLink = $display['site_ribbon_link'] ?? '';
+    $rbKey = substr(sha1($rbText), 0, 8);
 @endphp
 
 <header x-data="{ mobileMenu: false, scrolled: false, m: null }"
@@ -222,4 +246,13 @@
 
 {{-- Spacer: clears the un-scrolled header (strip 40px + bar) on desktop,
      the compact bar on mobile. --}}
+{{-- Ribbon spacer: mirrors the in-header ribbon's height (h-9 on both) so
+     the fixed header never overlaps content while the ribbon is live.
+     Dismiss stays in sync via the ribbon's $dispatch('ribbon-dismissed'). --}}
+@if($rbLive && $rbText !== '')
+    <div x-data="{ open: localStorage.getItem('ribbon_{{ $rbKey }}') !== '1' }"
+         x-show="open" x-cloak
+         @ribbon-dismissed.window="open = false"
+         class="h-9" aria-hidden="true"></div>
+@endif
 <div class="h-16 lg:h-[120px]"></div>

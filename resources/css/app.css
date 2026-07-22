@@ -27,6 +27,17 @@
 }
 
 @layer components {
+    /* Eyebrow label above headings. Letter-spacing and uppercase are
+       Latin-only effects — tracking splits Gujarati/Devanagari conjuncts
+       and matras, so they apply only when the page language is English. */
+    .eyebrow {
+        font-weight: 700;
+    }
+    html[lang="en"] .eyebrow {
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+    }
+
     /* Sacred section heading with ornamental divider */
     .divine-heading {
         @apply text-3xl sm:text-4xl lg:text-5xl text-center;

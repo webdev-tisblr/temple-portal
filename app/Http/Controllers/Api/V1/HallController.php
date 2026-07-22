@@ -92,7 +92,7 @@ class HallController extends BaseApiController
 
         $month = $request->query('month');
         $monthStart = \Carbon\Carbon::createFromFormat('!Y-m', $month);
-        if ($monthStart->lt(now()->startOfMonth()) || $monthStart->gt(now()->startOfMonth()->addYears(5))) {
+        if ($monthStart->lt(now()->startOfMonth()) || $monthStart->gt(now()->startOfMonth()->addYears(10))) {
             return $this->error('Month out of the bookable range.', 422);
         }
 

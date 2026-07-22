@@ -381,11 +381,11 @@ function slotPicker(sevaId) {
         datesLoading: false,
         selectedYear: currentYear,
         selectedMonth: currentMonthNum,
-        years: Array.from({ length: 6 }, (_, i) => currentYear + i),
+        years: Array.from({ length: 11 }, (_, i) => currentYear + i),
 
         monthOptions() {
             const start = this.selectedYear === currentYear ? currentMonthNum : 1;
-            const end = this.selectedYear === currentYear + 5 ? currentMonthNum : 12;
+            const end = this.selectedYear === currentYear + 10 ? currentMonthNum : 12;
             const opts = [];
             for (let m = start; m <= end; m++) {
                 opts.push({ value: m, label: localizedMonthName(m) });

@@ -23,7 +23,7 @@
                             <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">Tarikh</th>
                             <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">Samay (Slot)</th>
                             <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">Rakam</th>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">{{ __('common.status') }}</th>
+                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600">{{ __('common.status') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-amber-900/15">

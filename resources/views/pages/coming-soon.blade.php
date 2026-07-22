@@ -43,7 +43,7 @@
         <div class="inline-flex items-center gap-2 px-5 py-2 rounded-full border mb-6"
              style="background: rgba(232,117,26,0.10); border-color: rgba(200,148,52,0.45);">
             <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background: #E8751A;"></span>
-            <span class="text-sm tracking-[0.2em] uppercase font-medium" style="color: #7A1E1E;">{{ __('home.hero_jai') }}</span>
+            <span class="text-sm eyebrow" style="color: #7A1E1E;">{{ __('home.hero_jai') }}</span>
             <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background: #E8751A;"></span>
         </div>
 

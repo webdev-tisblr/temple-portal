@@ -9,7 +9,7 @@
                 <img src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="{{ __('common.temple_name') }}" class="w-20 h-20 rounded-full mx-auto diya-glow opacity-60" style="box-shadow: 0 0 30px rgba(196,154,42,0.2);">
             </div>
         @endif
-        <span class="absolute top-3 left-3 px-2.5 py-1 text-[9px] font-bold uppercase rounded-full shadow-sm"
+        <span class="absolute top-3 left-3 px-2.5 py-1 text-[9px] font-bold rounded-full shadow-sm"
               style="background: rgba(255,252,245,0.92); color: #7A1E1E; border: 1px solid rgba(200,148,52,0.55); backdrop-filter: blur(4px);">
             {{ $seva->getRawOriginal('category') }}
         </span>

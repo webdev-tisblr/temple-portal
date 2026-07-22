@@ -3,7 +3,7 @@
     <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div class="grid md:grid-cols-2 rounded-3xl overflow-hidden" style="background:#7A1E1E; color:#F7EAD0;">
             <div class="p-8 sm:p-12">
-                <p class="text-[11px] tracking-[0.24em] font-bold" style="color:#E0A35C;">{{ __('home.community_hall') }}</p>
+                <p class="text-[11px] eyebrow" style="color:#E0A35C;">{{ __('home.community_hall') }}</p>
                 <h2 class="font-marcellus text-2xl sm:text-3xl mt-3 leading-snug" style="color:#FFFFFF;">{{ $hall->name }}</h2>
                 @if($hall->description)
                     <p class="text-sm opacity-80 mt-3 leading-relaxed">{{ text_preview($hall->description, 160) }}</p>

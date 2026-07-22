@@ -64,7 +64,7 @@ class SevaController extends BaseApiController
     /**
      * Return the bookable dates for this seva. Two modes:
      *   • month=YYYY-MM — every bookable date in that calendar month
-     *     (Year → Month picker; up to 5 years ahead)
+     *     (Year → Month picker; up to 10 years ahead)
      *   • days=N (default 30) — legacy rolling window, kept for old
      *     app builds.
      */
@@ -77,7 +77,7 @@ class SevaController extends BaseApiController
 
         if (($month = $request->query('month')) !== null) {
             $monthStart = \Carbon\Carbon::createFromFormat('!Y-m', $month);
-            if ($monthStart->lt(now()->startOfMonth()) || $monthStart->gt(now()->startOfMonth()->addYears(5))) {
+            if ($monthStart->lt(now()->startOfMonth()) || $monthStart->gt(now()->startOfMonth()->addYears(10))) {
                 return $this->error('Month out of the bookable range.', 422);
             }
 

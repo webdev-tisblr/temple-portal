@@ -6,7 +6,7 @@ return [
     'hero_subtitle' => 'Antarjaal, Gandhidham, Kutch — a living seat of Hanumanji\'s grace',
     'of' => 'of',
     'support_dham' => 'SUPPORT THE DHAM',
-    'receive_blessings' => 'RECEIVE HIS BLESSINGS',
+    'receive_blessings' => 'Receive his blessings',
     'featured' => 'FEATURED',
     'donation_campaigns' => 'Donation Campaigns',
     'festival' => 'FESTIVALS & EVENTS',

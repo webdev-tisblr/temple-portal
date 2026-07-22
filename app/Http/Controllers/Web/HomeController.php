@@ -156,14 +156,6 @@ class HomeController extends Controller
             return \App\Models\Hall::where('is_active', true)->first();
         });
 
-        $announcement = Cache::remember('home.announcement.v1', 600, fn () =>
-            \App\Models\Announcement::where('is_active', true)
-                ->where(fn ($q) => $q->whereNull('published_at')->orWhere('published_at', '<=', now()))
-                ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>=', now()))
-                ->latest('published_at')
-                ->first()
-        );
-
         $visit = [
             'address' => SystemSetting::getValue('trust_address', 'અંતરજાળ, ગાંધીધામ, કચ્છ — 370110'),
             'phone' => SystemSetting::getValue('trust_phone', ''),
@@ -190,7 +182,6 @@ class HomeController extends Controller
             'todayTiming',
             'closesAt',
             'hall',
-            'announcement',
             'visit',
         ));
     }

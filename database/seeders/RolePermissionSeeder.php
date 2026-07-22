@@ -46,8 +46,6 @@ class RolePermissionSeeder extends Seeder
      */
     private const RESOURCE_SLUGS = [
         'admin::user',
-        'announcement',
-        'blog::post',
         'contact::submission',
         'daily::darshan::photo',
         'devotee',
@@ -202,8 +200,6 @@ class RolePermissionSeeder extends Seeder
             'trustee' => array_merge(
                 ['panel_user'],
                 // Content management — create/update across the site
-                $crud('announcement'),
-                $crud('blog::post'),
                 $crud('daily::darshan::photo'),
                 $crud('event'),
                 $crud('gallery'),
@@ -290,8 +286,6 @@ class RolePermissionSeeder extends Seeder
                 $readOnly('hall'),
                 $readOnly('product'),
                 $readOnly('event'),
-                $readOnly('announcement'),
-                $readOnly('blog::post'),
                 $readOnly('gallery'),
                 $readOnly('daily::darshan::photo'),
                 $readOnly('donation'),
@@ -310,7 +304,6 @@ class RolePermissionSeeder extends Seeder
                 $readOnly('devotee'),
                 $readOnly('seva::booking'),
                 $readOnly('event'),
-                $readOnly('announcement'),
                 $readOnly('gallery'),
                 $readOnly('daily::darshan::photo'),
             ),

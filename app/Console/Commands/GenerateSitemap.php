@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Enums\PageStatus;
-use App\Models\BlogPost;
 use App\Models\Page;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -39,7 +38,6 @@ class GenerateSitemap extends Command
             '/events'    => ['priority' => 0.8, 'changefreq' => Url::CHANGE_FREQUENCY_WEEKLY],
             '/gallery'   => ['priority' => 0.7, 'changefreq' => Url::CHANGE_FREQUENCY_WEEKLY],
             '/contact'   => ['priority' => 0.6, 'changefreq' => Url::CHANGE_FREQUENCY_MONTHLY],
-            '/blog'      => ['priority' => 0.7, 'changefreq' => Url::CHANGE_FREQUENCY_WEEKLY],
             '/rules'     => ['priority' => 0.5, 'changefreq' => Url::CHANGE_FREQUENCY_MONTHLY],
             '/trustees'  => ['priority' => 0.5, 'changefreq' => Url::CHANGE_FREQUENCY_MONTHLY],
         ];
@@ -62,19 +60,6 @@ class GenerateSitemap extends Command
                         ->setPriority(0.6)
                         ->setChangeFrequency(Url::CHANGE_FREQUENCY_MONTHLY)
                         ->setLastModificationDate($page->updated_at ?? now())
-                );
-            });
-
-        // Dynamic Blog Posts (published)
-        BlogPost::where('status', PageStatus::PUBLISHED)
-            ->whereNotNull('slug')
-            ->cursor()
-            ->each(function (BlogPost $post) use ($sitemap, $baseUrl) {
-                $sitemap->add(
-                    Url::create($baseUrl . '/blog/' . ltrim($post->slug, '/'))
-                        ->setPriority(0.7)
-                        ->setChangeFrequency(Url::CHANGE_FREQUENCY_WEEKLY)
-                        ->setLastModificationDate($post->updated_at ?? now())
                 );
             });
 

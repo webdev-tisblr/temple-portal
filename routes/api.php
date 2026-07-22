@@ -52,7 +52,10 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     });
 
     // Content (public)
-    Route::get('/content/announcements', [ContentController::class, 'announcements']);
+    // Legacy stub — Announcements removed 2026-07. Old app builds still
+    // call this; drop once app_min_version >= the release without blog UI.
+    Route::get('/content/announcements', fn () => response()->json(
+        ['success' => true, 'message' => 'Success', 'data' => []]));
     Route::get('/content/live-darshan', [ContentController::class, 'liveDarshan']);
     Route::get('/content/darshan-timings', [ContentController::class, 'darshanTimings']);
     Route::get('/content/daily-darshan-photo', [ContentController::class, 'dailyDarshanPhoto']);
@@ -90,9 +93,13 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::get('/halls/{hall}/availability', [HallController::class, 'availability']);
     Route::get('/halls/{hall}/available-dates', [HallController::class, 'availableDates']);
 
-    // Public: Blog
-    Route::get('/blog', [ContentController::class, 'blog']);
-    Route::get('/blog/{slug}', [ContentController::class, 'blogDetail']);
+    // Legacy stubs — Blog removed 2026-07. Old app builds still call
+    // these; drop once app_min_version >= the release without blog UI.
+    Route::get('/blog', fn () => response()->json(
+        ['success' => true, 'message' => 'Success',
+         'data' => ['posts' => [], 'meta' => ['current_page' => 1, 'last_page' => 1, 'total' => 0]]]));
+    Route::get('/blog/{slug}', fn () => response()->json(
+        ['success' => false, 'message' => 'Post not found'], 404));
 
     // Public: Contact & Donation Types
     // Tighter throttle: contact form is a spam/abuse target.

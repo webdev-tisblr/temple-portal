@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Models\Announcement;
-use App\Models\BlogPost;
 use App\Models\ContactSubmission;
 use App\Models\DailyDarshanPhoto;
 use App\Models\DarshanTiming;
@@ -24,38 +22,6 @@ use Illuminate\Support\Facades\RateLimiter;
 
 class ContentController extends BaseApiController
 {
-    /**
-     * Return active, non-expired announcements.
-     * Cached for 15 minutes.
-     */
-    public function announcements(): JsonResponse
-    {
-        $announcements = \App\Support\LocalizedCache::remember('announcements.active.v2', 900, function () {
-            return Announcement::query()
-                ->where('is_active', true)
-                ->where(function ($q) {
-                    $q->whereNull('expires_at')
-                        ->orWhere('expires_at', '>', now());
-                })
-                ->orderByDesc('is_urgent')
-                ->orderByDesc('published_at')
-                ->get()
-                ->map(fn (Announcement $announcement) => [
-                    'id' => $announcement->id,
-                    'title' => $announcement->title,
-                    'body' => $announcement->body,
-                    'image_url' => $announcement->image_path
-                        ? image_url($announcement->image_path)
-                        : null,
-                    'is_urgent' => $announcement->is_urgent,
-                    'published_at' => $announcement->published_at?->toISOString(),
-                    'expires_at' => $announcement->expires_at?->toISOString(),
-                ]);
-        });
-
-        return $this->success($announcements);
-    }
-
     /**
      * Return the latest active daily darshan photo for sharing in the app.
      */
@@ -435,105 +401,6 @@ class ContentController extends BaseApiController
         ]);
 
         return $this->success($events);
-    }
-
-    /**
-     * Return published blog posts.
-     */
-    public function blog(Request $request): JsonResponse
-    {
-        $query = BlogPost::where('status', 'published')
-            ->orderByDesc('published_at');
-
-        if ($request->query('category')) {
-            $query->where('category', $request->query('category'));
-        }
-
-        $posts = $query->paginate(20);
-
-        $data = $posts->getCollection()->map(fn (BlogPost $post) => [
-            'id' => $post->id,
-            'slug' => $post->slug,
-            'title' => $post->title,
-            'title_gu' => $post->title_gu,
-            'title_hi' => $post->title_hi,
-            'title_en' => $post->title_en,
-            'excerpt' => $post->excerpt_gu,
-            'featured_image_url' => $post->featured_image_path ? image_url($post->featured_image_path) : null,
-            'category' => $post->category,
-            'published_at' => $post->published_at?->toISOString(),
-        ]);
-
-        return $this->success([
-            'posts' => $data,
-            'meta' => [
-                'current_page' => $posts->currentPage(),
-                'last_page' => $posts->lastPage(),
-                'total' => $posts->total(),
-            ],
-        ]);
-    }
-
-    /**
-     * Return a single blog post by slug.
-     */
-    public function blogDetail(string $slug): JsonResponse
-    {
-        $post = BlogPost::where('slug', $slug)->where('status', 'published')->first();
-
-        if (! $post) {
-            return $this->error('Post not found', 404);
-        }
-
-        return $this->success([
-            'id' => $post->id,
-            'slug' => $post->slug,
-            'title' => $post->title,
-            'title_gu' => $post->title_gu,
-            'title_hi' => $post->title_hi,
-            'title_en' => $post->title_en,
-            // HTML-stripped plain text for mobile; preserves paragraph/line breaks.
-            'body' => $this->htmlToPlainText($post->body),
-            'body_gu' => $this->htmlToPlainText($post->body_gu),
-            'body_hi' => $this->htmlToPlainText($post->body_hi),
-            'body_en' => $this->htmlToPlainText($post->body_en),
-            // Raw HTML fields for web/clients that render rich text.
-            'body_html' => $post->body,
-            'body_html_gu' => $post->body_gu,
-            'body_html_hi' => $post->body_hi,
-            'body_html_en' => $post->body_en,
-            'featured_image_url' => $post->featured_image_path ? image_url($post->featured_image_path) : null,
-            'category' => $post->category,
-            'published_at' => $post->published_at?->toISOString(),
-        ]);
-    }
-
-    /**
-     * Convert RichEditor HTML to readable plain text, preserving paragraph breaks.
-     */
-    private function htmlToPlainText(?string $html): ?string
-    {
-        if ($html === null || $html === '') {
-            return $html;
-        }
-
-        // Convert block-level closings and <br> to newlines so paragraphs stay separated.
-        $normalised = preg_replace(
-            ['#</(p|div|h[1-6]|li|blockquote)>#i', '#<br\s*/?>#i'],
-            ["\n\n", "\n"],
-            $html
-        );
-
-        // Strip remaining tags.
-        $plain = strip_tags($normalised);
-
-        // Decode entities (&nbsp;, &amp;, Gujarati numeric entities, etc.).
-        $plain = html_entity_decode($plain, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-
-        // Collapse excess blank lines and trim.
-        $plain = preg_replace("/\n{3,}/", "\n\n", $plain);
-
-        return trim($plain);
     }
 
     /**

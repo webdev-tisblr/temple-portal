@@ -6,7 +6,6 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\NotificationResource\Pages;
 use App\Jobs\SendPushNotification;
-use App\Models\BlogPost;
 use App\Models\Devotee;
 use App\Models\DonationCampaign;
 use App\Models\Event;
@@ -114,7 +113,6 @@ class NotificationResource extends Resource
                             'seva-detail' => 'Seva',
                             'campaign-detail' => 'Campaign',
                             'event-detail' => 'Event',
-                            'blog-detail' => 'Blog post',
                             default => 'Target',
                         })
                         ->options(function (Get $get): array {
@@ -122,7 +120,6 @@ class NotificationResource extends Resource
                                 'seva-detail' => Seva::query()->orderBy('name_gu')->pluck('name_gu', 'id')->all(),
                                 'campaign-detail' => DonationCampaign::query()->orderBy('title_gu')->pluck('title_gu', 'id')->all(),
                                 'event-detail' => Event::query()->orderByDesc('start_date')->pluck('title_gu', 'id')->all(),
-                                'blog-detail' => BlogPost::query()->orderBy('title_gu')->pluck('title_gu', 'slug')->all(),
                                 default => [],
                             };
                         })
@@ -130,12 +127,12 @@ class NotificationResource extends Resource
                         ->preload()
                         ->required(fn (Get $get): bool => in_array(
                             $get('intent'),
-                            ['seva-detail', 'campaign-detail', 'event-detail', 'blog-detail'],
+                            ['seva-detail', 'campaign-detail', 'event-detail'],
                             true,
                         ))
                         ->visible(fn (Get $get): bool => in_array(
                             $get('intent'),
-                            ['seva-detail', 'campaign-detail', 'event-detail', 'blog-detail'],
+                            ['seva-detail', 'campaign-detail', 'event-detail'],
                             true,
                         )),
                 ]),
@@ -412,8 +409,6 @@ class NotificationResource extends Resource
             'seva-detail' => 'Specific seva',
             'events' => 'Events list',
             'event-detail' => 'Specific event',
-            'blog' => 'Blog',
-            'blog-detail' => 'Specific blog post',
             'halls' => 'Halls list',
             'store' => 'Store',
             'profile' => 'Profile',

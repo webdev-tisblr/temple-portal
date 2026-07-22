@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Web\AuthWebController;
-use App\Http\Controllers\Web\BlogController;
 use App\Http\Controllers\Web\ContactController;
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\DonationWebController;
@@ -80,9 +79,9 @@ Route::get('/bhojanalay', [FacilityController::class, 'bhojanalay'])->name('bhoj
 Route::get('/yatriwas', [FacilityController::class, 'yatriwas'])->name('yatriwas');
 Route::get('/places-around', [FacilityController::class, 'placesAround'])->name('places');
 
-// Blog
-Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
-Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
+// Blog module removed 2026-07 — permanent redirects for old links.
+Route::redirect('/blog', '/', 301);
+Route::redirect('/blog/{slug}', '/', 301);
 
 // Contact
 Route::get('/contact', [ContactController::class, 'index'])->name('contact');
@@ -189,7 +188,7 @@ Route::get('/admin-tools/storage-repair', function () {
 
     // Pre-create the upload directories so the symlink resolves to real folders.
     $publicDirs = [
-        'announcements', 'blog', 'campaigns', 'daily-darshan', 'daily-darshan-photos',
+        'campaigns', 'daily-darshan', 'daily-darshan-photos',
         'donation-extras', 'events', 'gallery', 'greeting-templates', 'halls',
         'pages', 'product-categories', 'product-images', 'products',
         'profile-photos', 'sevas',

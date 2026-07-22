@@ -15,6 +15,14 @@ class DonationType extends Model
 
     protected $table = 'temple_donation_types';
 
+    protected static function booted(): void
+    {
+        // Bust the API donation-types list on any admin change.
+        $bust = fn () => \App\Support\LocalizedCache::forget('donation_types.active');
+        static::saved($bust);
+        static::deleted($bust);
+    }
+
     protected function managedImages(): array
     {
         return ['greeting_card_template' => 'r2'];

@@ -13,6 +13,20 @@ class GalleryImage extends Model
 
     protected $table = 'temple_gallery_images';
 
+    protected static function booted(): void
+    {
+        // Bust home preview + API gallery lists (all + per-category, old and new category).
+        $bust = static function (self $model): void {
+            \Illuminate\Support\Facades\Cache::forget('homepage_gallery_preview');
+            \App\Support\LocalizedCache::forget('gallery.all');
+            foreach (array_unique(array_filter([$model->category, $model->getOriginal('category')])) as $cat) {
+                \App\Support\LocalizedCache::forget("gallery.{$cat}");
+            }
+        };
+        static::saved($bust);
+        static::deleted($bust);
+    }
+
     protected function managedImages(): array
     {
         return [

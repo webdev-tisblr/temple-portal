@@ -15,6 +15,14 @@ class Event extends Model
 
     protected $table = 'temple_events';
 
+    protected static function booted(): void
+    {
+        // Bust the home page events carousel on any admin change.
+        $bust = fn () => \Illuminate\Support\Facades\Cache::forget('homepage_events');
+        static::saved($bust);
+        static::deleted($bust);
+    }
+
     public function media(): HasMany
     {
         return $this->hasMany(EventMedia::class, 'event_id')->orderBy('sort_order')->orderBy('id');

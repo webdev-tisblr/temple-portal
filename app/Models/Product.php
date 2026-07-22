@@ -16,6 +16,17 @@ class Product extends Model
 
     protected $table = 'temple_products';
 
+    protected static function booted(): void
+    {
+        // Bust the store landing caches (featured strip + category counts) on any change.
+        $bust = static function (): void {
+            \Illuminate\Support\Facades\Cache::forget('store_featured_products');
+            \Illuminate\Support\Facades\Cache::forget('store_categories_with_counts');
+        };
+        static::saved($bust);
+        static::deleted($bust);
+    }
+
     protected function managedImages(): array
     {
         return ['image_path' => 'r2'];

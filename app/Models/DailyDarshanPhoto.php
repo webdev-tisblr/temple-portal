@@ -13,6 +13,14 @@ class DailyDarshanPhoto extends Model
 
     protected $table = 'temple_daily_darshan_photos';
 
+    protected static function booted(): void
+    {
+        // Bust the darshan page's daily photo cache on any admin change.
+        $bust = fn () => \Illuminate\Support\Facades\Cache::forget('darshan_page_daily_photo');
+        static::saved($bust);
+        static::deleted($bust);
+    }
+
     protected function managedImages(): array
     {
         return ['image_path' => 'r2'];

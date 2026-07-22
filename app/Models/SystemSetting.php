@@ -67,5 +67,6 @@ class SystemSetting extends Model
     public static function forgetCache(): void
     {
         Cache::forget(self::CACHE_KEY);
+        Cache::forget('content.temple_info.v1'); // API temple-info payload built from these settings
     }
 }

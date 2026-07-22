@@ -25,7 +25,10 @@ class SevaWebController extends Controller
 {
     public function index(): View
     {
-        $sevas = Cache::remember('active_sevas', 600, function () {
+        // Distinct key from the API list cache — the API caches a paginator
+        // under active_sevas*, and sharing a key let whichever ran first
+        // serve the wrong shape (web list silently truncated to 20).
+        $sevas = Cache::remember('web_active_sevas', 600, function () {
             return Seva::where('is_active', true)
                 ->orderBy('sort_order')
                 ->get();

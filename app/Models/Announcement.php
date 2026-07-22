@@ -13,6 +13,17 @@ class Announcement extends Model
 
     protected $table = 'temple_announcements';
 
+    protected static function booted(): void
+    {
+        // Bust the home ticker + API announcements list on any admin change.
+        $bust = static function (): void {
+            \Illuminate\Support\Facades\Cache::forget('home.announcement.v1');
+            \App\Support\LocalizedCache::forget('announcements.active.v2');
+        };
+        static::saved($bust);
+        static::deleted($bust);
+    }
+
     protected function managedImages(): array
     {
         return ['image_path' => 'r2'];

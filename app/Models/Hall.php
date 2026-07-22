@@ -14,6 +14,17 @@ class Hall extends Model
 
     protected $table = 'temple_halls';
 
+    protected static function booted(): void
+    {
+        // Bust the API halls list + home page hall card on any admin change.
+        $bust = static function (): void {
+            \App\Support\LocalizedCache::forget('halls.active');
+            \Illuminate\Support\Facades\Cache::forget('home.hall.v1');
+        };
+        static::saved($bust);
+        static::deleted($bust);
+    }
+
     protected function managedImages(): array
     {
         return ['image_path' => 'r2'];

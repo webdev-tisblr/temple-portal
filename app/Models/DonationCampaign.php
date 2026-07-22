@@ -14,6 +14,14 @@ class DonationCampaign extends Model
 
     protected $table = 'temple_donation_campaigns';
 
+    protected static function booted(): void
+    {
+        // Bust the home page campaigns block on any admin change.
+        $bust = fn () => \Illuminate\Support\Facades\Cache::forget('homepage_campaigns');
+        static::saved($bust);
+        static::deleted($bust);
+    }
+
     protected function managedImages(): array
     {
         return ['image_path' => 'r2'];

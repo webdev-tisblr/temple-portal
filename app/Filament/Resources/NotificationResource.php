@@ -26,7 +26,7 @@ class NotificationResource extends Resource
     protected static ?string $model = Notification::class;
     protected static ?string $navigationIcon = 'heroicon-o-megaphone';
     protected static ?string $navigationGroup = 'Communication';
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 10;
     protected static ?string $navigationLabel = 'Push Notifications';
     protected static ?string $modelLabel = 'Push notification';
     protected static ?string $pluralModelLabel = 'Push notifications';

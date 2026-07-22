@@ -17,9 +17,9 @@ class DailyDarshanPhotoResource extends Resource
 
     protected static ?string $model = DailyDarshanPhoto::class;
     protected static ?string $navigationIcon = 'heroicon-o-camera';
-    protected static ?string $navigationGroup = 'Content';
-    protected static ?int $navigationSort = 4;
-    protected static ?string $navigationLabel = 'Daily Darshan Photo';
+    protected static ?string $navigationGroup = 'Content Management';
+    protected static ?int $navigationSort = 10;
+    protected static ?string $navigationLabel = 'Daily Darshan';
     protected static ?string $modelLabel = 'Daily Darshan Photo';
     protected static ?string $pluralModelLabel = 'Daily Darshan Photos';
 

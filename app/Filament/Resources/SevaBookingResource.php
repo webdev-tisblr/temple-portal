@@ -19,9 +19,9 @@ class SevaBookingResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-bookmark';
 
-    protected static ?string $navigationGroup = 'Temple Management';
+    protected static ?string $navigationGroup = 'Booking & Donation Reports';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $modelLabel = 'Seva Booking';
 

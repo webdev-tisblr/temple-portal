@@ -37,7 +37,7 @@ return [
 
     // ── Local overrides ──────────────────────────────────────────
     'nav.group' => 'System',
-    'nav.role.label' => 'Roles',
+    'nav.role.label' => 'Roles & Permissions',
     'nav.role.icon' => 'heroicon-o-key',
     // ─────────────────────────────────────────────────────────────
 

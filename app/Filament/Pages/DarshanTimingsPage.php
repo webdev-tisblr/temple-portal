@@ -19,9 +19,9 @@ class DarshanTimingsPage extends Page implements HasForms
     use InteractsWithForms;
 
     protected static ?string $navigationIcon = 'heroicon-o-clock';
-    protected static ?string $navigationGroup = 'Temple Management';
+    protected static ?string $navigationGroup = 'Portal Setup';
     protected static ?string $title = 'Darshan Timings';
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 10;
 
     protected static string $view = 'filament.pages.darshan-timings';
 
@@ -135,6 +135,7 @@ class DarshanTimingsPage extends Page implements HasForms
         Cache::forget('darshan_timings');
         Cache::forget('darshan_timings_all');
         Cache::forget('header_strip_timing');
+        Cache::forget('home.today_timing.v1'); // home badge/ticker timing row
         \App\Support\LocalizedCache::forget('darshan_timings.active');
 
         Notification::make()->title('Darshan timings & rules updated')->success()->send();

@@ -18,9 +18,9 @@ class PageResource extends Resource
 
     protected static ?string $model = Page::class;
     protected static ?string $navigationIcon = 'heroicon-o-document-duplicate';
-    protected static ?string $navigationGroup = 'Content';
+    protected static ?string $navigationGroup = 'One-Time Setup';
     protected static ?string $navigationLabel = 'CMS Pages';
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 20;
 
     /**
      * The block palette for the page builder — shared across all three

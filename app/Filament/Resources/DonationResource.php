@@ -22,9 +22,9 @@ class DonationResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-gift';
 
-    protected static ?string $navigationGroup = 'Donations & Finance';
+    protected static ?string $navigationGroup = 'Booking & Donation Reports';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 10;
 
     public static function canCreate(): bool
     {

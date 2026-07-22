@@ -17,8 +17,8 @@ class HallBookingResource extends Resource
 
     protected static ?string $model = HallBooking::class;
     protected static ?string $navigationIcon = 'heroicon-o-building-office';
-    protected static ?string $navigationGroup = 'Temple Management';
-    protected static ?int $navigationSort = 3;
+    protected static ?string $navigationGroup = 'Booking & Donation Reports';
+    protected static ?int $navigationSort = 40;
 
     public static function canCreate(): bool
     {

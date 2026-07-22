@@ -19,9 +19,9 @@ class DevoteeResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
 
-    protected static ?string $navigationGroup = 'Temple Management';
+    protected static ?string $navigationGroup = 'Booking & Donation Reports';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 50;
 
     public static function form(Form $form): Form
     {

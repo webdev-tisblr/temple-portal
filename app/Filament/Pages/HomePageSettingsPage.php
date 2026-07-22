@@ -37,8 +37,8 @@ class HomePageSettingsPage extends Page implements HasForms
     protected static ?string $navigationIcon = 'heroicon-o-home-modern';
     protected static ?string $navigationGroup = 'Content Management';
     protected static ?string $title = 'Home Page Settings';
-    protected static ?string $navigationLabel = 'Home Page Settings';
-    protected static ?int $navigationSort = 1;
+    protected static ?string $navigationLabel = 'Home Page Design';
+    protected static ?int $navigationSort = 30;
 
     protected static string $view = 'filament.pages.home-page-settings';
 

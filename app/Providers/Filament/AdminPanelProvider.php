@@ -38,10 +38,12 @@ class AdminPanelProvider extends PanelProvider
                 'warning' => Color::Amber,
             ])
             ->navigationGroups([
-                NavigationGroup::make('Temple Management'),
-                NavigationGroup::make('Temple Store'),
-                NavigationGroup::make('Donations & Finance'),
-                NavigationGroup::make('Content'),
+                NavigationGroup::make('Content Management'),
+                NavigationGroup::make('Booking & Donation Reports'),
+                NavigationGroup::make('Store'),
+                NavigationGroup::make('Financial Reports'),
+                NavigationGroup::make('Portal Setup'),
+                NavigationGroup::make('One-Time Setup'),
                 NavigationGroup::make('Communication'),
                 NavigationGroup::make('System'),
             ])

@@ -26,9 +26,9 @@ class SevaResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-hand-raised';
 
-    protected static ?string $navigationGroup = 'Temple Management';
+    protected static ?string $navigationGroup = 'Portal Setup';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 30;
 
     public static function form(Form $form): Form
     {

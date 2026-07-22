@@ -19,9 +19,9 @@ class ContactSubmissionResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-envelope';
 
-    protected static ?string $navigationGroup = 'Content';
+    protected static ?string $navigationGroup = 'Communication';
 
-    protected static ?int $navigationSort = 99;
+    protected static ?int $navigationSort = 40;
 
     protected static ?string $navigationLabel = 'Contact Messages';
 

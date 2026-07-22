@@ -22,9 +22,9 @@ class FinancialReports extends Page implements HasForms, HasTable
     use InteractsWithForms, InteractsWithTable;
 
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
-    protected static ?string $navigationGroup = 'Donations & Finance';
+    protected static ?string $navigationGroup = 'Financial Reports';
     protected static ?string $title = 'Financial Reports';
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 10;
 
     protected static string $view = 'filament.pages.financial-reports';
 

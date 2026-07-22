@@ -21,9 +21,9 @@ class DonationCampaignResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-megaphone';
 
-    protected static ?string $navigationGroup = 'Donations & Finance';
+    protected static ?string $navigationGroup = 'Booking & Donation Reports';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 30;
 
     public static function form(Form $form): Form
     {

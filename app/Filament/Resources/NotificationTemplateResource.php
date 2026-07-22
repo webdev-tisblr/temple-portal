@@ -28,7 +28,7 @@ class NotificationTemplateResource extends Resource
 
     protected static ?string $navigationGroup = 'Communication';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $navigationLabel = 'Email · WhatsApp · SMS';
 

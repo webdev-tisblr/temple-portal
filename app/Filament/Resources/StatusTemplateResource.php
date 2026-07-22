@@ -26,7 +26,7 @@ class StatusTemplateResource extends Resource
     protected static ?string $navigationGroup = 'Content Management';
     protected static ?string $navigationLabel = 'Status Templates';
     protected static ?string $modelLabel = 'Status Template';
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 20;
 
     public static function form(Form $form): Form
     {

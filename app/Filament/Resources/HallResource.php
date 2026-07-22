@@ -17,8 +17,8 @@ class HallResource extends Resource
 
     protected static ?string $model = Hall::class;
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
-    protected static ?string $navigationGroup = 'Temple Management';
-    protected static ?int $navigationSort = 5;
+    protected static ?string $navigationGroup = 'Portal Setup';
+    protected static ?int $navigationSort = 50;
 
     public static function form(Form $form): Form
     {

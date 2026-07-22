@@ -21,6 +21,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->api(prepend: [
             \App\Http\Middleware\ForceJsonResponse::class,
+        ], append: [
+            // Resolve the app's language (X-Locale header) so localized
+            // model accessors serialise in the caller's locale.
+            \App\Http\Middleware\SetApiLocale::class,
         ]);
         $middleware->encryptCookies(except: ['locale']);
         $middleware->alias([

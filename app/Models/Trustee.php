@@ -17,7 +17,7 @@ class Trustee extends Model
 
     protected static function booted(): void
     {
-        $bust = fn () => Cache::forget('content.trustees.v1');
+        $bust = fn () => \App\Support\LocalizedCache::forget('content.trustees.v1');
         static::saved($bust);
         static::deleted($bust);
     }

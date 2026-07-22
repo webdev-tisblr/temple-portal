@@ -25,7 +25,7 @@ class StatusTemplate extends Model
 
     protected static function booted(): void
     {
-        $bust = fn () => Cache::forget('content.status_templates.v1');
+        $bust = fn () => \App\Support\LocalizedCache::forget('content.status_templates.v1');
         static::saved($bust);
         static::deleted($bust);
     }

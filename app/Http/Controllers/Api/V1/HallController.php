@@ -20,7 +20,7 @@ class HallController extends BaseApiController
 {
     public function index(): JsonResponse
     {
-        $halls = Cache::remember('halls.active', 900, function () {
+        $halls = \App\Support\LocalizedCache::remember('halls.active', 900, function () {
             return Hall::where('is_active', true)
                 ->with('media')
                 ->get()

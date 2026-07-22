@@ -24,7 +24,7 @@ class StoreController extends BaseApiController
 {
     public function categories(): JsonResponse
     {
-        $categories = Cache::remember('store.categories', 900, function () {
+        $categories = \App\Support\LocalizedCache::remember('store.categories', 900, function () {
             return ProductCategory::where('is_active', true)
                 ->where('is_seva_only', false)
                 ->orderBy('sort_order')

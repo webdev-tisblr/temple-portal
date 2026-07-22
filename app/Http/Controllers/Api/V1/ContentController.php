@@ -30,7 +30,7 @@ class ContentController extends BaseApiController
      */
     public function announcements(): JsonResponse
     {
-        $announcements = Cache::remember('announcements.active.v2', 900, function () {
+        $announcements = \App\Support\LocalizedCache::remember('announcements.active.v2', 900, function () {
             return Announcement::query()
                 ->where('is_active', true)
                 ->where(function ($q) {
@@ -165,7 +165,7 @@ class ContentController extends BaseApiController
      */
     public function statusTemplates(): JsonResponse
     {
-        $templates = \Illuminate\Support\Facades\Cache::remember('content.status_templates.v1', 900, function () {
+        $templates = \App\Support\LocalizedCache::remember('content.status_templates.v1', 900, function () {
             return \App\Models\StatusTemplate::active()
                 ->orderBy('sort_order')->orderBy('id')
                 ->get()
@@ -290,7 +290,7 @@ class ContentController extends BaseApiController
      */
     public function darshanTimings(): JsonResponse
     {
-        $timings = Cache::remember('darshan_timings.active', 1800, function () {
+        $timings = \App\Support\LocalizedCache::remember('darshan_timings.active', 1800, function () {
             return DarshanTiming::query()
                 ->where('is_active', true)
                 ->where(function ($q) {
@@ -338,7 +338,7 @@ class ContentController extends BaseApiController
 
         $cacheKey = $category ? "gallery.{$category}" : 'gallery.all';
 
-        $images = Cache::remember($cacheKey, 900, function () use ($category) {
+        $images = \App\Support\LocalizedCache::remember($cacheKey, 900, function () use ($category) {
             $query = GalleryImage::query()->orderBy('sort_order');
 
             if ($category) {
@@ -602,7 +602,7 @@ class ContentController extends BaseApiController
      */
     public function trustees(): JsonResponse
     {
-        $trustees = Cache::remember('content.trustees.v1', 1800, function () {
+        $trustees = \App\Support\LocalizedCache::remember('content.trustees.v1', 1800, function () {
             return Trustee::active()->ordered()->get()->map(fn (Trustee $t) => [
                 'id' => $t->id,
                 'name' => $t->name,
@@ -626,7 +626,7 @@ class ContentController extends BaseApiController
      */
     public function donationTypes(): JsonResponse
     {
-        $types = Cache::remember('donation_types.active', 1800, function () {
+        $types = \App\Support\LocalizedCache::remember('donation_types.active', 1800, function () {
             return DonationType::where('is_active', true)
                 ->orderBy('sort_order')
                 ->get()

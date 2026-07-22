@@ -135,7 +135,7 @@ class DarshanTimingsPage extends Page implements HasForms
         Cache::forget('darshan_timings');
         Cache::forget('darshan_timings_all');
         Cache::forget('header_strip_timing');
-        Cache::forget('darshan_timings.active');
+        \App\Support\LocalizedCache::forget('darshan_timings.active');
 
         Notification::make()->title('Darshan timings & rules updated')->success()->send();
     }

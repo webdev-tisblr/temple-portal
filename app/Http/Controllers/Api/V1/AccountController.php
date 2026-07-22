@@ -54,20 +54,61 @@ class AccountController extends BaseApiController
             // 3. Anonymise the devotee row. Financial relations
             //    (donations, receipts, paid bookings/orders) stay linked
             //    to this now-PII-free record for legal/audit retention.
+            //    The scrambled phone must fit varchar(15) and stay unique:
+            //    'del_' + 11 random chars fills it exactly and can never
+            //    collide with a real (all-digit) number.
             $devotee->forceFill([
                 'name' => 'Deleted devotee',
-                'phone' => 'deleted_'.Str::uuid()->toString(),
+                'phone' => 'del_'.Str::lower(Str::random(11)),
                 'email' => null,
                 'pan_encrypted' => null,
                 'pan_last_four' => null,
                 'address' => null,
                 'city' => null,
-                'state' => null,
+                // NOT NULL column — blank it instead of nulling.
+                'state' => '',
                 'pincode' => null,
                 'date_of_birth' => null,
                 'profile_photo_path' => null,
                 'is_active' => false,
             ])->save();
+
+            // 4. Scrub the PII copies denormalised onto retained financial
+            //    records, per the privacy policy ("anonymised so they are
+            //    no longer linked to your personal identity").
+            //    Donations: flip the anonymous flag so every public donor
+            //    list renders "રામ ભરોસે" through the existing logic.
+            DB::table('temple_donations')
+                ->where('devotee_id', $devotee->id)
+                ->update(['anonymous' => true]);
+
+            DB::table('temple_seva_bookings')
+                ->where('devotee_id', $devotee->id)
+                ->update(['devotee_name_for_seva' => null]);
+
+            DB::table('temple_hall_bookings')
+                ->where('devotee_id', $devotee->id)
+                ->update([
+                    'contact_name' => 'Deleted devotee',
+                    'contact_phone' => 'deleted',
+                ]);
+
+            DB::table('temple_orders')
+                ->where('devotee_id', $devotee->id)
+                ->update([
+                    'shipping_name' => 'Deleted devotee',
+                    'shipping_phone' => 'deleted',
+                    'shipping_address' => 'deleted',
+                ]);
+
+            // Notification audit logs: drop the plaintext/masked recipient
+            //    (phone/email); the one-way hash stays for idempotency.
+            DB::table('temple_notification_logs')
+                ->where('devotee_id', $devotee->id)
+                ->update([
+                    'recipient_value' => null,
+                    'recipient_masked' => null,
+                ]);
         });
 
         Log::info('Devotee account deleted', ['devotee_id' => $devotee->id]);

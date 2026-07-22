@@ -80,6 +80,55 @@ class HallController extends BaseApiController
         ]);
     }
 
+    /**
+     * Per-date availability for one calendar month ('YYYY-MM'), for the
+     * Year → Month → dates picker. One query covers the whole month.
+     */
+    public function availableDates(Request $request, Hall $hall): JsonResponse
+    {
+        $request->validate([
+            'month' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+        ]);
+
+        $month = $request->query('month');
+        $monthStart = \Carbon\Carbon::createFromFormat('!Y-m', $month);
+        if ($monthStart->lt(now()->startOfMonth()) || $monthStart->gt(now()->startOfMonth()->addYears(5))) {
+            return $this->error('Month out of the bookable range.', 422);
+        }
+
+        $start = $monthStart->copy()->max(now()->startOfDay());
+        $end = $monthStart->copy()->endOfMonth();
+
+        // booking_type sets per date for the month, in one query.
+        $byDate = HallBooking::where('hall_id', $hall->id)
+            ->whereBetween('booking_date', [$start->toDateString(), $end->toDateString()])
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->get(['booking_date', 'booking_type'])
+            ->groupBy(fn ($b) => \Carbon\Carbon::parse($b->booking_date)->toDateString());
+
+        $dates = [];
+        for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
+            $key = $cursor->toDateString();
+            $types = ($byDate[$key] ?? collect())->pluck('booking_type')->all();
+
+            $fullDayBooked = in_array('full_day', $types, true);
+            $morningBooked = $fullDayBooked || in_array('half_day_morning', $types, true);
+            $eveningBooked = $fullDayBooked || in_array('half_day_evening', $types, true);
+
+            $dates[] = [
+                'date' => $key,
+                'full_day_available' => ! $morningBooked && ! $eveningBooked,
+                'morning_available' => ! $morningBooked,
+                'evening_available' => ! $eveningBooked,
+            ];
+        }
+
+        return $this->success([
+            'month' => $month,
+            'dates' => $dates,
+        ]);
+    }
+
     public function book(Request $request, Hall $hall): JsonResponse
     {
         $validated = $request->validate([

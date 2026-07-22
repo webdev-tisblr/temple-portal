@@ -394,10 +394,44 @@ class SevaSlotService
     public function getAvailableDates(Seva $seva, int $days = 30): array
     {
         $days = max(1, min($days, 90));
-        $config = $this->normalizeConfig($seva->slot_config);
-
         $start = now()->startOfDay();
-        $end = $start->copy()->addDays($days);
+
+        return $this->getAvailableDatesInRange($seva, $start, $start->copy()->addDays($days - 1));
+    }
+
+    /**
+     * Bookable dates for one calendar month ('YYYY-MM'), for the
+     * Year → Month → dates picker. Past days of the current month are
+     * dropped; months beyond the horizon return an empty list.
+     */
+    public function getAvailableDatesForMonth(Seva $seva, string $month): array
+    {
+        $monthStart = Carbon::createFromFormat('!Y-m', $month)->startOfMonth();
+
+        $start = $monthStart->copy();
+        $today = now()->startOfDay();
+        if ($start->lt($today)) {
+            $start = $today->copy();
+        }
+
+        $end = $monthStart->copy()->endOfMonth()->startOfDay();
+        if ($end->lt($start)) {
+            return [];
+        }
+
+        return $this->getAvailableDatesInRange($seva, $start, $end);
+    }
+
+    /**
+     * Core window expansion shared by the rolling-days and month modes.
+     * Applies every seva rule (acceptance period, blackouts, weekday
+     * restrictions, slot/unit capacity) across [$start, $end] inclusive.
+     *
+     * @return list<string> Dates in 'Y-m-d' format, ascending.
+     */
+    private function getAvailableDatesInRange(Seva $seva, Carbon $start, Carbon $end): array
+    {
+        $config = $this->normalizeConfig($seva->slot_config);
 
         // Bulk-fetch the booking counts for the window, then index by date+slot.
         $rows = SevaBooking::where('seva_id', $seva->id)
@@ -421,8 +455,8 @@ class SevaSlotService
         $fullUnitMemo = []; // memoize full_day (per date) / full_week (per week) counts
         $available = [];
 
-        for ($i = 0; $i < $days; $i++) {
-            $date = $start->copy()->addDays($i)->toDateString();
+        for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
+            $date = $cursor->toDateString();
 
             if (! $this->isDateInAcceptancePeriod($config, $date)) {
                 continue;

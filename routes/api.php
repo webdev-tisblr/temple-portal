@@ -88,6 +88,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     // Public: Halls
     Route::get('/halls', [HallController::class, 'index']);
     Route::get('/halls/{hall}/availability', [HallController::class, 'availability']);
+    Route::get('/halls/{hall}/available-dates', [HallController::class, 'availableDates']);
 
     // Public: Blog
     Route::get('/blog', [ContentController::class, 'blog']);

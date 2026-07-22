@@ -23,7 +23,7 @@
 
             {{-- Image --}}
             <div class="card-sacred overflow-hidden">
-                <div class="aspect-video bg-amber-900/20 flex items-center justify-center">
+                <div class="aspect-[4/3] bg-amber-900/20 flex items-center justify-center">
                     @if($seva->image_path)
                         <img src="{{ image_url($seva->image_path) }}" alt="{{ $seva->name }}" class="w-full h-full object-cover">
                     @else
@@ -80,15 +80,40 @@
                              /sevas/{id}/available-dates), each chip shows
                              day label + day number + month, and the
                              selected chip is highlighted in saffron. --}}
+                        @php
+                            $noDatesThisMonth = match (app()->getLocale()) {
+                                'hi' => 'इस महीने कोई तारीख उपलब्ध नहीं है।',
+                                'en' => 'No dates available this month.',
+                                default => 'આ મહિનામાં કોઈ તારીખ ઉપલબ્ધ નથી.',
+                            };
+                        @endphp
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-amber-600 mb-2">{{ __('seva.choose_date') }}</label>
+
+                            {{-- Year / Month selectors — booking horizon is
+                                 current month through +5 years (matches the
+                                 available-dates API's 422 range). --}}
+                            <div class="flex gap-2 mb-3">
+                                <select x-model.number="selectedYear" @change="onYearChange()"
+                                    class="w-1/2 bg-transparent border-amber-800/30 rounded-lg text-amber-100 text-sm focus:border-amber-600 focus:ring-amber-600/20">
+                                    <template x-for="y in years" :key="y">
+                                        <option class="bg-stone-900" :value="y" x-text="y" :selected="selectedYear === y"></option>
+                                    </template>
+                                </select>
+                                <select x-model.number="selectedMonth" @change="onMonthChange()"
+                                    class="w-1/2 bg-transparent border-amber-800/30 rounded-lg text-amber-100 text-sm focus:border-amber-600 focus:ring-amber-600/20">
+                                    <template x-for="m in monthOptions()" :key="m.value">
+                                        <option class="bg-stone-900" :value="m.value" x-text="m.label" :selected="selectedMonth === m.value"></option>
+                                    </template>
+                                </select>
+                            </div>
 
                             <div x-show="datesLoading" class="text-amber-100/40 text-xs py-2">
                                 {{ __('seva.loading_dates') }}
                             </div>
 
                             <div x-show="!datesLoading && availableDates.length === 0" class="text-sm py-3 px-4 bg-amber-900/10 border border-amber-800/30 rounded-lg text-amber-100/60">
-                                {{ __('seva.no_dates') }}
+                                {{ $noDatesThisMonth }}
                             </div>
 
                             <div x-show="!datesLoading && availableDates.length > 0"
@@ -100,7 +125,7 @@
                                             ? 'bg-gradient-to-br from-amber-600 to-amber-500 text-stone-900 border-amber-500 shadow-md'
                                             : 'bg-transparent text-amber-100/70 border-amber-800/30 hover:border-amber-600'"
                                         class="flex-shrink-0 w-16 py-2 border rounded-xl text-center transition snap-start">
-                                        <span class="block text-[10px] font-medium uppercase tracking-wide opacity-80" x-text="day.dayLabel"></span>
+                                        <span class="block text-[10px] font-medium opacity-80" x-text="day.dayLabel"></span>
                                         <span class="block text-xl font-black leading-none mt-0.5" x-text="day.dayOfMonth"></span>
                                         <span class="block text-[10px] mt-0.5 opacity-70" x-text="day.monthLabel"></span>
                                     </button>
@@ -181,7 +206,7 @@
                                             @click="selectedProductId = {{ $lp->id }}; selectedVariant = ''"
                                             :class="selectedProductId === {{ $lp->id }} ? 'ring-2 ring-amber-500 border-amber-500' : 'border-amber-800/30 hover:border-amber-600'"
                                             class="border rounded-xl overflow-hidden transition text-left bg-amber-900/10">
-                                            <div class="aspect-square bg-amber-900/20 overflow-hidden">
+                                            <div class="aspect-[4/3] bg-amber-900/20 overflow-hidden">
                                                 @if($lp->image_path)
                                                     <img src="{{ image_url($lp->image_path) }}" alt="{{ $lp->name }}" class="w-full h-full object-cover">
                                                 @else
@@ -295,6 +320,14 @@ function slotPicker(sevaId) {
     const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+    // Year/Month picker horizon: current month … same month +5 years,
+    // mirroring the available-dates API's accepted range.
+    const _now = new Date();
+    const currentYear = _now.getFullYear();
+    const currentMonthNum = _now.getMonth() + 1;
+    const pageLang = document.documentElement.lang || 'en';
+    const localizedMonthName = m => new Date(2000, m - 1, 1).toLocaleDateString(pageLang, { month: 'long' });
+
     return {
         sevaId: sevaId,
         selectedDate: '',
@@ -343,8 +376,36 @@ function slotPicker(sevaId) {
         // Date carousel state — populated from the
         // /sevas/{id}/available-dates endpoint so blackouts, fully
         // booked dates and today's-elapsed-slots are hidden.
+        // The Year/Month selects drive which month is fetched.
         availableDates: [],
         datesLoading: false,
+        selectedYear: currentYear,
+        selectedMonth: currentMonthNum,
+        years: Array.from({ length: 6 }, (_, i) => currentYear + i),
+
+        monthOptions() {
+            const start = this.selectedYear === currentYear ? currentMonthNum : 1;
+            const end = this.selectedYear === currentYear + 5 ? currentMonthNum : 12;
+            const opts = [];
+            for (let m = start; m <= end; m++) {
+                opts.push({ value: m, label: localizedMonthName(m) });
+            }
+            return opts;
+        },
+
+        onYearChange() {
+            // Clamp the month into the newly valid range (e.g. jumping
+            // to the current year mid-year, or the horizon-end year).
+            const opts = this.monthOptions();
+            if (!opts.some(o => o.value === Number(this.selectedMonth))) {
+                this.selectedMonth = opts[0].value;
+            }
+            this.fetchAvailableDates();
+        },
+
+        onMonthChange() {
+            this.fetchAvailableDates();
+        },
 
         init() {
             this.fetchAvailableDates();
@@ -352,8 +413,14 @@ function slotPicker(sevaId) {
 
         async fetchAvailableDates() {
             this.datesLoading = true;
+            // A month switch invalidates the current selection + slots.
+            this.selectedDate = '';
+            this.selectedSlot = '';
+            this.slots = [];
+            this.booked = [];
+            const month = `${this.selectedYear}-${String(this.selectedMonth).padStart(2, '0')}`;
             try {
-                const res = await fetch(`/api/v1/sevas/${this.sevaId}/available-dates?days=30`);
+                const res = await fetch(`/api/v1/sevas/${this.sevaId}/available-dates?month=${month}`);
                 const json = await res.json();
                 const isoList = json.data?.dates || [];
                 this.availableDates = isoList.map(iso => this.decorateDate(iso));

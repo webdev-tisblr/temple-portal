@@ -31,7 +31,14 @@ class SevaController extends BaseApiController
     {
         $category = $request->query('category');
 
-        $cacheKey = $category ? "active_sevas_{$category}" : 'active_sevas';
+        // Key on page too — the paginator resolves the current page at cache
+        // time, so a page-agnostic key served page 1 to every page. The 'api_'
+        // prefix keeps it disjoint from the web list cache (different shape).
+        // The version stamp lets SevaObserver invalidate every page/category
+        // combination with a single bump instead of enumerating keys.
+        $ver = (int) Cache::get('sevas.cache.ver', 1);
+        $page = max(1, (int) $request->query('page', 1));
+        $cacheKey = "api_sevas.v{$ver}.".($category ?: 'all').".p{$page}";
 
         $sevas = Cache::remember($cacheKey, 600, function () use ($category) {
             $query = Seva::where('is_active', true)->orderBy('sort_order');
@@ -55,16 +62,30 @@ class SevaController extends BaseApiController
     }
 
     /**
-     * Return the next-N-days set of dates (default 30) on which this
-     * seva can be booked. Mobile date-carousel uses this to hide
-     * non-bookable dates entirely (blackouts, fully-booked, outside
-     * acceptance window).
+     * Return the bookable dates for this seva. Two modes:
+     *   • month=YYYY-MM — every bookable date in that calendar month
+     *     (Year → Month picker; up to 5 years ahead)
+     *   • days=N (default 30) — legacy rolling window, kept for old
+     *     app builds.
      */
     public function availableDates(Request $request, Seva $seva): JsonResponse
     {
         $request->validate([
             'days' => ['nullable', 'integer', 'min:1', 'max:90'],
+            'month' => ['nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
         ]);
+
+        if (($month = $request->query('month')) !== null) {
+            $monthStart = \Carbon\Carbon::createFromFormat('!Y-m', $month);
+            if ($monthStart->lt(now()->startOfMonth()) || $monthStart->gt(now()->startOfMonth()->addYears(5))) {
+                return $this->error('Month out of the bookable range.', 422);
+            }
+
+            return $this->success([
+                'month' => $month,
+                'dates' => $this->slotService->getAvailableDatesForMonth($seva, $month),
+            ]);
+        }
 
         $days = (int) $request->query('days', 30);
         $dates = $this->slotService->getAvailableDates($seva, $days);

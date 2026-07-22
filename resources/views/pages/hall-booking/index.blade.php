@@ -22,7 +22,7 @@
 
             {{-- Image Gallery Slideshow --}}
             <div x-data="hallGallery()">
-                <div class="relative aspect-video rounded-2xl overflow-hidden bg-amber-900/20">
+                <div class="relative aspect-[4/3] rounded-2xl overflow-hidden bg-amber-900/20">
                     @if($hall->image_path)
                         <img src="{{ image_url($hall->image_path) }}" alt="{{ $hall->name }}" class="w-full h-full object-cover">
                     @else
@@ -161,22 +161,59 @@
                         </div>
                     @endif
 
-                    {{-- Date picker — horizontal chip carousel.
-                         Mirrors the seva-detail date picker (and the mobile app).
-                         Shows the next 60 days for hall booking; availability is
-                         checked per-chip via checkAvailability() once the booking
-                         type below is set. --}}
+                    {{-- Date picker — Year/Month selects + horizontal chip
+                         carousel. Mirrors the seva-detail date picker (and the
+                         mobile app). The month's dates come from the
+                         /api/v1/halls/{id}/available-dates endpoint; fully
+                         booked dates render dimmed/non-clickable. Availability
+                         for the chosen booking type is still verified per-chip
+                         via checkAvailability() (bulk data can go stale). --}}
+                    @php
+                        $noDatesThisMonth = match (app()->getLocale()) {
+                            'hi' => 'इस महीने कोई तारीख उपलब्ध नहीं है।',
+                            'en' => 'No dates available this month.',
+                            default => 'આ મહિનામાં કોઈ તારીખ ઉપલબ્ધ નથી.',
+                        };
+                    @endphp
                     <div class="mb-5">
                         <label class="block text-sm font-medium text-amber-600 mb-2">{{ __('seva.choose_date') }} <span class="text-red-400">*</span></label>
-                        <div class="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x"
+
+                        <div class="flex gap-2 mb-3">
+                            <select x-model.number="selectedYear" @change="onYearChange()"
+                                class="w-1/2 bg-transparent border-amber-800/30 rounded-lg text-amber-100 text-sm focus:border-amber-600 focus:ring-amber-600/20">
+                                <template x-for="y in years" :key="y">
+                                    <option class="bg-stone-900" :value="y" x-text="y" :selected="selectedYear === y"></option>
+                                </template>
+                            </select>
+                            <select x-model.number="selectedMonth" @change="onMonthChange()"
+                                class="w-1/2 bg-transparent border-amber-800/30 rounded-lg text-amber-100 text-sm focus:border-amber-600 focus:ring-amber-600/20">
+                                <template x-for="m in monthOptions()" :key="m.value">
+                                    <option class="bg-stone-900" :value="m.value" x-text="m.label" :selected="selectedMonth === m.value"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <div x-show="datesLoading" class="text-amber-100/40 text-xs py-2">
+                            {{ __('seva.loading_dates') }}
+                        </div>
+
+                        <div x-show="!datesLoading && upcomingDays.length === 0" class="text-sm py-3 px-4 bg-amber-900/10 border border-amber-800/30 rounded-lg text-amber-100/60">
+                            {{ $noDatesThisMonth }}
+                        </div>
+
+                        <div x-show="!datesLoading && upcomingDays.length > 0"
+                             class="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x"
                              style="scrollbar-width: thin;">
                             <template x-for="day in upcomingDays" :key="day.date">
-                                <button type="button" @click="pickDate(day.date)"
-                                    :class="selectedDate === day.date
-                                        ? 'bg-gradient-to-br from-amber-600 to-amber-500 text-stone-900 border-amber-500 shadow-md'
-                                        : 'bg-transparent text-amber-100/70 border-amber-800/30 hover:border-amber-600'"
+                                <button type="button" @click="!day.disabled && pickDate(day.date)"
+                                    :disabled="day.disabled"
+                                    :class="day.disabled
+                                        ? 'bg-amber-900/10 text-amber-100/20 border-amber-900/20 cursor-not-allowed'
+                                        : (selectedDate === day.date
+                                            ? 'bg-gradient-to-br from-amber-600 to-amber-500 text-stone-900 border-amber-500 shadow-md'
+                                            : 'bg-transparent text-amber-100/70 border-amber-800/30 hover:border-amber-600')"
                                     class="flex-shrink-0 w-16 py-2 border rounded-xl text-center transition snap-start">
-                                    <span class="block text-[10px] font-medium uppercase tracking-wide opacity-80" x-text="day.dayLabel"></span>
+                                    <span class="block text-[10px] font-medium opacity-80" x-text="day.dayLabel"></span>
                                     <span class="block text-xl font-black leading-none mt-0.5" x-text="day.dayOfMonth"></span>
                                     <span class="block text-[10px] mt-0.5 opacity-70" x-text="day.monthLabel"></span>
                                 </button>
@@ -324,38 +361,89 @@ function hallGallery() {
 }
 
 function hallBooking() {
-    const today = new Date();
-    const maxDay = new Date();
-    maxDay.setDate(today.getDate() + 60);
-
     const pricePerDay = {{ (float) $hall->price_per_day }};
     const pricePerHalfDay = {{ (float) $hall->price_per_half_day }};
     const hallId = {{ $hall->id }};
 
-    // Build the next 60 days for the chip carousel — local-time
-    // midnight so day-of-week / month labels are temple-local.
+    // Chip labels — local-time midnight so day-of-week / month labels
+    // are temple-local.
     const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const pad = n => String(n).padStart(2, '0');
-    const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    const days = [];
-    for (let i = 0; i < 60; i++) {
-        const d = new Date(today);
-        d.setDate(today.getDate() + i);
-        days.push({
-            date: fmt(d),
-            dayLabel: dayLabels[d.getDay()],
-            dayOfMonth: d.getDate(),
-            monthLabel: monthLabels[d.getMonth()],
-        });
-    }
+
+    // Year/Month picker horizon: current month … same month +5 years,
+    // mirroring the available-dates API's accepted range.
+    const _now = new Date();
+    const currentYear = _now.getFullYear();
+    const currentMonthNum = _now.getMonth() + 1;
+    const pageLang = document.documentElement.lang || 'en';
+    const localizedMonthName = m => new Date(2000, m - 1, 1).toLocaleDateString(pageLang, { month: 'long' });
 
     return {
         selectedDate: '',
         bookingType: '',
         checking: false,
         available: null,
-        upcomingDays: days,
+        upcomingDays: [],
+        datesLoading: false,
+        selectedYear: currentYear,
+        selectedMonth: currentMonthNum,
+        years: Array.from({ length: 6 }, (_, i) => currentYear + i),
+
+        monthOptions() {
+            const start = this.selectedYear === currentYear ? currentMonthNum : 1;
+            const end = this.selectedYear === currentYear + 5 ? currentMonthNum : 12;
+            const opts = [];
+            for (let m = start; m <= end; m++) {
+                opts.push({ value: m, label: localizedMonthName(m) });
+            }
+            return opts;
+        },
+
+        onYearChange() {
+            // Clamp the month into the newly valid range (e.g. jumping
+            // to the current year mid-year, or the horizon-end year).
+            const opts = this.monthOptions();
+            if (!opts.some(o => o.value === Number(this.selectedMonth))) {
+                this.selectedMonth = opts[0].value;
+            }
+            this.fetchMonthDates();
+        },
+
+        onMonthChange() {
+            this.fetchMonthDates();
+        },
+
+        init() {
+            this.fetchMonthDates();
+        },
+
+        async fetchMonthDates() {
+            this.datesLoading = true;
+            // A month switch invalidates the current selection.
+            this.selectedDate = '';
+            this.available = null;
+            const month = `${this.selectedYear}-${pad(this.selectedMonth)}`;
+            try {
+                const res = await fetch(`/api/v1/halls/${hallId}/available-dates?month=${month}`);
+                const json = await res.json();
+                const entries = json.data?.dates || [];
+                this.upcomingDays = entries.map(e => {
+                    const [y, m, d] = e.date.split('-').map(Number);
+                    const dt = new Date(y, m - 1, d);
+                    return {
+                        date: e.date,
+                        dayLabel: dayLabels[dt.getDay()],
+                        dayOfMonth: dt.getDate(),
+                        monthLabel: monthLabels[dt.getMonth()],
+                        disabled: !e.full_day_available && !e.morning_available && !e.evening_available,
+                    };
+                });
+            } catch (e) {
+                this.upcomingDays = [];
+            }
+            this.datesLoading = false;
+        },
 
         pickDate(iso) {
             this.selectedDate = iso;

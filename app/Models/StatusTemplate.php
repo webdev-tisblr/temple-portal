@@ -37,6 +37,7 @@ class StatusTemplate extends Model
 
     protected $fillable = [
         'title_gu', 'title_hi', 'title_en',
+        'share_text_gu', 'share_text_hi', 'share_text_en',
         'greeting_card_template', 'greeting_card_config',
         'is_active', 'sort_order',
     ];
@@ -68,5 +69,17 @@ class StatusTemplate extends Model
         $locale = app()->getLocale();
 
         return $this->{"title_{$locale}"} ?: $this->title_gu;
+    }
+
+    /**
+     * Optional caption shared alongside the generated status image. Falls
+     * back to Gujarati; returns '' when the admin left every language
+     * blank, in which case nothing is attached to the share.
+     */
+    public function getShareTextAttribute(): string
+    {
+        $locale = app()->getLocale();
+
+        return $this->{"share_text_{$locale}"} ?: (string) $this->share_text_gu;
     }
 }

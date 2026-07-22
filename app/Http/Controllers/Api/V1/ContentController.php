@@ -215,6 +215,9 @@ class ContentController extends BaseApiController
             'url' => $result['url'],
             'cached' => $result['cached'],
             'title' => $template->title,
+            // Optional admin caption; null when left blank so the app
+            // shares the image with no accompanying text.
+            'share_text' => $template->share_text !== '' ? $template->share_text : null,
         ]);
     }
 

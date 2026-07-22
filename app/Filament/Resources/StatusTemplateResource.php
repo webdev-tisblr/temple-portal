@@ -37,6 +37,11 @@ class StatusTemplateResource extends Resource
                         ->label("Title {$label}")
                         ->required($locale === 'gu')
                         ->maxLength(200),
+                    Forms\Components\Textarea::make("share_text_{$locale}")
+                        ->label("Share Caption {$label}")
+                        ->rows(3)
+                        ->maxLength(1000)
+                        ->helperText('Optional. Sent with the image when a devotee shares this status. Leave blank to share the image with no text.'),
                 ]),
                 Forms\Components\FileUpload::make('greeting_card_template')
                     ->label('Background Template Image')

@@ -79,6 +79,12 @@ class AuthWebController extends Controller
 
         $request->session()->regenerate();
 
+        // Apply the devotee's saved language preference to the site so it
+        // follows them across devices (app and web share devotee.language).
+        if ($devotee->language !== null) {
+            cookie()->queue(cookie('locale', $devotee->language->value, 60 * 24 * 365, null, null, null, false));
+        }
+
         // New user or incomplete profile → force profile completion
         if (empty($devotee->name)) {
             return redirect()->route('profile.complete');

@@ -149,17 +149,9 @@
                             </div>
                         </div>
 
-                        {{-- Language + PAN --}}
+                        {{-- PAN (language preference moved to the site header switcher,
+                             which now saves to the devotee profile) --}}
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                            <div>
-                                <label for="language" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('dashboard.pref_language') }}</label>
-                                <select name="language" id="language"
-                                    class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20">
-                                    <option value="gu" class="bg-stone-900" {{ old('language', $devotee->language?->value ?? 'gu') === 'gu' ? 'selected' : '' }}>ગુજરાતી</option>
-                                    <option value="hi" class="bg-stone-900" {{ old('language', $devotee->language?->value ?? '') === 'hi' ? 'selected' : '' }}>हिन्दी</option>
-                                    <option value="en" class="bg-stone-900" {{ old('language', $devotee->language?->value ?? '') === 'en' ? 'selected' : '' }}>English</option>
-                                </select>
-                            </div>
                             <div>
                                 <label for="pan_number" class="block text-sm font-medium text-amber-600 mb-1.5">
                                     {{ __('dashboard.pan_number') }}

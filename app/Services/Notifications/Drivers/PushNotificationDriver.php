@@ -45,7 +45,14 @@ final class PushNotificationDriver implements NotificationDriver
             return false;
         }
 
-        $locale = $context->get('locale', 'gu');
+        // Prefer an explicit context locale, else the devotee's own saved
+        // language — previously this always fell back to 'gu' because no
+        // dispatch site sets 'locale', so pushes ignored the preference.
+        $locale = $context->get('locale');
+        if (! is_string($locale) || $locale === '') {
+            $lang = $devotee->getAttribute('language');
+            $locale = $lang instanceof \BackedEnum ? (string) $lang->value : (is_string($lang) && $lang !== '' ? $lang : 'gu');
+        }
         $titles = $template->push_title ?? [];
         $bodies = $template->push_body ?? [];
 

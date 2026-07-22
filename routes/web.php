@@ -41,6 +41,13 @@ Route::get('/locale/{locale}', function (string $locale) {
 
     app()->setLocale($locale);
 
+    // Logged-in devotees: persist the choice to their profile so it follows
+    // them to the app and other devices.
+    $devotee = auth('devotee')->user();
+    if ($devotee !== null) {
+        $devotee->update(['language' => $locale]);
+    }
+
     return redirect($back)->withCookie(
         cookie('locale', $locale, 60 * 24 * 365, null, null, null, false)
     );

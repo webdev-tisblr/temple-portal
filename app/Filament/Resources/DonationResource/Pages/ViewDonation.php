@@ -38,15 +38,38 @@ class ViewDonation extends ViewRecord
                 ->label('Download Receipt')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('warning')
-                ->visible(fn () => $this->record->receipt_generated && $this->record->receipt?->pdf_path)
+                ->visible(fn () => (bool) $this->record->receipt_generated)
                 ->action(function () {
-                    $receipt = $this->record->receipt;
-                    $bytes = \Illuminate\Support\Facades\Storage::disk('r2_private')->get($receipt->pdf_path);
-                    return response($bytes, 200, [
-                        'Content-Type' => 'application/pdf',
-                        'Content-Length' => (string) strlen($bytes),
-                        'Content-Disposition' => 'attachment; filename="receipt-' . str_replace('/', '-', $receipt->receipt_number) . '.pdf"',
-                    ]);
+                    $donation = $this->record;
+                    $receipt = $donation->receipt;
+
+                    // Self-heal: the cached PDF is swept nightly (pdf_path
+                    // nulled), so regenerate on demand before downloading.
+                    if (! $receipt || ! $receipt->pdf_path) {
+                        try {
+                            app(ReceiptService::class)->generateReceipt($donation->fresh());
+                            $donation->refresh();
+                            $receipt = $donation->receipt;
+                        } catch (\Throwable $e) {
+                            Notification::make()
+                                ->title('Could not prepare the receipt. Please try again.')
+                                ->danger()->send();
+                            return;
+                        }
+                    }
+
+                    if (! $receipt || ! $receipt->pdf_path) {
+                        Notification::make()->title('Receipt file unavailable.')->danger()->send();
+                        return;
+                    }
+
+                    // Redirect to a short-lived presigned R2 URL. NEVER return
+                    // raw PDF bytes from a Livewire action — Livewire tries to
+                    // JSON-encode the binary body and throws "Malformed UTF-8".
+                    return private_file_redirect(
+                        $receipt->pdf_path,
+                        'receipt-' . str_replace('/', '-', $receipt->receipt_number) . '.pdf',
+                    );
                 }),
         ];
     }

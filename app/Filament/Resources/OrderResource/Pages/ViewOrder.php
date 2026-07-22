@@ -29,8 +29,12 @@ class ViewOrder extends ViewRecord
                 ->color('warning')
                 ->visible(fn () => ! empty($this->record->invoice_path))
                 ->action(function () {
-                    return response()->download(
-                        storage_path('app/private/' . $this->record->invoice_path)
+                    // Invoices live on R2, not local disk. Redirect to a
+                    // presigned URL — never return raw bytes / a local path
+                    // through a Livewire action.
+                    return private_file_redirect(
+                        $this->record->invoice_path,
+                        "Invoice_{$this->record->order_number}.pdf",
                     );
                 }),
 

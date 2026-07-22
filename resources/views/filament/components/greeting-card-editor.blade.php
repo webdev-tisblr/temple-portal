@@ -57,7 +57,8 @@
                 </template>
                 <template x-if="overlay.type === 'image'">
                     <div :style="'width:' + ((overlay.width || 100) * scale) + 'px; height:' + ((overlay.height || 100) * scale) + 'px;'"
-                         class="bg-white/30 border-2 border-dashed border-gray-400 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                         class="bg-white/30 border-2 border-dashed border-gray-400 flex items-center justify-center backdrop-blur-sm"
+                         :class="overlay.shape === 'circle' ? 'rounded-full' : 'rounded-lg'">
                         <span class="text-xs text-gray-600 font-medium" x-text="overlay.field_key"></span>
                     </div>
                 </template>
@@ -128,6 +129,13 @@
                     <label class="text-xs font-medium text-gray-500">Height (px)</label>
                     <input type="number" x-model.number="overlays[selectedIdx].height" @input="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
                 </div>
+                <div x-show="overlays[selectedIdx]?.type === 'image'">
+                    <label class="text-xs font-medium text-gray-500">Shape</label>
+                    <select x-model="overlays[selectedIdx].shape" @change="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
+                        <option value="square">Square</option>
+                        <option value="circle">Circle</option>
+                    </select>
+                </div>
             </div>
         </div>
     </template>
@@ -145,6 +153,9 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             // Text overlays wrap+center within a width; backfill a default for
             // templates saved before widths existed.
             width: (o.type === 'text' && !o.width) ? 300 : o.width,
+            // Image slots gained a shape (square|circle); default older
+            // templates to square so the <select> shows a value.
+            shape: o.type === 'image' ? (o.shape || 'square') : o.shape,
             _uid: 'ov_init_' + i,
         })),
         selectedIdx: null,
@@ -222,6 +233,7 @@ function greetingCardEditor(initialOverlays, initialConfig) {
                 color: type === 'text' ? '#881337' : undefined,
                 width: type === 'image' ? 150 : 300,
                 height: type === 'image' ? 150 : undefined,
+                shape: type === 'image' ? 'square' : undefined,
             });
             this.selectedIdx = this.overlays.length - 1;
             this.syncToForm();
@@ -320,7 +332,7 @@ function greetingCardEditor(initialOverlays, initialConfig) {
                 overlays: this.overlays.map(o => {
                     let c = { field_key: o.field_key, type: o.type, x: o.x, y: o.y };
                     if (o.type === 'text') { c.font_size = o.font_size || 24; c.color = o.color || '#333'; c.width = o.width || 300; }
-                    if (o.type === 'image') { c.width = o.width || 150; c.height = o.height || 150; }
+                    if (o.type === 'image') { c.width = o.width || 150; c.height = o.height || 150; c.shape = o.shape || 'square'; }
                     return c;
                 }),
                 send_via_email: this._sendConfig.send_via_email,

@@ -291,7 +291,11 @@ class GreetingCardService
         $srcWidth = imagesx($overlayImage);
         $srcHeight = imagesy($overlayImage);
 
-        $this->coverInto($image, $overlayImage, $x, $y, $width, $height, $srcWidth, $srcHeight);
+        if (($overlay['shape'] ?? 'square') === 'circle') {
+            $this->coverIntoCircle($image, $overlayImage, $x, $y, $width, $height, $srcWidth, $srcHeight);
+        } else {
+            $this->coverInto($image, $overlayImage, $x, $y, $width, $height, $srcWidth, $srcHeight);
+        }
         imagedestroy($overlayImage);
     }
 
@@ -322,6 +326,66 @@ class GreetingCardService
         }
 
         imagecopyresampled($dst, $src, $x, $y, $srcX, $srcY, $w, $h, max(1, $cropW), max(1, $cropH));
+    }
+
+    /**
+     * Like coverInto(), but clips the photo to a circle/ellipse inscribed in
+     * the $w×$h box (admin picked shape=circle in the overlay editor). The
+     * photo is cover-scaled into an alpha-enabled temp canvas, pixels outside
+     * the ellipse are made transparent (with a ~1.5px anti-aliased edge), and
+     * the result is alpha-composited onto the card.
+     */
+    private function coverIntoCircle(\GdImage $dst, \GdImage $src, int $x, int $y, int $w, int $h, int $srcW, int $srcH): void
+    {
+        if ($w <= 0 || $h <= 0 || $srcW <= 0 || $srcH <= 0) {
+            return;
+        }
+
+        $temp = imagecreatetruecolor($w, $h);
+        imagealphablending($temp, false);
+        imagesavealpha($temp, true);
+        $transparent = imagecolorallocatealpha($temp, 0, 0, 0, 127);
+        imagefilledrectangle($temp, 0, 0, $w, $h, $transparent);
+
+        // Same cover-crop math as coverInto(), targeted at the temp canvas.
+        $targetRatio = $w / $h;
+        $srcRatio = $srcW / $srcH;
+        if ($srcRatio > $targetRatio) {
+            $cropH = $srcH;
+            $cropW = (int) round($srcH * $targetRatio);
+            $srcX = (int) round(($srcW - $cropW) / 2);
+            $srcY = 0;
+        } else {
+            $cropW = $srcW;
+            $cropH = (int) round($srcW / $targetRatio);
+            $srcX = 0;
+            $srcY = (int) round(($srcH - $cropH) / 2);
+        }
+        imagecopyresampled($temp, $src, 0, 0, $srcX, $srcY, $w, $h, max(1, $cropW), max(1, $cropH));
+
+        // Alpha-mask everything outside the inscribed ellipse. Feather the
+        // edge over ~1.5px so the circle isn't jagged.
+        $rx = $w / 2.0;
+        $ry = $h / 2.0;
+        $feather = 1.5 / min($rx, $ry);
+        for ($py = 0; $py < $h; $py++) {
+            for ($px = 0; $px < $w; $px++) {
+                $nx = ($px + 0.5 - $rx) / $rx;
+                $ny = ($py + 0.5 - $ry) / $ry;
+                $d = sqrt($nx * $nx + $ny * $ny);
+                $coverage = max(0.0, min(1.0, (1.0 - $d) / $feather + 0.5));
+                if ($coverage >= 1.0) {
+                    continue; // fully inside — keep the opaque photo pixel
+                }
+                $rgba = imagecolorat($temp, $px, $py);
+                $alpha = (int) round((1.0 - $coverage) * 127);
+                imagesetpixel($temp, $px, $py, ($alpha << 24) | ($rgba & 0xFFFFFF));
+            }
+        }
+
+        imagealphablending($dst, true);
+        imagecopy($dst, $temp, $x, $y, 0, 0, $w, $h);
+        imagedestroy($temp);
     }
 
     /**

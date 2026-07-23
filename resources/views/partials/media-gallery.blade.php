@@ -53,14 +53,16 @@
             <div x-ref="strip"
                  class="media-strip flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 h-52 sm:h-64">
                 @foreach($galleryItems as $item)
-                    @if($item['kind'] === 'video')
+                    @if($item['kind'] === 'video' && youtube_video_id($item['src']))
+                        {{-- YouTube iframes have no intrinsic ratio — fixed 16:9 box. --}}
                         <div class="h-full aspect-video flex-shrink-0 snap-start relative rounded-xl overflow-hidden bg-black border border-amber-900/20">
-                            @if(youtube_video_id($item['src']))
-                                <x-yt-clean :url="$item['src']" :title="$title ?? ''" class="absolute inset-0 w-full h-full" />
-                            @else
-                                <video class="absolute inset-0 w-full h-full" controls preload="metadata" src="{{ $item['src'] }}"></video>
-                            @endif
+                            <x-yt-clean :url="$item['src']" :title="$title ?? ''" class="absolute inset-0 w-full h-full" />
                         </div>
+                    @elseif($item['kind'] === 'video')
+                        {{-- Uploaded files size to their own ratio (h-full + w-auto),
+                             so portrait videos don't get 16:9 pillarboxing. --}}
+                        <video class="h-full w-auto max-w-none flex-shrink-0 snap-start rounded-xl bg-black border border-amber-900/20"
+                               controls preload="metadata" src="{{ $item['src'] }}"></video>
                     @else
                         <a href="{{ $item['src'] }}" target="_blank" rel="noopener"
                            class="h-full flex-shrink-0 snap-start rounded-xl overflow-hidden border border-amber-900/20 bg-black/30">

@@ -17,4 +17,6 @@ return [
     'read_more' => 'વધુ વાંચો',
     'minimum' => 'ન્યૂનતમ',
     'details' => 'વિગત',
+    // Full legal-style trust name for the © line
+    'trust_full_name' => 'શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ',
 ];

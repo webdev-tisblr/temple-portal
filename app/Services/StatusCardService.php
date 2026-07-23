@@ -29,8 +29,14 @@ class StatusCardService
     // (v2: EXIF-orientation correction + aspect-preserving "cover" photo fit).
     private const VERSION = 'v2';
 
-    /** @return array{url: string, cached: bool}|null */
-    public function generate(StatusTemplate $template, ?Devotee $devotee): ?array
+    /**
+     * @param  string|null  $photoBytes  Raw bytes of a one-off photo the
+     *                                   devotee uploaded for this card; when
+     *                                   set it replaces the profile photo in
+     *                                   the template's image slot.
+     * @return array{url: string, cached: bool}|null
+     */
+    public function generate(StatusTemplate $template, ?Devotee $devotee, ?string $photoBytes = null): ?array
     {
         if (! function_exists('imagecreatefrompng')) {
             Log::warning('StatusCardService: GD unavailable');
@@ -39,7 +45,7 @@ class StatusCardService
         }
 
         $disk = Storage::disk('r2');
-        $storagePath = $this->storagePathFor($template, $devotee);
+        $storagePath = $this->storagePathFor($template, $devotee, $photoBytes);
         $cacheKey = 'status_card_url:' . $storagePath;
 
         $cachedUrl = Cache::get($cacheKey);
@@ -55,7 +61,7 @@ class StatusCardService
         }
 
         try {
-            $bytes = $this->render($template, $devotee);
+            $bytes = $this->render($template, $devotee, $photoBytes);
         } catch (\Throwable $e) {
             Log::error('StatusCardService: render failed', [
                 'template_id' => $template->id,
@@ -80,7 +86,7 @@ class StatusCardService
         return ['url' => $url, 'cached' => false];
     }
 
-    private function render(StatusTemplate $template, ?Devotee $devotee): ?string
+    private function render(StatusTemplate $template, ?Devotee $devotee, ?string $photoBytes = null): ?string
     {
         $bg = Storage::disk('r2')->get($template->greeting_card_template);
         if (! $bg) {
@@ -105,8 +111,10 @@ class StatusCardService
             }
 
             if ($type === 'image') {
-                $photoPath = $devotee?->profile_photo_path;
-                if ($photoPath) {
+                if ($photoBytes !== null) {
+                    // One-off uploaded photo takes precedence over the DP.
+                    $this->applyImageOverlayBytes($image, $overlay, $photoBytes);
+                } elseif ($photoPath = $devotee?->profile_photo_path) {
                     $this->applyImageOverlay($image, $overlay, $photoPath);
                 }
                 continue;
@@ -134,14 +142,16 @@ class StatusCardService
     }
 
     /** Deterministic path — same inputs regenerate the same object. */
-    private function storagePathFor(StatusTemplate $template, ?Devotee $devotee): string
+    private function storagePathFor(StatusTemplate $template, ?Devotee $devotee, ?string $photoBytes = null): string
     {
         $seed = implode('|', [
             $template->id,
             optional($template->updated_at)->timestamp,
             $devotee?->getKey() ?? 'guest',
             $devotee?->name ?? '',
-            $devotee?->profile_photo_path ?? '',
+            // A one-off uploaded photo keys the object by its content hash,
+            // so a re-upload of the same picture still hits the cache.
+            $photoBytes !== null ? 'up:' . sha1($photoBytes) : ($devotee?->profile_photo_path ?? ''),
             self::VERSION,
         ]);
 
@@ -239,6 +249,12 @@ class StatusCardService
             return;
         }
 
+        $this->applyImageOverlayBytes($image, $overlay, $bytes);
+    }
+
+    /** Composite raw photo bytes (profile photo or one-off upload) into the slot. */
+    private function applyImageOverlayBytes(\GdImage $image, array $overlay, string $bytes): void
+    {
         $photo = imagecreatefromstring($bytes);
         if (! $photo) {
             return;

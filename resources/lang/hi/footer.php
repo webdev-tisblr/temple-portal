@@ -12,4 +12,11 @@ return [
     'evening' => 'शाम',
     'morning_aarti' => 'सुबह की आरती',
     'evening_aarti' => 'शाम की आरती',
+
+    // Legal links + crafted-by line (bottom bars)
+    'privacy_policy' => 'गोपनीयता नीति',
+    'terms_of_service' => 'सेवा की शर्तें',
+    'refund_cancellation' => 'रिफंड और रद्दीकरण',
+    'delete_account' => 'अकाउंट डिलीट करें',
+    'crafted_tagline' => 'दासत्व, श्रद्धा और सेवा भाव से दादा को समर्पित',
 ];

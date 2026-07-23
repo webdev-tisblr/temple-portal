@@ -205,19 +205,22 @@
     {{-- ── Legal links ─────────────────────────────────────────── --}}
     <div class="border-t" style="border-color: rgba(122,30,30,0.10);">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs" style="color: #5E4F3D;">
-            <a href="{{ route('legal.privacy') }}" class="hover:underline">Privacy Policy</a>
-            <a href="{{ route('legal.terms') }}" class="hover:underline">Terms of Service</a>
-            <a href="{{ route('legal.refund') }}" class="hover:underline">Refund &amp; Cancellation</a>
-            <a href="{{ route('legal.account-deletion') }}" class="hover:underline">Delete Account</a>
+            <a href="{{ route('legal.privacy') }}" class="hover:underline">{{ __('footer.privacy_policy') }}</a>
+            <a href="{{ route('legal.terms') }}" class="hover:underline">{{ __('footer.terms_of_service') }}</a>
+            <a href="{{ route('legal.refund') }}" class="hover:underline">{{ __('footer.refund_cancellation') }}</a>
+            <a href="{{ route('legal.account-deletion') }}" class="hover:underline">{{ __('footer.delete_account') }}</a>
         </div>
     </div>
 
     {{-- ── Bottom bar ──────────────────────────────────────────── --}}
     <div class="border-t" style="border-color: rgba(122,30,30,0.10);">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs" style="color: #5E4F3D;">
-            <p>&copy; {{ date('Y') }} {{ $trustName }}</p>
-            <p>
-                Crafted with <span style="color: #C45F12;">♥</span> by
+            {{-- Locale-aware © line: switches with the active language
+                 (the SystemSetting trust_name is Gujarati-only). --}}
+            <p>&copy; {{ date('Y') }} {{ __('common.trust_full_name') }}</p>
+            <p class="text-center sm:text-right">
+                {{ __('footer.crafted_tagline') }} —
+                A Project by
                 <a href="https://theinternetstore.in" target="_blank" rel="noopener"
                    class="font-semibold hover:underline"
                    style="color: #7A1E1E;">The Internet Store</a>

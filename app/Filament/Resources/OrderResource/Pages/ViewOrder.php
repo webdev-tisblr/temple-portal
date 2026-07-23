@@ -26,8 +26,40 @@ class ViewOrder extends ViewRecord
                 ->label('Download Invoice')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('warning')
-                ->visible(fn () => ! empty($this->record->invoice_path))
+                // Any paid order can produce an invoice — don't gate on
+                // invoice_path: the nightly sweep (invoices:clean-generated)
+                // NULLs it after 7 days, which used to make this button
+                // vanish and look like "invoices are not being generated".
+                ->visible(fn () => ! in_array(
+                    $this->record->status?->value ?? (string) $this->record->status,
+                    [OrderStatus::PENDING->value, OrderStatus::CANCELLED->value],
+                    true,
+                ))
                 ->action(function () {
+                    // Regenerate-on-miss: the stored PDF is a short-lived
+                    // cache on R2 (swept after 7 days), so rebuild it when
+                    // absent — same self-heal as the web + API endpoints.
+                    if (empty($this->record->invoice_path)) {
+                        try {
+                            app(\App\Services\InvoiceService::class)->generateInvoice($this->record);
+                            $this->record->refresh();
+                        } catch (\Throwable $e) {
+                            Log::error('Admin invoice regen failed', [
+                                'order_id' => $this->record->id,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    }
+
+                    if (empty($this->record->invoice_path)) {
+                        Notification::make()
+                            ->title('Could not generate the invoice')
+                            ->body('Check laravel.log — the PDF renderer threw while building this invoice.')
+                            ->danger()->send();
+
+                        return null;
+                    }
+
                     // Invoices live on R2, not local disk. Redirect to a
                     // presigned URL — never return raw bytes / a local path
                     // through a Livewire action.

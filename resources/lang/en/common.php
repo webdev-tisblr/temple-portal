@@ -17,4 +17,6 @@ return [
     'read_more' => 'Read more',
     'minimum' => 'Minimum',
     'details' => 'Details',
+    // Full legal-style trust name for the © line
+    'trust_full_name' => 'Shree Pataliya Hanumanji Seva Trust',
 ];

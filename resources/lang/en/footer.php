@@ -12,4 +12,11 @@ return [
     'evening' => 'Evening',
     'morning_aarti' => 'Morning Aarti',
     'evening_aarti' => 'Evening Aarti',
+
+    // Legal links + crafted-by line (bottom bars)
+    'privacy_policy' => 'Privacy Policy',
+    'terms_of_service' => 'Terms of Service',
+    'refund_cancellation' => 'Refund & Cancellation',
+    'delete_account' => 'Delete Account',
+    'crafted_tagline' => 'Crafted with Humility, Faith & Devoted Service to Hanumanji',
 ];

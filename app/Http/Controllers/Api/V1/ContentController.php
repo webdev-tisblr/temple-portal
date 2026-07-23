@@ -131,18 +131,43 @@ class ContentController extends BaseApiController
      */
     public function statusTemplates(): JsonResponse
     {
-        $templates = \App\Support\LocalizedCache::remember('content.status_templates.v1', 900, function () {
+        $templates = \App\Support\LocalizedCache::remember('content.status_templates.v2', 900, function () {
             return \App\Models\StatusTemplate::active()
                 ->orderBy('sort_order')->orderBy('id')
                 ->get()
-                ->map(fn (\App\Models\StatusTemplate $t) => [
-                    'id' => $t->id,
-                    'title' => $t->title,
-                    'title_gu' => $t->title_gu,
-                    'title_hi' => $t->title_hi,
-                    'title_en' => $t->title_en,
-                    'preview_url' => image_url($t->greeting_card_template),
-                ])->values();
+                ->map(function (\App\Models\StatusTemplate $t) {
+                    // Devotee-photo slot as fractions of the template size so
+                    // the app can overlay the user's DP on the preview tile.
+                    $photoSlot = null;
+                    if ($t->width && $t->height) {
+                        foreach (($t->greeting_card_config['overlays'] ?? []) as $overlay) {
+                            if (($overlay['type'] ?? 'text') === 'image') {
+                                $photoSlot = [
+                                    'x' => round(($overlay['x'] ?? 0) / $t->width, 4),
+                                    'y' => round(($overlay['y'] ?? 0) / $t->height, 4),
+                                    'w' => round(($overlay['width'] ?? 0) / $t->width, 4),
+                                    'h' => round(($overlay['height'] ?? 0) / $t->height, 4),
+                                    'shape' => $overlay['shape'] ?? 'square',
+                                ];
+                                break;
+                            }
+                        }
+                    }
+
+                    return [
+                        'id' => $t->id,
+                        'title' => $t->title,
+                        'title_gu' => $t->title_gu,
+                        'title_hi' => $t->title_hi,
+                        'title_en' => $t->title_en,
+                        'preview_url' => image_url($t->greeting_card_template),
+                        // Intrinsic pixel size (null on legacy rows the
+                        // backfill couldn't read) → app falls back to 9:16.
+                        'width' => $t->width,
+                        'height' => $t->height,
+                        'photo_slot' => $photoSlot,
+                    ];
+                })->values();
         });
 
         return $this->success($templates);
@@ -172,7 +197,17 @@ class ContentController extends BaseApiController
         }
         RateLimiter::hit($bucketKey, 3600);
 
-        $result = $service->generate($template, $devotee);
+        // Optional one-off photo: the devotee can send a different picture
+        // instead of their profile photo (multipart field `photo`).
+        $photoBytes = null;
+        if ($request->hasFile('photo')) {
+            $request->validate([
+                'photo' => ['file', 'image', 'max:8192'],
+            ]);
+            $photoBytes = file_get_contents($request->file('photo')->getRealPath()) ?: null;
+        }
+
+        $result = $service->generate($template, $devotee, $photoBytes);
         if ($result === null) {
             return $this->error('Could not generate the card. Try again shortly.', 500);
         }

@@ -79,6 +79,34 @@ if (! function_exists('text_preview')) {
     }
 }
 
+if (! function_exists('youtube_video_id')) {
+    /**
+     * Extract the 11-char video id from any YouTube URL form we accept in
+     * admin inputs: watch?v=, youtu.be/, embed/, shorts/, live/, /v/ —
+     * with or without the nocookie host. Returns null when the URL isn't
+     * YouTube so callers can fall back to a native <video> tag.
+     *
+     * Single source of truth for the parsing that used to be copy-pasted
+     * into every view; used by <x-yt-clean> (the chromeless player).
+     */
+    function youtube_video_id(?string $url): ?string
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        if (preg_match(
+            '~(?:youtube(?:-nocookie)?\.com/(?:watch\?(?:[^#]*&)?v=|embed/|shorts/|live/|v/)|youtu\.be/)([\w-]{6,})~i',
+            $url,
+            $m
+        )) {
+            return $m[1];
+        }
+
+        return null;
+    }
+}
+
 if (! function_exists('private_file_redirect')) {
     /**
      * Redirect to a short-lived presigned URL for a file on the PRIVATE R2

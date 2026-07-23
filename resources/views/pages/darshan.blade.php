@@ -30,20 +30,27 @@
 
             @if(!empty($youtubeUrl) && ($isLiveNow ?? true))
                 <div class="card-sacred overflow-hidden">
-                    <div class="aspect-video">
-                        @php
-                            $embedUrl = preg_replace('/watch\?v=/', 'embed/', $youtubeUrl);
-                            $embedUrl = preg_replace('/youtu\.be\//', 'www.youtube.com/embed/', $embedUrl);
-                            $embedUrl = preg_replace('#youtube\.com/live/#', 'youtube.com/embed/', $embedUrl);
-                        @endphp
-                        <iframe
-                            src="{{ $embedUrl }}"
-                            class="w-full h-full"
-                            frameborder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            allowfullscreen
-                            title="{{ __('common.temple_name') }} — {{ __('home.live_darshan') }}">
-                        </iframe>
+                    <div class="aspect-video relative">
+                        @if(youtube_video_id($youtubeUrl))
+                            <x-yt-clean :url="$youtubeUrl" live
+                                        class="absolute inset-0 w-full h-full"
+                                        title="{{ __('common.temple_name') }} — {{ __('home.live_darshan') }}" />
+                        @else
+                            {{-- Unparseable URL form (e.g. /@channel/live) — plain embed fallback. --}}
+                            @php
+                                $embedUrl = preg_replace('/watch\?v=/', 'embed/', $youtubeUrl);
+                                $embedUrl = preg_replace('/youtu\.be\//', 'www.youtube.com/embed/', $embedUrl);
+                                $embedUrl = preg_replace('#youtube\.com/live/#', 'youtube.com/embed/', $embedUrl);
+                            @endphp
+                            <iframe
+                                src="{{ $embedUrl }}"
+                                class="absolute inset-0 w-full h-full"
+                                frameborder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                allowfullscreen
+                                title="{{ __('common.temple_name') }} — {{ __('home.live_darshan') }}">
+                            </iframe>
+                        @endif
                     </div>
                     <div class="px-5 py-3 bg-amber-900/20 border-t border-amber-800/30">
                         <p class="text-sm text-gold font-medium text-center">{{ __('darshan.live_caption') }}</p>

@@ -1,13 +1,22 @@
 {
   "resources/css/app.css": {
-    "file": "assets/app-CjSkakEE.css",
+    "file": "assets/app-DBDb_Mtp.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-6X3nC_Ln.js",
+    "file": "assets/app-B_IuTQa8.js",
     "name": "app",
     "src": "resources/js/app.js",
+    "isEntry": true,
+    "imports": [
+      "resources/js/clean-youtube.js"
+    ]
+  },
+  "resources/js/clean-youtube.js": {
+    "file": "assets/clean-youtube-hg3s-HWZ.js",
+    "name": "clean-youtube",
+    "src": "resources/js/clean-youtube.js",
     "isEntry": true
   }
 }

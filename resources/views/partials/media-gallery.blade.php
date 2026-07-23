@@ -1,41 +1,88 @@
-{{-- Reusable photo/video gallery. Expects:
-       $media   — collection of media rows (media_type, image_path, video_url)
+{{-- Reusable photo/video gallery — single horizontal slider.
+
+     Photos and videos ride in ONE strip in admin sort order. Every slide is
+     the same height; width follows the item's natural aspect ratio (images:
+     h-full + w-auto lets the browser keep the ratio; videos: fixed 16:9 box).
+     YouTube videos mount the chromeless <x-yt-clean> player inline (poster +
+     play button until tapped); uploaded files use a native <video>.
+
+     Accepts BOTH shapes:
+       • model rows   — media_type ('photo'|'video'), image_path, video_url
+       • plain arrays — type ('image'|'video'), url   (campaign JSON media)
+
+     Expects:
+       $media   — collection/array of either shape
        $title   — string used for alt/iframe title
        $heading — optional section heading (already translated)
 --}}
-@if(($media ?? collect())->isNotEmpty())
-    <div class="mt-10 pt-8 border-t border-amber-900/20">
+@php
+    $galleryItems = collect($media ?? [])->map(function ($m) {
+        if (is_array($m)) {
+            // Campaign JSON media: {url, type: image|video}. Uploaded video
+            // files and images both live in `url` (absolute or R2 key).
+            $src = image_url($m['url'] ?? '');
+            if (! $src) return null;
+            return ($m['type'] ?? 'image') === 'video'
+                ? ['kind' => 'video', 'src' => $src]
+                : ['kind' => 'photo', 'src' => $src];
+        }
+
+        if (($m->media_type ?? 'photo') === 'video' && ($m->video_url ?? null)) {
+            return ['kind' => 'video', 'src' => $m->video_url];
+        }
+        if ($m->image_path ?? null) {
+            return ['kind' => 'photo', 'src' => image_url($m->image_path)];
+        }
+
+        return null;
+    })->filter()->values();
+@endphp
+
+@if($galleryItems->isNotEmpty())
+    {{-- $bare skips the section spacing/border for callers embedding the
+         strip inside their own card (e.g. campaign detail). --}}
+    <div class="{{ ($bare ?? false) ? '' : 'mt-10 pt-8 border-t border-amber-900/20' }}">
         @if(!empty($heading))
             <p class="text-sm font-semibold text-amber-100/50 mb-4">{{ $heading }}</p>
         @endif
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            @foreach($media as $m)
-                @if($m->media_type === 'video' && $m->video_url)
-                    @php
-                        $vurl = $m->video_url;
-                        $isYt = str_contains($vurl, 'youtube.com') || str_contains($vurl, 'youtu.be');
-                        $ytId = '';
-                        if ($isYt) {
-                            if (str_contains($vurl, 'youtu.be/')) { $ytId = explode('?', explode('youtu.be/', $vurl)[1] ?? '')[0]; }
-                            elseif (preg_match('/[?&]v=([^&]+)/', $vurl, $mm)) { $ytId = $mm[1]; }
-                        }
-                    @endphp
-                    <div class="col-span-2 sm:col-span-3 relative aspect-video rounded-xl overflow-hidden bg-black border border-amber-900/20">
-                        @if($isYt && $ytId)
-                            <iframe class="absolute inset-0 w-full h-full" src="https://www.youtube-nocookie.com/embed/{{ $ytId }}"
-                                    title="{{ $title }}" frameborder="0" loading="lazy" allowfullscreen></iframe>
-                        @else
-                            <video class="absolute inset-0 w-full h-full" controls src="{{ $vurl }}"></video>
-                        @endif
-                    </div>
-                @elseif($m->image_path)
-                    <a href="{{ image_url($m->image_path) }}" target="_blank" rel="noopener"
-                       class="block aspect-[4/3] rounded-xl overflow-hidden border border-amber-900/20">
-                        <img src="{{ image_url($m->image_path) }}" alt="{{ $title }}" loading="lazy"
-                             class="w-full h-full object-cover hover:scale-105 transition duration-300">
-                    </a>
-                @endif
-            @endforeach
+
+        <div class="relative" x-data="{
+                scroll(dir) { this.$refs.strip.scrollBy({ left: dir * this.$refs.strip.clientWidth * 0.8, behavior: 'smooth' }); }
+             }">
+            {{-- The strip: uniform height, natural widths, snap scrolling. --}}
+            <div x-ref="strip"
+                 class="media-strip flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 h-52 sm:h-64">
+                @foreach($galleryItems as $item)
+                    @if($item['kind'] === 'video')
+                        <div class="h-full aspect-video flex-shrink-0 snap-start relative rounded-xl overflow-hidden bg-black border border-amber-900/20">
+                            @if(youtube_video_id($item['src']))
+                                <x-yt-clean :url="$item['src']" :title="$title ?? ''" class="absolute inset-0 w-full h-full" />
+                            @else
+                                <video class="absolute inset-0 w-full h-full" controls preload="metadata" src="{{ $item['src'] }}"></video>
+                            @endif
+                        </div>
+                    @else
+                        <a href="{{ $item['src'] }}" target="_blank" rel="noopener"
+                           class="h-full flex-shrink-0 snap-start rounded-xl overflow-hidden border border-amber-900/20 bg-black/30">
+                            {{-- h-full + w-auto keeps the image's natural aspect ratio at the strip height. --}}
+                            <img src="{{ $item['src'] }}" alt="{{ $title ?? '' }}" loading="lazy"
+                                 class="h-full w-auto max-w-none hover:opacity-90 transition">
+                        </a>
+                    @endif
+                @endforeach
+            </div>
+
+            {{-- Desktop arrows (hidden when everything fits / on touch). --}}
+            @if($galleryItems->count() > 1)
+                <button type="button" @click="scroll(-1)"
+                        class="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/55 hover:bg-black/75 text-gold rounded-full items-center justify-center border border-amber-700/30 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <button type="button" @click="scroll(1)"
+                        class="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/55 hover:bg-black/75 text-gold rounded-full items-center justify-center border border-amber-700/30 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+            @endif
         </div>
     </div>
 @endif

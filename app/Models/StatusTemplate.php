@@ -25,7 +25,30 @@ class StatusTemplate extends Model
 
     protected static function booted(): void
     {
-        $bust = fn () => \App\Support\LocalizedCache::forget('content.status_templates.v1');
+        // Keep the intrinsic pixel size in sync with the uploaded template
+        // image — the app uses it for the true-ratio masonry listing and to
+        // place the devotee-photo slot over the preview. saveQuietly avoids
+        // re-entering this hook.
+        static::saved(function (StatusTemplate $t) {
+            if ($t->greeting_card_template
+                && ($t->wasChanged('greeting_card_template') || $t->width === null)) {
+                try {
+                    $bytes = \Illuminate\Support\Facades\Storage::disk('r2')->get($t->greeting_card_template);
+                    $size = $bytes ? getimagesizefromstring($bytes) : false;
+                    if ($size !== false) {
+                        $t->width = $size[0];
+                        $t->height = $size[1];
+                        $t->saveQuietly();
+                    }
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('StatusTemplate: dimension probe failed', [
+                        'id' => $t->id, 'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        });
+
+        $bust = fn () => \App\Support\LocalizedCache::forget('content.status_templates.v2');
         static::saved($bust);
         static::deleted($bust);
     }
@@ -39,6 +62,7 @@ class StatusTemplate extends Model
         'title_gu', 'title_hi', 'title_en',
         'share_text_gu', 'share_text_hi', 'share_text_en',
         'greeting_card_template', 'greeting_card_config',
+        'width', 'height',
         'is_active', 'sort_order',
     ];
 

@@ -41,22 +41,11 @@
             @break
 
         @case('video')
-            @php
-                $vurl = $data['url'] ?? '';
-                $ytId = '';
-                if ($vurl) {
-                    if (str_contains($vurl, 'youtu.be/')) {
-                        $ytId = explode('?', explode('youtu.be/', $vurl)[1] ?? '')[0];
-                    } elseif (preg_match('/[?&]v=([^&]+)/', $vurl, $m)) {
-                        $ytId = $m[1];
-                    }
-                }
-            @endphp
+            @php $vurl = $data['url'] ?? ''; @endphp
             @if($vurl)
                 <div class="my-6 relative aspect-video rounded-2xl overflow-hidden bg-black border border-amber-900/20">
-                    @if($ytId)
-                        <iframe class="absolute inset-0 w-full h-full" src="https://www.youtube-nocookie.com/embed/{{ $ytId }}"
-                                title="video" frameborder="0" loading="lazy" allowfullscreen></iframe>
+                    @if(youtube_video_id($vurl))
+                        <x-yt-clean :url="$vurl" class="absolute inset-0 w-full h-full" />
                     @else
                         <video class="absolute inset-0 w-full h-full" controls src="{{ $vurl }}"></video>
                     @endif

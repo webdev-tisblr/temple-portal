@@ -170,56 +170,57 @@
             }
         @endphp
         @if(count($cards) > 0)
-            <div class="w-full lg:w-[350px] flex-shrink-0"
+            <div class="w-full lg:w-[350px] flex-shrink-0 flex flex-col items-center"
                  x-data="{ i: 0, n: {{ count($cards) }}, t: null,
                            arm() { clearTimeout(this.t); if (this.n > 1) this.t = setTimeout(() => this.go(this.i + 1), 6000); },
                            go(k) { this.i = (k + this.n) % this.n; this.arm(); }, init() { this.arm(); } }">
-                <div class="rounded-2xl overflow-hidden" style="background:rgba(251,245,234,.97); box-shadow:0 18px 44px rgba(30,10,4,.45);">
-                    {{-- Fixed-height stage: slides sit side-by-side in a track that
-                         slides horizontally, so there's no blank frame or text
-                         overlap between slides (unlike a cross-fade). --}}
-                    <div class="relative overflow-hidden" style="height:380px;">
-                        <div class="flex h-full transition-transform duration-500 ease-out"
-                             :style="'transform: translateX(-' + (i * 100) + '%)'">
-                        @foreach($cards as $k => $card)
-                            <div class="w-full h-full flex-shrink-0 flex flex-col">
-                                {{-- Stage is height-locked (380px), so the image box keeps h-44 and
-                                     derives its width from the 4:3 ratio, centered — no overflow. --}}
-                                <div class="h-44 flex-shrink-0 flex justify-center" style="@if($card['img'])background-color:#fff;@else background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@endif">
-                                    @if($card['img'])
-                                        <div class="h-full aspect-[4/3] bg-cover bg-no-repeat bg-center" style="background-image:url('{{ $card['img'] }}');"></div>
-                                    @endif
-                                </div>
-                                <div class="p-5 flex flex-col flex-1">
-                                    <div class="text-[10px] eyebrow" style="color:#C45F12;">{{ $card['label'] }}</div>
-                                    <div class="font-marcellus text-lg mt-1.5 line-clamp-2" style="color:#7A1E1E;">{{ $card['title'] }}</div>
-                                    @if(isset($card['pct']))
-                                        <div class="mt-3 h-[7px] rounded-full" style="background:#f0e6cf;">
-                                            <div class="h-[7px] rounded-full" style="width:{{ $card['pct'] }}%; background:linear-gradient(90deg,#E8751A,#C45F12);"></div>
-                                        </div>
-                                        <div class="flex justify-between mt-2 text-xs">
-                                            <span class="font-extrabold" style="color:#7A1E1E;">₹{{ number_format($card['raised']) }}</span>
-                                            <span style="color:#5E4F3D;">{{ __('home.of') }} ₹{{ number_format($card['goal']) }}</span>
-                                        </div>
-                                    @elseif(!empty($card['text']))
-                                        <div class="text-xs mt-2 leading-relaxed line-clamp-3" style="color:#5E4F3D;">{{ $card['text'] }}</div>
-                                    @endif
-                                    <a href="{{ $card['url'] }}" class="block mt-auto text-center font-extrabold text-xs py-2.5 rounded-full transition hover:opacity-90" style="background:#7A1E1E; color:#FFF7EC;">{{ $card['cta'] }}</a>
-                                </div>
+                {{-- Circular highlight card: the image fills the circle and the
+                     copy sits over a bottom gradient, so the advert reads as a
+                     soft medallion over the hero instead of a solid rectangle
+                     blocking the background. .hero-adcard (app.css) keeps it at
+                     50% opacity with a periodic sheen until hovered. --}}
+                <div class="hero-adcard relative rounded-full overflow-hidden"
+                     style="width:min(340px,84vw); height:min(340px,84vw); box-shadow:0 18px 44px rgba(30,10,4,.45); background:rgba(251,245,234,.97);">
+                    {{-- Slides sit side-by-side in a track that slides
+                         horizontally, so there's no blank frame or text overlap
+                         between slides (unlike a cross-fade). --}}
+                    <div class="flex h-full transition-transform duration-500 ease-out"
+                         :style="'transform: translateX(-' + (i * 100) + '%)'">
+                    @foreach($cards as $k => $card)
+                        <div class="relative w-full h-full flex-shrink-0">
+                            <div class="absolute inset-0 bg-cover bg-no-repeat bg-center"
+                                 style="@if($card['img'])background-image:url('{{ $card['img'] }}');@else background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@endif"></div>
+                            {{-- Legibility veil: light at the top, deep at the base where the copy sits. --}}
+                            <div class="absolute inset-0" style="background:linear-gradient(180deg, rgba(30,12,6,.08) 32%, rgba(30,12,6,.55) 62%, rgba(30,12,6,.88) 100%);"></div>
+                            <div class="absolute inset-x-0 bottom-0 px-10 pb-9 text-center">
+                                <div class="text-[10px] eyebrow" style="color:#F5B36B;">{{ $card['label'] }}</div>
+                                <div class="font-marcellus text-lg mt-1 line-clamp-2" style="color:#FFF7EC;">{{ $card['title'] }}</div>
+                                @if(isset($card['pct']))
+                                    <div class="mt-2.5 mx-6 h-[6px] rounded-full" style="background:rgba(255,247,236,.25);">
+                                        <div class="h-[6px] rounded-full" style="width:{{ $card['pct'] }}%; background:linear-gradient(90deg,#E8751A,#F5B36B);"></div>
+                                    </div>
+                                    <div class="mt-1.5 text-xs" style="color:rgba(253,246,230,.9);">
+                                        <span class="font-extrabold" style="color:#FFF7EC;">₹{{ number_format($card['raised']) }}</span>
+                                        {{ __('home.of') }} ₹{{ number_format($card['goal']) }}
+                                    </div>
+                                @elseif(!empty($card['text']))
+                                    <div class="text-xs mt-1.5 leading-relaxed line-clamp-2" style="color:rgba(253,246,230,.85);">{{ $card['text'] }}</div>
+                                @endif
+                                <a href="{{ $card['url'] }}" class="inline-block mt-3 font-extrabold text-xs px-6 py-2 rounded-full transition hover:opacity-90" style="background:#E8751A; color:#FFF7EC; box-shadow:0 4px 14px rgba(0,0,0,.35);">{{ $card['cta'] }}</a>
                             </div>
-                        @endforeach
                         </div>
+                    @endforeach
                     </div>
-                    @if(count($cards) > 1)
-                        <div class="flex gap-2 justify-center pb-4">
-                            @foreach($cards as $k => $card)
-                                <button type="button" @click="go({{ $k }})" class="w-2 h-2 rounded-full transition-all"
-                                        :class="i === {{ $k }} ? 'w-5' : ''"
-                                        :style="i === {{ $k }} ? 'background:#E8751A' : 'background:#e3d4b4'"></button>
-                            @endforeach
-                        </div>
-                    @endif
                 </div>
+                @if(count($cards) > 1)
+                    <div class="flex gap-2 justify-center mt-4">
+                        @foreach($cards as $k => $card)
+                            <button type="button" @click="go({{ $k }})" class="w-2 h-2 rounded-full transition-all"
+                                    :class="i === {{ $k }} ? 'w-5' : ''"
+                                    :style="i === {{ $k }} ? 'background:#E8751A' : 'background:rgba(253,246,230,.5)'"></button>
+                        @endforeach
+                    </div>
+                @endif
             </div>
         @endif
     </div>

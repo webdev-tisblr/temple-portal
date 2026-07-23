@@ -1,4 +1,6 @@
 import Alpine from 'alpinejs';
+// Chromeless YouTube player (self-mounts on [data-yt-clean] elements).
+import './clean-youtube';
 
 // Divine particles system
 Alpine.data('divineParticles', () => ({

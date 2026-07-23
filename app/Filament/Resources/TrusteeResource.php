@@ -28,8 +28,9 @@ class TrusteeResource extends Resource
             Forms\Components\Section::make('Content')->schema([
                 \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
                     Forms\Components\TextInput::make("name_{$locale}")->label("Name {$label}")->required($locale === 'gu')->maxLength(255),
-                    Forms\Components\TextInput::make("role_{$locale}")->label("Role {$label}")->maxLength(255)
-                        ->placeholder($locale === 'gu' ? 'પ્રમુખ (Chairman)' : null),
+                    // Designation is uniform by trust decision: every trustee is
+                    // "Trustee" (ટ્રસ્ટી / ट्रस्टी) — forced in Trustee::booted(),
+                    // so there is no role input here.
                     Forms\Components\TextInput::make("location_{$locale}")->label("Location {$label}")->maxLength(255)
                         ->placeholder($locale === 'gu' ? 'ગાંધીધામ, કચ્છ' : null),
                 ]),
@@ -49,7 +50,7 @@ class TrusteeResource extends Resource
             ->columns([
                 Tables\Columns\ImageColumn::make('photo_path')->label('Photo')->circular(),
                 Tables\Columns\TextColumn::make('name_gu')->label('Name')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('role_gu')->label('Role')->searchable(),
+                Tables\Columns\TextColumn::make('role_gu')->label('Role'),
                 Tables\Columns\TextColumn::make('location')->label('Location')->toggleable(),
                 Tables\Columns\TextColumn::make('sort_order')->label('Order')->sortable(),
                 Tables\Columns\IconColumn::make('is_active')->boolean()->label('Active'),

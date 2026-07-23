@@ -28,6 +28,7 @@
                     ? "https://img.youtube.com/vi/{$id}/hqdefault.jpg"
                     : ($img->image_path ? image_url($img->image_path) : ''),
                 'embed' => $id ? "https://www.youtube-nocookie.com/embed/{$id}" : $img->video_url,
+                'ytid' => $id,
                 'youtube' => (bool) $id,
             ];
         }
@@ -170,11 +171,11 @@
             <template x-if="filtered[currentIndex]?.type === 'video'">
                 <div class="w-full aspect-video max-h-[80vh]" @click.stop>
                     <template x-if="filtered[currentIndex]?.youtube">
-                        <iframe class="w-full h-full rounded-lg shadow-2xl"
-                                :src="filtered[currentIndex]?.embed"
-                                frameborder="0" loading="lazy"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowfullscreen></iframe>
+                        {{-- clean-youtube.js mounts on [data-yt-clean] and rebuilds
+                             the player when prev/next swaps :data-yt-id. --}}
+                        <div data-yt-clean :data-yt-id="filtered[currentIndex]?.ytid"
+                             :data-title="filtered[currentIndex]?.title"
+                             class="w-full h-full rounded-lg shadow-2xl overflow-hidden"></div>
                     </template>
                     <template x-if="!filtered[currentIndex]?.youtube">
                         <video class="w-full h-full rounded-lg shadow-2xl object-contain bg-black"

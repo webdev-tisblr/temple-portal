@@ -146,6 +146,50 @@
     .hero-video-btn { opacity: 1 !important; }
 }
 
+/* Media gallery slider strip: slim, theme-tinted scrollbar. */
+.media-strip { scrollbar-width: thin; scrollbar-color: rgba(200, 148, 52, .45) transparent; }
+.media-strip::-webkit-scrollbar { height: 6px; }
+.media-strip::-webkit-scrollbar-track { background: transparent; }
+.media-strip::-webkit-scrollbar-thumb { background: rgba(200, 148, 52, .45); border-radius: 3px; }
+
+/* Hero highlight card (the circular campaign/event advert over the hero).
+   Semi-transparent at rest so it doesn't obstruct the background video/photo,
+   fully opaque on hover/focus. A periodic sheen sweeps across at rest to keep
+   drawing the eye; it stops while hovered (card is opaque then anyway).
+   On touch/mobile the hero stacks vertically and there's no hover, so the
+   card stays fully opaque there. */
+.hero-adcard {
+    transition: opacity .35s ease;
+}
+@media (hover: hover) and (min-width: 1024px) {
+    .hero-adcard { opacity: .5; }
+    .hero-adcard:hover,
+    .hero-adcard:focus-within { opacity: 1; }
+}
+.hero-adcard::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    pointer-events: none;
+    border-radius: inherit;
+    background: linear-gradient(115deg,
+        transparent 42%,
+        rgba(255, 247, 236, .38) 50%,
+        transparent 58%);
+    transform: translateX(-110%);
+    animation: adcard-sheen 4.8s ease-in-out infinite;
+}
+.hero-adcard:hover::after { animation-play-state: paused; opacity: 0; }
+@keyframes adcard-sheen {
+    0%   { transform: translateX(-110%); }
+    45%  { transform: translateX(110%); }
+    100% { transform: translateX(110%); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hero-adcard::after { animation: none; }
+}
+
 /* Top-ribbon ticker: text streams continuously right-to-left. Two copies of
    the message sit side by side and the track translates by -50%, so the second
    copy seamlessly takes over as the first scrolls off. Pauses on hover. */

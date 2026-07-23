@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
     <title>{{ $page->title }}</title>
-    @vite(['resources/css/app.css'])
+    @vite(['resources/css/app.css', 'resources/js/clean-youtube.js'])
     <style>
         html, body { background: #17120a; color: #f2e4c4; margin: 0; }
         body { padding: 18px 16px 48px; -webkit-text-size-adjust: 100%; -webkit-font-smoothing: antialiased; }

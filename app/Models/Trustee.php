@@ -15,8 +15,22 @@ class Trustee extends Model
 
     protected $table = 'temple_trustees';
 
+    /**
+     * Trust decision (2026-07-23): every trustee carries the single uniform
+     * designation "Trustee" — no president/secretary/treasurer variants.
+     * Forced here (not just in the UI) so the API keeps serving the fixed
+     * strings to already-shipped app builds that read role_* fields.
+     */
+    public const ROLES = ['role_gu' => 'ટ્રસ્ટી', 'role_hi' => 'ट्रस्टी', 'role_en' => 'Trustee'];
+
     protected static function booted(): void
     {
+        static::saving(function (Trustee $trustee) {
+            foreach (self::ROLES as $field => $value) {
+                $trustee->$field = $value;
+            }
+        });
+
         $bust = fn () => \App\Support\LocalizedCache::forget('content.trustees.v1');
         static::saved($bust);
         static::deleted($bust);

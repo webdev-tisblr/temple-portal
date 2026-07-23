@@ -120,11 +120,12 @@
             <div>
                 <h3 class="text-xs font-bold mb-4" style="color: #C45F12;">{{ __('nav.mandir') }}</h3>
                 <ul class="space-y-2.5 text-sm">
-                    {{-- /parichay, /itihas, /mahima are CMS pages
-                         served by the catch-all /{slug} route — same
-                         URLs the header dropdown links to. --}}
-                    <li><a href="/parichay"                style="color: #3E3226;" class="hover:underline">{{ __('nav.parichay') }}</a></li>
-                    <li><a href="/itihas"                  style="color: #3E3226;" class="hover:underline">{{ __('nav.itihas') }}</a></li>
+                    {{-- CMS pages listed dynamically (published, top-level,
+                         admin order) — mirrors the header's Mandir dropdown. --}}
+                    @php $footerLocale = app()->getLocale(); @endphp
+                    @foreach(\App\Models\Page::navPages() as $navPage)
+                        <li><a href="{{ url('/' . $navPage['slug']) }}" style="color: #3E3226;" class="hover:underline">{{ $navPage["title_{$footerLocale}"] ?: $navPage['title_gu'] }}</a></li>
+                    @endforeach
                     <li><a href="{{ route('trustees') }}"  style="color: #3E3226;" class="hover:underline">{{ __('nav.trustees') }}</a></li>
                     <li><a href="{{ route('gallery') }}"   style="color: #3E3226;" class="hover:underline">{{ __('footer.photo_gallery') }}</a></li>
                     <li><a href="{{ route('contact') }}"   style="color: #3E3226;" class="hover:underline">{{ __('nav.contact') }}</a></li>

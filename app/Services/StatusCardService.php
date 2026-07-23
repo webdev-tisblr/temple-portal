@@ -26,8 +26,9 @@ use Illuminate\Support\Facades\Storage;
 class StatusCardService
 {
     // Bump to invalidate cached cards when the compositing logic changes
-    // (v2: EXIF-orientation correction + aspect-preserving "cover" photo fit).
-    private const VERSION = 'v2';
+    // (v2: EXIF-orientation correction + aspect-preserving "cover" photo fit;
+    //  v3: script-aware fonts so Gujarati/Hindi names render, not tofu).
+    private const VERSION = 'v3';
 
     /**
      * @param  string|null  $photoBytes  Raw bytes of a one-off photo the
@@ -130,7 +131,14 @@ class StatusCardService
                 continue;
             }
 
-            $this->applyTextOverlay($image, $overlay, (string) $value, $fontPath);
+            // Route Gujarati/Hindi values to a font that has their glyphs —
+            // the default DejaVu chain draws Indic text as tofu boxes.
+            $this->applyTextOverlay(
+                $image,
+                $overlay,
+                (string) $value,
+                \App\Support\ScriptFont::forText((string) $value) ?? $fontPath,
+            );
         }
 
         ob_start();

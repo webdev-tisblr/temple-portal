@@ -80,10 +80,6 @@
             <div class="min-w-0 flex-1">
                 <p class="font-marcellus text-[15px] text-stone-700 leading-snug">{{ __('common.temple_name') }}</p>
                 <p class="text-[12.5px] text-stone-500 leading-snug mt-0.5">{{ __('app_banner.subtitle') }}</p>
-                <div class="flex items-center gap-1 mt-1 text-[11px]">
-                    <span class="text-saffron-400 tracking-tight">★★★★★</span>
-                    <span class="text-stone-400">· {{ __('app_banner.badge') }}</span>
-                </div>
             </div>
         </div>
 

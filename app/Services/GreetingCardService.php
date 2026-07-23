@@ -154,7 +154,14 @@ class GreetingCardService
         }
 
         if ($type === 'text') {
-            $this->applyTextOverlay($image, $overlay, (string) $value, $fontPath);
+            // Route Gujarati/Hindi values (devotee names!) to a font with
+            // their glyphs — DejaVu renders Indic text as tofu boxes.
+            $this->applyTextOverlay(
+                $image,
+                $overlay,
+                (string) $value,
+                \App\Support\ScriptFont::forText((string) $value) ?? $fontPath,
+            );
         } elseif ($type === 'image') {
             $this->applyImageOverlay($image, $overlay, (string) $value);
         }

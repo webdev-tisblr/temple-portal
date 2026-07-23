@@ -7,13 +7,21 @@
 @php
     // Dropdown groupings (top-level nav mirrors the design: Temple, Seva,
     // Events, Hall Booking, Store — Contact lives in the utility strip).
-    $templeMenu = [
-        ['label' => __('nav.parichay'), 'url' => url('/parichay')],
-        ['label' => __('nav.itihas'),   'url' => url('/itihas')],
-        ['label' => __('nav.mahima'),   'url' => url('/mahima')],
-        ['label' => __('nav.trustees'), 'url' => route('trustees')],
-        ['label' => __('nav.gallery'),  'url' => route('gallery')],
-    ];
+    // CMS pages are listed dynamically (published, top-level, admin order) so
+    // adding/deleting a page in Admin → CMS Pages updates this menu — no more
+    // hardcoded /parichay-style links pointing at deleted pages.
+    $navLocale = app()->getLocale();
+    $templeMenu = collect(\App\Models\Page::navPages())
+        ->map(fn ($p) => [
+            'label' => $p["title_{$navLocale}"] ?: $p['title_gu'],
+            'url' => url('/' . $p['slug']),
+        ])
+        ->merge([
+            ['label' => __('nav.trustees'), 'url' => route('trustees')],
+            ['label' => __('nav.gallery'),  'url' => route('gallery')],
+        ])
+        ->values()
+        ->all();
 
     // Live darshan/aarti line for the utility strip. Cached so it costs nothing
     // per request; null when the admin hasn't configured any active timing.

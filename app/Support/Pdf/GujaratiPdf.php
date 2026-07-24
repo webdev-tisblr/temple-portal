@@ -63,8 +63,28 @@ final class GujaratiPdf
             'languageToFont' => new GujaratiLanguageToFont(),
         ], $mpdfConfig));
 
-        $mpdf->WriteHTML($html);
+        // mPDF's OTL shaper (Otl.php ~L1965) reads one index past $InputClasses
+        // via `$gc <= count(...)`, emitting a benign "Undefined array key N"
+        // E_WARNING for every Gujarati contextual-substitution run. The glyphs
+        // still shape correctly (the missing key just fails the is_array guard),
+        // but in production Laravel promotes that warning to a fatal
+        // ErrorException — which 500'd the packing slip. Swallow ONLY that
+        // specific mPDF warning; anything else returns false so Laravel's
+        // handler runs as usual.
+        set_error_handler(
+            static function (int $errno, string $errstr, string $errfile): bool {
+                return str_contains($errstr, 'Undefined array key')
+                    && str_contains($errfile, 'mpdf');
+            },
+            E_WARNING,
+        );
 
-        return $mpdf->Output('', 'S');
+        try {
+            $mpdf->WriteHTML($html);
+
+            return $mpdf->Output('', 'S');
+        } finally {
+            restore_error_handler();
+        }
     }
 }

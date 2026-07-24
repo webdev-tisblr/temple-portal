@@ -63,18 +63,21 @@ class HomePageSettingsPage extends Page implements HasForms
         // Top ribbon
         'ribbon_enabled', 'ribbon_text_gu', 'ribbon_text_hi', 'ribbon_text_en',
         'ribbon_link', 'ribbon_starts_at', 'ribbon_ends_at',
-        // Popup
-        'popup_enabled', 'popup_image', 'popup_title_gu', 'popup_title_hi', 'popup_title_en',
-        'popup_body_gu', 'popup_body_hi', 'popup_body_en',
-        'popup_cta_label_gu', 'popup_cta_label_hi', 'popup_cta_label_en',
-        'popup_cta_url', 'popup_starts_at', 'popup_ends_at',
+        // Popup (carousel of slides + cooldown)
+        'popup_enabled', 'popup_cooldown_days', 'popup_starts_at', 'popup_ends_at', 'popup_slides',
+        // App-install banner (store URLs stay in System Settings → Mobile App)
+        'banner_enabled', 'banner_cooldown_days', 'banner_delay_seconds',
+        'banner_starts_at', 'banner_ends_at',
     ];
 
     /** Keys that hold a JSON-encoded array of IDs. */
     private const JSON_KEYS = ['card_campaign_ids', 'card_event_ids'];
 
+    /** Keys that hold a JSON array of associative rows (kept as-is, not int-cast). */
+    private const RAW_JSON_KEYS = ['popup_slides'];
+
     /** Keys that are booleans (toggles). */
-    private const BOOL_KEYS = ['hero_video_audio', 'hero_video_controls', 'card_show_hall', 'ribbon_enabled', 'popup_enabled'];
+    private const BOOL_KEYS = ['hero_video_audio', 'hero_video_controls', 'card_show_hall', 'ribbon_enabled', 'popup_enabled', 'banner_enabled'];
 
     public function mount(): void
     {
@@ -82,7 +85,7 @@ class HomePageSettingsPage extends Page implements HasForms
         foreach (self::KEYS as $key) {
             $raw = SystemSetting::getValue("site_{$key}", '');
 
-            if (in_array($key, self::JSON_KEYS, true)) {
+            if (in_array($key, self::JSON_KEYS, true) || in_array($key, self::RAW_JSON_KEYS, true)) {
                 $values[$key] = is_array($decoded = json_decode($raw ?: '[]', true)) ? $decoded : [];
             } elseif (in_array($key, self::BOOL_KEYS, true)) {
                 // Unsaved show-hall defaults to on so existing homepages keep the hall card.
@@ -201,19 +204,49 @@ class HomePageSettingsPage extends Page implements HasForms
                 ])->columns(2),
 
             Forms\Components\Section::make('Popup')
-                ->description('Announcement modal shown once per visitor per day. Poster image, or title + text + button, or both.')
+                ->description('Announcement modal on the homepage. Add one or more slides — several slides show as an auto-advancing carousel inside a single popup.')
                 ->schema([
-                    Forms\Components\Toggle::make('popup_enabled')->label('Show popup'),
-                    Forms\Components\FileUpload::make('popup_image')->label('Poster image (optional)')
-                        ->image()->directory('site-popups')->maxSize(3072),
-                    TranslatableTabs::make(fn (string $locale, string $label) => [
-                        Forms\Components\TextInput::make("popup_title_{$locale}")->label("Title {$label}")->maxLength(300),
-                        Forms\Components\Textarea::make("popup_body_{$locale}")->label("Text {$label}")->rows(2),
-                        Forms\Components\TextInput::make("popup_cta_label_{$locale}")->label("Button label {$label}")->maxLength(100),
-                    ], id: 'popup_translations'),
-                    Forms\Components\TextInput::make('popup_cta_url')->label('Button link')->placeholder('/donate or https://…')->maxLength(500),
-                    Forms\Components\DateTimePicker::make('popup_starts_at')->label('Show from')->native(false)->displayFormat('d M Y h:i A')->seconds(false),
-                    Forms\Components\DateTimePicker::make('popup_ends_at')->label('Show until')->native(false)->displayFormat('d M Y h:i A')->seconds(false),
+                    Forms\Components\Toggle::make('popup_enabled')->label('Show popup')->columnSpanFull(),
+
+                    Forms\Components\Repeater::make('popup_slides')
+                        ->label('Slides')
+                        ->addActionLabel('Add slide')
+                        ->reorderable()->collapsible()->cloneable()
+                        ->itemLabel(fn (array $state): ?string => $state['title_gu'] ?? 'Slide')
+                        ->columnSpanFull()
+                        ->schema([
+                            Forms\Components\FileUpload::make('image')->label('Poster image (optional)')
+                                ->image()->directory('site-popups')->maxSize(3072)->columnSpanFull(),
+                            TranslatableTabs::make(fn (string $locale, string $label) => [
+                                Forms\Components\TextInput::make("title_{$locale}")->label("Title {$label}")->maxLength(300),
+                                Forms\Components\Textarea::make("body_{$locale}")->label("Text {$label}")->rows(2),
+                                Forms\Components\TextInput::make("cta_label_{$locale}")->label("Button label {$label}")->maxLength(100),
+                            ], id: 'popup_slide_translations'),
+                            Forms\Components\TextInput::make('cta_url')->label('Button link')
+                                ->placeholder('/donate or https://…')->maxLength(500)->columnSpanFull(),
+                        ]),
+
+                    Forms\Components\TextInput::make('popup_cooldown_days')
+                        ->label('Show again after (days)')->numeric()->minValue(0)->maxValue(365)->default(1)
+                        ->helperText('After a visitor closes it: 0 = every visit, 1 = once per day, 7 = weekly.'),
+                    Forms\Components\Group::make([
+                        Forms\Components\DateTimePicker::make('popup_starts_at')->label('Show from')->native(false)->displayFormat('d M Y h:i A')->seconds(false),
+                        Forms\Components\DateTimePicker::make('popup_ends_at')->label('Show until')->native(false)->displayFormat('d M Y h:i A')->seconds(false),
+                    ])->columns(2)->columnSpanFull(),
+                ])->columns(2),
+
+            Forms\Components\Section::make('App-Install Banner')
+                ->description('The slide-up "get our app" card shown to visitors on a phone browser (iPhone → App Store, Android → Play Store). The store links live in System Settings → Mobile App.')
+                ->schema([
+                    Forms\Components\Toggle::make('banner_enabled')->label('Show app-install banner')->columnSpanFull(),
+                    Forms\Components\TextInput::make('banner_cooldown_days')
+                        ->label('Show again after (days)')->numeric()->minValue(0)->maxValue(365)->default(14)
+                        ->helperText('After a visitor closes it: 0 = every visit, 1 = daily, 14 = fortnightly.'),
+                    Forms\Components\TextInput::make('banner_delay_seconds')
+                        ->label('Delay before showing (seconds)')->numeric()->minValue(0)->maxValue(60)->default(2)
+                        ->helperText('How long after the page loads the card slides up.'),
+                    Forms\Components\DateTimePicker::make('banner_starts_at')->label('Show from')->native(false)->displayFormat('d M Y h:i A')->seconds(false),
+                    Forms\Components\DateTimePicker::make('banner_ends_at')->label('Show until')->native(false)->displayFormat('d M Y h:i A')->seconds(false),
                 ])->columns(2),
         ]);
     }
@@ -227,6 +260,12 @@ class HomePageSettingsPage extends Page implements HasForms
 
             if (in_array($key, self::JSON_KEYS, true)) {
                 $value = json_encode(array_values(array_map('intval', is_array($value) ? $value : [])));
+            } elseif (in_array($key, self::RAW_JSON_KEYS, true)) {
+                // Drop entirely-empty slides, then store the array verbatim.
+                $rows = array_values(array_filter(is_array($value) ? $value : [], function ($row) {
+                    return is_array($row) && count(array_filter($row, fn ($v) => $v !== null && $v !== '')) > 0;
+                }));
+                $value = json_encode($rows);
             } elseif (in_array($key, self::BOOL_KEYS, true)) {
                 $value = $value ? '1' : '0';
             }

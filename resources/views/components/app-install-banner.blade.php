@@ -8,18 +8,37 @@
     on/off switch come from admin System Settings → General → Mobile App.
 --}}
 @php
-    $bannerEnabled = \App\Models\SystemSetting::getValue('app_install_banner_enabled', '1') === '1';
+    // Enabled/frequency/schedule come from Home Page Settings (site_banner_*);
+    // store URLs stay in System Settings → Mobile App. Shares the ribbon's
+    // cached settings bag so this costs nothing extra per request.
+    $display = \Illuminate\Support\Facades\Cache::remember('site.display.v1', 300, function () {
+        return \App\Models\SystemSetting::query()->where('key', 'like', 'site_%')->pluck('value', 'key')->all();
+    });
+
+    $bannerEnabled = ($display['site_banner_enabled'] ?? '1') === '1';
+    $now = now();
+    $bnFrom = $display['site_banner_starts_at'] ?? '';
+    $bnTo = $display['site_banner_ends_at'] ?? '';
+    $bannerLive = $bannerEnabled
+        && ($bnFrom === '' || $now->greaterThanOrEqualTo($bnFrom))
+        && ($bnTo === '' || $now->lessThanOrEqualTo($bnTo));
+
+    $cooldownDays = (int) ($display['site_banner_cooldown_days'] ?? 14);
+    $delayMs = (int) (((float) ($display['site_banner_delay_seconds'] ?? 2)) * 1000);
+
     $iosStoreUrl = \App\Models\SystemSetting::getValue('app_ios_store_url', '');
     $androidStoreUrl = \App\Models\SystemSetting::getValue('app_android_store_url', '');
 @endphp
 
-@if($bannerEnabled && ($iosStoreUrl || $androidStoreUrl))
+@if($bannerLive && ($iosStoreUrl || $androidStoreUrl))
 <div
     x-data="{
         visible: false,
         target: null,
         ios: @js($iosStoreUrl),
         android: @js($androidStoreUrl),
+        cooldownDays: {{ $cooldownDays }},
+        delayMs: {{ $delayMs }},
         key: 'sph_app_banner_until',
         init() {
             const ua = navigator.userAgent || '';
@@ -41,15 +60,20 @@
             else if (isIOS || isAndroid) this.target = this.ios || this.android;
             else return; // desktop / unknown device — stay hidden
 
-            // Honour a recent dismissal.
-            const until = parseInt(localStorage.getItem(this.key) || '0', 10);
-            if (Date.now() < until) return;
+            // Honour a recent dismissal (cooldown configured in admin;
+            // 0 days = show every visit).
+            if (this.cooldownDays > 0) {
+                const until = parseInt(localStorage.getItem(this.key) || '0', 10);
+                if (Date.now() < until) return;
+            }
 
-            setTimeout(() => { this.visible = true; }, 1400);
+            setTimeout(() => { this.visible = true; }, this.delayMs);
         },
         dismiss() {
             this.visible = false;
-            localStorage.setItem(this.key, String(Date.now() + 14 * 24 * 60 * 60 * 1000));
+            if (this.cooldownDays > 0) {
+                localStorage.setItem(this.key, String(Date.now() + this.cooldownDays * 24 * 60 * 60 * 1000));
+            }
         }
     }"
     x-cloak

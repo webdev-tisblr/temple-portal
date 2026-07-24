@@ -83,13 +83,8 @@ class SystemSettings extends Page implements HasForms
 
                         Forms\Components\Section::make('Mobile App')
                             ->icon('heroicon-o-device-phone-mobile')
-                            ->description('Store links for the Patadiya Hanumanji app. These drive the "install our app" banner shown to mobile-web visitors (device-aware: iPhone → App Store, Android → Play Store) AND the force-update check the app itself reads. Leave a URL blank to hide that platform.')
+                            ->description('Store links for the Patadiya Hanumanji app. These drive the "install our app" banner shown to mobile-web visitors (device-aware: iPhone → App Store, Android → Play Store) AND the force-update check the app itself reads. Leave a URL blank to hide that platform. The banner\'s on/off, frequency and schedule now live in Home Page Settings → App-Install Banner.')
                             ->schema([
-                                Forms\Components\Toggle::make('app_install_banner_enabled')
-                                    ->label('Show app-install banner on mobile website')
-                                    ->helperText('When on, visitors on a phone browser see a gentle slide-up card inviting them to get the app.')
-                                    ->default(true)
-                                    ->columnSpanFull(),
                                 Forms\Components\TextInput::make('app_ios_store_url')
                                     ->label('iOS App Store URL')
                                     ->url()

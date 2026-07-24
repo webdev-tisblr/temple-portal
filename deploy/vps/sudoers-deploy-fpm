@@ -1,0 +1,8 @@
+# Install as: /etc/sudoers.d/deploy-fpm  (mode 0440, root:root)
+#   install -m 0440 -o root -g root deploy/vps/sudoers-deploy-fpm /etc/sudoers.d/deploy-fpm
+#   visudo -c   # validate before trusting it
+#
+# Lets the GitHub Actions `deploy` user reload PHP-FPM without a password,
+# so the pipeline can pick up new bytecode with `sudo -n systemctl reload
+# php8.3-fpm` instead of the shared-hosting 8-hit HTTP opcache hack.
+deploy ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.3-fpm

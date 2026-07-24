@@ -1,0 +1,5 @@
+# Install as the `deploy` user:  crontab -e   (paste the line below)
+# Replaces every hPanel cron with the one canonical Laravel scheduler entry.
+# schedule:run fires all routes/console.php tasks (reminders, cleanups,
+# backups, darshan-card sweeps) on their own cron expressions.
+* * * * * cd /var/www/temple-portal && php artisan schedule:run >> /dev/null 2>&1

@@ -1,10 +1,12 @@
 {{-- Reusable photo/video gallery — single horizontal slider.
 
      Photos and videos ride in ONE strip in admin sort order. Every slide is
-     the same height; width follows the item's natural aspect ratio (images:
-     h-full + w-auto lets the browser keep the ratio; videos: fixed 16:9 box).
-     YouTube videos mount the chromeless <x-yt-clean> player inline (poster +
-     play button until tapped); uploaded files use a native <video>.
+     the same height; width follows the item's natural aspect ratio (images
+     and uploaded videos: h-full + w-auto; YouTube: h-full + an aspect-ratio
+     that clean-youtube.js resolves from the video itself, so Shorts get a
+     9:16 slot). YouTube videos mount the chromeless <x-yt-clean> player
+     inline (poster + play button until tapped); uploaded files use a
+     native <video>.
 
      Accepts BOTH shapes:
        • model rows   — media_type ('photo'|'video'), image_path, video_url
@@ -54,8 +56,15 @@
                  class="media-strip flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 h-52 sm:h-64">
                 @foreach($galleryItems as $item)
                     @if($item['kind'] === 'video' && youtube_video_id($item['src']))
-                        {{-- YouTube iframes have no intrinsic ratio — fixed 16:9 box. --}}
-                        <div class="h-full aspect-video flex-shrink-0 snap-start relative rounded-xl overflow-hidden bg-black border border-amber-900/20">
+                        {{-- YouTube iframes have no intrinsic ratio, so the box starts on
+                             the URL hint (9:16 for /shorts/, else 16:9) and data-yt-fit
+                             lets clean-youtube.js correct it to the real one once it has
+                             probed the thumbnail. h-full + the ratio ⇒ natural width, so
+                             a vertical video sits in a vertical slot like the photos do
+                             instead of being pillarboxed inside a 16:9 slot. --}}
+                        <div data-yt-fit
+                             style="aspect-ratio:var(--yt-ratio,{{ youtube_aspect_hint($item['src']) }})"
+                             class="h-full flex-shrink-0 snap-start relative rounded-xl overflow-hidden bg-black border border-amber-900/20">
                             <x-yt-clean :url="$item['src']" :title="$title ?? ''" class="absolute inset-0 w-full h-full" />
                         </div>
                     @elseif($item['kind'] === 'video')

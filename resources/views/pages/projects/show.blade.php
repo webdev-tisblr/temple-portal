@@ -39,7 +39,12 @@
             @if($project->featured_video_url)
                 @php $fv = $project->featured_video_url; @endphp
                 <div class="card-sacred overflow-hidden">
-                    <div class="relative aspect-video bg-black">
+                    {{-- Height-capped, ratio-driven box (see partials/media-gallery):
+                         a vertical featured video renders portrait and centred. --}}
+                    <div @if(youtube_video_id($fv)) data-yt-fit
+                             style="aspect-ratio:var(--yt-ratio,{{ youtube_aspect_hint($fv) }});width:min(100%,calc(70vh*var(--yt-ratio,{{ youtube_aspect_hint($fv) }})))"
+                         @endif
+                         class="relative mx-auto @if(!youtube_video_id($fv)) aspect-video @endif bg-black">
                         @if(youtube_video_id($fv))
                             <x-yt-clean :url="$fv" :title="$project->title" class="absolute inset-0 w-full h-full" />
                         @else

@@ -15,6 +15,20 @@
  * data-yt-id swaps (gallery prev/next) just work. A poster + play
  * button shows before first play so YouTube's title overlay never
  * flashes; a transparent tap layer keeps clicks off YouTube's UI.
+ *
+ * YouTube paints its own chrome (channel avatar, title, "watch on
+ * YouTube", logo, big play button) whenever the player sits PAUSED or
+ * ENDED — controls=0 does not suppress it. So we bring the poster back
+ * over the frame for both states: the frozen frame is swapped for the
+ * thumbnail, and none of YouTube's branding is ever visible.
+ *
+ * Aspect ratio: an ancestor (or the root itself) marked [data-yt-fit]
+ * gets `aspect-ratio` + a `--yt-ratio` custom property set to the
+ * video's TRUE ratio, so Shorts render as 9:16 boxes instead of
+ * pillarboxed inside 16:9. Detection is free — YouTube only publishes
+ * `oardefault.jpg` ("original aspect ratio") for non-16:9 uploads, so
+ * a 200 gives us both the ratio and a correctly-shaped poster, and a
+ * 404 means plain 16:9.
  */
 
 const ROOT_SEL = '[data-yt-clean]';
@@ -49,7 +63,7 @@ function loadApi() {
 /* Styles (injected once — keeps the player fully self-contained)      */
 /* ------------------------------------------------------------------ */
 const CSS = `
-.ytc{position:relative;overflow:hidden;background:#000;width:100%;height:100%}
+.ytc{position:relative;overflow:hidden;background:#000;width:100%;height:100%;container-type:inline-size}
 .ytc,.ytc *{box-sizing:border-box}
 .ytc .ytc-frame,.ytc iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .ytc-poster{position:absolute;inset:0;cursor:pointer;z-index:3;display:flex;align-items:center;justify-content:center;background:#000}
@@ -60,7 +74,9 @@ const CSS = `
 .ytc-poster:hover .ytc-bigplay{transform:scale(1.08);background:rgba(217,119,6,.95)}
 .ytc-bigplay svg{width:26px;height:26px;margin-left:3px}
 .ytc-tap{position:absolute;inset:0;z-index:1;cursor:pointer}
-.ytc-bar{position:absolute;left:0;right:0;bottom:0;z-index:2;display:flex;align-items:center;gap:10px;
+/* Above the poster (z-3): the bar stays usable while paused, when the
+   poster is what's hiding YouTube's branding. */
+.ytc-bar{position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;align-items:center;gap:10px;
   padding:22px 12px 8px;background:linear-gradient(to top,rgba(0,0,0,.85),rgba(0,0,0,.45) 60%,transparent);
   opacity:0;transition:opacity .25s;color:#fde68a;font:600 12px/1 system-ui,sans-serif}
 .ytc.ytc-ui .ytc-bar{opacity:1}
@@ -83,7 +99,23 @@ const CSS = `
 @keyframes ytc-pulse{0%,100%{opacity:1}50%{opacity:.35}}
 .ytc:fullscreen{width:100%;height:100%}
 .ytc:fullscreen .ytc-frame,.ytc:fullscreen iframe{width:100%;height:100%}
+.ytc:fullscreen .ytc-poster img{object-fit:contain}
 .ytc .ytc-hidden{display:none!important}
+/* Narrow players (a Short in the gallery strip is ~120px wide): drop the
+   volume slider and timestamps, shrink the buttons, so the bar still fits. */
+@container (max-width:320px){
+  .ytc-vol,.ytc-time{display:none}
+  .ytc-bar{gap:4px;padding:18px 6px 6px}
+  .ytc-btn{width:28px;height:28px;border-radius:6px}
+  .ytc-btn svg{width:16px;height:16px}
+  .ytc-poster .ytc-bigplay{width:46px;height:46px}
+  .ytc-bigplay svg{width:20px;height:20px}
+}
+@container (max-width:170px){
+  .ytc-mute{display:none}
+  .ytc-poster .ytc-bigplay{width:38px;height:38px}
+  .ytc-bigplay svg{width:16px;height:16px}
+}
 `;
 
 function injectStyle() {
@@ -129,6 +161,8 @@ class CleanPlayer {
         this.hideTimer = null;
         this.seeking = false;
         this.destroyed = false;
+        this.ratio = null;
+        this.fit = null;
 
         root.classList.add('ytc');
         this.buildPoster();
@@ -143,14 +177,57 @@ class CleanPlayer {
         p.innerHTML =
             `<img alt="" src="https://i.ytimg.com/vi/${this.id}/hqdefault.jpg">` +
             `<button type="button" class="ytc-bigplay" aria-label="Play">${I.play}</button>`;
-        // Upgrade to the HD poster when it exists (tiny grey 120px image otherwise).
         const img = p.querySelector('img');
-        const hd = new Image();
-        hd.onload = () => { if (hd.naturalWidth > 200) img.src = hd.src; };
-        hd.src = `https://i.ytimg.com/vi/${this.id}/maxresdefault.jpg`;
-        p.addEventListener('click', () => this.start());
+
+        // oardefault.jpg = "original aspect ratio". YouTube publishes it ONLY
+        // for uploads that are not 16:9 (Shorts, vertical, square), so a 200
+        // hands us the true ratio *and* an un-letterboxed poster; a 404 means
+        // the video is plain 16:9.
+        const oar = new Image();
+        oar.onload = () => {
+            if (!oar.naturalWidth || !oar.naturalHeight) return;
+            img.src = oar.src;
+            this.applyRatio(oar.naturalWidth / oar.naturalHeight);
+        };
+        oar.onerror = () => {
+            this.applyRatio(16 / 9);
+            // Upgrade to the HD poster when it exists (tiny grey 120px image otherwise).
+            const hd = new Image();
+            hd.onload = () => { if (hd.naturalWidth > 200) img.src = hd.src; };
+            hd.src = `https://i.ytimg.com/vi/${this.id}/maxresdefault.jpg`;
+        };
+        oar.src = `https://i.ytimg.com/vi/${this.id}/oardefault.jpg`;
+
+        // Click resumes an existing player; only the very first click boots it.
+        p.addEventListener('click', () => (this.player ? this.player.playVideo() : this.start()));
         this.poster = p;
         this.root.appendChild(p);
+    }
+
+    /**
+     * Push the video's true aspect ratio onto the nearest [data-yt-fit] box
+     * (the caller's sizing wrapper), so a Short gets a 9:16 slot instead of
+     * being pillarboxed inside 16:9. Also broadcast it for anything else that
+     * wants to react.
+     */
+    applyRatio(r) {
+        if (!r || !isFinite(r) || r <= 0) return;
+        this.ratio = r;
+        this.root.classList.toggle('ytc-portrait', r < 1);
+
+        // Only the custom property is ours to write — the caller owns the
+        // `aspect-ratio` / `width` rules and spells its own fallback with
+        // `var(--yt-ratio, 1.7778)`, so we can never clobber their sizing.
+        const fit = this.root.closest('[data-yt-fit]');
+        if (fit) {
+            fit.style.setProperty('--yt-ratio', r.toFixed(4));
+            this.fit = fit;
+        }
+
+        this.root.dispatchEvent(new CustomEvent('ytclean:ratio', {
+            bubbles: true,
+            detail: { id: this.id, ratio: r, portrait: r < 1 },
+        }));
     }
 
     buildUi() {
@@ -268,9 +345,13 @@ class CleanPlayer {
             this.$play.innerHTML = I.pause;
             this.startTicker();
             this.scheduleHide();
-        } else if (s === YTP.PAUSED || s === YTP.BUFFERING) {
-            this.$play.innerHTML = s === YTP.PAUSED ? I.play : this.$play.innerHTML;
-            if (s === YTP.PAUSED) this.showUi(true);
+        } else if (s === YTP.PAUSED) {
+            // YouTube paints its title bar, channel avatar, "watch on YouTube"
+            // link and logo over every paused frame, and controls=0 doesn't
+            // stop it. Cover the whole thing with our poster instead.
+            this.$play.innerHTML = I.play;
+            this.poster.style.display = '';
+            this.showUi(true);
         } else if (s === YTP.ENDED) {
             // Back to the poster — never show YouTube's end screen.
             this.$play.innerHTML = I.play;
@@ -288,7 +369,13 @@ class CleanPlayer {
         document.removeEventListener('fullscreenchange', this._fsHandler);
         try { if (this.player) this.player.destroy(); } catch (e) { /* noop */ }
         this.player = null;
-        this.root.classList.remove('ytc', 'ytc-ui');
+        // Drop our ratio so a swapped-in video (gallery prev/next) re-measures
+        // instead of inheriting the previous one's box.
+        if (this.fit) {
+            this.fit.style.removeProperty('--yt-ratio');
+            this.fit = null;
+        }
+        this.root.classList.remove('ytc', 'ytc-ui', 'ytc-portrait');
         this.root.innerHTML = '';
     }
 

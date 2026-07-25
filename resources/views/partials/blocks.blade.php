@@ -43,7 +43,13 @@
         @case('video')
             @php $vurl = $data['url'] ?? ''; @endphp
             @if($vurl)
-                <div class="my-6 relative aspect-video rounded-2xl overflow-hidden bg-black border border-amber-900/20">
+                {{-- Ratio comes from the video (clean-youtube.js sets --yt-ratio), and
+                     the width is capped by a 70vh height so a vertical clip becomes a
+                     centred portrait frame instead of a page-wide, page-tall one. --}}
+                <div @if(youtube_video_id($vurl)) data-yt-fit
+                         style="aspect-ratio:var(--yt-ratio,{{ youtube_aspect_hint($vurl) }});width:min(100%,calc(70vh*var(--yt-ratio,{{ youtube_aspect_hint($vurl) }})))"
+                     @endif
+                     class="my-6 mx-auto relative @if(!youtube_video_id($vurl)) aspect-video @endif rounded-2xl overflow-hidden bg-black border border-amber-900/20">
                     @if(youtube_video_id($vurl))
                         <x-yt-clean :url="$vurl" class="absolute inset-0 w-full h-full" />
                     @else

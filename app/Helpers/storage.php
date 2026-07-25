@@ -107,6 +107,25 @@ if (! function_exists('youtube_video_id')) {
     }
 }
 
+if (! function_exists('youtube_aspect_hint')) {
+    /**
+     * First-paint aspect ratio for a YouTube URL, as a bare number for CSS
+     * (`aspect-ratio` / `--yt-ratio`).
+     *
+     * Only the URL form is knowable server-side: a /shorts/ link is always
+     * 9:16, anything else is assumed 16:9. clean-youtube.js then probes the
+     * thumbnail and corrects the box to the video's TRUE ratio — this hint
+     * only exists to keep vertical videos from visibly reflowing from a wide
+     * box to a narrow one on load.
+     */
+    function youtube_aspect_hint(?string $url): string
+    {
+        return $url && preg_match('~youtube(?:-nocookie)?\.com/shorts/~i', $url)
+            ? '0.5625'   // 9:16
+            : '1.7778';  // 16:9
+    }
+}
+
 if (! function_exists('private_file_redirect')) {
     /**
      * Redirect to a short-lived presigned URL for a file on the PRIVATE R2

@@ -169,7 +169,12 @@
         {{-- Media (photo or video) --}}
         <div class="max-w-4xl w-full max-h-full flex flex-col items-center gap-3">
             <template x-if="filtered[currentIndex]?.type === 'video'">
-                <div class="w-full aspect-video max-h-[80vh]" @click.stop>
+                {{-- Height-capped, ratio-driven box: clean-youtube.js writes the real
+                     --yt-ratio once it knows it, so a Short opens as a tall 9:16
+                     frame instead of a wide one with black bars either side. --}}
+                <div data-yt-fit @click.stop
+                     class="mx-auto max-h-[80vh]"
+                     style="aspect-ratio:var(--yt-ratio,1.7778);width:min(100%,calc(80vh*var(--yt-ratio,1.7778)))">
                     <template x-if="filtered[currentIndex]?.youtube">
                         {{-- clean-youtube.js mounts on [data-yt-clean] and rebuilds
                              the player when prev/next swaps :data-yt-id. --}}

@@ -140,7 +140,7 @@ jobs:
           # database.sqlite is excluded for the same reason.
           switches: -rlczv --checksum --delete --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='.env.production' --exclude='.env.deploy' --exclude='.env.server' --exclude='tests' --exclude='.github' --exclude='storage/app/public/' --exclude='storage/app/private/' --exclude='storage/logs/*.log' --exclude='storage/framework/cache/data/*' --exclude='storage/framework/sessions/*' --exclude='storage/framework/views/*' --exclude='database.sqlite'
           path: ./
-          remote_path: ~/domains/patadiyahanumanji.com/public_html/
+          remote_path: /var/www/temple-portal/
           remote_host: ${{ secrets.HOSTINGER_HOST }}
           remote_port: ${{ secrets.HOSTINGER_PORT }}
           remote_user: ${{ secrets.HOSTINGER_USERNAME }}
@@ -156,7 +156,7 @@ jobs:
         with:
           switches: -rlczv --checksum --delete --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='.env.production' --exclude='.env.deploy' --exclude='.env.server' --exclude='tests' --exclude='.github' --exclude='storage/app/public/' --exclude='storage/app/private/' --exclude='storage/logs/*.log' --exclude='storage/framework/cache/data/*' --exclude='storage/framework/sessions/*' --exclude='storage/framework/views/*' --exclude='database.sqlite'
           path: ./
-          remote_path: ~/domains/patadiyahanumanji.com/public_html/
+          remote_path: /var/www/temple-portal/
           remote_host: ${{ secrets.HOSTINGER_HOST }}
           remote_port: ${{ secrets.HOSTINGER_PORT }}
           remote_user: ${{ secrets.HOSTINGER_USERNAME }}
@@ -170,7 +170,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.HOSTINGER_PORT }}
           script: |
-            cd ~/domains/patadiyahanumanji.com/public_html
+            cd /var/www/temple-portal
             # Abort the deploy on ANY unguarded failure — most importantly a
             # failed `migrate --force`. Without this, a migration error left
             # the deploy green while silently blocking every later migration
@@ -229,69 +229,12 @@ jobs:
             php artisan view:cache
             php artisan filament:cache-components 2>/dev/null || true
 
-            # Reset Hostinger's PHP-OPcache. Without this, new compiled
-            # .php files sit on disk but PHP-FPM keeps serving stale
-            # bytecode from memory until each worker naturally recycles
-            # (can be hours). The one-shot HTTP script trick is the only
-            # reliable way on shared hosting because the SSH session and
-            # the web SAPI are separate PHP processes with separate
-            # OPcaches — clearing from CLI only resets the CLI cache.
-            #
-            # Hardening notes (added 2026-05-13 after a deploy where stale
-            # bytecode kept OtpService returning a removed hardcoded OTP):
-            #   • Hit the reset URL 8× with cache-busting query strings
-            #     so we round-robin across distinct FPM worker processes.
-            #     A single curl only resets the worker that happened to
-            #     answer, leaving the rest stale.
-            #   • Echo the response body of each hit into the Actions log
-            #     so a future failure (OPCACHE_API_BLOCKED, 5xx, etc.) is
-            #     visible without SSH.
-            #   • A secondary invalidate-by-path pass via CLI hits any
-            #     opcache.file_cache on disk (Hostinger uses this on some
-            #     plans). Belt-and-suspenders.
-            cat > public/_opcache_reset.php << 'PHP'
-            <?php
-            header('Cache-Control: no-store');
-            if (function_exists('opcache_reset')) {
-                $ok = opcache_reset();
-                echo $ok ? 'OPCACHE_RESET_OK pid=' . getmypid() : 'OPCACHE_RESET_RETURNED_FALSE';
-            } else {
-                echo 'OPCACHE_API_BLOCKED';
-            }
-            PHP
-            echo "── Web-SAPI opcache reset (8 hits to fan out across FPM workers):"
-            for i in 1 2 3 4 5 6 7 8; do
-              # Cache-bust query string + Pragma header force fresh execution
-              # rather than CDN/proxy reuse on shared hosting.
-              response=$(curl -sS --max-time 10 \
-                -H 'Pragma: no-cache' \
-                "https://patadiyahanumanji.com/_opcache_reset.php?bust=$i&t=$(date +%s%N)" 2>&1 || echo 'CURL_FAILED')
-              echo "  hit $i → $response"
-            done
-            rm -f public/_opcache_reset.php
-
-            # Secondary pass — invalidate-by-path for the file cache on
-            # disk (opcache.file_cache, used on some Hostinger plans).
-            # Runs in the CLI SAPI which has its own opcache; harmless if
-            # not configured.
-            echo "── CLI opcache file-cache invalidate (best-effort):"
-            php -r "
-              if (function_exists('opcache_invalidate')) {
-                  \$count = 0;
-                  foreach (['app', 'bootstrap', 'config', 'routes'] as \$dir) {
-                      \$it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(\$dir));
-                      foreach (\$it as \$file) {
-                          if (\$file->isFile() && \$file->getExtension() === 'php') {
-                              opcache_invalidate(\$file->getPathname(), true);
-                              \$count++;
-                          }
-                      }
-                  }
-                  echo \"  invalidated {\$count} files\n\";
-              } else {
-                  echo \"  opcache_invalidate unavailable\n\";
-              }
-            " || echo "  CLI invalidate skipped"
+            # VPS: reload PHP-FPM so every worker picks up the new
+            # bytecode at once. Replaces the shared-hosting-era
+            # _opcache_reset.php HTTP hack (8-hit curl fan-out) that
+            # existed because shared hosting exposed no FPM reload.
+            sudo -n systemctl reload php8.3-fpm
+            echo "php-fpm reloaded"
             # storage:link removed — uploads now live in Cloudflare R2,
             # not storage/app/public, so the public/storage symlink is unused.
 

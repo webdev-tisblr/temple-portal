@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Notifications;
 
+use App\Jobs\SendQueuedNotification;
+use App\Models\AdminUser;
 use App\Models\Devotee;
 use App\Models\NotificationLog;
 use App\Models\NotificationTemplate;
@@ -89,12 +91,11 @@ final class NotificationService
      * commits, so a rolled-back caller never produces user-facing
      * confirmations.
      *
-     * @param array<string,mixed> $context
-     * @param string|null $idempotencyKey  Optional dedup token; same key + channel within 5 minutes is skipped.
-     * @param list<string>|null $onlyChannels  When non-null, restrict this dispatch to these channels
-     *                                         (e.g. ['email','whatsapp']); enabled templates on other
-     *                                         channels are left untouched. Null = every channel, as before.
-     *
+     * @param  array<string,mixed>  $context
+     * @param  string|null  $idempotencyKey  Optional dedup token; same key + channel within 5 minutes is skipped.
+     * @param  list<string>|null  $onlyChannels  When non-null, restrict this dispatch to these channels
+     *                                           (e.g. ['email','whatsapp']); enabled templates on other
+     *                                           channels are left untouched. Null = every channel, as before.
      * @return int Templates delivered when running inline; 0 when deferred
      *             (the actual count is recorded in NotificationLog rows).
      */
@@ -104,9 +105,28 @@ final class NotificationService
         // so this wrapping is always safe — even outside a transaction
         // context the call behaves exactly like before.
         DB::afterCommit(function () use ($key, $context, $idempotencyKey, $onlyChannels) {
+            // Queue-backed path (notifications.via_queue, VPS + worker):
+            // hand the whole dispatch to a SendQueuedNotification job so
+            // driver latency never rides in this process. OTP gets the
+            // high-priority queue the worker drains first. Two dispatches
+            // stay inline regardless: contexts carrying _attachments
+            // (snapshotting drops them — Generate* jobs and the hall
+            // controller build the file bytes in-process) and contexts
+            // whose snapshot would truncate past the 8KB cap.
+            if (config('notifications.via_queue') && ! array_key_exists('_attachments', $context)) {
+                $snapshot = $this->snapshotContext(new NotificationContext($context));
+                if (! isset($snapshot['_truncated'])) {
+                    SendQueuedNotification::dispatch($key, $snapshot, $idempotencyKey, $onlyChannels)
+                        ->onQueue($key === 'auth.otp' ? 'otp' : 'default');
+
+                    return;
+                }
+            }
+
             // CLI / queue worker — no response to flush, run synchronously.
             if (app()->runningInConsole()) {
                 $this->doDispatch($key, $context, $idempotencyKey, $onlyChannels);
+
                 return;
             }
 
@@ -179,6 +199,7 @@ final class NotificationService
                 'status' => NotificationLog::STATUS_FAILED,
                 'error_message' => 'auto-retry aborted: source template no longer exists',
             ])->save();
+
             return false;
         }
 
@@ -188,6 +209,7 @@ final class NotificationService
                 'status' => NotificationLog::STATUS_FAILED,
                 'error_message' => "auto-retry aborted: no driver for channel {$template->channel}",
             ])->save();
+
             return false;
         }
 
@@ -195,7 +217,7 @@ final class NotificationService
         // recipient templates re-send to the SAME recipient that was tried
         // originally, not the template's legacy default. Mirrors the admin
         // Resend action.
-        $perRecipientTemplate = (new NotificationTemplate())
+        $perRecipientTemplate = (new NotificationTemplate)
             ->setRawAttributes($template->getAttributes(), sync: true);
         $perRecipientTemplate->exists = true;
         if (! empty($log->recipient_strategy)) {
@@ -265,10 +287,12 @@ final class NotificationService
                 if ($model !== null) {
                     $out[$key] = $model;
                 }
+
                 continue;
             }
             $out[$key] = $value;
         }
+
         return $out;
     }
 
@@ -319,6 +343,7 @@ final class NotificationService
         // the test devotee (devotee.registered, seva/donation confirms).
         if ($this->isReviewTestRecipient($context)) {
             Log::info('Notification: suppressed for review test number', ['key' => $key]);
+
             return 0;
         }
 
@@ -334,6 +359,7 @@ final class NotificationService
         if ($onlyChannels !== null) {
             if ($onlyChannels === []) {
                 Log::info('Notification: dispatch suppressed — empty channel allow-list', ['key' => $key]);
+
                 return 0;
             }
             $templatesQuery->whereIn('channel', $onlyChannels);
@@ -343,6 +369,7 @@ final class NotificationService
 
         if ($templates->isEmpty()) {
             Log::info('Notification: no enabled templates for key', ['key' => $key]);
+
             return 0;
         }
 
@@ -373,6 +400,7 @@ final class NotificationService
                 Log::warning('Notification: template has no usable recipient configs', [
                     'template_id' => $template->id, 'template_key' => $template->key,
                 ]);
+
                 continue;
             }
 
@@ -385,7 +413,7 @@ final class NotificationService
                 // overwriting two attributes after gives RecipientResolver
                 // the exact (strategy, value) for this delivery without
                 // mutating the original loaded row.
-                $perRecipientTemplate = (new NotificationTemplate())
+                $perRecipientTemplate = (new NotificationTemplate)
                     ->setRawAttributes($template->getAttributes(), sync: true);
                 $perRecipientTemplate->exists = true;
                 $perRecipientTemplate->recipient_strategy = $strategy;
@@ -410,14 +438,16 @@ final class NotificationService
                         Log::warning('Notification: admin_role recipient missing role name', [
                             'template_id' => $template->id, 'template_key' => $template->key,
                         ]);
+
                         continue;
                     }
 
-                    $admins = \App\Models\AdminUser::role($role)->where('is_active', true)->get();
+                    $admins = AdminUser::role($role)->where('is_active', true)->get();
                     if ($admins->isEmpty()) {
                         Log::info('Notification: no active admins with role — skipping', [
                             'template_id' => $template->id, 'template_key' => $template->key, 'role' => $role,
                         ]);
+
                         continue;
                     }
 
@@ -438,6 +468,7 @@ final class NotificationService
                             ]);
                         }
                     }
+
                     continue;
                 }
 
@@ -480,6 +511,7 @@ final class NotificationService
             ]);
             $this->writeLog($template, $ctx, recipient: null, status: NotificationLog::STATUS_SKIPPED,
                 skipReason: 'no_driver', idempotencyKey: $idempotencyKey);
+
             return false;
         }
 
@@ -492,6 +524,7 @@ final class NotificationService
             ]);
             $this->writeLog($template, $ctx, recipient: null, status: NotificationLog::STATUS_SKIPPED,
                 skipReason: 'duplicate', idempotencyKey: $idempotencyKey);
+
             return false;
         }
 
@@ -581,6 +614,7 @@ final class NotificationService
                 'channel' => $template->channel,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -596,12 +630,14 @@ final class NotificationService
         if ($template->channel === NotificationTemplate::CHANNEL_PUSH) {
             $devotee = $ctx->get('devotee');
             if ($devotee instanceof Model) {
-                return ['type' => 'devotee', 'value' => 'devotee:' . $devotee->getKey()];
+                return ['type' => 'devotee', 'value' => 'devotee:'.$devotee->getKey()];
             }
+
             return null;
         }
 
         $expectedType = $template->channel === NotificationTemplate::CHANNEL_EMAIL ? 'email' : 'phone';
+
         return $this->recipients->resolve($template, $ctx, $expectedType);
     }
 
@@ -630,12 +666,14 @@ final class NotificationService
         $devotee = $ctx->get('devotee');
         if ($devotee instanceof Devotee) {
             $key = $devotee->getKey();
+
             return $key === null ? null : (string) $key;
         }
         $id = $ctx->get('devotee.id');
         if ($id === null || $id === '') {
             return null;
         }
+
         return (string) $id;
     }
 
@@ -659,10 +697,12 @@ final class NotificationService
                     'model' => get_class($value),
                     'id' => $value->getKey(),
                 ];
+
                 continue;
             }
             if (is_scalar($value) || $value === null) {
                 $out[$key] = $value;
+
                 continue;
             }
             if (is_array($value)) {
@@ -671,6 +711,7 @@ final class NotificationService
                     $value,
                     fn ($v) => is_scalar($v) || $v === null,
                 );
+
                 continue;
             }
             // unknown object type — store the class name only
@@ -682,6 +723,7 @@ final class NotificationService
         if ($encoded !== false && strlen($encoded) > 8192) {
             return ['_truncated' => true, 'keys' => array_keys($out)];
         }
+
         return $out;
     }
 }

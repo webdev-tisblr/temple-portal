@@ -50,6 +50,10 @@ return [
     'book_full_week' => 'Book this whole week',
     'full_day_booked' => 'This day is fully booked',
     'full_week_booked' => 'This week is fully booked',
+    // Shown in place of a clock time for full-day / full-week bookings,
+    // whose slot_time holds a sentinel rather than an HH:MM.
+    'slot_full_day' => 'Whole day',
+    'slot_full_week' => 'Whole week',
     'choose_option' => 'Choose an option',
     'book' => 'Book',
 ];

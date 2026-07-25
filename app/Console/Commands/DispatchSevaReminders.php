@@ -258,7 +258,9 @@ class DispatchSevaReminders extends Command
                 'admin_name' => 'admin.name',
                 'seva_name' => 'booking.seva.name_gu',
                 'booking_date' => 'booking.booking_date',
-                'slot_time' => 'booking.slot_time',
+                // ...slot_time_label, so a full-day seva's reminder reads
+                // "Whole day" instead of the raw 'full_day' sentinel.
+                'slot_time' => 'booking.slot_time_label',
                 'hours_remaining' => 'hours_remaining',
                 'time_remaining_label' => 'time_remaining_label',
                 'booking_id' => 'booking.id',

@@ -58,7 +58,9 @@ class SevaBookingResource extends Resource
                     ->content(fn ($record) => $record?->booking_date?->format('d M Y') ?? '—'),
                 Forms\Components\Placeholder::make('slot_time_label')
                     ->label('Slot Time')
-                    ->content(fn ($record) => $record?->slot_time ?? '—'),
+                    // slot_time_label, not slot_time — full-day/full-week
+                    // bookings store a sentinel there, not a clock time.
+                    ->content(fn ($record) => $record?->slot_time_label ?? '—'),
                 Forms\Components\Placeholder::make('quantity_label')
                     ->label('Quantity')
                     ->content(fn ($record) => (string) ($record?->quantity ?? '—')),
@@ -135,7 +137,7 @@ class SevaBookingResource extends Resource
                 Tables\Columns\TextColumn::make('booking_date')
                     ->date('d M Y')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('slot_time')
+                Tables\Columns\TextColumn::make('slot_time_label')
                     ->label('Slot')
                     ->placeholder('—'),
                 Tables\Columns\TextColumn::make('seva.name_en')

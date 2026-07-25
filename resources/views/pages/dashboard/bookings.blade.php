@@ -36,7 +36,7 @@
                                 {{ optional($booking->booking_date)->format('d M Y') ?? optional($booking->created_at)->format('d M Y') }}
                             </td>
                             <td class="px-5 py-4 text-amber-100/60">
-                                {{ $booking->slot_time ?? '—' }}
+                                {{ $booking->slot_time_label ?? '—' }}
                             </td>
                             <td class="px-5 py-4 font-semibold text-gold">
                                 ₹{{ number_format($booking->amount ?? 0) }}

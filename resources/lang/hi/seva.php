@@ -50,6 +50,8 @@ return [
     'book_full_week' => 'पूरा सप्ताह बुक करें',
     'full_day_booked' => 'यह दिन पूरी तरह बुक है',
     'full_week_booked' => 'यह सप्ताह पूरी तरह बुक है',
+    'slot_full_day' => 'पूरा दिन',
+    'slot_full_week' => 'पूरा सप्ताह',
     'choose_option' => 'विकल्प चुनें',
     'book' => 'बुक करें',
 ];

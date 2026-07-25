@@ -25,10 +25,10 @@
                     <span class="text-amber-100/40">{{ __('common.date') }}</span>
                     <span class="font-medium text-amber-100/70">{{ $booking->booking_date->format('d M Y') }}</span>
                 </div>
-                @if($booking->slot_time)
+                @if($booking->slot_time_label)
                 <div class="flex justify-between py-2.5 border-b border-amber-900/20">
                     <span class="text-amber-100/40">{{ __('common.time') }}</span>
-                    <span class="font-medium text-amber-100/70">{{ \Carbon\Carbon::parse($booking->slot_time)->format('h:i A') }}</span>
+                    <span class="font-medium text-amber-100/70">{{ $booking->slot_time_label }}</span>
                 </div>
                 @endif
                 @if($booking->devotee_name_for_seva)

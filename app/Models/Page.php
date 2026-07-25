@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\PageStatus;
 use App\Models\Concerns\HasManagedImages;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class Page extends Model
@@ -21,6 +22,50 @@ class Page extends Model
         $bust = fn () => \Illuminate\Support\Facades\Cache::forget('nav.cms_pages.v1');
         static::saved($bust);
         static::deleted($bust);
+
+        // Renaming a slug used to silently 404 every existing link to the
+        // page — shared WhatsApp links, and the mobile app, which addresses
+        // CMS pages by slug. Remember the outgoing slug so PageController
+        // can still resolve it (and redirect to the new canonical URL).
+        static::updating(function (self $page) {
+            if (! $page->isDirty('slug')) {
+                return;
+            }
+
+            $old = (string) $page->getOriginal('slug');
+            if ($old === '') {
+                return;
+            }
+
+            $history = $page->previous_slugs ?? [];
+            $history = is_array($history) ? $history : [];
+
+            // Drop the incoming slug if the page is being renamed back to a
+            // slug it used before, so it never aliases to itself.
+            $history = array_values(array_unique(array_filter(
+                [...$history, $old],
+                fn ($s) => $s !== $page->slug
+            )));
+
+            $page->previous_slugs = $history;
+        });
+    }
+
+    /**
+     * Resolve a published page by its current slug, falling back to any slug
+     * it used to have. Returns null when nothing matches.
+     *
+     * Callers that render a canonical URL should compare `$page->slug` with
+     * the requested slug and redirect when they differ.
+     */
+    public static function findPublishedBySlug(string $slug): ?self
+    {
+        return self::query()
+            ->where('status', 'published')
+            ->where(fn (Builder $query) => $query
+                ->where('slug', $slug)
+                ->orWhereJsonContains('previous_slugs', $slug))
+            ->first();
     }
 
     /**
@@ -51,6 +96,7 @@ class Page extends Model
 
     protected $fillable = [
         'slug',
+        'previous_slugs',
         'title_gu',
         'title_hi',
         'title_en',
@@ -78,6 +124,7 @@ class Page extends Model
         'blocks_gu' => 'array',
         'blocks_hi' => 'array',
         'blocks_en' => 'array',
+        'previous_slugs' => 'array',
     ];
 
     /**

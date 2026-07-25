@@ -63,12 +63,20 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
+            // Group-writable: PHP-FPM (www-data) and the queue workers /
+            // artisan CLI (deploy, in the www-data group) share this file.
+            // Without this a fresh log file is born 0644 and whichever
+            // side didn't create it can't append — every log call then
+            // throws, which once cascaded into notification delivery
+            // failures on the VPS (2026-07-25).
+            'permission' => 0664,
         ],
 
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'permission' => 0664, // see 'single' — FPM + worker share the file
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
         ],

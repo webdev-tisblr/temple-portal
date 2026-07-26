@@ -70,8 +70,7 @@ const CSS = `
 .ytc-poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.85}
 .ytc-poster-brand{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
   background:radial-gradient(ellipse at center,#4a1414 0%,#2b0b0b 60%,#1a0606 100%)}
-.ytc-poster-brand .ytc-om{font-size:64px;line-height:1;color:#e6b948;text-shadow:0 2px 18px rgba(230,185,72,.35);
-  font-family:'Noto Sans Gujarati','Noto Sans Devanagari',serif}
+.ytc-poster-brand .ytc-logo{width:clamp(64px,28cqw,140px);height:auto;filter:drop-shadow(0 4px 18px rgba(0,0,0,.45))}
 .ytc-poster-brand .ytc-live-tag{display:flex;align-items:center;gap:7px;color:#fca5a5;font:700 13px/1 system-ui,sans-serif;letter-spacing:.14em}
 .ytc-poster-brand .ytc-live-tag::before{content:'';width:8px;height:8px;border-radius:50%;background:#ef4444;animation:ytc-pulse 1.6s infinite}
 .ytc-poster .ytc-bigplay{position:relative;z-index:1;width:64px;height:64px;border-radius:9999px;border:0;cursor:pointer;
@@ -180,65 +179,53 @@ class CleanPlayer {
     buildPoster() {
         const p = document.createElement('div');
         p.className = 'ytc-poster';
-
-        // Live streams often expose no real thumbnail — YouTube then serves
-        // its grey "unavailable" placeholder image (user-visible on the
-        // darshan player, 2026-07-26). Live players get a branded poster
-        // instead and never touch thumbnail URLs.
-        if (this.live) {
-            p.innerHTML =
-                `<div class="ytc-poster-brand">` +
-                `<span class="ytc-om">\u0AD0</span>` +
-                `<span class="ytc-live-tag">LIVE</span>` +
-                `</div>` +
-                `<button type="button" class="ytc-bigplay" aria-label="Play">${I.play}</button>`;
-            this.applyRatio(16 / 9);
-            p.addEventListener('click', () => (this.player ? this.player.playVideo() : this.start()));
-            this.poster = p;
-            this.root.appendChild(p);
-
-            return;
-        }
-
         p.innerHTML =
             `<img alt="" src="https://i.ytimg.com/vi/${this.id}/hqdefault.jpg">` +
             `<button type="button" class="ytc-bigplay" aria-label="Play">${I.play}</button>`;
         const img = p.querySelector('img');
 
-        // Dead-video detection: for deleted/private videos hqdefault still
-        // returns 200 — but with YouTube's grey "unavailable" placeholder.
-        // mqdefault is the honest one (404 when no thumbnails exist), so a
-        // failed probe swaps the poster for the branded fallback instead of
-        // showing the grey box. Also covers the img itself failing to load.
+        // Branded fallback (temple logo on a deep maroon field) for videos
+        // with no usable thumbnail. hqdefault LIES for deleted/private/
+        // offline-live videos — 200 with YouTube's grey "unavailable"
+        // placeholder — while mqdefault honestly 404s, so that probe is
+        // the detector. Also covers the poster img failing outright.
         const brandFallback = () => {
             if (p.querySelector('.ytc-poster-brand')) return;
             img.remove();
             p.insertAdjacentHTML('afterbegin',
-                `<div class="ytc-poster-brand"><span class="ytc-om">\u0AD0</span></div>`);
+                `<div class="ytc-poster-brand">` +
+                `<img class="ytc-logo" alt="" src="/images/shree-pataliya-hanumanji-logo.png">` +
+                (this.live ? `<span class="ytc-live-tag">LIVE</span>` : ``) +
+                `</div>`);
         };
         img.addEventListener('error', brandFallback);
         const probe = new Image();
         probe.onerror = brandFallback;
         probe.src = `https://i.ytimg.com/vi/${this.id}/mqdefault.jpg`;
 
-        // oardefault.jpg = "original aspect ratio". YouTube publishes it ONLY
-        // for uploads that are not 16:9 (Shorts, vertical, square), so a 200
-        // hands us the true ratio *and* an un-letterboxed poster; a 404 means
-        // the video is plain 16:9.
-        const oar = new Image();
-        oar.onload = () => {
-            if (!oar.naturalWidth || !oar.naturalHeight) return;
-            img.src = oar.src;
-            this.applyRatio(oar.naturalWidth / oar.naturalHeight);
-        };
-        oar.onerror = () => {
+        if (this.live) {
+            // Live streams are 16:9; no portrait probing needed.
             this.applyRatio(16 / 9);
-            // Upgrade to the HD poster when it exists (tiny grey 120px image otherwise).
-            const hd = new Image();
-            hd.onload = () => { if (hd.naturalWidth > 200) img.src = hd.src; };
-            hd.src = `https://i.ytimg.com/vi/${this.id}/maxresdefault.jpg`;
-        };
-        oar.src = `https://i.ytimg.com/vi/${this.id}/oardefault.jpg`;
+        } else {
+            // oardefault.jpg = "original aspect ratio". YouTube publishes it ONLY
+            // for uploads that are not 16:9 (Shorts, vertical, square), so a 200
+            // hands us the true ratio *and* an un-letterboxed poster; a 404 means
+            // the video is plain 16:9.
+            const oar = new Image();
+            oar.onload = () => {
+                if (!oar.naturalWidth || !oar.naturalHeight) return;
+                img.src = oar.src;
+                this.applyRatio(oar.naturalWidth / oar.naturalHeight);
+            };
+            oar.onerror = () => {
+                this.applyRatio(16 / 9);
+                // Upgrade to the HD poster when it exists (tiny grey 120px image otherwise).
+                const hd = new Image();
+                hd.onload = () => { if (hd.naturalWidth > 200) img.src = hd.src; };
+                hd.src = `https://i.ytimg.com/vi/${this.id}/maxresdefault.jpg`;
+            };
+            oar.src = `https://i.ytimg.com/vi/${this.id}/oardefault.jpg`;
+        }
 
         // Click resumes an existing player; only the very first click boots it.
         p.addEventListener('click', () => (this.player ? this.player.playVideo() : this.start()));

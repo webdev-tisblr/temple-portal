@@ -36,5 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Sentry error tracking — inert until SENTRY_LARAVEL_DSN is set
+        // in the environment (production VPS only).
+        \Sentry\Laravel\Integration::handles($exceptions);
     })->create();

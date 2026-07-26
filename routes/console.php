@@ -128,6 +128,23 @@ Schedule::command('backup:run --only-db')
         Log::error('Scheduled task failed: backup:run --only-db');
     });
 
+// Apply the retention strategy in config/backup.php (7 days full, then
+// spatie's thinning, 5GB cap) — without this the bucket grows forever.
+Schedule::command('backup:clean')
+    ->dailyAt('02:30')
+    ->onFailure(function () {
+        Log::error('Scheduled task failed: backup:clean');
+    });
+
+// Health check: logs loudly when the newest backup is older than a day
+// or the bucket is unreachable — a silent backup failure is the worst
+// kind. Runs mid-morning so a failed 02:00 run is flagged same day.
+Schedule::command('backup:monitor')
+    ->dailyAt('10:00')
+    ->onFailure(function () {
+        Log::error('Scheduled task failed: backup:monitor — CHECK BACKUPS');
+    });
+
 // Regenerate sitemap weekly (Sunday midnight)
 Schedule::command('sitemap:generate')
     ->weekly();

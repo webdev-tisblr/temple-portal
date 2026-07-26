@@ -238,7 +238,7 @@ jobs:
             # --all covers resources + pages + widgets in one pass.
             # Idempotent: only inserts missing rows, preserves all
             # existing role-permission assignments.
-            php artisan shield:generate --all --option=permissions --minimal || true
+            php artisan shield:generate --all --option=permissions --minimal --panel=admin || true
 
             # Clear ALL caches BEFORE rebuilding them. Filament's
             # admin-resource registration is computed from class

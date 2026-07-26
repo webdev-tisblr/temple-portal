@@ -80,45 +80,32 @@ jobs:
           DB_PASSWORD: root
         run: php artisan test
 
+  # ───────────────────────────────────────────────────────────────
+  # Deploy runs ON the VPS via a self-hosted runner (label: vps).
+  # The old model — GitHub-hosted runner rsync/ssh-ing INTO the box —
+  # died repeatedly on 2026-07-26: the Azure↔Hostinger route to this
+  # IP block flaps and times out while every other network reaches
+  # port 22 fine. The runner needs only an OUTBOUND connection to
+  # GitHub, so that whole class of failure is gone. Build happens on
+  # the box (php8.3 + composer + node20 installed), then a LOCAL rsync
+  # into /var/www/temple-portal and the same post-deploy script as
+  # before, run directly instead of over SSH.
+  #
+  # Runner: /home/deploy/actions-runner (systemd service, user deploy).
+  # Re-register: gh api -X POST repos/webdev-tisblr/temple-portal/actions/runners/registration-token
+  # ───────────────────────────────────────────────────────────────
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, vps]
     needs: test
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup PHP 8.3
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          # sodium is required by kreait/firebase-php (via lcobucci/jwt) for
-          # signing the FCM HTTP v1 JWTs that authenticate to Cloud Messaging.
-          extensions: mbstring, xml, curl, gd, zip, intl, bcmath, sodium
-
-      - name: Cache Composer dependencies
-        uses: actions/cache@v4
-        with:
-          path: vendor
-          # Cache key includes composer.json so changes to autoload (e.g.
-          # adding files-autoloaded helpers) bust the cache. composer.lock
-          # alone is not enough — its hash doesn't change when only the
-          # autoload section of composer.json moves.
-          key: composer-${{ hashFiles('composer.lock', 'composer.json') }}
-
       - name: Install Composer dependencies
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
       - name: Regenerate autoloader
-        # Belt-and-suspenders: even on a cache hit, force a fresh
-        # vendor/composer/autoload_*.php so newly-added helper files
-        # in the autoload.files array are always registered.
         run: composer dump-autoload --optimize --no-interaction
-
-      - name: Cache npm dependencies
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: npm-${{ hashFiles('package-lock.json') }}
 
       - name: Install npm dependencies
         run: npm ci
@@ -126,155 +113,99 @@ jobs:
       - name: Build frontend assets
         run: npm run build
 
-      # Hostinger SSH has timed out at the rsync step a couple of times — the
-      # first attempt is allowed to fail and we retry once after a short wait.
-      # If the second attempt fails too, the job fails as normal.
-      - name: Deploy via rsync (attempt 1)
-        id: rsync_attempt1
-        uses: burnett01/rsync-deployments@7.0.1
-        continue-on-error: true
-        with:
-          # NOTE: storage/app/public/ and storage/app/private/ are excluded so
-          # rsync --delete does NOT wipe admin-uploaded images, generated 80G
-          # receipts, or hall invoices that only exist on the server.
-          # database.sqlite is excluded for the same reason.
-          switches: -rlczv --checksum --delete --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='.env.production' --exclude='.env.deploy' --exclude='.env.server' --exclude='tests' --exclude='.github' --exclude='storage/app/public/' --exclude='storage/app/private/' --exclude='storage/logs/*.log' --exclude='storage/framework/cache/data/*' --exclude='storage/framework/sessions/*' --exclude='storage/framework/views/*' --exclude='database.sqlite'
-          path: ./
-          remote_path: /var/www/temple-portal/
-          remote_host: ${{ secrets.HOSTINGER_HOST }}
-          remote_port: ${{ secrets.HOSTINGER_PORT }}
-          remote_user: ${{ secrets.HOSTINGER_USERNAME }}
-          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Sync code into the live directory
+        # Same exclude list the remote rsync used: --delete never touches
+        # .env, storage/app (R2-era leftovers), or runtime caches.
+        run: |
+          rsync -rlc --checksum --delete \
+            --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='.env.production' --exclude='.env.deploy' --exclude='.env.server' --exclude='tests' --exclude='.github' --exclude='storage/app/public/' --exclude='storage/app/private/' --exclude='storage/logs/*.log' --exclude='storage/framework/cache/data/*' --exclude='storage/framework/sessions/*' --exclude='storage/framework/views/*' --exclude='database.sqlite' \
+            ./ /var/www/temple-portal/
 
-      - name: Wait before retry
-        if: steps.rsync_attempt1.outcome == 'failure'
-        run: sleep 30
+      - name: Post-deploy
+        run: |
+                    cd /var/www/temple-portal
+                    # Abort the deploy on ANY unguarded failure — most importantly a
+                    # failed `migrate --force`. Without this, a migration error left
+                    # the deploy green while silently blocking every later migration
+                    # (2026-07-12 incident: clean_rich_html_content FAIL hid the
+                    # missing temple_seva_reminder_rules table). Commands that are
+                    # allowed to fail keep their explicit `|| true` guards.
+                    set -e
+                    # Take a fresh DB snapshot to the offsite r2_backup disk BEFORE
+                    # running migrations, so a bad/destructive migration can be
+                    # rolled back from the most recent pre-migration dump. Tolerant
+                    # of failure (|| true) so a backup hiccup can't block the deploy
+                    # entirely — but the snapshot is the safety net for the line below.
+                    php artisan backup:run --only-db || true
+                    php artisan migrate --force
+                    # Idempotent — only inserts rows that don't already exist.
+                    # Seeds the per-channel notification templates so triggers
+                    # like contact.submitted have a delivery body the moment
+                    # the trigger fires.
+                    php artisan db:seed --class=Database\\Seeders\\NotificationTemplatesSeeder --force || true
+                    # Materialise reminder rows for bookings confirmed before the
+                    # pre-computed seva reminder schedule existed. Idempotent
+                    # (firstOrCreate on booking+offset) — only has an effect the
+                    # first time; harmless on every subsequent deploy. New
+                    # confirmations are scheduled automatically via the observer.
+                    php artisan seva:backfill-reminder-schedule || true
+                    # Re-stamp fire_at for pending full-day/full-week reminders that
+                    # were generated with the old midnight anchor (before the
+                    # configurable 09:00 anchor landed). Idempotent — recomputes the
+                    # same value on subsequent deploys, no effect once corrected.
+                    php artisan seva:restamp-fullday-reminders || true
+                    # Roles — idempotent via Spatie's firstOrCreate. Without
+                    # this, any new role added in code (eg `pujari` in
+                    # 2026-05-13) wouldn't exist in production's `roles`
+                    # table and the admin-user form wouldn't show it in the
+                    # dropdown. Safe to run on every deploy.
+                    php artisan db:seed --class=Database\\Seeders\\RolePermissionSeeder --force || true
 
-      - name: Deploy via rsync (attempt 2)
-        id: rsync_attempt2
-        if: steps.rsync_attempt1.outcome == 'failure'
-        continue-on-error: true
-        uses: burnett01/rsync-deployments@7.0.1
-        with:
-          switches: -rlczv --checksum --delete --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='.env.production' --exclude='.env.deploy' --exclude='.env.server' --exclude='tests' --exclude='.github' --exclude='storage/app/public/' --exclude='storage/app/private/' --exclude='storage/logs/*.log' --exclude='storage/framework/cache/data/*' --exclude='storage/framework/sessions/*' --exclude='storage/framework/views/*' --exclude='database.sqlite'
-          path: ./
-          remote_path: /var/www/temple-portal/
-          remote_host: ${{ secrets.HOSTINGER_HOST }}
-          remote_port: ${{ secrets.HOSTINGER_PORT }}
-          remote_user: ${{ secrets.HOSTINGER_USERNAME }}
-          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+                    # Filament Shield permission scan — inserts permission rows
+                    # for any newly-added Resource / Page / Widget so non-super
+                    # admins can be granted access via /admin/shield/roles
+                    # without an SSH step. --option=permissions skips policy
+                    # file generation so existing app/Policies/* stay untouched;
+                    # --all covers resources + pages + widgets in one pass.
+                    # Idempotent: only inserts missing rows, preserves all
+                    # existing role-permission assignments.
+                    php artisan shield:generate --all --option=permissions --minimal --panel=admin || true
 
-      # Azure<->Hostinger routing to this IP block flaps occasionally
-      # (2026-07-26: two runs timed out while port 22 was reachable from
-      # every other network). A third attempt after a longer backoff
-      # rides out the flap instead of failing the deploy.
-      - name: Wait before final retry
-        if: steps.rsync_attempt1.outcome == 'failure' && steps.rsync_attempt2.outcome == 'failure'
-        run: sleep 120
+                    # Clear ALL caches BEFORE rebuilding them. Filament's
+                    # admin-resource registration is computed from class
+                    # discovery at boot — without optimize:clear, a newly-added
+                    # resource (or a navigationGroup move) is invisible until
+                    # the cached bootstrap PHP is regenerated.
+                    php artisan optimize:clear
+                    php artisan config:cache
+                    php artisan route:cache
+                    php artisan view:cache
+                    php artisan filament:cache-components 2>/dev/null || true
 
-      - name: Deploy via rsync (attempt 3)
-        if: steps.rsync_attempt1.outcome == 'failure' && steps.rsync_attempt2.outcome == 'failure'
-        uses: burnett01/rsync-deployments@7.0.1
-        with:
-          switches: -rlczv --checksum --delete --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='.env.production' --exclude='.env.deploy' --exclude='.env.server' --exclude='tests' --exclude='.github' --exclude='storage/app/public/' --exclude='storage/app/private/' --exclude='storage/logs/*.log' --exclude='storage/framework/cache/data/*' --exclude='storage/framework/sessions/*' --exclude='storage/framework/views/*' --exclude='database.sqlite'
-          path: ./
-          remote_path: /var/www/temple-portal/
-          remote_host: ${{ secrets.HOSTINGER_HOST }}
-          remote_port: ${{ secrets.HOSTINGER_PORT }}
-          remote_user: ${{ secrets.HOSTINGER_USERNAME }}
-          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+                    # VPS: reload PHP-FPM so every worker picks up the new
+                    # bytecode at once. Replaces the shared-hosting-era
+                    # _opcache_reset.php HTTP hack (8-hit curl fan-out) that
+                    # existed because shared hosting exposed no FPM reload.
+                    sudo -n systemctl reload php8.3-fpm
+                    echo "php-fpm reloaded"
 
-      - name: Run post-deploy commands
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.HOSTINGER_HOST }}
-          username: ${{ secrets.HOSTINGER_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.HOSTINGER_PORT }}
-          script: |
-            cd /var/www/temple-portal
-            # Abort the deploy on ANY unguarded failure — most importantly a
-            # failed `migrate --force`. Without this, a migration error left
-            # the deploy green while silently blocking every later migration
-            # (2026-07-12 incident: clean_rich_html_content FAIL hid the
-            # missing temple_seva_reminder_rules table). Commands that are
-            # allowed to fail keep their explicit `|| true` guards.
-            set -e
-            # Take a fresh DB snapshot to the offsite r2_backup disk BEFORE
-            # running migrations, so a bad/destructive migration can be
-            # rolled back from the most recent pre-migration dump. Tolerant
-            # of failure (|| true) so a backup hiccup can't block the deploy
-            # entirely — but the snapshot is the safety net for the line below.
-            php artisan backup:run --only-db || true
-            php artisan migrate --force
-            # Idempotent — only inserts rows that don't already exist.
-            # Seeds the per-channel notification templates so triggers
-            # like contact.submitted have a delivery body the moment
-            # the trigger fires.
-            php artisan db:seed --class=Database\\Seeders\\NotificationTemplatesSeeder --force || true
-            # Materialise reminder rows for bookings confirmed before the
-            # pre-computed seva reminder schedule existed. Idempotent
-            # (firstOrCreate on booking+offset) — only has an effect the
-            # first time; harmless on every subsequent deploy. New
-            # confirmations are scheduled automatically via the observer.
-            php artisan seva:backfill-reminder-schedule || true
-            # Re-stamp fire_at for pending full-day/full-week reminders that
-            # were generated with the old midnight anchor (before the
-            # configurable 09:00 anchor landed). Idempotent — recomputes the
-            # same value on subsequent deploys, no effect once corrected.
-            php artisan seva:restamp-fullday-reminders || true
-            # Roles — idempotent via Spatie's firstOrCreate. Without
-            # this, any new role added in code (eg `pujari` in
-            # 2026-05-13) wouldn't exist in production's `roles`
-            # table and the admin-user form wouldn't show it in the
-            # dropdown. Safe to run on every deploy.
-            php artisan db:seed --class=Database\\Seeders\\RolePermissionSeeder --force || true
+                    # Tell the Supervisor queue workers to exit after their current
+                    # job so they respawn on the NEW code. Without this a worker
+                    # keeps running old bytecode until its hourly --max-time
+                    # recycle — the queue-worker equivalent of the opcache
+                    # staleness this same script solves for FPM.
+                    php artisan queue:restart
+                    echo "queue workers signalled to restart"
+                    # storage:link removed — uploads now live in Cloudflare R2,
+                    # not storage/app/public, so the public/storage symlink is unused.
 
-            # Filament Shield permission scan — inserts permission rows
-            # for any newly-added Resource / Page / Widget so non-super
-            # admins can be granted access via /admin/shield/roles
-            # without an SSH step. --option=permissions skips policy
-            # file generation so existing app/Policies/* stay untouched;
-            # --all covers resources + pages + widgets in one pass.
-            # Idempotent: only inserts missing rows, preserves all
-            # existing role-permission assignments.
-            php artisan shield:generate --all --option=permissions --minimal --panel=admin || true
-
-            # Clear ALL caches BEFORE rebuilding them. Filament's
-            # admin-resource registration is computed from class
-            # discovery at boot — without optimize:clear, a newly-added
-            # resource (or a navigationGroup move) is invisible until
-            # the cached bootstrap PHP is regenerated.
-            php artisan optimize:clear
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-            php artisan filament:cache-components 2>/dev/null || true
-
-            # VPS: reload PHP-FPM so every worker picks up the new
-            # bytecode at once. Replaces the shared-hosting-era
-            # _opcache_reset.php HTTP hack (8-hit curl fan-out) that
-            # existed because shared hosting exposed no FPM reload.
-            sudo -n systemctl reload php8.3-fpm
-            echo "php-fpm reloaded"
-
-            # Tell the Supervisor queue workers to exit after their current
-            # job so they respawn on the NEW code. Without this a worker
-            # keeps running old bytecode until its hourly --max-time
-            # recycle — the queue-worker equivalent of the opcache
-            # staleness this same script solves for FPM.
-            php artisan queue:restart
-            echo "queue workers signalled to restart"
-            # storage:link removed — uploads now live in Cloudflare R2,
-            # not storage/app/public, so the public/storage symlink is unused.
-
-            # Wipe orphaned upload files left over from the pre-R2 era.
-            # Everything in storage/app/{public,private} is now unused;
-            # uploads + generated PDFs live in Cloudflare R2. The
-            # .gitignore in each dir is preserved so the directory itself
-            # stays in place (Laravel still expects it to exist).
-            # Idempotent: subsequent runs are no-ops.
-            find storage/app/public -mindepth 1 -not -name '.gitignore' -delete 2>/dev/null || true
-            find storage/app/private -mindepth 1 -not -name '.gitignore' -delete 2>/dev/null || true
-            # Remove the now-broken public/storage symlink (if present).
-            rm -f public/storage 2>/dev/null || true
+                    # Wipe orphaned upload files left over from the pre-R2 era.
+                    # Everything in storage/app/{public,private} is now unused;
+                    # uploads + generated PDFs live in Cloudflare R2. The
+                    # .gitignore in each dir is preserved so the directory itself
+                    # stays in place (Laravel still expects it to exist).
+                    # Idempotent: subsequent runs are no-ops.
+                    find storage/app/public -mindepth 1 -not -name '.gitignore' -delete 2>/dev/null || true
+                    find storage/app/private -mindepth 1 -not -name '.gitignore' -delete 2>/dev/null || true
+                    # Remove the now-broken public/storage symlink (if present).
+                    rm -f public/storage 2>/dev/null || true

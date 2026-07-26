@@ -151,7 +151,29 @@ jobs:
         run: sleep 30
 
       - name: Deploy via rsync (attempt 2)
+        id: rsync_attempt2
         if: steps.rsync_attempt1.outcome == 'failure'
+        continue-on-error: true
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -rlczv --checksum --delete --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='.env.production' --exclude='.env.deploy' --exclude='.env.server' --exclude='tests' --exclude='.github' --exclude='storage/app/public/' --exclude='storage/app/private/' --exclude='storage/logs/*.log' --exclude='storage/framework/cache/data/*' --exclude='storage/framework/sessions/*' --exclude='storage/framework/views/*' --exclude='database.sqlite'
+          path: ./
+          remote_path: /var/www/temple-portal/
+          remote_host: ${{ secrets.HOSTINGER_HOST }}
+          remote_port: ${{ secrets.HOSTINGER_PORT }}
+          remote_user: ${{ secrets.HOSTINGER_USERNAME }}
+          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # Azure<->Hostinger routing to this IP block flaps occasionally
+      # (2026-07-26: two runs timed out while port 22 was reachable from
+      # every other network). A third attempt after a longer backoff
+      # rides out the flap instead of failing the deploy.
+      - name: Wait before final retry
+        if: steps.rsync_attempt1.outcome == 'failure' && steps.rsync_attempt2.outcome == 'failure'
+        run: sleep 120
+
+      - name: Deploy via rsync (attempt 3)
+        if: steps.rsync_attempt1.outcome == 'failure' && steps.rsync_attempt2.outcome == 'failure'
         uses: burnett01/rsync-deployments@7.0.1
         with:
           switches: -rlczv --checksum --delete --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='.env.production' --exclude='.env.deploy' --exclude='.env.server' --exclude='tests' --exclude='.github' --exclude='storage/app/public/' --exclude='storage/app/private/' --exclude='storage/logs/*.log' --exclude='storage/framework/cache/data/*' --exclude='storage/framework/sessions/*' --exclude='storage/framework/views/*' --exclude='database.sqlite'

@@ -358,7 +358,7 @@ class HallBookingController extends Controller
                 'trust_address' => $trustAddress,
                 'booking_number' => $bookingNumber,
                 'amount_in_words' => NumberToWords::convert((float) $booking->total_amount),
-            ], ['format' => 'A4']);
+            ], ['format' => 'A4', 'watermark' => 'HALL BOOKING']);
 
             $directory = 'hall-invoices';
             $filename = "{$bookingNumber}.pdf";

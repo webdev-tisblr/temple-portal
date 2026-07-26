@@ -73,7 +73,7 @@
 </head>
 <body>
     <div class="container">
-        <div class="watermark">TAX INVOICE</div>
+        {{-- watermark drawn natively by mPDF via GujaratiPdf watermark option --}}
 
         {{-- Header with Logo --}}
         <div class="header">

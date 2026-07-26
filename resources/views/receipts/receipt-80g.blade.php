@@ -69,7 +69,7 @@
 </head>
 <body>
     <div class="container">
-        <div class="watermark">80G RECEIPT</div>
+        {{-- watermark now drawn natively by mPDF (see ReceiptService: GujaratiPdf watermark option); the old CSS-transform div rendered as a giant in-flow heading under mPDF --}}
 
         {{-- Header with Logo --}}
         <div class="header">

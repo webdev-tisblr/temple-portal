@@ -28,10 +28,16 @@ final class GujaratiPdf
     /**
      * Render a Blade view to PDF bytes.
      *
-     * @param array $mpdfConfig extra Mpdf config (format, margins, …)
+     * @param  array  $mpdfConfig  extra Mpdf config (format, margins, …)
      */
     public static function render(string $view, array $data, array $mpdfConfig = []): string
     {
+        // Pseudo-option: 'watermark' => 'TEXT' draws mPDF's native faint
+        // diagonal watermark (the CSS transform trick DomPDF templates
+        // used renders as a giant in-flow heading under mPDF).
+        $watermark = $mpdfConfig['watermark'] ?? null;
+        unset($mpdfConfig['watermark']);
+
         $html = view($view, $data)->render();
         $html = str_ireplace(["'Noto Sans Gujarati',", '"Noto Sans Gujarati",'], '', $html);
 
@@ -43,11 +49,11 @@ final class GujaratiPdf
         $mpdf = new Mpdf(array_merge([
             'tempDir' => $tempDir,
             'fontDir' => array_merge(
-                (new ConfigVariables())->getDefaults()['fontDir'],
+                (new ConfigVariables)->getDefaults()['fontDir'],
                 [resource_path('fonts')],
             ),
             'fontdata' => array_merge(
-                (new FontVariables())->getDefaults()['fontdata'],
+                (new FontVariables)->getDefaults()['fontdata'],
                 [
                     'notosansgujarati' => [
                         'R' => 'NotoSansGujarati-Mpdf-Regular.ttf',
@@ -60,7 +66,7 @@ final class GujaratiPdf
             'default_font' => 'dejavusans',
             'autoScriptToLang' => true,
             'autoLangToFont' => true,
-            'languageToFont' => new GujaratiLanguageToFont(),
+            'languageToFont' => new GujaratiLanguageToFont,
         ], $mpdfConfig));
 
         // mPDF's OTL shaper (Otl.php ~L1965) reads one index past $InputClasses
@@ -78,6 +84,11 @@ final class GujaratiPdf
             },
             E_WARNING,
         );
+
+        if (is_string($watermark) && $watermark !== '') {
+            $mpdf->SetWatermarkText($watermark, 0.04);
+            $mpdf->showWatermarkText = true;
+        }
 
         try {
             $mpdf->WriteHTML($html);

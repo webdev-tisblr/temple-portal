@@ -58,7 +58,7 @@
 </head>
 <body>
     <div class="container">
-        <div class="watermark">HALL BOOKING</div>
+        {{-- watermark drawn natively by mPDF via GujaratiPdf watermark option --}}
 
         {{-- Header with Logo --}}
         <div class="header">

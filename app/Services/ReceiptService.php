@@ -8,6 +8,7 @@ use App\Helpers\NumberToWords;
 use App\Models\Donation;
 use App\Models\Receipt80G;
 use App\Models\SystemSetting;
+use App\Support\Pdf\GujaratiPdf;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 
@@ -21,6 +22,7 @@ class ReceiptService
             if (! $existing->pdf_path || ! Storage::disk('r2_private')->exists($existing->pdf_path)) {
                 $existing->update(['pdf_path' => $this->generatePdf($existing)]);
             }
+
             return $existing;
         }
 
@@ -38,7 +40,7 @@ class ReceiptService
             try {
                 $panNumber = decrypt($devotee->pan_encrypted);
             } catch (\Exception) {
-                $panNumber = $devotee->pan_last_four ? '******' . $devotee->pan_last_four : 'N/A';
+                $panNumber = $devotee->pan_last_four ? '******'.$devotee->pan_last_four : 'N/A';
             }
         }
 
@@ -77,12 +79,12 @@ class ReceiptService
         // conjuncts render in the wrong visual order (user-visible on
         // real 80G receipts, 2026-07-26). Same migration the store
         // invoice + packing slip went through.
-        $output = \App\Support\Pdf\GujaratiPdf::render('receipts.receipt-80g', [
+        $output = GujaratiPdf::render('receipts.receipt-80g', [
             'receipt' => $receipt,
-        ], ['format' => 'A4']);
+        ], ['format' => 'A4', 'watermark' => '80G RECEIPT']);
 
         $directory = "receipts/{$receipt->financial_year}";
-        $filename = str_replace('/', '-', $receipt->receipt_number) . '.pdf';
+        $filename = str_replace('/', '-', $receipt->receipt_number).'.pdf';
         $path = "{$directory}/{$filename}";
 
         // R2 has no concept of directories — put() writes the key directly.

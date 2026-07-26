@@ -205,6 +205,22 @@ class CleanPlayer {
             `<button type="button" class="ytc-bigplay" aria-label="Play">${I.play}</button>`;
         const img = p.querySelector('img');
 
+        // Dead-video detection: for deleted/private videos hqdefault still
+        // returns 200 — but with YouTube's grey "unavailable" placeholder.
+        // mqdefault is the honest one (404 when no thumbnails exist), so a
+        // failed probe swaps the poster for the branded fallback instead of
+        // showing the grey box. Also covers the img itself failing to load.
+        const brandFallback = () => {
+            if (p.querySelector('.ytc-poster-brand')) return;
+            img.remove();
+            p.insertAdjacentHTML('afterbegin',
+                `<div class="ytc-poster-brand"><span class="ytc-om">\u0AD0</span></div>`);
+        };
+        img.addEventListener('error', brandFallback);
+        const probe = new Image();
+        probe.onerror = brandFallback;
+        probe.src = `https://i.ytimg.com/vi/${this.id}/mqdefault.jpg`;
+
         // oardefault.jpg = "original aspect ratio". YouTube publishes it ONLY
         // for uploads that are not 16:9 (Shorts, vertical, square), so a 200
         // hands us the true ratio *and* an un-letterboxed poster; a 404 means

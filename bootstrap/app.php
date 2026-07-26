@@ -18,6 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
             // Bypasses admin / api / asset paths internally.
             \App\Http\Middleware\ComingSoonMode::class,
             \App\Http\Middleware\SetLocale::class,
+            // Guest full-page cache — MUST run after SetLocale (cache
+            // key includes the resolved locale) and after ComingSoonMode
+            // (never caches over the gate's short-circuit).
+            \App\Http\Middleware\CacheGuestResponse::class,
         ]);
         $middleware->api(prepend: [
             \App\Http\Middleware\ForceJsonResponse::class,

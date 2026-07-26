@@ -9,6 +9,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Seeds the full Filament Shield permission inventory and the bundled role
@@ -90,6 +91,7 @@ class RolePermissionSeeder extends Seeder
         'ComingSoonToggleWidget',
         'DonationChart',
         'DonationStatsOverview',
+        'QueueHealthOverview',
         'RecentDonationsTable',
         'SevaBookingOverview',
     ];
@@ -121,7 +123,7 @@ class RolePermissionSeeder extends Seeder
     {
         // Clear Spatie's permission cache before AND after seeding so any
         // request that races this seeder doesn't see a half-built matrix.
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         DB::transaction(function (): void {
             $permissions = $this->ensurePermissions();
@@ -131,7 +133,7 @@ class RolePermissionSeeder extends Seeder
             $this->migrateLegacyDefaultAdmin();
         });
 
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
     }
 
     /**
@@ -186,8 +188,7 @@ class RolePermissionSeeder extends Seeder
         $allNames = array_keys($allPermissions);
 
         // Helpers for readable permission selection.
-        $crud = fn (string $slug, array $actions = ['view_any', 'view', 'create', 'update']) =>
-            array_map(fn ($a) => "{$a}_{$slug}", $actions);
+        $crud = fn (string $slug, array $actions = ['view_any', 'view', 'create', 'update']) => array_map(fn ($a) => "{$a}_{$slug}", $actions);
 
         $readOnly = fn (string $slug) => $crud($slug, ['view_any', 'view']);
 
@@ -217,8 +218,8 @@ class RolePermissionSeeder extends Seeder
                 // stay create+update (delete intentionally omitted).
                 $crud('seva::booking', ['view_any', 'view', 'update', 'delete', 'delete_any']),
                 $crud('hall::booking', ['view_any', 'view', 'update', 'delete', 'delete_any']),
-                $crud('order',         ['view_any', 'view', 'update']),
-                $crud('donation',      ['view_any', 'view', 'create', 'update']),
+                $crud('order', ['view_any', 'view', 'update']),
+                $crud('donation', ['view_any', 'view', 'create', 'update']),
 
                 // People
                 $crud('devotee', ['view_any', 'view', 'update']),
@@ -280,7 +281,7 @@ class RolePermissionSeeder extends Seeder
                 $crud('devotee'),
                 $crud('seva::booking', ['view_any', 'view', 'create', 'update']),
                 $crud('hall::booking', ['view_any', 'view', 'create', 'update']),
-                $crud('order',         ['view_any', 'view', 'update']),
+                $crud('order', ['view_any', 'view', 'update']),
                 $crud('contact::submission'),
                 $readOnly('seva'),
                 $readOnly('hall'),
@@ -349,6 +350,7 @@ class RolePermissionSeeder extends Seeder
             foreach (array_unique($permissionNames) as $name) {
                 if (! isset($allPermissions[$name])) {
                     $this->command?->warn("RolePermissionSeeder: unknown permission '{$name}' for role '{$roleName}' — skipped");
+
                     continue;
                 }
                 $models[] = $allPermissions[$name];

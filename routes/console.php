@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Jobs\QueueWorkerHeartbeat;
 use App\Jobs\SendPushNotification;
 use App\Models\DonationCampaign;
 use App\Models\Notification;
@@ -241,3 +242,12 @@ Schedule::call(function () {
 Schedule::call(function () {
     Cache::put('scheduler_last_run', now()->toIso8601String(), 600);
 })->everyFiveMinutes()->name('scheduler-heartbeat');
+
+// Worker liveness probe — the stamp is written by the WORKER, not here,
+// so it proves scheduler → Redis → Supervisor worker end to end. Read
+// by the admin QueueHealthOverview widget. Only meaningful where the
+// queue is worker-backed; on sync/database-cron setups the job runs
+// inline and the stamp simply mirrors the scheduler heartbeat.
+Schedule::call(function () {
+    QueueWorkerHeartbeat::dispatch();
+})->everyFiveMinutes()->name('queue-worker-heartbeat');

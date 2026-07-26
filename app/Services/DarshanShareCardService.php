@@ -480,7 +480,7 @@ class DarshanShareCardService
                 imagepng($gd);
                 $bytes = (string) ob_get_clean();
                 imagedestroy($gd);
-                $canvas->insert($bytes, 'top-left', max(0, $left), max(0, $top));
+                $canvas->insert($bytes, max(0, $left), max(0, $top));
 
                 return;
             }

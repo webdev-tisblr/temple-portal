@@ -235,6 +235,14 @@ jobs:
             # existed because shared hosting exposed no FPM reload.
             sudo -n systemctl reload php8.3-fpm
             echo "php-fpm reloaded"
+
+            # Tell the Supervisor queue workers to exit after their current
+            # job so they respawn on the NEW code. Without this a worker
+            # keeps running old bytecode until its hourly --max-time
+            # recycle — the queue-worker equivalent of the opcache
+            # staleness this same script solves for FPM.
+            php artisan queue:restart
+            echo "queue workers signalled to restart"
             # storage:link removed — uploads now live in Cloudflare R2,
             # not storage/app/public, so the public/storage symlink is unused.
 

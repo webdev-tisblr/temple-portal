@@ -8,6 +8,7 @@ use App\Jobs\SendQueuedNotification;
 use App\Models\AdminUser;
 use App\Models\Devotee;
 use App\Models\NotificationLog;
+use App\Models\NotificationOutbox;
 use App\Models\NotificationTemplate;
 use App\Services\Notifications\Contracts\NotificationDriver;
 use App\Support\ReviewBypass;
@@ -101,28 +102,56 @@ final class NotificationService
      */
     public function dispatch(string $key, array $context, ?string $idempotencyKey = null, ?array $onlyChannels = null): int
     {
+        // Queue-backed path (notifications.via_queue, VPS + worker):
+        // transactional outbox. The outbox row is inserted HERE — inside
+        // the caller's transaction when one is open — so the intent to
+        // notify commits (or rolls back) atomically with the business
+        // change. Only the Redis enqueue is deferred to after commit; if
+        // the process dies in that gap, or Redis is briefly down, the
+        // committed row survives and notifications:relay-outbox
+        // re-enqueues it. The job deletes the row after sending.
+        //
+        // Two dispatches stay inline regardless: contexts carrying
+        // _attachments (snapshotting drops them — Generate* jobs and the
+        // hall controller build the file bytes in-process) and contexts
+        // whose snapshot would truncate past the 8KB cap.
+        if (config('notifications.via_queue') && ! array_key_exists('_attachments', $context)) {
+            $snapshot = $this->snapshotContext(new NotificationContext($context));
+            if (! isset($snapshot['_truncated'])) {
+                $outbox = NotificationOutbox::query()->create([
+                    'key' => $key,
+                    'context_snapshot' => $snapshot,
+                    'idempotency_key' => $idempotencyKey,
+                    'only_channels' => $onlyChannels,
+                    'queue' => $key === 'auth.otp' ? 'otp' : 'default',
+                ]);
+
+                DB::afterCommit(function () use ($outbox) {
+                    try {
+                        $outbox->forceFill(['claimed_at' => now()])->save();
+                        SendQueuedNotification::dispatch(
+                            $outbox->key, [], $outbox->idempotency_key, $outbox->only_channels, $outbox->id,
+                        )->onQueue($outbox->queue);
+                    } catch (\Throwable $e) {
+                        // Row stays behind (claimed_at goes stale) — the
+                        // relay picks it up. Never let a queue hiccup
+                        // surface post-commit into the caller.
+                        Log::warning('Notification: outbox enqueue failed — relay will retry', [
+                            'outbox_id' => $outbox->id,
+                            'key' => $outbox->key,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                });
+
+                return 0;
+            }
+        }
+
         // DB::afterCommit fires immediately when no transaction is active,
         // so this wrapping is always safe — even outside a transaction
         // context the call behaves exactly like before.
         DB::afterCommit(function () use ($key, $context, $idempotencyKey, $onlyChannels) {
-            // Queue-backed path (notifications.via_queue, VPS + worker):
-            // hand the whole dispatch to a SendQueuedNotification job so
-            // driver latency never rides in this process. OTP gets the
-            // high-priority queue the worker drains first. Two dispatches
-            // stay inline regardless: contexts carrying _attachments
-            // (snapshotting drops them — Generate* jobs and the hall
-            // controller build the file bytes in-process) and contexts
-            // whose snapshot would truncate past the 8KB cap.
-            if (config('notifications.via_queue') && ! array_key_exists('_attachments', $context)) {
-                $snapshot = $this->snapshotContext(new NotificationContext($context));
-                if (! isset($snapshot['_truncated'])) {
-                    SendQueuedNotification::dispatch($key, $snapshot, $idempotencyKey, $onlyChannels)
-                        ->onQueue($key === 'auth.otp' ? 'otp' : 'default');
-
-                    return;
-                }
-            }
-
             // CLI / queue worker — no response to flush, run synchronously.
             if (app()->runningInConsole()) {
                 $this->doDispatch($key, $context, $idempotencyKey, $onlyChannels);

@@ -94,6 +94,18 @@ Schedule::command('notifications:reap')
         Log::error('Scheduled task failed: notifications:reap');
     });
 
+// Outbox relay — re-enqueues queue-backed notification intents that the
+// happy path lost (process died between commit and enqueue, Redis blip,
+// job burned its tries on an infrastructure error). No-ops when the
+// via_queue flag is off (the table simply stays empty).
+Schedule::command('notifications:relay-outbox')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->onFailure(function () {
+        Log::error('Scheduled task failed: notifications:relay-outbox');
+    });
+
 // Keep the per-attempt notification audit log from growing forever.
 // Generous retention (90d resolved / 180d failed); the nightly DB
 // backup is the real archive. Runs in the small hours, staggered off

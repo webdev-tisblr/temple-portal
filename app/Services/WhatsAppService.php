@@ -6,15 +6,21 @@ namespace App\Services;
 
 use App\Models\SystemSetting;
 use App\Models\WhatsAppTemplateCache;
+use Illuminate\Contracts\Redis\LimiterTimeoutException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redis;
 
 class WhatsAppService
 {
     private string $apiUrl;
+
     private string $phoneNumberId;
+
     private string $accessToken;
+
     private string $wabaId;
+
     private string $businessAccountId;
 
     public function __construct()
@@ -40,6 +46,7 @@ class WhatsAppService
      * WhatsAppWebhookController later uses to correlate delivery events.
      */
     private ?string $lastMessageId = null;
+
     private ?string $lastQueueId = null;
 
     public function lastMessageId(): ?string
@@ -67,7 +74,7 @@ class WhatsAppService
             ],
         ];
 
-        if (!empty($components)) {
+        if (! empty($components)) {
             $payload['template']['components'] = $components;
         }
 
@@ -120,6 +127,7 @@ class WhatsAppService
                 'to' => $payload['to'] ?? 'unknown',
                 'type' => $payload['type'] ?? 'unknown',
             ]);
+
             return false;
         }
 
@@ -137,6 +145,30 @@ class WhatsAppService
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
+                // Per-provider throttle (Phase H): cap BSP calls at 15/sec
+                // across ALL processes (workers + FPM) so a burst — bulk
+                // reminder cron, campaign fan-out — can't trip Meta's own
+                // rate limiting, which is what the retry layer below was
+                // firefighting. Waits up to 5s for a slot; a timeout counts
+                // as a failed attempt and rides the existing backoff. Redis
+                // being down fails open (send anyway) — throttling is a
+                // guard, never an outage amplifier.
+                try {
+                    Redis::throttle('throttle:whatsapp-bsp')
+                        ->allow(15)->every(1)->block(5)
+                        ->then(fn () => true);
+                } catch (LimiterTimeoutException $e) {
+                    $lastError = 'throttle timeout (15/sec cap)';
+                    Log::warning('WhatsApp send: throttled, backing off', ['attempt' => $attempt]);
+                    if ($attempt < $maxAttempts) {
+                        sleep($attempt);
+                    }
+
+                    continue;
+                } catch (\Throwable $e) {
+                    // Redis unavailable — fail open.
+                }
+
                 $response = Http::withToken($this->accessToken)
                     ->timeout(10)
                     ->post($url, $payload);
@@ -190,6 +222,7 @@ class WhatsAppService
                         'attempt' => $attempt,
                         'message_id' => $this->lastMessageId,
                     ]);
+
                     return true;
                 }
 
@@ -227,6 +260,7 @@ class WhatsAppService
             'last_error' => $lastError?->getMessage(),
             'last_response_error' => $lastResponseError,
         ]);
+
         return false;
     }
 
@@ -256,13 +290,14 @@ class WhatsAppService
             if ($response->successful()) {
                 return [
                     'ok' => true,
-                    'message' => 'Connected as ' . ($response->json('verified_name') ?: 'unknown')
-                        . ' (' . ($response->json('display_phone_number') ?: 'no phone') . ').',
+                    'message' => 'Connected as '.($response->json('verified_name') ?: 'unknown')
+                        .' ('.($response->json('display_phone_number') ?: 'no phone').').',
                     'details' => $response->json(),
                 ];
             }
 
             $err = $response->json('error');
+
             return [
                 'ok' => false,
                 'message' => $err['message'] ?? "WhatsApp API returned HTTP {$response->status()}.",
@@ -271,7 +306,7 @@ class WhatsAppService
         } catch (\Throwable $e) {
             return [
                 'ok' => false,
-                'message' => 'Could not reach the WhatsApp API: ' . $e->getMessage(),
+                'message' => 'Could not reach the WhatsApp API: '.$e->getMessage(),
             ];
         }
     }
@@ -314,6 +349,7 @@ class WhatsAppService
 
             if (! $response->successful()) {
                 $err = $response->json('error');
+
                 return [
                     'ok' => false,
                     'message' => $err['message'] ?? "Templates fetch failed with HTTP {$response->status()}.",
@@ -324,8 +360,12 @@ class WhatsAppService
             $rows = $response->json('data') ?? [];
             $count = 0;
             foreach ($rows as $row) {
-                if (! is_array($row) || empty($row['name']) || empty($row['language'])) continue;
-                if (($row['status'] ?? null) !== 'APPROVED') continue;
+                if (! is_array($row) || empty($row['name']) || empty($row['language'])) {
+                    continue;
+                }
+                if (($row['status'] ?? null) !== 'APPROVED') {
+                    continue;
+                }
 
                 WhatsAppTemplateCache::updateOrCreate(
                     ['name' => $row['name'], 'language' => $row['language']],
@@ -346,13 +386,13 @@ class WhatsAppService
 
             return [
                 'ok' => true,
-                'message' => "Synced {$count} approved template" . ($count === 1 ? '' : 's') . '.',
+                'message' => "Synced {$count} approved template".($count === 1 ? '' : 's').'.',
                 'count' => $count,
             ];
         } catch (\Throwable $e) {
             return [
                 'ok' => false,
-                'message' => 'Could not reach the WhatsApp API: ' . $e->getMessage(),
+                'message' => 'Could not reach the WhatsApp API: '.$e->getMessage(),
             ];
         }
     }
@@ -362,13 +402,13 @@ class WhatsAppService
         $phone = preg_replace('/\D/', '', $phone);
 
         if (strlen($phone) === 10) {
-            return '91' . $phone;
+            return '91'.$phone;
         }
 
         if (str_starts_with($phone, '91') && strlen($phone) === 12) {
             return $phone;
         }
 
-        return '91' . $phone;
+        return '91'.$phone;
     }
 }

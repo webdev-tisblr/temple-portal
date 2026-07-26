@@ -87,6 +87,15 @@ final class ShapedText
         $image = @imagecreatefrompng($png);
         @unlink($png);
 
-        return $image instanceof \GdImage ? $image : null;
+        if (! $image instanceof \GdImage) {
+            return null;
+        }
+
+        // Keep the alpha channel through any re-encode (imagepng drops it
+        // by default → shaped text on an opaque black box).
+        imagealphablending($image, false);
+        imagesavealpha($image, true);
+
+        return $image;
     }
 }

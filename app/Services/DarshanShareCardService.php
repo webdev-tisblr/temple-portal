@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\DailyDarshanPhoto;
 use App\Models\Devotee;
 use App\Models\SystemSetting;
+use App\Support\ShapedText;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -47,6 +48,7 @@ use Intervention\Image\Typography\FontFactory;
 class DarshanShareCardService
 {
     public const FORMAT_STORY = 'story';
+
     public const FORMAT_SQUARE = 'square';
 
     /** Public R2 prefix; cards live next to the source photos. */
@@ -57,15 +59,25 @@ class DarshanShareCardService
 
     /** Brand palette — derived from the temple's saffron-and-gold identity. */
     private const C_SAFFRON_DEEP = '#d4711c';
+
     private const C_SAFFRON = '#e87a1a';
+
     private const C_GOLD = '#c89030';      // body accent
+
     private const C_GOLD_BRIGHT = '#e6b948'; // blessing / highlight text
+
     private const C_BURGUNDY = '#4a1a22';  // main card background
+
     private const C_BURGUNDY_DEEP = '#37121a'; // ornamental shadows
+
     private const C_CREAM = '#fff8e7';     // (legacy — used for footer band, retained for fallback paths)
+
     private const C_CREAM_BODY = '#e8d8b8'; // text colour on burgundy
+
     private const C_INK = '#1a1a1a';
+
     private const C_INK_MUTED = '#5a4a3a';
+
     private const C_WHITE = '#ffffff';
 
     private ImageManager $manager;
@@ -80,7 +92,8 @@ class DarshanShareCardService
         // doesn't always ship the imagick extension).
         if (extension_loaded('imagick')) {
             try {
-                $this->manager = new ImageManager(new ImagickDriver());
+                $this->manager = new ImageManager(new ImagickDriver);
+
                 return;
             } catch (\Throwable $e) {
                 Log::warning('DarshanShareCard: Imagick driver init failed — falling back to GD', [
@@ -88,7 +101,7 @@ class DarshanShareCardService
                 ]);
             }
         }
-        $this->manager = new ImageManager(new GdDriver());
+        $this->manager = new ImageManager(new GdDriver);
     }
 
     /**
@@ -114,7 +127,7 @@ class DarshanShareCardService
         // recent request. The storage path is deterministic (photo id +
         // updated_at + devotee + format + version), so a cached URL can't go
         // stale for the wrong image — return it without any R2 round-trip.
-        $cacheKey = 'darshan_card_url:' . $storagePath;
+        $cacheKey = 'darshan_card_url:'.$storagePath;
         $cachedUrl = Cache::get($cacheKey);
         if (is_string($cachedUrl) && $cachedUrl !== '') {
             return [
@@ -186,6 +199,7 @@ class DarshanShareCardService
                 ]);
             }
         }
+
         return $deleted;
     }
 
@@ -283,13 +297,14 @@ class DarshanShareCardService
         // rendered as nothing when forced through the Gujarati font.
         // Earlier bug: blank saffron header on production until this fix.
         $headerFont = $this->pickFontForText($trustName, bold: true);
-        $canvas->text($trustName, intval($width / 2) + 30, $centerY, function (FontFactory $font) use ($headerFont) {
-            $font->filename($headerFont);
-            $font->size(40);
-            $font->color(self::C_WHITE);
-            $font->align('center', 'center');
-            $font->lineHeight(1.2);
-        });
+        $this->drawTextShaped($canvas, $trustName, intval($width / 2) + 30, $centerY, 40, self::C_WHITE, 'center', 'center',
+            fn () => $canvas->text($trustName, intval($width / 2) + 30, $centerY, function (FontFactory $font) use ($headerFont) {
+                $font->filename($headerFont);
+                $font->size(40);
+                $font->color(self::C_WHITE);
+                $font->align('center', 'center');
+                $font->lineHeight(1.2);
+            }));
     }
 
     /**
@@ -305,6 +320,7 @@ class DarshanShareCardService
         if (preg_match('/[\x{0A80}-\x{0AFF}]/u', $text)) {
             return $this->gujaratiFont(bold: $bold);
         }
+
         return $this->englishFont();
     }
 
@@ -391,11 +407,11 @@ class DarshanShareCardService
         // Build a circular-mask image: transparent canvas with a white
         // filled circle. The white pixels keep alpha; everything else
         // becomes transparent in the destination via COMPOSITE_DSTIN.
-        $mask = new \Imagick();
+        $mask = new \Imagick;
         $mask->newImage($size, $size, new \ImagickPixel('transparent'));
         $mask->setImageFormat('png');
 
-        $draw = new \ImagickDraw();
+        $draw = new \ImagickDraw;
         $draw->setFillColor('white');
         // ImagickDraw::circle(centerX, centerY, edgeX, edgeY).
         $draw->circle($radius, $radius, $size, $radius);
@@ -426,26 +442,75 @@ class DarshanShareCardService
      * Vertical positions are anchored to the supplied $y (the blessing
      * baseline); divider and sub-line cascade downward from there.
      */
+
+    /**
+     * Draw text with correct Indic shaping when possible.
+     *
+     * ImageMagick on this host lacks the raqm delegate, so Imagick's
+     * annotate is as shapeless as GD for Gujarati/Devanagari (the
+     * driver-selection comment above predates this discovery — શ્રી
+     * rendered with a detached ્ર on real cards, 2026-07-26). Indic
+     * strings render through pango (ShapedText) into a transparent PNG
+     * placed at the equivalent aligned position; everything else uses
+     * the normal Intervention text path via $fallback.
+     */
+    private function drawTextShaped(
+        ImageInterface $canvas,
+        string $text,
+        int $x,
+        int $y,
+        float $sizePx,
+        string $hexColor,
+        string $halign,
+        string $valign,
+        callable $fallback,
+    ): void {
+        if (ShapedText::needsShaping($text) && ShapedText::available()) {
+            $gd = ShapedText::render($text, $sizePx, $hexColor);
+            if ($gd instanceof \GdImage) {
+                $w = imagesx($gd);
+                $h = imagesy($gd);
+                $left = match ($halign) {
+                    'center' => $x - intdiv($w, 2), 'right' => $x - $w, default => $x
+                };
+                $top = match ($valign) {
+                    'center' => $y - intdiv($h, 2), 'bottom' => $y - $h, default => $y
+                };
+                ob_start();
+                imagepng($gd);
+                $bytes = (string) ob_get_clean();
+                imagedestroy($gd);
+                $canvas->place($bytes, 'top-left', max(0, $left), max(0, $top));
+
+                return;
+            }
+        }
+
+        $fallback();
+    }
+
     private function drawBlessing(ImageInterface $canvas, int $width, int $y, string $format): void
     {
         $cx = intval($width / 2);
 
         // 'જય શ્રી રામ' — dominant centred element.
-        $canvas->text('જય શ્રી રામ', $cx, $y, function (FontFactory $font) use ($format) {
-            $font->filename($this->gujaratiFont(bold: true));
-            $font->size($format === self::FORMAT_STORY ? 100 : 72);
-            $font->color(self::C_GOLD_BRIGHT);
-            $font->align('center', 'center');
-        });
+        $blessSize = $format === self::FORMAT_STORY ? 100 : 72;
+        $this->drawTextShaped($canvas, 'જય શ્રી રામ', $cx, $y, $blessSize, self::C_GOLD_BRIGHT, 'center', 'center',
+            fn () => $canvas->text('જય શ્રી રામ', $cx, $y, function (FontFactory $font) use ($blessSize) {
+                $font->filename($this->gujaratiFont(bold: true));
+                $font->size($blessSize);
+                $font->color(self::C_GOLD_BRIGHT);
+                $font->align('center', 'center');
+            }));
 
         // Gold divider underneath — short dashes either side of a centred
         // dot. Earlier 2px stroke was too thin to read at full size; now
         // 5px tall + 160px wide per side + 10px centre dot.
         $divY = $y + ($format === self::FORMAT_STORY ? 88 : 62);
-        $halfLen   = $format === self::FORMAT_STORY ? 160 : 110;
+        $halfLen = $format === self::FORMAT_STORY ? 160 : 110;
         $thickness = $format === self::FORMAT_STORY ? 5 : 4;
-        $dotR      = $format === self::FORMAT_STORY ? 10 : 7;
-        $gapToDot  = $format === self::FORMAT_STORY ? 28 : 20;
+        $dotR = $format === self::FORMAT_STORY ? 10 : 7;
+        $gapToDot = $format === self::FORMAT_STORY ? 28 : 20;
 
         $canvas->drawRectangle(function (RectangleFactory $r) use ($cx, $halfLen, $divY, $thickness, $gapToDot) {
             $r->at($cx - $halfLen - $gapToDot, $divY - intval($thickness / 2));
@@ -476,7 +541,7 @@ class DarshanShareCardService
         $cx = intval($width / 2);
         $today = Carbon::now()->locale('en')->translatedFormat('d M Y');
         // Separator switched from bullet to pipe per the new mockup.
-        $canvas->text($today . '   |   patadiyahanumanji.com', $cx, $metaY, function (FontFactory $font) {
+        $canvas->text($today.'   |   patadiyahanumanji.com', $cx, $metaY, function (FontFactory $font) {
             $font->filename($this->englishFont());
             $font->size(26);
             $font->color(self::C_CREAM_BODY);
@@ -509,10 +574,10 @@ class DarshanShareCardService
         string $format,
     ): void {
         // Bigger again per user feedback — height growing is fine.
-        $avatarSize  = $format === self::FORMAT_STORY ? 280 : 200;
-        $nameSize    = $format === self::FORMAT_STORY ? 72 : 52;
-        $bodySize    = $format === self::FORMAT_STORY ? 42 : 30;
-        $gap         = $format === self::FORMAT_STORY ? 50 : 36;
+        $avatarSize = $format === self::FORMAT_STORY ? 280 : 200;
+        $nameSize = $format === self::FORMAT_STORY ? 72 : 52;
+        $bodySize = $format === self::FORMAT_STORY ? 42 : 30;
+        $gap = $format === self::FORMAT_STORY ? 50 : 36;
         // Width estimate for the longest body line — used to centre the
         // whole avatar+text composition on the canvas. The tagline is
         // a fixed English string so the estimate is stable enough; if
@@ -548,12 +613,13 @@ class DarshanShareCardService
             $body1Y = $y + intval($bodyLineGap / 4);
             $body2Y = $body1Y + $bodyLineGap;
 
-            $canvas->text($name, $textStartX, $nameY, function (FontFactory $font) use ($nameFont, $nameSize) {
-                $font->filename($nameFont);
-                $font->size($nameSize);
-                $font->color(self::C_GOLD_BRIGHT);
-                $font->align('left', 'center');
-            });
+            $this->drawTextShaped($canvas, $name, $textStartX, $nameY, $nameSize, self::C_GOLD_BRIGHT, 'left', 'center',
+                fn () => $canvas->text($name, $textStartX, $nameY, function (FontFactory $font) use ($nameFont, $nameSize) {
+                    $font->filename($nameFont);
+                    $font->size($nameSize);
+                    $font->color(self::C_GOLD_BRIGHT);
+                    $font->align('left', 'center');
+                }));
             $canvas->text($line1, $textStartX, $body1Y, function (FontFactory $font) use ($bodySize) {
                 $font->filename($this->englishFont());
                 $font->size($bodySize);
@@ -566,6 +632,7 @@ class DarshanShareCardService
                 $font->color(self::C_CREAM_BODY);
                 $font->align('left', 'center');
             });
+
             return;
         }
 
@@ -602,6 +669,7 @@ class DarshanShareCardService
             if ($photo !== null) {
                 $this->applyCircularMask($photo, $size);
                 $this->stampGoldRing($photo, $size);
+
                 return $photo;
             }
         }
@@ -611,10 +679,12 @@ class DarshanShareCardService
             Log::warning('DarshanShareCard: temple-logo avatar fallback failed', [
                 'devotee_id' => $devotee?->getKey(),
             ]);
+
             return null;
         }
         $this->applyCircularMask($logo, $size);
         $this->stampGoldRing($logo, $size);
+
         return $logo;
     }
 
@@ -662,12 +732,14 @@ class DarshanShareCardService
             if ($bytes === null || $bytes === '') {
                 return null;
             }
+
             return $this->manager->decodeBinary($bytes)->cover($size, $size);
         } catch (\Throwable $e) {
             Log::info('DarshanShareCard: devotee photo load skipped', [
                 'devotee_id' => $devotee->getKey(),
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -678,6 +750,7 @@ class DarshanShareCardService
         $logoPath = public_path('images/shree-pataliya-hanumanji-logo.png');
         if (! file_exists($logoPath)) {
             Log::warning('DarshanShareCard: temple logo file missing', ['path' => $logoPath]);
+
             return null;
         }
         try {
@@ -687,6 +760,7 @@ class DarshanShareCardService
                 'path' => $logoPath,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -735,7 +809,7 @@ class DarshanShareCardService
     /** Deterministic R2 path so identical inputs collapse to one file. */
     private function storagePathFor(DailyDarshanPhoto $photo, ?Devotee $devotee, string $format): string
     {
-        $devoteeSegment = $devotee ? 'd' . $devotee->getKey() : 'anon';
+        $devoteeSegment = $devotee ? 'd'.$devotee->getKey() : 'anon';
         $date = $photo->captured_on?->format('Y-m-d') ?? now()->format('Y-m-d');
 
         // Hash includes the photo's updated_at so re-uploading the source
@@ -744,9 +818,9 @@ class DarshanShareCardService
         // produces materially different output (driver swap, layout shift,
         // typography change) — v2 invalidates the pre-Imagick-fallback
         // cards that had tofu boxes for the trust-name header.
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v16"), 0, 12);
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v17"), 0, 12);
 
-        return self::STORAGE_PREFIX . "/{$date}/{$devoteeSegment}-{$format}-{$hash}.jpg";
+        return self::STORAGE_PREFIX."/{$date}/{$devoteeSegment}-{$format}-{$hash}.jpg";
     }
 
     private function gujaratiFont(bool $bold): string
@@ -767,6 +841,7 @@ class DarshanShareCardService
         if (file_exists($vendor)) {
             return $vendor;
         }
+
         return $this->gujaratiFont(bold: false);
     }
 }

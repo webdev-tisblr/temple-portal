@@ -31,7 +31,7 @@ class StatusCardService
     // Bump to invalidate cached cards when the compositing logic changes
     // (v2: EXIF-orientation correction + aspect-preserving "cover" photo fit;
     //  v3: script-aware fonts so Gujarati/Hindi names render, not tofu).
-    private const VERSION = 'v3';
+    private const VERSION = 'v4'; // v4: pango-shaped Indic text (2026-07-26)
 
     /**
      * @param  string|null  $photoBytes  Raw bytes of a one-off photo the

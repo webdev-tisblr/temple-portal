@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Donation;
+use App\Support\ScriptFont;
+use App\Support\ShapedText;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -85,7 +87,7 @@ class GreetingCardService
         }
 
         // Capture the rendered PNG into a byte string and write to R2 private.
-        $outputPath = 'greeting-cards/' . $donation->id . '.png';
+        $outputPath = 'greeting-cards/'.$donation->id.'.png';
 
         ob_start();
         imagepng($image);
@@ -160,7 +162,7 @@ class GreetingCardService
                 $image,
                 $overlay,
                 (string) $value,
-                \App\Support\ScriptFont::forText((string) $value) ?? $fontPath,
+                ScriptFont::forText((string) $value) ?? $fontPath,
             );
         } elseif ($type === 'image') {
             $this->applyImageOverlay($image, $overlay, (string) $value);
@@ -176,7 +178,7 @@ class GreetingCardService
         if (str_starts_with($fieldKey, '_')) {
             return match ($fieldKey) {
                 '_donor_name' => $donation->devotee?->name,
-                '_amount' => "\u{20B9}" . number_format((float) $donation->amount, 2),
+                '_amount' => "\u{20B9}".number_format((float) $donation->amount, 2),
                 '_date' => now()->format('d M Y'),
                 '_temple_name' => 'Shree Pataliya Hanumanji Seva Trust',
                 default => null,
@@ -203,6 +205,27 @@ class GreetingCardService
         $color = imagecolorallocate($image, $r, $g, $b);
 
         $width = (int) ($overlay['width'] ?? 0);
+        $angleForShaping = $angle;
+        $colorHexForShaping = ltrim($colorHex, '#');
+
+        // Indic text (Gujarati/Devanagari): GD cannot shape it — matras and
+        // conjuncts garble (user-visible 2026-07-26). Render the whole block
+        // via pango (ShapedText) and composite; the GD path below stays as
+        // the fallback for Latin, rotated overlays, and hosts without pango.
+        if ($angleForShaping === 0.0
+            && ShapedText::needsShaping($text)
+            && ShapedText::available()
+        ) {
+            $png = ShapedText::render($text, $fontSize, $colorHexForShaping, $width > 0 ? $width : null);
+            if ($png instanceof \GdImage) {
+                $dx = $width > 0 ? $x + (int) round(max(0, ($width - imagesx($png)) / 2)) : $x;
+                imagealphablending($image, true);
+                imagecopy($image, $png, $dx, $y, 0, 0, imagesx($png), imagesy($png));
+                imagedestroy($png);
+
+                return;
+            }
+        }
 
         if ($fontPath && file_exists($fontPath) && $width > 0) {
             // Centre each line within the overlay's width box, wrapping long
@@ -242,7 +265,7 @@ class GreetingCardService
         $current = '';
 
         foreach ($words as $word) {
-            $trial = $current === '' ? $word : $current . ' ' . $word;
+            $trial = $current === '' ? $word : $current.' '.$word;
             $bbox = imagettfbbox($fontSize, 0, $fontPath, $trial);
             $trialWidth = abs($bbox[2] - $bbox[0]);
             if ($trialWidth > $maxWidth && $current !== '') {
@@ -403,7 +426,7 @@ class GreetingCardService
         $hex = ltrim($hex, '#');
 
         if (strlen($hex) === 3) {
-            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+            $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
         }
 
         $r = $g = $b = 0;
@@ -424,7 +447,7 @@ class GreetingCardService
         }
 
         try {
-            $exif = @exif_read_data('data://image/jpeg;base64,' . base64_encode($bytes));
+            $exif = @exif_read_data('data://image/jpeg;base64,'.base64_encode($bytes));
         } catch (\Throwable) {
             return $photo;
         }

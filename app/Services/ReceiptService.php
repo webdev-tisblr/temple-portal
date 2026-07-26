@@ -72,15 +72,21 @@ class ReceiptService
 
     public function generatePdf(Receipt80G $receipt): string
     {
-        $pdf = Pdf::loadView('receipts.receipt-80g', ['receipt' => $receipt]);
-        $pdf->setPaper('a4');
+        // mPDF via GujaratiPdf, NOT DomPDF: donor names/addresses carry
+        // Gujarati, and DomPDF cannot shape Indic text — matras and
+        // conjuncts render in the wrong visual order (user-visible on
+        // real 80G receipts, 2026-07-26). Same migration the store
+        // invoice + packing slip went through.
+        $output = \App\Support\Pdf\GujaratiPdf::render('receipts.receipt-80g', [
+            'receipt' => $receipt,
+        ], ['format' => 'A4']);
 
         $directory = "receipts/{$receipt->financial_year}";
         $filename = str_replace('/', '-', $receipt->receipt_number) . '.pdf';
         $path = "{$directory}/{$filename}";
 
         // R2 has no concept of directories — put() writes the key directly.
-        Storage::disk('r2_private')->put($path, $pdf->output());
+        Storage::disk('r2_private')->put($path, $output);
 
         return $path;
     }

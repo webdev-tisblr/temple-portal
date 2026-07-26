@@ -350,20 +350,21 @@ class HallBookingController extends Controller
 
             $bookingNumber = 'HALL-' . $booking->id . '-' . $booking->created_at->format('Ymd');
 
-            $pdf = Pdf::loadView('invoices.hall-booking-invoice', [
+            // mPDF via GujaratiPdf, NOT DomPDF — hirer names/addresses carry
+            // Gujarati, which DomPDF cannot shape (matra/conjunct garbling).
+            $output = \App\Support\Pdf\GujaratiPdf::render('invoices.hall-booking-invoice', [
                 'booking' => $booking,
                 'trust_name' => $trustName,
                 'trust_address' => $trustAddress,
                 'booking_number' => $bookingNumber,
                 'amount_in_words' => NumberToWords::convert((float) $booking->total_amount),
-            ]);
-            $pdf->setPaper('a4');
+            ], ['format' => 'A4']);
 
             $directory = 'hall-invoices';
             $filename = "{$bookingNumber}.pdf";
             $path = "{$directory}/{$filename}";
 
-            Storage::disk('r2_private')->put($path, $pdf->output());
+            Storage::disk('r2_private')->put($path, $output);
 
             $booking->update(['invoice_path' => $path]);
 

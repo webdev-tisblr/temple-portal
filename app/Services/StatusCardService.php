@@ -6,6 +6,9 @@ namespace App\Services;
 
 use App\Models\Devotee;
 use App\Models\StatusTemplate;
+use App\Models\SystemSetting;
+use App\Support\ScriptFont;
+use App\Support\ShapedText;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -47,7 +50,7 @@ class StatusCardService
 
         $disk = Storage::disk('r2');
         $storagePath = $this->storagePathFor($template, $devotee, $photoBytes);
-        $cacheKey = 'status_card_url:' . $storagePath;
+        $cacheKey = 'status_card_url:'.$storagePath;
 
         $cachedUrl = Cache::get($cacheKey);
         if (is_string($cachedUrl) && $cachedUrl !== '') {
@@ -118,13 +121,14 @@ class StatusCardService
                 } elseif ($photoPath = $devotee?->profile_photo_path) {
                     $this->applyImageOverlay($image, $overlay, $photoPath);
                 }
+
                 continue;
             }
 
             $value = match ($fieldKey) {
                 '_donor_name' => $devotee?->name,
                 '_date' => now()->setTimezone('Asia/Kolkata')->format('d M Y'),
-                '_temple_name' => \App\Models\SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+                '_temple_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
                 default => null,
             };
             if ($value === null || $value === '') {
@@ -137,7 +141,7 @@ class StatusCardService
                 $image,
                 $overlay,
                 (string) $value,
-                \App\Support\ScriptFont::forText((string) $value) ?? $fontPath,
+                ScriptFont::forText((string) $value) ?? $fontPath,
             );
         }
 
@@ -159,11 +163,11 @@ class StatusCardService
             $devotee?->name ?? '',
             // A one-off uploaded photo keys the object by its content hash,
             // so a re-upload of the same picture still hits the cache.
-            $photoBytes !== null ? 'up:' . sha1($photoBytes) : ($devotee?->profile_photo_path ?? ''),
+            $photoBytes !== null ? 'up:'.sha1($photoBytes) : ($devotee?->profile_photo_path ?? ''),
             self::VERSION,
         ]);
 
-        return 'status-cards/' . sha1($seed) . '.png';
+        return 'status-cards/'.sha1($seed).'.png';
     }
 
     private function resolveFontPath(): ?string
@@ -188,13 +192,34 @@ class StatusCardService
         $fontSize = (float) ($overlay['font_size'] ?? 16);
         $colorHex = ltrim($overlay['color'] ?? '#000000', '#');
         if (strlen($colorHex) === 3) {
-            $colorHex = $colorHex[0] . $colorHex[0] . $colorHex[1] . $colorHex[1] . $colorHex[2] . $colorHex[2];
+            $colorHex = $colorHex[0].$colorHex[0].$colorHex[1].$colorHex[1].$colorHex[2].$colorHex[2];
         }
         $r = $g = $b = 0;
         sscanf($colorHex, '%02x%02x%02x', $r, $g, $b);
         $color = imagecolorallocate($image, (int) $r, (int) $g, (int) $b);
 
         $width = (int) ($overlay['width'] ?? 0);
+        $angleForShaping = (float) ($overlay['angle'] ?? 0);
+        $colorHexForShaping = $colorHex;
+
+        // Indic text (Gujarati/Devanagari): GD cannot shape it — matras and
+        // conjuncts garble (user-visible 2026-07-26). Render the whole block
+        // via pango (ShapedText) and composite; the GD path below stays as
+        // the fallback for Latin, rotated overlays, and hosts without pango.
+        if ($angleForShaping === 0.0
+            && ShapedText::needsShaping($text)
+            && ShapedText::available()
+        ) {
+            $png = ShapedText::render($text, $fontSize, $colorHexForShaping, $width > 0 ? $width : null);
+            if ($png instanceof \GdImage) {
+                $dx = $width > 0 ? $x + (int) round(max(0, ($width - imagesx($png)) / 2)) : $x;
+                imagealphablending($image, true);
+                imagecopy($image, $png, $dx, $y, 0, 0, imagesx($png), imagesy($png));
+                imagedestroy($png);
+
+                return;
+            }
+        }
 
         if ($fontPath && $width > 0) {
             // Centre each line within the overlay's width box, wrapping long
@@ -229,7 +254,7 @@ class StatusCardService
         $current = '';
 
         foreach ($words as $word) {
-            $trial = $current === '' ? $word : $current . ' ' . $word;
+            $trial = $current === '' ? $word : $current.' '.$word;
             $bbox = imagettfbbox($fontSize, 0, $fontPath, $trial);
             $trialWidth = abs($bbox[2] - $bbox[0]);
             if ($trialWidth > $maxWidth && $current !== '') {
@@ -394,7 +419,7 @@ class StatusCardService
         }
 
         try {
-            $exif = @exif_read_data('data://image/jpeg;base64,' . base64_encode($bytes));
+            $exif = @exif_read_data('data://image/jpeg;base64,'.base64_encode($bytes));
         } catch (\Throwable) {
             return $photo;
         }

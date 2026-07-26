@@ -18,12 +18,12 @@ Laravel 11 monorepo serving three surfaces for the Shree Patadiya Hanumanji Seva
 - **Images & PDFs live on Cloudflare R2**, not the server. Use the `image_url()` helper (idempotent — passes through absolute URLs). Public bucket → `cdn.patadiyahanumanji.com`; private bucket (`r2_private`) holds regenerable receipts/invoices/cards treated as a short-lived cache (cleanup crons in `routes/console.php`; download controllers regenerate-on-miss). **Admin uploads + user uploads on the public bucket are NOT regenerable** — they must be retained/backed up.
 - **`PaymentCaptureService` is the single source of truth** for "payment captured" side effects. All five entry points (Razorpay webhook, `/api/v1/payments/verify`, and the four web success callbacks) funnel through `markCaptured()`, which is transactional, row-locked, and idempotent. Never confirm a booking/order/donation outside it.
 - **Notifications**: nothing sends unless an admin has created + enabled a `NotificationTemplate` for that trigger×channel. Dispatch via `NotificationService::dispatch($key, $context, idempotencyKey: ...)` — never call a driver directly. Failed/stalled sends are retried by `notifications:reap` (cron). Seva reminders are pre-computed into `temple_seva_reminder_schedules` on booking confirmation (`SevaReminderScheduler` + `SevaBookingObserver`) and drained by `seva:dispatch-reminders`.
-- **Queue is `sync`** (Hostinger shared hosting has no persistent worker). Sends run inline, deferred past the HTTP response. The planned VPS move adds a real queue/worker — see `../VPS_MIGRATION_AND_QUEUE_PLAN_2026-06-25.md`.
+- **Queue is Redis with 2 always-on Supervisor workers** (VPS since 2026-07-25; `--queue=otp,default,broadcast`, OTP has priority). Notification dispatches go through a **transactional outbox** (`temple_notification_outbox` + `notifications:relay-outbox`) when `NOTIFICATIONS_VIA_QUEUE=true` (prod). Contexts carrying `_attachments` stay inline by design. Deploys run `php artisan queue:restart` so workers pick up new code. Guest pages are cached twice: `CacheGuestResponse` middleware (per-locale, 120s) + a Cloudflare edge Cache Rule (cookie-aware). Do not add forms/CSRF surfaces to the cached-path whitelist without removing those paths from both layers.
 - **Three auth guards**: `web` (legacy User), `admin` (AdminUser + Spatie/Filament Shield roles), `devotee` (OTP-only). Sanctum tokens for the app (90-day expiry).
 
 ## Deploy
 
-GitHub Actions (`.github/workflows/deploy.yml`) on push to `main` → Hostinger.
+GitHub Actions (`.github/workflows/deploy.yml`) on push to `main` → **the VPS** (`deploy@187.127.132.164`, `/var/www/temple-portal/`; server access: `ssh temple-vps`). Old shared hosting is decommissioned (frozen in maintenance; its `artisan` renamed).
 - A `test` job (Pint + PHPUnit against a MySQL service) runs first; `deploy` `needs: test`.
   - ⚠️ Pint + PHPUnit steps are currently `continue-on-error` (reporting only) — the codebase predates Pint and the suite is new. To arm the gate: run `vendor/bin/pint` once + commit, confirm tests green in CI, then drop the two `continue-on-error: true` lines.
 - Deploy takes a pre-migration DB snapshot (`backup:run --only-db`) BEFORE `migrate --force`, then runs idempotent seeders + the reminder backfill, then clears/rebuilds caches.
@@ -38,10 +38,9 @@ GitHub Actions (`.github/workflows/deploy.yml`) on push to `main` → Hostinger.
 
 These were set up in code but need credentials/infra you must provide:
 
-1. **Offsite backup bucket** — `config/backup.php` writes to an `r2_backup` disk (defined in `config/filesystems.php`). Create a SEPARATE Cloudflare R2 bucket (distinct from temple-public/temple-private) and set its env vars in production `.env`:
-   `R2_BACKUP_ACCESS_KEY_ID`, `R2_BACKUP_SECRET_ACCESS_KEY`, `R2_BACKUP_BUCKET`, `R2_BACKUP_ENDPOINT` (see `.env.example`). Until set, backups have no offsite home.
-2. **Error tracking (Sentry)** — not installed (CI/composer constraints). When ready: `composer require sentry/sentry-laravel`, `php artisan sentry:publish --dsn=...`, set `SENTRY_LARAVEL_DSN` in prod `.env`. Without it, failures only land in `laravel.log`.
-3. **Uptime monitor** — point UptimeRobot (or similar) at `https://patadiyahanumanji.com/up` (health endpoint) and optionally watch the `scheduler_last_run` cache heartbeat, so you learn of outages externally.
+1. ~~Offsite backup bucket~~ **DONE 2026-07-26** — `temple-backups` R2 bucket live; nightly 02:00 `backup:run`, 02:30 `backup:clean`, 10:00 `backup:monitor`. Creds in prod `.env` (copy in `/root/.temple-backup-creds` on the VPS).
+2. **Error tracking (Sentry)** — package installed + wired (2026-07-26); INERT until `SENTRY_LARAVEL_DSN` is set in prod `.env`. User: create sentry.io project, paste DSN.
+3. **Uptime monitor** — `/up` verified live. User: point UptimeRobot at `https://patadiyahanumanji.com/up`.
 4. **CI test DB** — the CI MySQL service uses `temple_portal_test`. Locally: `mysql -uroot -e "CREATE DATABASE temple_portal_test"` to run `php artisan test`.
 5. **Arm the CI gate** — see Deploy section (run Pint once, confirm tests green, remove `continue-on-error`).
 6. **Rotate the Firebase service-account key** — it was briefly exposed during an early upload. Firebase Console → Service Accounts → generate new key → replace `FIREBASE_CREDENTIALS` file → delete the old key.

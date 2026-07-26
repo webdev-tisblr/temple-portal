@@ -42,7 +42,7 @@
         .meta-bar .meta-value { font-size: 12px; font-weight: bold; color: #881337; display: block; margin-top: 2px; }
 
         /* Amount box */
-        .amount-box { background: #FDF6EE; border: 1px solid #C87533; padding: 12px; text-align: center; margin: 12px 0; }
+        .amount-box { border: 1px solid #C87533; margin: 12px 0; } .amount-box td { background: #FDF6EE; padding: 12px; text-align: center; }
         .amount-figure { font-size: 22px; font-weight: bold; color: #881337; }
         .amount-words { font-size: 10px; color: #666; margin-top: 3px; font-style: italic; }
 
@@ -145,10 +145,13 @@
                 <td>
                     <div class="section">
                         <div class="section-title">Amount</div>
-                        <div class="amount-box">
+                        {{-- single-cell table, not nested divs — mPDF fragments
+                             div borders inside table cells (amount box border cut
+                             through the words line on real receipts, 2026-07-26) --}}
+                        <table class="amount-box" width="100%" cellpadding="0" cellspacing="0"><tr><td>
                             <div class="amount-figure">&#8377; {{ number_format((float) $receipt->amount, 2) }}</div>
                             <div class="amount-words">{{ $receipt->amount_in_words }}</div>
-                        </div>
+                        </td></tr></table>
                     </div>
                 </td>
             </tr>

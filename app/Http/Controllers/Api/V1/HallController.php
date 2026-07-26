@@ -32,10 +32,16 @@ class HallController extends BaseApiController
                     'name_gu' => $h->name_gu,
                     'name_hi' => $h->name_hi,
                     'name_en' => $h->name_en,
-                    'description' => $h->description,
-                    'description_gu' => $h->description_gu,
-                    'description_hi' => $h->description_hi,
-                    'description_en' => $h->description_en,
+                    // Admin edits these in a RichEditor, so the stored value
+                    // is HTML — but the app renders hall descriptions with a
+                    // plain Text() widget (raw "<p>…" was user-visible on the
+                    // hall cards, 2026-07-26). The app never needs markup
+                    // here, so serve clean text (text_preview, the same helper web cards use). Web blades read the model
+                    // directly and keep the rich HTML.
+                    'description' => text_preview($h->description),
+                    'description_gu' => text_preview($h->description_gu),
+                    'description_hi' => text_preview($h->description_hi),
+                    'description_en' => text_preview($h->description_en),
                     'capacity' => $h->capacity,
                     'price_per_day' => (float) $h->price_per_day,
                     'price_per_half_day' => (float) $h->price_per_half_day,

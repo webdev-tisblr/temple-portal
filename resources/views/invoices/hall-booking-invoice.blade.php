@@ -42,7 +42,7 @@
         .details-table tbody td.right { text-align: right; }
 
         /* Amount box */
-        .amount-box { background: #FDF6EE; border: 1px solid #C87533; padding: 10px; text-align: center; margin-bottom: 14px; }
+        .amount-box { border: 1px solid #C87533; margin-bottom: 14px; } .amount-box td { background: #FDF6EE; padding: 10px; text-align: center; }
         .amount-words { font-size: 10px; color: #666; font-style: italic; }
         .amount-total { font-size: 16px; font-weight: bold; color: #881337; margin-bottom: 4px; }
 
@@ -139,10 +139,10 @@
         </div>
 
         {{-- Amount --}}
-        <div class="amount-box">
+        <table class="amount-box" width="100%" cellpadding="0" cellspacing="0"><tr><td>
             <div class="amount-total">&#8377; {{ number_format((float) $booking->total_amount, 2) }}</div>
             <div class="amount-words">{{ $amount_in_words }}</div>
-        </div>
+        </td></tr></table>
 
         {{-- Footer --}}
         <div class="footer">

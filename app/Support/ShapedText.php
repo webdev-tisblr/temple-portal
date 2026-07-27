@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\Log;
+
 /**
  * Complex-script text rendering for GD-generated images (status cards,
  * greeting cards).
@@ -66,8 +68,13 @@ final class ShapedText
         }
         $png = $tmp.'.png';
 
+        // LC_ALL is load-bearing: FPM clears the environment (clear_env),
+        // so without it pango runs in the C/ASCII locale and rejects the
+        // UTF-8 text with "Invalid byte sequence in conversion input" —
+        // every web-triggered render silently fell back to unshaped GD
+        // while CLI tests (UTF-8 ssh locale) looked fine (2026-07-27).
         $cmd = sprintf(
-            'pango-view -q --dpi=72 -o %s --background=transparent --foreground=%s --font=%s %s --align=center -t %s 2>/dev/null',
+            'LC_ALL=C.UTF-8 pango-view -q --dpi=72 -o %s --background=transparent --foreground=%s --font=%s %s --align=center -t %s 2>&1',
             escapeshellarg($png),
             escapeshellarg('#'.ltrim($hexColor, '#')),
             escapeshellarg($family.' '.round($fontSizePx, 1)),
@@ -80,6 +87,10 @@ final class ShapedText
 
         if ($code !== 0 || ! is_file($png)) {
             @unlink($png);
+            Log::warning('ShapedText: pango-view render failed — caller falls back to unshaped GD', [
+                'exit_code' => $code,
+                'output' => implode(' | ', array_slice($output, 0, 5)),
+            ]);
 
             return null;
         }

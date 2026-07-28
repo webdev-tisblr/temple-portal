@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\BookingStatus;
+use App\Models\Concerns\HasManagedImages;
 use App\Services\SevaSlotService;
 use App\Traits\HasUuid;
 use Carbon\Carbon;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SevaBooking extends Model
 {
-    use HasUuid;
+    use HasManagedImages, HasUuid;
 
     protected $table = 'temple_seva_bookings';
 
@@ -33,7 +34,15 @@ class SevaBooking extends Model
         'notes',
         'cancelled_at',
         'cancellation_reason',
+        'receipt_number',
+        'receipt_path',
     ];
+
+    /** Cascade-delete the cached receipt PDF with the row. */
+    protected function managedImages(): array
+    {
+        return ['receipt_path' => 'r2_private'];
+    }
 
     protected $casts = [
         'status' => BookingStatus::class,

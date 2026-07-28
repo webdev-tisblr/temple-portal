@@ -6,7 +6,10 @@ namespace App\Console\Commands;
 
 use App\Models\HallBooking;
 use App\Models\Order;
+use App\Models\SevaBooking;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -44,6 +47,7 @@ class CleanGeneratedInvoices extends Command
         $days = (int) $this->option('days');
         if ($days < 1) {
             $this->error('--days must be >= 1');
+
             return self::FAILURE;
         }
 
@@ -51,22 +55,26 @@ class CleanGeneratedInvoices extends Command
         $disk = Storage::disk('r2_private');
         $storeDeleted = $this->sweepDirectory($disk, 'invoices', $cutoff, Order::class, 'invoice_path');
         $hallDeleted = $this->sweepDirectory($disk, 'hall-invoices', $cutoff, HallBooking::class, 'invoice_path');
+        // Seva receipts follow the same regenerate-on-download model
+        // (SevaReceiptService rebuilds on a NULL receipt_path).
+        $sevaDeleted = $this->sweepDirectory($disk, 'seva-receipts', $cutoff, SevaBooking::class, 'receipt_path');
 
-        $this->info("Deleted {$storeDeleted} store invoice(s) and {$hallDeleted} hall invoice(s).");
+        $this->info("Deleted {$storeDeleted} store invoice(s), {$hallDeleted} hall invoice(s) and {$sevaDeleted} seva receipt(s).");
         Log::info('CleanGeneratedInvoices ran', [
             'days' => $days,
             'store_deleted' => $storeDeleted,
             'hall_deleted' => $hallDeleted,
+            'seva_deleted' => $sevaDeleted,
         ]);
 
         return self::SUCCESS;
     }
 
     /**
-     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelClass
+     * @param  class-string<Model>  $modelClass
      */
     private function sweepDirectory(
-        \Illuminate\Contracts\Filesystem\Filesystem $disk,
+        Filesystem $disk,
         string $prefix,
         int $cutoff,
         string $modelClass,

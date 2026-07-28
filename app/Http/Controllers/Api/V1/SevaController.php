@@ -13,7 +13,9 @@ use App\Models\Seva;
 use App\Models\SevaBooking;
 use App\Models\SystemSetting;
 use App\Services\RazorpayService;
+use App\Services\SevaReceiptService;
 use App\Services\SevaSlotService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -76,7 +78,7 @@ class SevaController extends BaseApiController
         ]);
 
         if (($month = $request->query('month')) !== null) {
-            $monthStart = \Carbon\Carbon::createFromFormat('!Y-m', $month);
+            $monthStart = Carbon::createFromFormat('!Y-m', $month);
             if ($monthStart->lt(now()->startOfMonth()) || $monthStart->gt(now()->startOfMonth()->addYears(10))) {
                 return $this->error('Month out of the bookable range.', 422);
             }
@@ -148,6 +150,11 @@ class SevaController extends BaseApiController
             'status' => $booking->status->value,
             'devotee_name_for_seva' => $booking->devotee_name_for_seva,
             'sankalp' => $booking->sankalp,
+            // Any confirmed/completed booking can serve a receipt — the
+            // download endpoint regenerates the PDF on a NULL path, so
+            // this flag must NOT depend on receipt_path being set.
+            'receipt_available' => in_array($booking->status->value, ['confirmed', 'completed'], true),
+            'receipt_number' => $booking->receipt_number,
             'selected_product' => $booking->selectedProduct ? [
                 'id' => $booking->selectedProduct->id,
                 'name' => $booking->selectedProduct->name,
@@ -167,6 +174,38 @@ class SevaController extends BaseApiController
                 'total' => $bookings->total(),
             ],
         ]);
+    }
+
+    public function downloadReceipt(Request $request, SevaBooking $booking)
+    {
+        if ($booking->devotee_id !== $request->user()->id) {
+            return $this->error('Unauthorized', 403);
+        }
+        if (! in_array($booking->status->value, ['confirmed', 'completed'], true)) {
+            return $this->error('Receipt is available only after booking is confirmed.', 404);
+        }
+
+        // No R2 ->exists() probe — S3 HEADs hang, and the sweep NULLs
+        // receipt_path when it deletes the object. Regenerate via the
+        // service (not the job) so the devotee isn't re-notified.
+        if (! $booking->receipt_path) {
+            try {
+                app(SevaReceiptService::class)->generateReceipt($booking);
+                $booking->refresh();
+            } catch (\Throwable $e) {
+                Log::error('On-demand seva receipt regen failed (api)', [
+                    'booking_id' => $booking->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            if (! $booking->receipt_path) {
+                return $this->error('Receipt could not be generated. Try again shortly.', 500);
+            }
+        }
+
+        $filename = 'Seva_Receipt_'.str_replace('/', '-', (string) ($booking->receipt_number ?? $booking->id)).'.pdf';
+
+        return private_file_redirect($booking->receipt_path, $filename);
     }
 
     public function book(BookSevaRequest $request, Seva $seva): JsonResponse

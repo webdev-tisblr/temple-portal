@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Web\HallBookingController;
 use App\Models\Hall;
 use App\Models\HallBooking;
 use App\Models\Payment;
 use App\Models\SystemSetting;
 use App\Services\RazorpayService;
+use App\Support\LocalizedCache;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -20,7 +22,7 @@ class HallController extends BaseApiController
 {
     public function index(): JsonResponse
     {
-        $halls = \App\Support\LocalizedCache::remember('halls.active', 900, function () {
+        $halls = LocalizedCache::remember('halls.active', 900, function () {
             return Hall::where('is_active', true)
                 ->with('media')
                 ->get()
@@ -80,9 +82,9 @@ class HallController extends BaseApiController
 
         return $this->success([
             'date' => $date,
-            'full_day_available' => !$fullDayBooked && !$morningBooked && !$eveningBooked,
-            'morning_available' => !$morningBooked,
-            'evening_available' => !$eveningBooked,
+            'full_day_available' => ! $fullDayBooked && ! $morningBooked && ! $eveningBooked,
+            'morning_available' => ! $morningBooked,
+            'evening_available' => ! $eveningBooked,
         ]);
     }
 
@@ -97,7 +99,7 @@ class HallController extends BaseApiController
         ]);
 
         $month = $request->query('month');
-        $monthStart = \Carbon\Carbon::createFromFormat('!Y-m', $month);
+        $monthStart = Carbon::createFromFormat('!Y-m', $month);
         if ($monthStart->lt(now()->startOfMonth()) || $monthStart->gt(now()->startOfMonth()->addYears(10))) {
             return $this->error('Month out of the bookable range.', 422);
         }
@@ -110,7 +112,7 @@ class HallController extends BaseApiController
             ->whereBetween('booking_date', [$start->toDateString(), $end->toDateString()])
             ->whereIn('status', ['pending', 'confirmed'])
             ->get(['booking_date', 'booking_type'])
-            ->groupBy(fn ($b) => \Carbon\Carbon::parse($b->booking_date)->toDateString());
+            ->groupBy(fn ($b) => Carbon::parse($b->booking_date)->toDateString());
 
         $dates = [];
         for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
@@ -172,7 +174,7 @@ class HallController extends BaseApiController
 
         try {
             $result = DB::transaction(function () use ($hall, $validated, $devotee, $amount) {
-                $receipt = 'HALL-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
+                $receipt = 'HALL-'.now()->format('Ymd').'-'.strtoupper(Str::random(6));
                 $razorpayService = app(RazorpayService::class);
                 $amountInPaise = (int) round($amount * 100);
 
@@ -234,6 +236,7 @@ class HallController extends BaseApiController
             ], 'હોલ બુકિંગ બનાવ્યું. પેમેન્ટ પૂર્ણ કરો.');
         } catch (\Exception $e) {
             Log::error('Hall booking failed', ['error' => $e->getMessage()]);
+
             return $this->error('હોલ બુકિંગ નિષ્ફળ. ફરી પ્રયાસ કરો.', 500);
         }
     }
@@ -277,7 +280,9 @@ class HallController extends BaseApiController
         if ($booking->devotee_id !== $request->user()->id) {
             return $this->error('Unauthorized', 403);
         }
-        if ($booking->status !== 'confirmed') {
+        // 'completed' too — the app shows the download button for past
+        // (completed) bookings and this gate used to 404 them.
+        if (! in_array($booking->status, ['confirmed', 'completed'], true)) {
             return $this->error('Invoice is generated only after booking is confirmed.', 404);
         }
 
@@ -288,7 +293,7 @@ class HallController extends BaseApiController
             // service-like action. sendEmail=false so we don't re-email the
             // customer every time they redownload from the mobile app.
             try {
-                app(\App\Http\Controllers\Web\HallBookingController::class)
+                app(HallBookingController::class)
                     ->generateHallInvoice($booking, sendEmail: false);
                 $booking->refresh();
             } catch (\Throwable $e) {

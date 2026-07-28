@@ -120,6 +120,32 @@ final class NotificationRegistry
                 ],
             ],
 
+            // Fires from GenerateSevaReceipt right after payment capture.
+            // Context: booking (SevaBooking->toArray() merged with:
+            //   seva_name (gu), seva_name_en, booking_date formatted
+            //   'd M Y', slot_label, total_amount_formatted,
+            //   receipt_number), devotee, trust_name, receipt_number,
+            //   receipt_pdf_url (presigned, 7 days), _attachments (PDF).
+            // Separate deliverable from seva.booking.confirmed so the
+            // trust can enable either or both independently.
+            'seva.receipt' => [
+                'label' => 'Seva — booking receipt',
+                'description' => 'Fires when the seva booking receipt PDF is generated (right after payment capture). PDF attached for email; use receipt_pdf_url for WhatsApp document headers.',
+                'placeholders' => [
+                    'devotee_name' => 'Devotee name (devotee.name)',
+                    'seva_name' => 'Seva name in Gujarati (booking.seva_name)',
+                    'seva_name_en' => 'Seva name in English (booking.seva_name_en)',
+                    'booking_date' => 'Seva date, e.g. 28 Jul 2026 (booking.booking_date)',
+                    'slot_time' => 'Slot label — reads "Whole day"/"Whole week" for full-day sevas (booking.slot_label)',
+                    'quantity' => 'Quantity booked (booking.quantity)',
+                    'amount' => 'Total amount, formatted (booking.total_amount_formatted)',
+                    'receipt_number' => 'Receipt number (receipt_number)',
+                    'receipt_pdf_url' => 'Receipt PDF link — presigned, valid 7 days (receipt_pdf_url)',
+                    'booking_id' => 'Booking ID (booking.id)',
+                    'trust_name' => 'Trust name from System Settings (trust_name)',
+                ],
+            ],
+
             // Fires from the seva:dispatch-reminders cron at each
             // reminder_offset configured on the seva. ALL enabled
             // templates for this key fire on every dispatch — admin
@@ -195,7 +221,7 @@ final class NotificationRegistry
                     'otp' => 'The 6-digit OTP code (otp)',
                     'expires_in_minutes' => 'OTP validity window in minutes (expires_in_minutes)',
                     'phone' => 'The phone number requesting OTP (phone)',
-                    'name' => "Devotee name if registered, blank otherwise (name)",
+                    'name' => 'Devotee name if registered, blank otherwise (name)',
                 ],
             ],
 
@@ -243,7 +269,7 @@ final class NotificationRegistry
     public static function asOptions(): array
     {
         return collect(self::all())
-            ->mapWithKeys(fn ($v, $k) => [$k => $v['label'] . " — {$k}"])
+            ->mapWithKeys(fn ($v, $k) => [$k => $v['label']." — {$k}"])
             ->all();
     }
 

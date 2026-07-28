@@ -24,6 +24,7 @@
                             <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">Samay (Slot)</th>
                             <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">Rakam</th>
                             <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600">{{ __('common.status') }}</th>
+                            <th class="px-5 py-3.5"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-amber-900/15">
@@ -58,6 +59,15 @@
                                         <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                                         {{ __('dashboard.waiting') }}
                                     </span>
+                                @endif
+                            </td>
+                            <td class="px-5 py-4 text-right">
+                                @if(in_array($status, ['confirmed', 'completed'], true))
+                                    <a href="{{ route('dashboard.bookings.receipt', $booking) }}"
+                                       class="inline-flex items-center gap-1.5 text-xs font-semibold text-gold hover:underline">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+                                        {{ __('dashboard.receipt') }}
+                                    </a>
                                 @endif
                             </td>
                         </tr>

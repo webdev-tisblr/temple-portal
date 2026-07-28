@@ -10,7 +10,10 @@ use App\Models\Hall;
 use App\Models\HallBooking;
 use App\Models\Payment;
 use App\Models\SystemSetting;
+use App\Services\Notifications\NotificationService;
+use App\Services\PaymentCaptureService;
 use App\Services\RazorpayService;
+use App\Support\Pdf\GujaratiPdf;
 use Artesaos\SEOTools\Facades\SEOMeta;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -102,7 +105,7 @@ class HallBookingController extends Controller
         // Half-day attempt collides with same-slot half-day OR a full_day.
         return $query->where(function ($q) use ($bookingType) {
             $q->where('booking_type', 'full_day')
-              ->orWhere('booking_type', $bookingType);
+                ->orWhere('booking_type', $bookingType);
         })->exists();
     }
 
@@ -144,7 +147,7 @@ class HallBookingController extends Controller
         try {
             $result = DB::transaction(function () use ($validated, $devotee, $hall, $totalAmount) {
                 $paymentId = (string) Str::uuid();
-                $receipt = 'HALL-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
+                $receipt = 'HALL-'.now()->format('Ymd').'-'.strtoupper(Str::random(6));
 
                 $razorpayService = app(RazorpayService::class);
                 $amountInPaise = (int) round($totalAmount * 100);
@@ -213,7 +216,7 @@ class HallBookingController extends Controller
 
                 $payment = Payment::create([
                     'id' => $paymentId,
-                    'razorpay_order_id' => 'test_' . Str::random(14),
+                    'razorpay_order_id' => 'test_'.Str::random(14),
                     'amount' => $totalAmount,
                     'currency' => 'INR',
                     'status' => 'captured',
@@ -279,7 +282,7 @@ class HallBookingController extends Controller
                     // used to do a partial capture here and call
                     // generateHallInvoice() inline; both now route
                     // through markCaptured so API + web are identical.
-                    app(\App\Services\PaymentCaptureService::class)->markCaptured(
+                    app(PaymentCaptureService::class)->markCaptured(
                         $payment,
                         $paymentId,
                     );
@@ -301,11 +304,12 @@ class HallBookingController extends Controller
 
     public function downloadInvoice(HallBooking $booking)
     {
-        $devotee = \Illuminate\Support\Facades\Auth::guard('devotee')->user();
+        $devotee = Auth::guard('devotee')->user();
         if (! $devotee || $booking->devotee_id !== $devotee->id) {
             abort(403);
         }
-        if ($booking->status !== 'confirmed') {
+        // 'completed' too — past bookings keep their invoice downloadable.
+        if (! in_array($booking->status, ['confirmed', 'completed'], true)) {
             abort(404, 'ઇનવૉઇસ બુકિંગ કન્ફર્મ થયા પછી જ ઉપલબ્ધ થશે.');
         }
 
@@ -348,11 +352,11 @@ class HallBookingController extends Controller
             $trustName = SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust');
             $trustAddress = SystemSetting::getValue('trust_address', 'Antarjal, Gandhidham, Kutch - 370205');
 
-            $bookingNumber = 'HALL-' . $booking->id . '-' . $booking->created_at->format('Ymd');
+            $bookingNumber = 'HALL-'.$booking->id.'-'.$booking->created_at->format('Ymd');
 
             // mPDF via GujaratiPdf, NOT DomPDF — hirer names/addresses carry
             // Gujarati, which DomPDF cannot shape (matra/conjunct garbling).
-            $output = \App\Support\Pdf\GujaratiPdf::render('invoices.hall-booking-invoice', [
+            $output = GujaratiPdf::render('invoices.hall-booking-invoice', [
                 'booking' => $booking,
                 'trust_name' => $trustName,
                 'trust_address' => $trustAddress,
@@ -391,7 +395,7 @@ class HallBookingController extends Controller
     {
         try {
             $pdfBytes = Storage::disk('r2_private')->get($path);
-            $bookingNumber = 'HALL-' . $booking->id . '-' . $booking->created_at->format('Ymd');
+            $bookingNumber = 'HALL-'.$booking->id.'-'.$booking->created_at->format('Ymd');
 
             $bookingTypeLabel = match ($booking->booking_type) {
                 'full_day' => 'Full Day',
@@ -403,7 +407,7 @@ class HallBookingController extends Controller
             // Single dispatch entry — every enabled NotificationTemplate
             // for 'hall.booking.confirmed' (email today; WhatsApp / push
             // when the admin enables them) fires from here.
-            app(\App\Services\Notifications\NotificationService::class)->dispatch(
+            app(NotificationService::class)->dispatch(
                 'hall.booking.confirmed',
                 [
                     'booking' => array_merge($booking->toArray(), [

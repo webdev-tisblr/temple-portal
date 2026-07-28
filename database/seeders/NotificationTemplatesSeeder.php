@@ -96,6 +96,27 @@ class NotificationTemplatesSeeder extends Seeder
                 ],
             ],
 
+            // ── SEVA RECEIPT — email ──────────────────────────────────────
+            [
+                'key' => 'seva.receipt',
+                'channel' => NotificationTemplate::CHANNEL_EMAIL,
+                'label' => 'Seva receipt — devotee email',
+                'description' => 'Sent with the seva booking receipt PDF attached when a seva payment is captured. Separate from the booking-confirmed message.',
+                'is_enabled' => true,
+                'subject' => 'Seva Booking Receipt — {{ receipt_number }}',
+                'body' => $this->sevaReceiptHtml(),
+                'recipient_strategy' => NotificationTemplate::RECIPIENT_DEVOTEE,
+                'recipient_value' => null,
+                'placeholder_map' => [
+                    'devotee_name' => 'devotee.name',
+                    'seva_name' => 'booking.seva_name',
+                    'booking_date' => 'booking.booking_date',
+                    'amount' => 'booking.total_amount_formatted',
+                    'receipt_number' => 'receipt_number',
+                    'trust_name' => 'trust_name',
+                ],
+            ],
+
             // ── STORE ORDER — email ───────────────────────────────────────
             [
                 'key' => 'store.order.confirmed',
@@ -240,7 +261,7 @@ class NotificationTemplatesSeeder extends Seeder
 
     private function contactSubmittedHtml(): string
     {
-        return <<<HTML
+        return <<<'HTML'
         <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:620px;margin:0 auto;color:#333;">
             <div style="background:#881337;padding:18px;border-radius:8px 8px 0 0;">
                 <h1 style="color:#e8c36a;margin:0;font-size:18px;">New Contact Form Submission</h1>
@@ -264,7 +285,7 @@ class NotificationTemplatesSeeder extends Seeder
 
     private function donationConfirmedHtml(): string
     {
-        return <<<HTML
+        return <<<'HTML'
         <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
             <div style="background:#881337;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
                 <h1 style="color:#e8c36a;margin:0;font-size:20px;">Thank You for Your Donation</h1>
@@ -281,7 +302,7 @@ class NotificationTemplatesSeeder extends Seeder
 
     private function sevaBookingHtml(): string
     {
-        return <<<HTML
+        return <<<'HTML'
         <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
             <div style="background:#881337;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
                 <h1 style="color:#e8c36a;margin:0;font-size:20px;">Seva Booking Confirmed</h1>
@@ -304,7 +325,7 @@ class NotificationTemplatesSeeder extends Seeder
 
     private function hallBookingHtml(): string
     {
-        return <<<HTML
+        return <<<'HTML'
         <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
             <div style="background:#881337;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
                 <h1 style="color:#e8c36a;margin:0;font-size:20px;">Hall Booking Confirmed!</h1>
@@ -334,7 +355,7 @@ class NotificationTemplatesSeeder extends Seeder
 
     private function greetingCardHtml(): string
     {
-        return <<<HTML
+        return <<<'HTML'
         <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
             <div style="background:#881337;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
                 <h1 style="color:#e8c36a;margin:0;font-size:20px;">With Gratitude</h1>
@@ -354,7 +375,7 @@ class NotificationTemplatesSeeder extends Seeder
 
     private function receipt80gHtml(): string
     {
-        return <<<HTML
+        return <<<'HTML'
         <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
             <div style="background:#881337;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
                 <h1 style="color:#e8c36a;margin:0;font-size:20px;">Your 80G Receipt is Ready</h1>
@@ -378,9 +399,36 @@ class NotificationTemplatesSeeder extends Seeder
         HTML;
     }
 
+    private function sevaReceiptHtml(): string
+    {
+        return <<<'HTML'
+        <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
+            <div style="background:#881337;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
+                <h1 style="color:#e8c36a;margin:0;font-size:20px;">Your Seva Booking Receipt</h1>
+                <p style="color:#ddd;margin:6px 0 0;font-size:13px;">{{ trust_name }}</p>
+            </div>
+            <div style="padding:24px;background:#fff;border:1px solid #eee;border-top:none;">
+                <p style="margin:0 0 16px;">Dear <strong>{{ devotee_name }}</strong>,</p>
+                <p style="margin:0 0 16px;color:#555;">Thank you for booking a seva. Your booking receipt is attached to this email.</p>
+                <table style="width:100%;border-collapse:collapse;margin:8px 0 16px;background:#f9f5ef;border-radius:6px;overflow:hidden;">
+                    <tr><td style="padding:10px 14px;color:#888;font-size:12px;">Receipt No.</td><td style="padding:10px 14px;font-weight:700;color:#881337;">{{ receipt_number }}</td></tr>
+                    <tr><td style="padding:10px 14px;color:#888;font-size:12px;">Seva</td><td style="padding:10px 14px;font-weight:600;">{{ seva_name }}</td></tr>
+                    <tr><td style="padding:10px 14px;color:#888;font-size:12px;">Seva date</td><td style="padding:10px 14px;font-weight:600;">{{ booking_date }}</td></tr>
+                    <tr style="background:#f0e8d8;"><td style="padding:12px 14px;font-weight:700;font-size:14px;color:#881337;">Amount</td><td style="padding:12px 14px;font-weight:700;font-size:14px;color:#881337;">₹{{ amount }}</td></tr>
+                </table>
+                <p style="margin:20px 0 0;color:#555;font-size:13px;">Please retain the attached PDF for your records.</p>
+                <p style="margin:16px 0 0;color:#881337;font-weight:600;">May Shree Hanumanji bless you and your family.</p>
+            </div>
+            <div style="padding:16px;text-align:center;background:#f5f0ea;border-radius:0 0 8px 8px;border:1px solid #eee;border-top:none;">
+                <p style="margin:0;font-size:11px;color:#999;">{{ trust_name }}</p>
+            </div>
+        </div>
+        HTML;
+    }
+
     private function storeOrderHtml(): string
     {
-        return <<<HTML
+        return <<<'HTML'
         <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
             <div style="background:#881337;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
                 <h1 style="color:#e8c36a;margin:0;font-size:20px;">Order Confirmed</h1>

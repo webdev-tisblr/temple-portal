@@ -171,6 +171,7 @@ Route::middleware('auth:devotee')->group(function () {
             Route::get('/', [DashboardController::class, 'index'])->name('index');
             Route::get('/donations', [DashboardController::class, 'donations'])->name('donations');
             Route::get('/bookings', [DashboardController::class, 'bookings'])->name('bookings');
+            Route::get('/bookings/{booking}/receipt', [DashboardController::class, 'downloadBookingReceipt'])->name('bookings.receipt');
             Route::get('/orders', [DashboardController::class, 'orders'])->name('orders');
             Route::get('/receipts', [DashboardController::class, 'receipts'])->name('receipts');
             Route::get('/receipts/{receipt}/download', [DashboardController::class, 'downloadReceipt'])->name('receipts.download');

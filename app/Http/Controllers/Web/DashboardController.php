@@ -10,13 +10,17 @@ use App\Models\Order;
 use App\Models\Receipt80G;
 use App\Models\SevaBooking;
 use App\Services\PanValidationService;
+use App\Services\ReceiptService;
+use App\Services\SevaReceiptService;
 use Artesaos\SEOTools\Facades\SEOMeta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 class DashboardController extends Controller
 {
@@ -128,12 +132,12 @@ class DashboardController extends Controller
         return view('pages.dashboard.receipts', compact('receipts'));
     }
 
-    public function downloadReceipt(Receipt80G $receipt): \Symfony\Component\HttpFoundation\Response|RedirectResponse
+    public function downloadReceipt(Receipt80G $receipt): Response|RedirectResponse
     {
         $devotee = Auth::guard('devotee')->user();
         $donation = Donation::find($receipt->donation_id);
 
-        if (!$donation || $donation->devotee_id !== $devotee->id) {
+        if (! $donation || $donation->devotee_id !== $devotee->id) {
             abort(403);
         }
 
@@ -142,32 +146,68 @@ class DashboardController extends Controller
         // NULLs pdf_path when it deletes the object, so non-null == present.
         // Don't dispatch the Generate80GReceipt job — that path also emails
         // + WhatsApps the donor.
-        if (!$receipt->pdf_path) {
+        if (! $receipt->pdf_path) {
             try {
-                app(\App\Services\ReceiptService::class)->generateReceipt($donation);
+                app(ReceiptService::class)->generateReceipt($donation);
                 $receipt = $receipt->fresh();
             } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::error("Receipt regen failed", [
+                Log::error('Receipt regen failed', [
                     'donation_id' => $donation->id,
                     'error' => $e->getMessage(),
                 ]);
             }
-            if (!$receipt || !$receipt->pdf_path) {
+            if (! $receipt || ! $receipt->pdf_path) {
                 return back()->withErrors(['receipt' => 'રસીદ PDF ઉપલબ્ધ નથી. કૃપા કરી થોડી વારે ફરી પ્રયાસ કરો.']);
             }
         }
 
         // Redirect to a short-lived presigned R2 URL — the browser fetches
         // the PDF straight from storage instead of us proxying the bytes.
-        $filename = 'receipt-' . str_replace('/', '-', $receipt->receipt_number) . '.pdf';
+        $filename = 'receipt-'.str_replace('/', '-', $receipt->receipt_number).'.pdf';
 
         return private_file_redirect($receipt->pdf_path, $filename);
+    }
+
+    public function downloadBookingReceipt(SevaBooking $booking): Response|RedirectResponse
+    {
+        $devotee = Auth::guard('devotee')->user();
+
+        if ($booking->devotee_id !== $devotee->id) {
+            abort(403);
+        }
+
+        if (! in_array($booking->status->value, ['confirmed', 'completed'], true)) {
+            abort(404, 'રસીદ બુકિંગ કન્ફર્મ થયા પછી જ ઉપલબ્ધ થશે.');
+        }
+
+        // Self-heal: regenerate via the service (not the GenerateSevaReceipt
+        // job — that path also notifies the devotee). No R2 ->exists()
+        // probe — the sweep NULLs receipt_path, so non-null == present.
+        if (! $booking->receipt_path) {
+            try {
+                app(SevaReceiptService::class)->generateReceipt($booking);
+                $booking->refresh();
+            } catch (\Throwable $e) {
+                Log::error('On-demand seva receipt regen failed (web)', [
+                    'booking_id' => $booking->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            if (! $booking->receipt_path) {
+                return back()->withErrors(['receipt' => 'રસીદ PDF ઉપલબ્ધ નથી. કૃપા કરી થોડી વારે ફરી પ્રયાસ કરો.']);
+            }
+        }
+
+        $filename = 'Seva_Receipt_'.str_replace('/', '-', (string) ($booking->receipt_number ?? $booking->id)).'.pdf';
+
+        return private_file_redirect($booking->receipt_path, $filename);
     }
 
     public function profile(): View
     {
         $devotee = Auth::guard('devotee')->user();
         SEOMeta::setTitle('પ્રોફાઇલ');
+
         return view('pages.dashboard.profile', compact('devotee'));
     }
 
@@ -194,9 +234,9 @@ class DashboardController extends Controller
             $updateData['profile_photo_path'] = $path;
         }
 
-        if (!empty($validated['pan_number'])) {
+        if (! empty($validated['pan_number'])) {
             $panService = app(PanValidationService::class);
-            if (!$panService->validate($validated['pan_number'])) {
+            if (! $panService->validate($validated['pan_number'])) {
                 return back()->withErrors(['pan_number' => 'અમાન્ય PAN ફોર્મેટ.']);
             }
             $updateData['pan_encrypted'] = Crypt::encryptString($validated['pan_number']);

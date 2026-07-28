@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Jobs\Generate80GReceipt;
 use App\Jobs\GenerateGreetingCard;
 use App\Jobs\GenerateHallInvoice;
+use App\Jobs\GenerateSevaReceipt;
 use App\Jobs\GenerateStoreInvoice;
 use App\Models\Donation;
 use App\Models\HallBooking;
@@ -14,6 +15,8 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\SevaBooking;
+use App\Models\SystemSetting;
+use App\Services\Notifications\NotificationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -86,6 +89,7 @@ class PaymentCaptureService
                 Log::warning('PaymentCapture: row vanished between read and lock', [
                     'payment_id' => $payment->id,
                 ]);
+
                 return;
             }
             if ($locked->status->value === 'captured') {
@@ -118,12 +122,12 @@ class PaymentCaptureService
                 // staff / etc.) fire alongside the devotee template
                 // here. No caller-side fan-out needed; the service
                 // expands admin_role strategy internally.
-                app(\App\Services\Notifications\NotificationService::class)->dispatch(
+                app(NotificationService::class)->dispatch(
                     'seva.booking.confirmed',
                     [
                         'booking' => $booking,
                         'devotee' => $booking->devotee,
-                        'trust_name' => \App\Models\SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+                        'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
                     ],
                     idempotencyKey: "payment:{$payment->id}:seva.booking.confirmed",
                 );
@@ -163,6 +167,7 @@ class PaymentCaptureService
                             'order_id' => $order->id,
                             'product_id' => $item->product_id,
                         ]);
+
                         continue;
                     }
                     if ($product->has_variants && $item->variant_label) {
@@ -227,12 +232,12 @@ class PaymentCaptureService
                 // PAN is intentionally NOT snapshotted onto the donation
                 // row — its canonical home is temple_devotees.pan_encrypted
                 // and the receipt-generation path reads from there.
-                app(\App\Services\Notifications\NotificationService::class)->dispatch(
+                app(NotificationService::class)->dispatch(
                     'donation.confirmed',
                     [
                         'donation' => $donation->loadMissing('devotee', 'campaign', 'donationType'),
                         'devotee' => $donation->devotee,
-                        'trust_name' => \App\Models\SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+                        'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
                     ],
                     idempotencyKey: "payment:{$payment->id}:donation.confirmed",
                 );
@@ -252,6 +257,17 @@ class PaymentCaptureService
         // Payment row lock. Each side effect is independently wrapped
         // in try/catch so a failed invoice can't block the 80G receipt
         // (and vice versa).
+        if ($captured['booking'] !== null) {
+            try {
+                GenerateSevaReceipt::dispatchSync($captured['booking']);
+            } catch (\Throwable $e) {
+                Log::error('PaymentCapture: seva receipt generation failed', [
+                    'booking_id' => $captured['booking']->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
         if ($captured['order'] !== null) {
             try {
                 GenerateStoreInvoice::dispatchSync($captured['order']);

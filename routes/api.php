@@ -222,6 +222,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         // gets the same tighter CREATE throttle as donations/store orders.
         Route::post('/sevas/{seva}/book', [SevaController::class, 'book'])->middleware('throttle:10,1');
         Route::get('/bookings', [SevaController::class, 'bookings']);
+        Route::get('/bookings/{booking}/receipt', [SevaController::class, 'downloadReceipt']);
 
         // Payment verification — called by app right after Razorpay success.
         // Confirms the payment server-side without waiting for the webhook.

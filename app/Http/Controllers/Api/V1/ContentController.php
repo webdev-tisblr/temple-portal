@@ -475,6 +475,29 @@ class ContentController extends BaseApiController
     }
 
     /**
+     * Published top-level CMS pages for the app's More menu. The app renders
+     * each via the /pages/{slug}/embed WebView, so admins adding a page in
+     * Filament makes it appear in the app without a release.
+     */
+    public function pages(): JsonResponse
+    {
+        $pages = \App\Support\LocalizedCache::remember('content.pages.v1', 1800, function () {
+            return \App\Models\Page::where('status', 'published')
+                ->whereNull('parent_slug')
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get()
+                ->map(fn (\App\Models\Page $p) => [
+                    'slug' => $p->slug,
+                    'title' => $p->title,
+                ])
+                ->values();
+        });
+
+        return $this->success(['pages' => $pages]);
+    }
+
+    /**
      * Return temple info (name, contact, address, about, rules, nearby).
      * Draws from SystemSetting so admin can edit without a code change.
      */

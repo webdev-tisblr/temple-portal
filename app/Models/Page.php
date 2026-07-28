@@ -17,9 +17,13 @@ class Page extends Model
 
     protected static function booted(): void
     {
-        // The header/footer "Mandir" menus list published pages from this
-        // cache — bust it so adds/edits/deletes reflect immediately.
-        $bust = fn () => \Illuminate\Support\Facades\Cache::forget('nav.cms_pages.v1');
+        // The header/footer "Mandir" menus and the app's More menu list
+        // published pages from these caches — bust both so adds/edits/
+        // deletes reflect immediately.
+        $bust = function (): void {
+            \Illuminate\Support\Facades\Cache::forget('nav.cms_pages.v1');
+            \App\Support\LocalizedCache::forget('content.pages.v1');
+        };
         static::saved($bust);
         static::deleted($bust);
 

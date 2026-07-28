@@ -40,7 +40,7 @@ These were set up in code but need credentials/infra you must provide:
 
 1. ~~Offsite backup bucket~~ **DONE 2026-07-26** — `temple-backups` R2 bucket live; nightly 02:00 `backup:run`, 02:30 `backup:clean`, 10:00 `backup:monitor`. Creds in prod `.env` (copy in `/root/.temple-backup-creds` on the VPS).
 2. **Error tracking (Sentry)** — package installed + wired (2026-07-26); INERT until `SENTRY_LARAVEL_DSN` is set in prod `.env`. User: create sentry.io project, paste DSN.
-3. **Uptime monitor** — `/up` verified live. User: point UptimeRobot at `https://patadiyahanumanji.com/up`.
+3. **Uptime monitor** — point UptimeRobot at `https://patadiyahanumanji.com/up/deep` (checks MySQL+Redis, never edge-cached). Do NOT monitor `/` (Cloudflare serves stale cache on origin 5xx — hid the 2026-07-28 outage) and not plain `/up` (doesn't touch the DB).
 4. **CI test DB** — the CI MySQL service uses `temple_portal_test`. Locally: `mysql -uroot -e "CREATE DATABASE temple_portal_test"` to run `php artisan test`.
 5. **Arm the CI gate** — see Deploy section (run Pint once, confirm tests green, remove `continue-on-error`).
 6. **Rotate the Firebase service-account key** — it was briefly exposed during an early upload. Firebase Console → Service Accounts → generate new key → replace `FIREBASE_CREDENTIALS` file → delete the old key.

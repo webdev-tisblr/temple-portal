@@ -69,6 +69,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::get('/content/status-templates', [ContentController::class, 'statusTemplates']);
     Route::post('/content/status-card', [ContentController::class, 'statusCard']);
     Route::get('/content/temple-info', [ContentController::class, 'templeInfo']);
+    Route::get('/content/pages', [ContentController::class, 'pages']);
     Route::get('/content/trustees', [ContentController::class, 'trustees']);
     Route::get('/campaigns', [ContentController::class, 'campaigns']);
     Route::get('/campaigns/{campaign}', [ContentController::class, 'campaignDetail']);

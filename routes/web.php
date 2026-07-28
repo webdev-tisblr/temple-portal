@@ -22,6 +22,32 @@ use Illuminate\Support\Facades\Route;
 // Homepage
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
+// Deep health check for uptime monitoring. Framework /up only proves PHP
+// boots; this proves MySQL and Redis actually answer. Path stays OUTSIDE the
+// Cloudflare cache-rule whitelist and sends no-store, so a monitor pointed
+// here always sees the origin's real state — never an edge-cached copy
+// (Cloudflare's stale-on-error masked the 2026-07-28 DB outage from
+// UptimeRobot for 5 hours).
+Route::get('/up/deep', function () {
+    $checks = [];
+    try {
+        \Illuminate\Support\Facades\DB::select('select 1');
+        $checks['mysql'] = 'ok';
+    } catch (\Throwable) {
+        $checks['mysql'] = 'fail';
+    }
+    try {
+        \Illuminate\Support\Facades\Redis::connection()->ping();
+        $checks['redis'] = 'ok';
+    } catch (\Throwable) {
+        $checks['redis'] = 'fail';
+    }
+    $healthy = ! in_array('fail', $checks, true);
+
+    return response()->json(['status' => $healthy ? 'ok' : 'fail'] + $checks, $healthy ? 200 : 500)
+        ->header('Cache-Control', 'no-store');
+})->name('health.deep');
+
 // Language switch — sets the locale cookie server-side and bounces back to
 // the page the user was on. Using a dedicated route (instead of a ?lang=
 // query param) keeps public URLs clean and immune to full-page caches that

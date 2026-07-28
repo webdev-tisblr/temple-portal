@@ -3,8 +3,8 @@
 @section('content')
 
 <x-page-header
-    :breadcrumb="[['label' => __('footer.temple_store')]]"
-    title="{{ __('footer.temple_store') }}"
+    :breadcrumb="[['label' => __('store.title')]]"
+    title="{{ __('store.title') }}"
     subtitle="{{ __('store.subtitle') }}" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">

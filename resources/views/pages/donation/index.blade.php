@@ -4,7 +4,7 @@
 <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-temple" x-data="donationForm()">
 
     <div class="text-center mb-8">
-        <h1 class="divine-heading text-3xl">{{ __('nav.donate') }}</h1>
+        <h1 class="divine-heading text-3xl">{{ __('donation.title') }}</h1>
         <p class="divine-subtext mt-2">{{ __('donation.subtitle') }}</p>
     </div>
 
@@ -42,7 +42,7 @@
              Filled automatically when a preset chip is clicked; typing
              here overrides the chip selection. --}}
         <div class="mb-6">
-            <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('common.amount') }}</label>
+            <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('donation.amount_label') }}</label>
             <div class="flex">
                 <span class="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-amber-800/30 bg-amber-900/20 text-amber-500 font-medium">₹</span>
                 <input type="number" min="1" placeholder="{{ __('donation.enter_amount') }}"

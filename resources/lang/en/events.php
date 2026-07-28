@@ -1,8 +1,8 @@
 <?php
 
 return [
-    'title' => 'Events',
-    'subtitle' => 'Upcoming and recent festivals at the temple',
+    'title' => 'Festivals & Events',
+    'subtitle' => 'Upcoming and recent festivals and programmes at the Dham',
     'upcoming' => 'Upcoming Events',
     'recent' => 'Recent Events',
     'no_upcoming' => 'No upcoming events.',

@@ -1,12 +1,12 @@
 <?php
 
 return [
-    'subtitle' => 'Donate online to Shree Pataliya Hanumanji Temple',
-    'choose_amount' => 'Select amount',
+    'subtitle' => 'Every donation strengthens the Dham\'s seva initiatives.',
+    'choose_amount' => 'Choose donation amount',
     'enter_amount' => 'Enter amount',
-    'type' => 'Donation type',
-    'choose_type' => '-- Select type --',
-    'purpose' => 'Purpose (optional)',
+    'type' => 'Donation purpose',
+    'choose_type' => '-- Choose donation purpose --',
+    'purpose' => 'Detailed purpose (optional)',
     'purpose_placeholder' => 'e.g. for the family\'s wellbeing',
     'gupt_daan' => 'Anonymous donation (don\'t reveal name)',
     'extra_info' => 'Additional information',
@@ -26,4 +26,6 @@ return [
     'donate_more' => 'Donate more',
     'verify_pending_sub' => 'Payment could not be verified. If it succeeded, it will appear in your dashboard.',
     'choose_cause' => 'Choose a cause',
+    'title' => 'Support the Dham',
+    'amount_label' => 'Donation amount',
 ];

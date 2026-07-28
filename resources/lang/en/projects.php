@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'subtitle' => 'Ongoing projects and campaigns at Shree Pataliya Hanumanji Temple — support them with a donation',
+    'subtitle' => 'Every donation you make is a vital contribution to the Dham\'s development and devotee services.',
     'goal_reached' => 'Goal reached!',
     'ended' => 'Ended',
     'none_available' => 'No seva projects are available right now.',
@@ -18,4 +18,5 @@ return [
     'start_date' => 'Start Date',
     'end_date' => 'End Date',
     'no_deadline' => 'No deadline',
+    'title' => 'Seva Projects',
 ];

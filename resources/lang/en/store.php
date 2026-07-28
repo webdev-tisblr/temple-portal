@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'subtitle' => 'Sacred items and puja materials from the temple',
+    'subtitle' => 'Prasad, puja samagri and other sacred items for devotees',
     'categories' => 'Categories',
     'products_count' => 'products',
     'view' => 'View',
@@ -61,4 +61,5 @@ return [
     'payment_failed_sub' => 'Your payment could not be completed.',
     'try_again_contact' => 'Please try again. If the problem persists, contact us.',
     'back_to_cart' => 'Back to cart',
+    'title' => 'Prasad & Puja Samagri',
 ];

@@ -3,8 +3,8 @@
 @section('content')
 
 <x-page-header
-    :breadcrumb="[['label' => __('footer.seva_projects')]]"
-    title="{{ __('footer.seva_projects') }}"
+    :breadcrumb="[['label' => __('projects.title')]]"
+    title="{{ __('projects.title') }}"
     subtitle="{{ __('projects.subtitle') }}" />
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-temple">

@@ -275,6 +275,7 @@
                 <div>
                     <div class="text-[11px] eyebrow" style="color:#C45F12;">{{ __('home.receive_blessings') }}</div>
                     <h2 class="font-marcellus text-3xl sm:text-4xl mt-2.5" style="color:#7A1E1E;">{{ __('home.seva_puja') }}</h2>
+                    <p class="text-sm mt-2" style="color:#8B7355;">{{ __('home.seva_sub') }}</p>
                 </div>
                 <a href="{{ route('seva.index') }}" class="text-sm font-extrabold" style="color:#C45F12;">{{ __('home.view_all_sevas') }} →</a>
             </div>
@@ -338,6 +339,7 @@
     <div class="grid lg:grid-cols-[380px_1fr] gap-6 items-stretch">
         <div class="flex flex-col gap-4">
             <h2 class="font-marcellus text-3xl" style="color:#7A1E1E;">{{ __('home.come_for_darshan') }}</h2>
+            <p class="text-sm -mt-2" style="color:#8B7355;">{{ __('home.come_for_darshan_sub') }}</p>
             <div class="rounded-2xl p-6" style="background:#fff; border:1px solid #ecdfc4;">
                 <div class="text-[11px] eyebrow" style="color:#C45F12;">{{ __('common.address_label') }}</div>
                 <div class="text-sm mt-2 leading-relaxed" style="color:#3E3226;">{{ __('common.trust_full') }}<br>{{ $visit['address'] ?? __('common.address') }}</div>

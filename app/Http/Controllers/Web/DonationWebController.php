@@ -22,11 +22,21 @@ use Illuminate\View\View;
 
 class DonationWebController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $campaigns = DonationCampaign::where('is_active', true)
             ->where('start_date', '<=', now())
             ->get();
+
+        // ?campaign={id} pre-targets the form at one campaign (hidden
+        // campaign_id + sub-cause picker instead of the type dropdown).
+        // Used by the iOS app, which must hand donations off to this page
+        // (App Store 3.2.2(iv)) — including its campaign donate buttons.
+        $selectedCampaign = null;
+        if ($request->filled('campaign')) {
+            $selectedCampaign = $campaigns->firstWhere('id', (int) $request->query('campaign'));
+            $selectedCampaign?->load(['subCauses' => fn ($q) => $q->where('is_active', true)]);
+        }
 
         $donationTypes = DonationType::where('is_active', true)->orderBy('sort_order')->get();
 
@@ -43,7 +53,7 @@ class DonationWebController extends Controller
         SEOMeta::setTitle('દાન કરો — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
         SEOMeta::setDescription('શ્રી પાતાળિયા હનુમાનજી મંદિર માટે ઓનલાઈન દાન કરો.');
 
-        return view('pages.donation.index', compact('campaigns', 'donationTypes', 'donationTypesJs'));
+        return view('pages.donation.index', compact('campaigns', 'donationTypes', 'donationTypesJs', 'selectedCampaign'));
     }
 
     public function create(CreateDonationRequest $request): View|\Illuminate\Http\RedirectResponse

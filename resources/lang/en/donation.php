@@ -26,6 +26,8 @@ return [
     'donate_more' => 'Donate more',
     'verify_pending_sub' => 'Payment could not be verified. If it succeeded, it will appear in your dashboard.',
     'choose_cause' => 'Choose a cause',
+    'donating_to' => 'Donating to',
+    'general_cause' => 'Where it is needed most',
     'title' => 'Support the Dham',
     'amount_label' => 'Donation amount',
 ];

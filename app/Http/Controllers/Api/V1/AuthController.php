@@ -8,9 +8,11 @@ use App\Http\Requests\Auth\SendOtpRequest;
 use App\Http\Requests\Auth\VerifyOtpRequest;
 use App\Http\Resources\DevoteeResource;
 use App\Models\Devotee;
+use App\Models\WebLoginToken;
 use App\Services\OtpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class AuthController extends BaseApiController
 {
@@ -88,5 +90,58 @@ class AuthController extends BaseApiController
         return $this->success([
             'token' => $token,
         ], 'Token refreshed successfully');
+    }
+
+    /**
+     * App→web login handoff. Issues a single-use, short-lived URL that
+     * logs this devotee into a website session and lands on redirect_to.
+     * Exists for the iOS donate flow (App Store 3.2.2(iv) forces the
+     * donation itself onto the website) so the devotee doesn't face a
+     * second OTP login in the browser.
+     *
+     * redirect_to is validated against an allowlist of internal paths and
+     * stored server-side — the /auth/app-login consumer never reads a
+     * redirect from the URL, so the token can't become an open redirect.
+     */
+    public function webSessionToken(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'redirect_to' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $redirect = $validated['redirect_to'] ?? '/donate';
+
+        $allowedPrefixes = ['/donate', '/dashboard'];
+        $isAllowed = str_starts_with($redirect, '/')
+            && !str_starts_with($redirect, '//')
+            && !str_contains($redirect, '\\')
+            && collect($allowedPrefixes)->contains(
+                fn (string $prefix) => $redirect === $prefix || str_starts_with($redirect, $prefix . '/') || str_starts_with($redirect, $prefix . '?'),
+            );
+
+        if (!$isAllowed) {
+            $redirect = '/donate';
+        }
+
+        $devotee = $request->user();
+
+        // One live token per devotee — a fresh request supersedes any
+        // unspent one (the app retries on flaky networks).
+        WebLoginToken::where('devotee_id', $devotee->id)->whereNull('used_at')->delete();
+
+        $plain = Str::random(64);
+
+        WebLoginToken::create([
+            'devotee_id' => $devotee->id,
+            'token_hash' => hash('sha256', $plain),
+            'redirect_to' => $redirect,
+            'expires_at' => now()->addMinutes(2),
+            'created_at' => now(),
+        ]);
+
+        return $this->success([
+            'url' => route('auth.app-login', ['token' => $plain]),
+            'expires_in' => 120,
+        ], 'Web session link created');
     }
 }

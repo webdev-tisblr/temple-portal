@@ -47,6 +47,17 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
                 // app should still compare its own build against
                 // min_supported_version for the authoritative gate.
                 'update_required' => \App\Models\SystemSetting::getValue('app_update_required', '0') === '1',
+                // App Store guideline 3.2.2(iv): non-Benevity nonprofits may
+                // not collect donations in-app on iOS — the app must send
+                // devotees to the website instead. Default OFF; flip to 1
+                // only after Apple confirms the trust's approved-nonprofit
+                // status (Benevity), which re-enables the native iOS flow
+                // without an app release. Android ignores this flag.
+                'ios_native_donations_enabled' => \App\Models\SystemSetting::getValue('app_ios_native_donations', '0') === '1',
+                'donate_web_url' => \App\Models\SystemSetting::getValue(
+                    'app_donate_web_url',
+                    'https://patadiyahanumanji.com/donate',
+                ),
             ],
         ]);
     });
@@ -136,6 +147,10 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::post('/auth/refresh', [AuthController::class, 'refreshToken']);
+        // App→web login handoff (iOS donate flow) — returns a single-use
+        // /auth/app-login URL. Tight throttle: one link per tap is plenty.
+        Route::post('/auth/web-session-token', [AuthController::class, 'webSessionToken'])
+            ->middleware('throttle:10,1');
 
         // Device tokens — legacy auth-required register (still used by the
         // older app version) and deactivate-on-logout.

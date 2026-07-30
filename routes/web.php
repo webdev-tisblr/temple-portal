@@ -133,6 +133,12 @@ Route::get('/login', [AuthWebController::class, 'showLogin'])->name('login');
 Route::post('/login/otp/send', [AuthWebController::class, 'sendOtp'])->name('login.otp.send');
 Route::post('/login/otp/verify', [AuthWebController::class, 'verifyOtp'])->name('login.otp.verify');
 Route::post('/logout', [AuthWebController::class, 'logout'])->name('logout');
+// App→web session handoff — consumes the single-use token minted by
+// POST /api/v1/auth/web-session-token (iOS donate flow). Throttled: the
+// token space is unguessable, but there's no reason to allow brute probing.
+Route::get('/auth/app-login', [AuthWebController::class, 'appLogin'])
+    ->middleware('throttle:10,1')
+    ->name('auth.app-login');
 
 // Authenticated devotee routes
 Route::middleware('auth:devotee')->group(function () {

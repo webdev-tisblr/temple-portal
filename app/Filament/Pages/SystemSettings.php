@@ -97,6 +97,21 @@ class SystemSettings extends Page implements HasForms
                                     ->helperText('Google Play Store listing link.'),
                             ])->columns(2)->collapsible(),
 
+                        Forms\Components\Section::make('iOS Donations — App Store Compliance')
+                            ->icon('heroicon-o-heart')
+                            ->description('Apple guideline 3.2.2(iv): only Benevity-approved nonprofits may collect donations INSIDE an iOS app. Until the trust is approved, the iPhone app sends devotees to the website donate page instead (Android is unaffected). Turn the toggle ON only after Apple confirms our approved-nonprofit status — the app switches back to native donations instantly, no app update needed.')
+                            ->collapsed()
+                            ->schema([
+                                Forms\Components\Toggle::make('app_ios_native_donations')
+                                    ->label('Native in-app donations on iOS')
+                                    ->helperText('OFF = iOS app opens the website to donate (App Store compliant). ON = native Razorpay flow inside the iOS app — ONLY after Benevity/Apple approval, or the next app review will be rejected.'),
+                                Forms\Components\TextInput::make('app_donate_web_url')
+                                    ->label('Donate page URL')
+                                    ->url()
+                                    ->placeholder('https://patadiyahanumanji.com/donate')
+                                    ->helperText('Where the iOS app sends devotees to donate. Leave blank to use the default.'),
+                            ])->columns(2),
+
                         Forms\Components\Section::make('App Store Review — Test Login')
                             ->description('A fixed OTP login for Apple/Google reviewers, who cannot receive a real WhatsApp/SMS OTP. When BOTH fields are set, this number logs in with the code below WITHOUT sending any message. It only ever accesses a throwaway test account. Leave both blank to disable. Put these values in the App Store review note.')
                             ->collapsed()

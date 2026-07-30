@@ -115,8 +115,8 @@ Schedule::command('notifications:prune-logs')
     ->dailyAt('04:30')
     ->withoutOverlapping();
 
-// Prune expired OTP codes daily
-Schedule::command('model:prune', ['--model' => [OtpCode::class]])
+// Prune expired OTP codes + spent app→web login handoff tokens daily
+Schedule::command('model:prune', ['--model' => [OtpCode::class, \App\Models\WebLoginToken::class]])
     ->daily();
 
 // Database backup at 02:00 every night. A missed/failed backup is a

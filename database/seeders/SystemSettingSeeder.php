@@ -28,6 +28,12 @@ class SystemSettingSeeder extends Seeder
             ['key' => 'app_install_banner_enabled', 'value' => '1', 'group' => 'app', 'description' => 'Show the "install our app" banner on the mobile website'],
             ['key' => 'app_ios_store_url', 'value' => '', 'group' => 'app', 'description' => 'Apple App Store listing URL'],
             ['key' => 'app_android_store_url', 'value' => '', 'group' => 'app', 'description' => 'Google Play Store listing URL'],
+            // App Store guideline 3.2.2(iv): keep OFF until the trust is a
+            // Benevity-approved nonprofit; the iOS app then donates via the
+            // website. Flipping to '1' re-enables native iOS donations
+            // without an app release.
+            ['key' => 'app_ios_native_donations', 'value' => '0', 'group' => 'app', 'description' => 'Allow native in-app donations on iOS (only after Benevity/Apple nonprofit approval)'],
+            ['key' => 'app_donate_web_url', 'value' => 'https://patadiyahanumanji.com/donate', 'group' => 'app', 'description' => 'Website donate URL the iOS app opens while native donations are disabled'],
         ];
 
         foreach ($settings as $setting) {

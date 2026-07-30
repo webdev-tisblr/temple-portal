@@ -93,6 +93,59 @@ class AuthWebController extends Controller
         return redirect()->route('dashboard.index');
     }
 
+    /**
+     * Consume a single-use app→web handoff token (issued by
+     * POST /api/v1/auth/web-session-token) and open a devotee session.
+     * Used by the iOS app's donate flow: the donation must happen on the
+     * website (App Store 3.2.2(iv)), but the devotee should arrive here
+     * already logged in instead of facing a second OTP login.
+     *
+     * Any invalid/expired/reused token degrades silently to the guest
+     * donate page, which carries its own login link.
+     */
+    public function appLogin(Request $request): RedirectResponse
+    {
+        $plain = (string) $request->query('token', '');
+
+        if ($plain === '') {
+            return redirect()->route('donate');
+        }
+
+        $token = \App\Models\WebLoginToken::where('token_hash', hash('sha256', $plain))
+            ->where('expires_at', '>', now())
+            ->whereNull('used_at')
+            ->first();
+
+        // The guarded update makes consumption atomic — two racing
+        // requests with the same link can't both log in.
+        $claimed = $token !== null && \App\Models\WebLoginToken::where('id', $token->id)
+            ->whereNull('used_at')
+            ->update(['used_at' => now()]) === 1;
+
+        if (!$claimed) {
+            return redirect()->route('donate');
+        }
+
+        $devotee = $token->devotee;
+
+        if ($devotee === null) {
+            return redirect()->route('donate');
+        }
+
+        Auth::guard('devotee')->login($devotee);
+
+        $request->session()->regenerate();
+
+        // Same language carry-over as the OTP login above.
+        if ($devotee->language !== null) {
+            cookie()->queue(cookie('locale', $devotee->language->value, 60 * 24 * 365, null, null, null, false));
+        }
+
+        // redirect_to is the server-stored, allowlisted path from token
+        // creation — never attacker-controllable via this URL.
+        return redirect()->to($token->redirect_to ?: route('donate'));
+    }
+
     public function logout(Request $request): RedirectResponse
     {
         Auth::guard('devotee')->logout();

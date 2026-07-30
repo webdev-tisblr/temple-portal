@@ -16,6 +16,29 @@
         </div>
     @endif
 
+    {{-- Campaign mode (?campaign={id}) — the form targets one campaign:
+         header card here, hidden campaign_id + sub-cause picker below,
+         and the donation-type dropdown is hidden. Entry point for the
+         iOS app's campaign donate buttons (donations must happen on the
+         web per App Store 3.2.2(iv)). --}}
+    @if($selectedCampaign)
+        <div class="card-sacred p-5 mb-6">
+            <p class="text-xs text-amber-500 font-medium uppercase tracking-wide">{{ __('donation.donating_to') }}</p>
+            <h2 class="text-lg font-bold text-amber-100/80 mt-1">{{ $selectedCampaign->title }}</h2>
+            @if($selectedCampaign->description)
+                <p class="text-sm text-amber-100/40 mt-1">{{ $selectedCampaign->description }}</p>
+            @endif
+            @php $pct = $selectedCampaign->goal_amount > 0 ? min(100, round(($selectedCampaign->raised_amount / $selectedCampaign->goal_amount) * 100)) : 0; @endphp
+            <div class="w-full bg-amber-900/30 rounded-full h-3 mt-3">
+                <div class="bg-gradient-to-r from-amber-600 to-amber-400 h-3 rounded-full transition-all" style="width: {{ $pct }}%"></div>
+            </div>
+            <div class="flex justify-between text-xs text-amber-100/40 mt-1">
+                <span>₹{{ number_format((float) $selectedCampaign->raised_amount) }} {{ __('donation.raised') }}</span>
+                <span>₹{{ number_format((float) $selectedCampaign->goal_amount) }} {{ __('donation.goal') }}</span>
+            </div>
+        </div>
+    @endif
+
     <div class="card-sacred p-6 sm:p-8">
 
         {{-- Preset Amounts.
@@ -52,6 +75,28 @@
             </div>
         </div>
 
+        @if($selectedCampaign)
+            {{-- Sub-cause picker replaces the type dropdown in campaign mode --}}
+            @if($selectedCampaign->subCauses->isNotEmpty())
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-amber-600 mb-3">{{ __('donation.choose_cause') }}</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition"
+                            :class="subCauseId === '' ? 'border-amber-600 bg-amber-900/20' : 'border-amber-800/30 hover:border-amber-600'">
+                            <input type="radio" value="" x-model="subCauseId" class="border-amber-800/40 bg-transparent text-amber-500 focus:ring-amber-600/20">
+                            <span class="text-sm text-amber-100/70">{{ __('donation.general_cause') }}</span>
+                        </label>
+                        @foreach($selectedCampaign->subCauses as $subCause)
+                            <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition"
+                                :class="subCauseId === '{{ $subCause->id }}' ? 'border-amber-600 bg-amber-900/20' : 'border-amber-800/30 hover:border-amber-600'">
+                                <input type="radio" value="{{ $subCause->id }}" x-model="subCauseId" class="border-amber-800/40 bg-transparent text-amber-500 focus:ring-amber-600/20">
+                                <span class="text-sm text-amber-100/70">{{ $subCause->title }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+        @else
         {{-- Donation Type (Dynamic) --}}
         <div class="mb-6">
             <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('donation.type') }}</label>
@@ -62,6 +107,7 @@
                 @endforeach
             </select>
         </div>
+        @endif
 
         {{-- Dynamic Extra Fields placeholder — actual fields rendered inside the form below --}}
 
@@ -89,6 +135,10 @@
                 <input type="hidden" name="donation_type_id" :value="selectedTypeId || ''">
                 <input type="hidden" name="purpose" :value="purpose">
                 <input type="hidden" name="anonymous" :value="anonymous ? 1 : 0">
+                @if($selectedCampaign)
+                    <input type="hidden" name="campaign_id" value="{{ $selectedCampaign->id }}">
+                    <input type="hidden" name="sub_cause_id" :value="subCauseId || ''">
+                @endif
 
                 {{-- Dynamic Extra Fields (inside form so they submit properly) --}}
                 <template x-if="currentExtraFields.length > 0">
@@ -136,8 +186,8 @@
         @endauth
     </div>
 
-    {{-- Active Campaigns --}}
-    @if($campaigns->isNotEmpty())
+    {{-- Active Campaigns (hidden in single-campaign mode) --}}
+    @if(!$selectedCampaign && $campaigns->isNotEmpty())
         <div class="mt-10">
             <h2 class="text-xl font-bold text-gold mb-4">{{ __('donation.active_campaigns') }}</h2>
             @foreach($campaigns as $campaign)
@@ -169,7 +219,8 @@ function donationForm() {
         amount: 1100,
         customAmount: '1100',
         selectedTypeId: '',
-        donationType: 'general',
+        donationType: @json($selectedCampaign ? 'campaign' : 'general'),
+        subCauseId: '',
         purpose: '',
         anonymous: false,
         currentExtraFields: [],

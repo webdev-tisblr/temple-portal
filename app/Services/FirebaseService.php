@@ -142,13 +142,31 @@ class FirebaseService
             ? FcmNotification::create($title, $body, $imageUrl)
             : FcmNotification::create($title, $body);
 
+        // Custom notification tone — the admin picks one of the tones
+        // BUNDLED in the app (System Settings → App → notification tone).
+        // The sound files + Android channels only exist in app builds
+        // ≥ v1.4.6. On older Android builds a push aimed at an unknown
+        // channel_id is silently DROPPED, so select a custom tone only
+        // after that build is widely rolled out. Channel ids and sound
+        // names must match PushNotificationService in the Flutter app
+        // (channel 'temple_{tone}_v1', raw resource '{tone}', iOS
+        // '{tone}.caf' in the Runner bundle).
+        // Valid keys = tones actually BUNDLED in the current app build
+        // ('ghanti'/'aarti' rejoin when their clips ship). An unknown
+        // value falls back to the default channel, never a broken one.
+        $tone = \App\Models\SystemSetting::getValue('push_notification_tone', 'default');
+        $customSound = in_array($tone, ['jayshreeram'], true);
+        $androidChannel = $customSound ? "temple_{$tone}_v1" : 'temple_default';
+        $androidSound = $customSound ? $tone : 'default';
+        $apnsSound = $customSound ? "{$tone}.caf" : 'default';
+
         $message = CloudMessage::new()
             ->withNotification($notification)
             ->withAndroidConfig(AndroidConfig::fromArray([
                 'priority' => 'high',
                 'notification' => array_filter([
-                    'channel_id' => 'temple_default',
-                    'sound' => 'default',
+                    'channel_id' => $androidChannel,
+                    'sound' => $androidSound,
                     'image' => $imageUrl,
                 ], fn ($v) => $v !== null),
             ]))
@@ -158,7 +176,7 @@ class FirebaseService
                 ],
                 'payload' => [
                     'aps' => array_filter([
-                        'sound' => 'default',
+                        'sound' => $apnsSound,
                         // mutable-content is only required for image-bearing
                         // notifications. Omitting the key entirely (vs setting
                         // it to 0) keeps the APNs payload smaller and avoids

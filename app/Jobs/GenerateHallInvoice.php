@@ -50,7 +50,7 @@ class GenerateHallInvoice implements ShouldQueue
         try {
             $this->booking->loadMissing('hall', 'devotee');
 
-            $trustName = SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust');
+            $trustName = SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust');
             $trustAddress = SystemSetting::getValue('trust_address', 'Antarjal, Gandhidham, Kutch - 370205');
 
             $bookingNumber = 'HALL-' . $this->booking->id . '-' . $this->booking->created_at->format('Ymd');

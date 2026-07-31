@@ -75,7 +75,7 @@ class ViewOrder extends ViewRecord
                 ->color('success')
                 ->action(function () {
                     $order = $this->record->load('items', 'devotee');
-                    $trustName = SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust');
+                    $trustName = SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust');
                     $trustAddress = SystemSetting::getValue('trust_address', 'Antarjal, Gandhidham, Kutch - 370205');
                     $trustPhone = SystemSetting::getValue('trust_phone', '');
 

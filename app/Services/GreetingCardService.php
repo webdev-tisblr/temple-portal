@@ -180,7 +180,7 @@ class GreetingCardService
                 '_donor_name' => $donation->devotee?->name,
                 '_amount' => "\u{20B9}".number_format((float) $donation->amount, 2),
                 '_date' => now()->format('d M Y'),
-                '_temple_name' => 'Shree Pataliya Hanumanji Seva Trust',
+                '_temple_name' => 'Shree Patadiya Hanumanji Seva Trust',
                 default => null,
             };
         }

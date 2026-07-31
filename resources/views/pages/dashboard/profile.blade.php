@@ -63,7 +63,7 @@
                     </div>
 
                     <h3 class="text-gold font-bold text-lg">{{ $devotee->name ?: __('common.devotee') }}</h3>
-                    <p class="text-amber-100/40 text-sm">+91 {{ $devotee->phone }}</p>
+                    <p class="text-amber-100/40 text-sm">{{ \App\Support\PhoneNumber::forDisplay($devotee->phone) }}</p>
 
                     {{-- Quick Stats --}}
                     <div class="mt-6 space-y-3 text-left">

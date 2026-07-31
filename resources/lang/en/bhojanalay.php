@@ -1,10 +1,10 @@
 <?php
 
 return [
-    'subtitle' => 'Shree Pataliya Hanumanji Dham — Prasad meal service',
+    'subtitle' => 'Shree Patadiya Hanumanji Dham — Prasad meal service',
     'prasad_b' => 'Prasad Bhojanalay',
     'prasad_d' => 'Free / nominal-rent meal service by the temple trust for devotees and pilgrims.',
-    'intro' => 'Shree Pataliya Hanumanji Seva Trust runs a clean and comfortable dining hall in the temple premises. Sattvik prasad meals are served here to devotees and pilgrims arriving from afar. The dining hall runs entirely on the support of donors.',
+    'intro' => 'Shree Patadiya Hanumanji Seva Trust runs a clean and comfortable dining hall in the temple premises. Sattvik prasad meals are served here to devotees and pilgrims arriving from afar. The dining hall runs entirely on the support of donors.',
     'time' => 'Timings',
     'm_morning' => 'Breakfast',
     'm_afternoon' => 'Lunch',

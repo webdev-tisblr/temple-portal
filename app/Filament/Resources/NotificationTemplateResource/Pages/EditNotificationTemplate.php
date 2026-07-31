@@ -33,10 +33,17 @@ class EditNotificationTemplate extends EditRecord
                         ->label('Recipient')
                         ->helperText('Email for the email channel; phone (E.164 or 10-digit) for WhatsApp / SMS.')
                         ->required(),
+                    \Filament\Forms\Components\Select::make('test_language')
+                        ->label('Language variant')
+                        ->options(['gu' => 'ગુજરાતી', 'hi' => 'हिन्दी', 'en' => 'English'])
+                        ->default('gu')
+                        ->visible(fn () => $this->record->channel === NotificationTemplate::CHANNEL_WHATSAPP)
+                        ->helperText('Which language variant to send (falls back to Gujarati if not configured).'),
                 ])
                 ->action(function (array $data) {
                     $template = $this->record;
                     $context = $this->buildDemoContext($template, $data['test_recipient'] ?? null);
+                    $context['locale'] = $data['test_language'] ?? 'gu';
 
                     $ok = app(NotificationService::class)->sendTemplate($template, $context);
 
@@ -53,21 +60,53 @@ class EditNotificationTemplate extends EditRecord
     }
 
     /**
-     * Decode the stored `wa_components` + `placeholder_map` back into
-     * the flat `wa_vars` form state so the auto-detected UI shows each
-     * existing value next to the right slot.
+     * Decode the stored `wa_variants` back into the per-language tab
+     * state (`wa_variant_pick.{locale}` + `wa_vars_{locale}` bags) so
+     * the auto-detected UI shows each existing value next to the right
+     * slot. Rows saved before wa_variants existed are seeded into the
+     * tab matching their stored language code (lazy migration — the
+     * next save writes wa_variants).
      */
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        if (($data['channel'] ?? null) === NotificationTemplate::CHANNEL_WHATSAPP
-            && ! empty($data['wa_template_name'])
-        ) {
-            $slots = WhatsAppTemplateBlueprint::slotsFor($data['wa_template_name']);
-            $data['wa_vars'] = WhatsAppTemplateBlueprint::valuesFromComponents(
-                $slots,
-                $data['wa_components'] ?? [],
+        if (($data['channel'] ?? null) === NotificationTemplate::CHANNEL_WHATSAPP) {
+            $data = self::hydrateWaVariantState($data);
+        }
+        return $data;
+    }
+
+    /** Shared by Edit (fill) — expands wa_variants/legacy columns into tab state. */
+    public static function hydrateWaVariantState(array $data): array
+    {
+        $variants = is_array($data['wa_variants'] ?? null) ? $data['wa_variants'] : [];
+
+        if ($variants === [] && ! empty($data['wa_template_name'])) {
+            // Legacy single-template row → seed the tab matching its
+            // language code (gu*/hi* → that tab, everything else → en).
+            $lang = (string) ($data['wa_template_language'] ?? 'en');
+            $tab = str_starts_with($lang, 'gu') ? 'gu' : (str_starts_with($lang, 'hi') ? 'hi' : 'en');
+            $variants = [$tab => [
+                'template_name' => $data['wa_template_name'],
+                'language_code' => $lang,
+                'components' => $data['wa_components'] ?? [],
+            ]];
+        }
+
+        foreach ($variants as $locale => $variant) {
+            if (! in_array($locale, ['gu', 'hi', 'en'], true)
+                || ! is_array($variant)
+                || empty($variant['template_name'])
+            ) {
+                continue;
+            }
+            $language = (string) ($variant['language_code'] ?? '');
+            $data['wa_variant_pick'][$locale] = $variant['template_name'].'|'.$language;
+            $data['wa_vars_'.$locale] = WhatsAppTemplateBlueprint::valuesFromComponents(
+                WhatsAppTemplateBlueprint::slotsFor($variant['template_name'], $language ?: null),
+                $variant['components'] ?? [],
             );
         }
+
         return $data;
     }
 
@@ -101,19 +140,53 @@ class EditNotificationTemplate extends EditRecord
         $data['placeholder_map'] = $existing + $fromRegistry;
 
         if (($data['channel'] ?? null) === NotificationTemplate::CHANNEL_WHATSAPP) {
-            $templateName = $data['wa_template_name'] ?? null;
-            $values = $data['wa_vars'] ?? [];
+            $variants = [];
 
-            if ($templateName) {
-                $slots = WhatsAppTemplateBlueprint::slotsFor($templateName);
-                $data['wa_components'] = WhatsAppTemplateBlueprint::componentsFromValues($slots, $values);
-            } else {
-                $data['wa_components'] = [];
+            foreach (['gu', 'hi', 'en'] as $locale) {
+                $composite = $data['wa_variant_pick'][$locale] ?? null;
+                if (! is_string($composite) || $composite === '') {
+                    continue;
+                }
+                [$name, $language] = array_pad(explode('|', $composite, 2), 2, null);
+                if (! $name) {
+                    continue;
+                }
+                $slots = WhatsAppTemplateBlueprint::slotsFor($name, $language ?: null);
+                $variants[$locale] = [
+                    'template_name' => $name,
+                    'language_code' => $language ?: 'en',
+                    'components' => WhatsAppTemplateBlueprint::componentsFromValues(
+                        $slots,
+                        $data['wa_vars_'.$locale] ?? [],
+                    ),
+                ];
             }
+
+            if ($variants === []) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'wa_variant_pick.gu' => 'Pick an approved WhatsApp template for at least one language (Gujarati recommended — it is the fallback).',
+                ]);
+            }
+
+            $data['wa_variants'] = $variants;
+
+            // Mirror the Gujarati (or first configured) variant into the
+            // legacy columns — the reminder-config preview lookup, old
+            // log retries and emptiness checks still read them.
+            $primary = $variants['gu'] ?? reset($variants);
+            $data['wa_template_name'] = $primary['template_name'];
+            $data['wa_template_language'] = $primary['language_code'];
+            $data['wa_components'] = $primary['components'];
         }
 
-        // wa_vars is a UI-only scratch field — never persist it.
-        unset($data['wa_vars']);
+        // UI-only scratch fields — never persist them.
+        unset(
+            $data['wa_vars'],
+            $data['wa_variant_pick'],
+            $data['wa_vars_gu'],
+            $data['wa_vars_hi'],
+            $data['wa_vars_en'],
+        );
 
         return $data;
     }
@@ -211,7 +284,7 @@ class EditNotificationTemplate extends EditRecord
             'expires_in_minutes' => 5,
             'name' => $devotee->name ?? 'Test Devotee',
             'language' => 'gu',
-            'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+            'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
         ];
     }
 }

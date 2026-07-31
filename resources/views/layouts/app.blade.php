@@ -31,7 +31,14 @@
 
     <x-layout.footer />
 
-    <x-app-install-banner />
+    {{-- Sessions arriving from the app get the return-to-app bar instead
+         of the install banner — offering an install to someone who came
+         FROM the app would be contradictory. --}}
+    @if(session()->has('from_app') && auth('devotee')->check())
+        <x-return-to-app-banner />
+    @else
+        <x-app-install-banner />
+    @endif
 
     @include('partials.site-popup')
 

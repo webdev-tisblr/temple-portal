@@ -12,7 +12,7 @@ class SystemSettingSeeder extends Seeder
     public function run(): void
     {
         $settings = [
-            ['key' => 'trust_name', 'value' => 'Shree Pataliya Hanumanji Seva Trust', 'group' => 'trust', 'description' => 'Official trust name'],
+            ['key' => 'trust_name', 'value' => 'Shree Patadiya Hanumanji Seva Trust', 'group' => 'trust', 'description' => 'Official trust name'],
             ['key' => 'trust_address', 'value' => 'Antarjal, Gandhidham, Kutch - 370205', 'group' => 'trust', 'description' => 'Trust registered address'],
             ['key' => 'trust_pan', 'value' => '', 'group' => 'trust', 'description' => 'Trust PAN number'],
             ['key' => 'trust_80g_reg_no', 'value' => '', 'group' => 'trust', 'description' => '80G registration number'],

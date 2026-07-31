@@ -41,6 +41,7 @@ class Seva extends Model
         'assignee_id',
         'reminder_offsets',
         'reminder_mode',
+        'send_darshan_on_booking_date',
         'linked_products',
     ];
 
@@ -53,6 +54,7 @@ class Seva extends Model
         'reminder_offsets' => 'array',
         'linked_products' => 'array',
         'requires_booking' => 'boolean',
+        'send_darshan_on_booking_date' => 'boolean',
         'is_active' => 'boolean',
         'sort_order' => 'integer',
     ];

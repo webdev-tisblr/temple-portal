@@ -104,48 +104,28 @@ final class ReminderRuleFields
                         return new HtmlString('<em>Template not found.</em>');
                     }
 
-                    // Approved body text from the synced Meta template cache.
-                    $cache = WhatsAppTemplateCache::query()
-                        ->where('name', $t->wa_template_name)
-                        ->when($t->wa_template_language, fn ($q) => $q->where('language', $t->wa_template_language))
-                        ->first();
-                    $body = null;
-                    foreach ((array) ($cache->components ?? []) as $component) {
-                        if (strtolower((string) ($component['type'] ?? '')) === 'body') {
-                            $body = (string) ($component['text'] ?? '');
-                            break;
-                        }
+                    // Per-language variants (wa_variants), falling back to
+                    // the legacy single-template columns for rows saved
+                    // before the multi-language feature.
+                    $variants = is_array($t->wa_variants) ? $t->wa_variants : [];
+                    if ($variants === [] && $t->wa_template_name) {
+                        $variants = ['gu' => [
+                            'template_name' => $t->wa_template_name,
+                            'language_code' => $t->wa_template_language,
+                            'components' => $t->wa_components ?? [],
+                        ]];
                     }
 
-                    // Which data each {{n}} gets — the mapped parameters on
-                    // the template row's wa_components blueprint. Each param
-                    // is stored as {'type':'text','value_token':'devotee_name'}
-                    // (a registry token) or {'value':'literal text'} — NOT as
-                    // a literal "{{token}}" string, so walk the parameters
-                    // array rather than regex-scanning the JSON.
-                    $tokens = [];
-                    foreach ((array) ($t->wa_components ?? []) as $component) {
-                        foreach ((array) ($component['parameters'] ?? []) as $param) {
-                            if (isset($param['value_token']) && $param['value_token'] !== '') {
-                                $tokens[] = (string) $param['value_token'];
-                            } elseif (array_key_exists('value', $param) && (string) $param['value'] !== '') {
-                                $tokens[] = '"'.(string) $param['value'].'"';
-                            }
-                        }
-                    }
-
+                    $labels = ['gu' => 'ગુજરાતી (Gujarati)', 'hi' => 'हिन्दी (Hindi)', 'en' => 'English'];
                     $html = '';
-                    if ($body) {
-                        $html .= '<div style="white-space:pre-wrap;border:1px solid rgba(120,120,120,.3);border-radius:8px;padding:10px;margin-bottom:6px;">'.e($body).'</div>';
-                    }
-                    if ($tokens !== []) {
-                        $vars = [];
-                        foreach ($tokens as $i => $token) {
-                            $vars[] = '{{'.($i + 1).'}} → <strong>'.e($token).'</strong>';
+                    foreach ($labels as $locale => $label) {
+                        $html .= '<div style="font-weight:600;margin:.6rem 0 .25rem;">'.$label.'</div>';
+                        $variant = $variants[$locale] ?? null;
+                        if (! is_array($variant) || empty($variant['template_name'])) {
+                            $html .= '<div style="color:#d97706;font-size:.85rem;">Not configured — devotees preferring this language get the Gujarati version.</div>';
+                            continue;
                         }
-                        $html .= '<div>Variables: '.implode(' &nbsp; ', $vars).'</div>';
-                    } else {
-                        $html .= '<div style="color:#d97706;">⚠ This template has no variables mapped yet — open it in Notification Templates and map each {{n}} to booking data, or the send may be rejected.</div>';
+                        $html .= self::renderWaVariantPreview($variant);
                     }
 
                     return new HtmlString($html);
@@ -169,5 +149,56 @@ final class ReminderRuleFields
                 ->label('Active')
                 ->default(true),
         ];
+    }
+
+    /**
+     * Approved body + variable mapping for one wa_variants entry.
+     * The body text comes from the synced Meta template cache row
+     * (name + language); the mapping walks the variant's components
+     * blueprint — each param is {'value_token': 'devotee_name'} (a
+     * registry token) or {'value': 'literal'}, never a "{{token}}"
+     * string, so we iterate parameters rather than regex the JSON.
+     */
+    private static function renderWaVariantPreview(array $variant): string
+    {
+        $cache = WhatsAppTemplateCache::query()
+            ->where('name', $variant['template_name'])
+            ->when($variant['language_code'] ?? null, fn ($q, $lang) => $q->where('language', $lang))
+            ->first();
+
+        $body = null;
+        foreach ((array) ($cache->components ?? []) as $component) {
+            if (strtolower((string) ($component['type'] ?? '')) === 'body') {
+                $body = (string) ($component['text'] ?? '');
+                break;
+            }
+        }
+
+        $tokens = [];
+        foreach ((array) ($variant['components'] ?? []) as $component) {
+            foreach ((array) ($component['parameters'] ?? []) as $param) {
+                if (isset($param['value_token']) && $param['value_token'] !== '') {
+                    $tokens[] = (string) $param['value_token'];
+                } elseif (array_key_exists('value', $param) && (string) $param['value'] !== '') {
+                    $tokens[] = '"'.(string) $param['value'].'"';
+                }
+            }
+        }
+
+        $html = '';
+        if ($body) {
+            $html .= '<div style="white-space:pre-wrap;border:1px solid rgba(120,120,120,.3);border-radius:8px;padding:10px;margin-bottom:6px;">'.e($body).'</div>';
+        }
+        if ($tokens !== []) {
+            $vars = [];
+            foreach ($tokens as $i => $token) {
+                $vars[] = '{{'.($i + 1).'}} → <strong>'.e($token).'</strong>';
+            }
+            $html .= '<div>Variables: '.implode(' &nbsp; ', $vars).'</div>';
+        } else {
+            $html .= '<div style="color:#d97706;">⚠ This template has no variables mapped yet — open it in Notification Templates and map each {{n}} to booking data, or the send may be rejected.</div>';
+        }
+
+        return $html;
     }
 }

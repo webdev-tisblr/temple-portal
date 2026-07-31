@@ -110,6 +110,21 @@ class SystemSettings extends Page implements HasForms
                                     ->url()
                                     ->placeholder('https://patadiyahanumanji.com/donate')
                                     ->helperText('Where the iOS app sends devotees to donate. Leave blank to use the default.'),
+                                Forms\Components\Toggle::make('app_scheme_enabled')
+                                    ->label('"Open app" button on the website banner')
+                                    ->helperText('Shows the Open-app button on the return-to-the-app bar for devotees who arrived from the app. Turn ON only after the app build with the patadiyahanumanji:// link (v1.4.6+) is rolled out — older builds show a browser error.'),
+                                Forms\Components\Select::make('push_notification_tone')
+                                    ->label('App notification tone')
+                                    // Only list tones actually bundled in the
+                                    // current app build (FirebaseService has the
+                                    // matching allowlist). Ghanti/Aarti rejoin
+                                    // here once their clips ship in the app.
+                                    ->options([
+                                        'default' => 'System default',
+                                        'jayshreeram' => 'Jay Shree Ram',
+                                    ])
+                                    ->default('default')
+                                    ->helperText('Which sound app push notifications play. The tones are bundled inside the app — pick a custom tone only after the app build that ships them (v1.4.6+) is widely rolled out; on older Android builds, pushes sent to a tone channel are NOT shown at all.'),
                             ])->columns(2),
 
                         Forms\Components\Section::make('App Store Review — Test Login')
@@ -117,10 +132,10 @@ class SystemSettings extends Page implements HasForms
                             ->collapsed()
                             ->schema([
                                 Forms\Components\TextInput::make('otp_test_phone')
-                                    ->label('Test phone (10-digit, no +91)')
-                                    ->helperText('e.g. 9000000000 — must be a valid Indian mobile format.')
-                                    ->rule('regex:/^[6-9]\d{9}$/')
-                                    ->maxLength(10),
+                                    ->label('Test phone (digits only, no +)')
+                                    ->helperText('e.g. 9000000000 (Indian) or 15551234567 (with country code).')
+                                    ->rule(new \App\Rules\ValidPhoneNumber)
+                                    ->maxLength(15),
                                 Forms\Components\TextInput::make('otp_test_code')
                                     ->label('Fixed OTP code (6 digits)')
                                     ->helperText('e.g. 123456')
@@ -172,7 +187,7 @@ class SystemSettings extends Page implements HasForms
                                 Forms\Components\TextInput::make('mail_from_address')->label('From Address')
                                     ->email()->placeholder('noreply@temple.org'),
                                 Forms\Components\TextInput::make('mail_from_name')->label('From Name')
-                                    ->placeholder('Shree Pataliya Hanumanji Seva Trust'),
+                                    ->placeholder('Shree Patadiya Hanumanji Seva Trust'),
                                 Forms\Components\TextInput::make('mail_test_recipient')->label('Test Recipient Email')
                                     ->email()->placeholder('your@email.com')
                                     ->helperText('Enter an email and click "Test SMTP" to verify your settings.'),
@@ -355,7 +370,7 @@ class SystemSettings extends Page implements HasForms
 
         try {
             Mail::raw(
-                "This is a test email from Shree Pataliya Hanumanji Seva Trust Digital Portal.\n\nIf you received this, your SMTP settings are working correctly.",
+                "This is a test email from Shree Patadiya Hanumanji Seva Trust Digital Portal.\n\nIf you received this, your SMTP settings are working correctly.",
                 function ($message) use ($recipient, $data) {
                     $message->to($recipient)
                         ->subject('SMTP Test — Temple Portal');

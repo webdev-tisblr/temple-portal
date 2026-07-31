@@ -20,7 +20,7 @@ class InvoiceService
         // which DomPDF cannot shape.
         $output = GujaratiPdf::render('invoices.store-invoice', [
             'order' => $order,
-            'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+            'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
             'trust_address' => SystemSetting::getValue('trust_address', 'Antarjal, Gandhidham, Kutch - 370205'),
             'amount_in_words' => NumberToWords::convert((float) $order->total_amount),
         ], ['format' => 'A4', 'watermark' => 'TAX INVOICE']);

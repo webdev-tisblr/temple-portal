@@ -139,51 +139,24 @@ class NotificationTemplateResource extends Resource
                 ]),
 
             // ── WhatsApp ──────────────────────────────────────────────
-            Forms\Components\Section::make('WhatsApp template')
+            //
+            // One approved Meta template per language (gu / hi / en). The
+            // devotee's saved language preference picks the variant at
+            // send time; Gujarati is the fallback when a language tab is
+            // left empty. Stored in the `wa_variants` JSON column; the
+            // legacy wa_template_name/-language/-components columns are
+            // kept mirrored to the Gujarati (or first) variant.
+            Forms\Components\Section::make('WhatsApp templates — per language')
+                ->description('Pick the approved template for each language. Devotees receive the variant matching their app/website language; Gujarati is sent when their language is not configured here.')
                 ->visible(fn (Forms\Get $get) => $get('channel') === NotificationTemplate::CHANNEL_WHATSAPP)
                 ->schema([
-                    Forms\Components\Grid::make(2)->schema([
-                        Forms\Components\Select::make('wa_template_name')
-                            ->label('Approved template')
-                            ->options(fn () => WhatsAppTemplateCache::query()
-                                ->orderBy('name')
-                                ->get()
-                                ->mapWithKeys(fn ($t) => [
-                                    $t->name => $t->name.' ('.$t->language.')',
-                                ])
-                                ->all())
-                            ->searchable()
-                            ->required()
-                            ->live()
-                            ->afterStateUpdated(function ($state, Forms\Set $set) {
-                                // Mirror the template's language code into the
-                                // language field so admins don't double-enter it.
-                                if (! $state) {
-                                    return;
-                                }
-                                $row = WhatsAppTemplateCache::where('name', $state)->first();
-                                if ($row) {
-                                    $set('wa_template_language', $row->language);
-                                }
-                            })
-                            ->helperText('Sync templates from Settings → Integrations → WhatsApp before they appear here.'),
-                        Forms\Components\TextInput::make('wa_template_language')
-                            ->label('Language code')
-                            ->default('en')
-                            ->required()
-                            ->disabled()
-                            ->dehydrated()
-                            ->helperText('Locked to the template you picked.'),
-                    ]),
-
-                    // Auto-detected variables — exactly one input per real
-                    // {{n}} the template uses, plus header media and button
-                    // URL placeholders. The slot list comes from
-                    // WhatsAppTemplateBlueprint::slotsFor() and is recomputed
-                    // every time the template selection changes.
-                    Forms\Components\Group::make()
+                    Forms\Components\Tabs::make('wa_language_variants')
                         ->columnSpanFull()
-                        ->schema(fn (Forms\Get $get) => self::buildWhatsAppVariableInputs($get)),
+                        ->tabs([
+                            self::waVariantTab('gu', 'ગુજરાતી (Gujarati)'),
+                            self::waVariantTab('hi', 'हिन्दी (Hindi)'),
+                            self::waVariantTab('en', 'English'),
+                        ]),
                 ]),
 
             // ── SMS ───────────────────────────────────────────────────
@@ -335,7 +308,43 @@ class NotificationTemplateResource extends Resource
     }
 
     /**
-     * Build the dynamic auto-detected WhatsApp variable inputs.
+     * One language tab of the WhatsApp section: an approved-template
+     * Select filtered to that language's cache rows, plus the
+     * auto-detected variable inputs for the picked template.
+     *
+     * Select option values are "{name}|{language}" composites — the
+     * cache is unique on (name, language), so name alone is ambiguous
+     * (a Meta template family has one row per translation).
+     */
+    private static function waVariantTab(string $locale, string $label): Forms\Components\Tabs\Tab
+    {
+        return Forms\Components\Tabs\Tab::make($label)
+            ->badge(fn (Forms\Get $get) => $get("wa_variant_pick.{$locale}") ? '✓' : null)
+            ->schema([
+                Forms\Components\Select::make("wa_variant_pick.{$locale}")
+                    ->label('Approved template')
+                    ->options(fn () => WhatsAppTemplateCache::query()
+                        ->where('language', 'like', $locale.'%')
+                        ->orderBy('name')
+                        ->get()
+                        ->mapWithKeys(fn ($t) => [
+                            $t->name.'|'.$t->language => $t->name.' ('.$t->language.')',
+                        ])
+                        ->all())
+                    ->searchable()
+                    ->live()
+                    ->helperText($locale === 'gu'
+                        ? 'Sent by default and whenever a devotee\'s language has no template. Sync templates from Settings → Integrations → WhatsApp before they appear here.'
+                        : 'Optional — leave empty to fall back to the Gujarati template for these devotees.'),
+                Forms\Components\Group::make()
+                    ->columnSpanFull()
+                    ->schema(fn (Forms\Get $get) => self::buildWhatsAppVariableInputs($get, $locale)),
+            ]);
+    }
+
+    /**
+     * Build the dynamic auto-detected WhatsApp variable inputs for one
+     * language variant.
      *
      * One Filament TextInput per slot (with a Select-style datalist of
      * available registry tokens). Slot list is derived from the synced
@@ -343,21 +352,21 @@ class NotificationTemplateResource extends Resource
      * variable — the form has exactly as many rows as the template has
      * {{n}} placeholders, plus one per media/button URL.
      *
-     * The inputs use a `wa_vars` state path so they sit in form state
-     * but never get persisted as model attributes — the
-     * Create/Edit page hooks serialise them into `wa_components` JSON
-     * + `placeholder_map` before save.
+     * The inputs use a per-locale `wa_vars_{locale}` state path so they
+     * sit in form state but never get persisted as model attributes —
+     * the Create/Edit page hooks serialise them into the `wa_variants`
+     * JSON + `placeholder_map` before save.
      *
      * @return array<int, Component>
      */
-    private static function buildWhatsAppVariableInputs(Forms\Get $get): array
+    private static function buildWhatsAppVariableInputs(Forms\Get $get, string $locale): array
     {
-        $templateName = $get('wa_template_name');
+        $composite = $get("wa_variant_pick.{$locale}");
         $triggerKey = $get('key');
 
-        if (! $templateName) {
+        if (! $composite) {
             return [
-                Forms\Components\Placeholder::make('wa_pick_template_first')
+                Forms\Components\Placeholder::make('wa_pick_template_first_'.$locale)
                     ->label('')
                     ->content(new HtmlString(
                         '<div style="padding:.75rem 1rem; background:#f9fafb; border:1px dashed #d1d5db; border-radius:.5rem; font-size:.875rem;">'
@@ -367,11 +376,13 @@ class NotificationTemplateResource extends Resource
             ];
         }
 
-        $slots = WhatsAppTemplateBlueprint::slotsFor($templateName);
+        [$templateName, $templateLanguage] = array_pad(explode('|', (string) $composite, 2), 2, null);
+
+        $slots = WhatsAppTemplateBlueprint::slotsFor((string) $templateName, $templateLanguage ?: null);
 
         if ($slots === []) {
             return [
-                Forms\Components\Placeholder::make('wa_no_vars')
+                Forms\Components\Placeholder::make('wa_no_vars_'.$locale)
                     ->label('')
                     ->content(new HtmlString(
                         '<div style="padding:.75rem 1rem; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:.5rem; font-size:.875rem;">'
@@ -394,7 +405,7 @@ class NotificationTemplateResource extends Resource
         }
 
         $fields = [
-            Forms\Components\Placeholder::make('wa_vars_header')
+            Forms\Components\Placeholder::make('wa_vars_header_'.$locale)
                 ->label('')
                 ->content(new HtmlString(
                     '<div style="font-size:.875rem; color:#4b5563; margin-bottom:.25rem;">'
@@ -406,9 +417,9 @@ class NotificationTemplateResource extends Resource
         foreach ($slots as $slot) {
             // Slot keys are underscore-only by design — Filament parses
             // dots in field names into nested state paths, which would
-            // scramble our flat lookup. Group statePath keeps these
-            // under `wa_vars` without further nesting.
-            $stateKey = 'wa_vars.'.$slot['key'];
+            // scramble our flat lookup. The per-locale prefix keeps each
+            // language's values in its own bag without further nesting.
+            $stateKey = 'wa_vars_'.$locale.'.'.$slot['key'];
 
             // Both inputs MUST be dehydrated (default true). Earlier
             // versions used dehydrated(false) which silently stripped

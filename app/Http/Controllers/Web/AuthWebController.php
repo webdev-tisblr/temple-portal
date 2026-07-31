@@ -136,6 +136,11 @@ class AuthWebController extends Controller
 
         $request->session()->regenerate();
 
+        // Mark this session as originating from the mobile app so the
+        // "return to the app" banner can show while the devotee browses
+        // beyond the handoff destination. Must be set AFTER regenerate().
+        $request->session()->put('from_app', now()->toIso8601String());
+
         // Same language carry-over as the OTP login above.
         if ($devotee->language !== null) {
             cookie()->queue(cookie('locale', $devotee->language->value, 60 * 24 * 365, null, null, null, false));

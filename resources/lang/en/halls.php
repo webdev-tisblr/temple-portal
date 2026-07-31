@@ -2,7 +2,7 @@
 
 return [
     'gallery' => 'Photos & Videos',
-    'subtitle' => 'Spacious halls available through Shree Pataliya Hanumanji Seva Trust for weddings, satsang, religious programs and social functions',
+    'subtitle' => 'Spacious halls available through Shree Patadiya Hanumanji Seva Trust for weddings, satsang, religious programs and social functions',
     'subtitle_short' => 'Available for weddings, satsang, religious programs and social functions',
     'none_available' => 'No halls are available right now.',
     'capacity' => 'Capacity:',
@@ -16,7 +16,7 @@ return [
     'rent' => 'Rent',
     'full_day_paren' => 'Full Day',
     'half_day_paren' => 'Half Day',
-    'about_text' => 'A spacious hall is available for devotees through Shree Pataliya Hanumanji Seva Trust. Available at a nominal rent for weddings, satsang, religious programs and social functions. Facilities include AC, sound system and parking.',
+    'about_text' => 'A spacious hall is available for devotees through Shree Patadiya Hanumanji Seva Trust. Available at a nominal rent for weddings, satsang, religious programs and social functions. Facilities include AC, sound system and parking.',
     'booking_form' => 'Booking Form',
     'booking_type' => 'Booking Type',
     'half_day_morning' => 'Half Day - Morning',

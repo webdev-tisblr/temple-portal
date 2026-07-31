@@ -186,7 +186,7 @@ class AuditNotificationPlaceholders extends Command
      */
     private function buildContextFor(string $triggerKey): ?array
     {
-        $trustName = SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust');
+        $trustName = SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust');
 
         switch ($triggerKey) {
             case 'donation.confirmed':

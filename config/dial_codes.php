@@ -1,0 +1,48 @@
+<?php
+
+/*
+ * Country dial codes offered on phone inputs. India first (default),
+ * then the common Gujarati-diaspora destinations, then the rest A–Z.
+ * code = digits only (no '+'). Kept static — safe inside cached pages.
+ */
+return [
+    ['code' => '91',  'label' => 'India'],
+    ['code' => '1',   'label' => 'USA / Canada'],
+    ['code' => '44',  'label' => 'UK'],
+    ['code' => '971', 'label' => 'UAE'],
+    ['code' => '61',  'label' => 'Australia'],
+    ['code' => '64',  'label' => 'New Zealand'],
+    ['code' => '65',  'label' => 'Singapore'],
+    ['code' => '852', 'label' => 'Hong Kong'],
+    ['code' => '966', 'label' => 'Saudi Arabia'],
+    ['code' => '965', 'label' => 'Kuwait'],
+    ['code' => '974', 'label' => 'Qatar'],
+    ['code' => '968', 'label' => 'Oman'],
+    ['code' => '973', 'label' => 'Bahrain'],
+    ['code' => '27',  'label' => 'South Africa'],
+    ['code' => '254', 'label' => 'Kenya'],
+    ['code' => '255', 'label' => 'Tanzania'],
+    ['code' => '256', 'label' => 'Uganda'],
+    ['code' => '230', 'label' => 'Mauritius'],
+    ['code' => '32',  'label' => 'Belgium'],
+    ['code' => '33',  'label' => 'France'],
+    ['code' => '34',  'label' => 'Spain'],
+    ['code' => '39',  'label' => 'Italy'],
+    ['code' => '31',  'label' => 'Netherlands'],
+    ['code' => '351', 'label' => 'Portugal'],
+    ['code' => '353', 'label' => 'Ireland'],
+    ['code' => '49',  'label' => 'Germany'],
+    ['code' => '41',  'label' => 'Switzerland'],
+    ['code' => '43',  'label' => 'Austria'],
+    ['code' => '46',  'label' => 'Sweden'],
+    ['code' => '47',  'label' => 'Norway'],
+    ['code' => '45',  'label' => 'Denmark'],
+    ['code' => '60',  'label' => 'Malaysia'],
+    ['code' => '62',  'label' => 'Indonesia'],
+    ['code' => '66',  'label' => 'Thailand'],
+    ['code' => '81',  'label' => 'Japan'],
+    ['code' => '82',  'label' => 'South Korea'],
+    ['code' => '94',  'label' => 'Sri Lanka'],
+    ['code' => '977', 'label' => 'Nepal'],
+    ['code' => '880', 'label' => 'Bangladesh'],
+];

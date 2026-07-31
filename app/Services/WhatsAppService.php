@@ -399,16 +399,8 @@ class WhatsAppService
 
     private function formatPhone(string $phone): string
     {
-        $phone = preg_replace('/\D/', '', $phone);
-
-        if (strlen($phone) === 10) {
-            return '91'.$phone;
-        }
-
-        if (str_starts_with($phone, '91') && strlen($phone) === 12) {
-            return $phone;
-        }
-
-        return '91'.$phone;
+        // Bare 10-digit = Indian (canonical legacy form); longer strings
+        // already carry their country code (E.164 digits, no '+').
+        return \App\Support\PhoneNumber::forWhatsApp($phone);
     }
 }

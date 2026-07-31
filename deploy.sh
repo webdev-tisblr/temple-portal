@@ -1,6 +1,6 @@
 #!/bin/bash
 ###############################################################################
-# Hostinger Deployment Script — Shree Pataliya Hanumanji Seva Trust
+# Hostinger Deployment Script — Shree Patadiya Hanumanji Seva Trust
 #
 # Usage (run ON THE SERVER via SSH):
 #   First deploy:  bash deploy.sh --first-run

@@ -119,7 +119,7 @@ class Generate80GReceipt implements ShouldQueue
                     'amount' => (string) $this->donation->amount,
                     'amount_formatted' => number_format((float) $this->donation->amount, 2),
                     'receipt_pdf_url' => $receiptPdfUrl,
-                    'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+                    'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
                     '_attachments' => $attachments,
                 ],
                 idempotencyKey: "donation:{$this->donation->id}:receipt_80g",

@@ -57,7 +57,9 @@ final class WhatsAppNotificationDriver implements NotificationDriver
 
     public function send(NotificationTemplate $template, NotificationContext $context): bool
     {
-        if (empty($template->wa_template_name)) {
+        $variant = $template->waVariantFor($this->resolveLocale($context));
+
+        if ($variant === null || empty($variant['template_name'])) {
             Log::warning('Notification: WhatsApp template name missing', [
                 'template_key' => $template->key,
             ]);
@@ -74,7 +76,7 @@ final class WhatsAppNotificationDriver implements NotificationDriver
         }
 
         $components = $this->buildComponents(
-            $template->wa_components ?? [],
+            $variant['components'] ?? [],
             $template->placeholder_map ?? [],
             $context,
         );
@@ -82,8 +84,8 @@ final class WhatsAppNotificationDriver implements NotificationDriver
         try {
             return $this->whatsapp->sendTemplateMessage(
                 $recipient['value'],
-                $template->wa_template_name,
-                $template->wa_template_language ?? 'en',
+                $variant['template_name'],
+                $variant['language_code'] ?? 'en',
                 $components,
             );
         } catch (\Throwable $e) {
@@ -94,6 +96,27 @@ final class WhatsAppNotificationDriver implements NotificationDriver
             ]);
             return false;
         }
+    }
+
+    /**
+     * Devotee locale for variant selection: context 'locale' override →
+     * devotee.language → gu. Mirrors PushNotificationDriver.
+     */
+    private function resolveLocale(NotificationContext $context): string
+    {
+        $locale = $context->get('locale');
+
+        if (! is_string($locale) || $locale === '') {
+            $devotee = $context->get('devotee');
+            $lang = is_object($devotee) && method_exists($devotee, 'getAttribute')
+                ? $devotee->getAttribute('language')
+                : null;
+            $locale = $lang instanceof \BackedEnum
+                ? (string) $lang->value
+                : (is_string($lang) && $lang !== '' ? $lang : 'gu');
+        }
+
+        return in_array($locale, ['gu', 'hi', 'en'], true) ? $locale : 'gu';
     }
 
     /**

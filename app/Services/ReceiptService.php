@@ -58,7 +58,7 @@ class ReceiptService
             'amount_in_words' => NumberToWords::convert((float) $donation->amount),
             'donation_date' => $donation->created_at->toDateString(),
             'payment_mode' => $donation->payment?->method ?? 'Online',
-            'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+            'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
             'trust_address' => SystemSetting::getValue('trust_address', 'Antarjal, Gandhidham, Kutch - 370205'),
             'trust_pan' => SystemSetting::getValue('trust_pan', ''),
             'trust_80g_registration_no' => SystemSetting::getValue('trust_80g_reg_no', ''),

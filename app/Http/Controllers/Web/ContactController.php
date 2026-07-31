@@ -55,7 +55,7 @@ class ContactController extends Controller
             'contact.submitted',
             [
                 'submission' => $submission,
-                'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+                'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
             ],
             idempotencyKey: "contact-submission:{$submission->id}",
         );

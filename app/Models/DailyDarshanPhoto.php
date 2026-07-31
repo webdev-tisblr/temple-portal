@@ -19,6 +19,28 @@ class DailyDarshanPhoto extends Model
         $bust = fn () => \Illuminate\Support\Facades\Cache::forget('darshan_page_daily_photo');
         static::saved($bust);
         static::deleted($bust);
+
+        // Booking-day darshan delivery — only for the day's FIRST active
+        // photo (5 uploads must not mean 5 messages) and only for a
+        // current date (±1 day), so backfilling an old gallery can never
+        // blast historic bookings. Photo-created-inactive-then-activated
+        // misses this hook by design — the Edit page has a manual
+        // "Send booking-day notifications" action for that case.
+        static::created(function (self $photo) {
+            if (! $photo->is_active || $photo->captured_on === null) {
+                return;
+            }
+            if ($photo->captured_on->diffInDays(now()->startOfDay(), absolute: true) > 1) {
+                return;
+            }
+            $isFirstOfDay = ! static::query()
+                ->whereDate('captured_on', $photo->captured_on)
+                ->where('id', '!=', $photo->id)
+                ->exists();
+            if ($isFirstOfDay) {
+                \App\Jobs\NotifyBookingDayDevoteesOfDarshanPhoto::dispatch($photo->id);
+            }
+        });
     }
 
     protected function managedImages(): array

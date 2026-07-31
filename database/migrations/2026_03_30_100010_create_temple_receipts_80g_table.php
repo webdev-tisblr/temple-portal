@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('amount_in_words', 500);
             $table->date('donation_date');
             $table->string('payment_mode', 50);
-            $table->string('trust_name', 500)->default('Shree Pataliya Hanumanji Seva Trust');
+            $table->string('trust_name', 500)->default('Shree Patadiya Hanumanji Seva Trust');
             $table->text('trust_address')->nullable();
             $table->string('trust_pan', 10)->nullable();
             $table->string('trust_80g_registration_no', 100)->nullable();

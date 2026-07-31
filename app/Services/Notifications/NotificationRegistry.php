@@ -172,6 +172,28 @@ final class NotificationRegistry
                 ],
             ],
 
+            // ── Daily darshan ─────────────────────────────────────────
+            // Context: devotee, booking (SevaBooking w/ devotee + seva),
+            //   photo (DailyDarshanPhoto), darshan_image_url (absolute
+            //   CDN URL string), darshan_date (pre-formatted 'd M Y'),
+            //   trust_name. Dispatched per devotee (deduped) by
+            //   NotifyBookingDayDevoteesOfDarshanPhoto when the day's
+            //   FIRST darshan photo is uploaded, only for sevas with
+            //   the "Send daily darshan to booked devotees" toggle on.
+            'darshan.photo.uploaded' => [
+                'label' => 'Darshan — photo for booking-day devotees',
+                'description' => 'Fires when the day\'s first Daily Darshan photo is uploaded, once per devotee holding a confirmed booking for that date on a seva with the darshan toggle enabled. For WhatsApp, point the Header (IMAGE) link at {{ darshan_image_url }} to attach the photo.',
+                'placeholders' => [
+                    'devotee_name' => 'Devotee name (devotee.name)',
+                    'seva_name' => 'Seva name in Gujarati (booking.seva.name_gu)',
+                    'booking_date' => 'Booking date (booking.booking_date)',
+                    'slot_time' => 'Slot time — reads "Whole day" for full-day sevas (booking.slot_time_label)',
+                    'darshan_date' => 'Darshan photo date, pre-formatted (darshan_date)',
+                    'darshan_image_url' => 'Darshan photo URL — public CDN link (darshan_image_url)',
+                    'trust_name' => 'Trust name from System Settings (trust_name)',
+                ],
+            ],
+
             // ── Hall flow ─────────────────────────────────────────────
             // Context: booking (array of HallBooking->toArray() merged
             //   with: booking_number, booking_type_label, booking_date

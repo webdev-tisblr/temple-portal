@@ -127,7 +127,7 @@ class PaymentCaptureService
                     [
                         'booking' => $booking,
                         'devotee' => $booking->devotee,
-                        'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+                        'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
                     ],
                     idempotencyKey: "payment:{$payment->id}:seva.booking.confirmed",
                 );
@@ -237,7 +237,7 @@ class PaymentCaptureService
                     [
                         'donation' => $donation->loadMissing('devotee', 'campaign', 'donationType'),
                         'devotee' => $donation->devotee,
-                        'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+                        'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
                     ],
                     idempotencyKey: "payment:{$payment->id}:donation.confirmed",
                 );

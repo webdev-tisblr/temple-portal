@@ -349,7 +349,7 @@ class HallBookingController extends Controller
         try {
             $booking->loadMissing('hall', 'devotee');
 
-            $trustName = SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust');
+            $trustName = SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust');
             $trustAddress = SystemSetting::getValue('trust_address', 'Antarjal, Gandhidham, Kutch - 370205');
 
             $bookingNumber = 'HALL-'.$booking->id.'-'.$booking->created_at->format('Ymd');
@@ -420,7 +420,7 @@ class HallBookingController extends Controller
                         'hall' => $booking->hall ? $booking->hall->toArray() : null,
                     ]),
                     'devotee' => $booking->devotee,
-                    'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+                    'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
                     '_attachments' => [[
                         'data' => $pdfBytes,
                         'name' => "HallBooking_{$bookingNumber}.pdf",

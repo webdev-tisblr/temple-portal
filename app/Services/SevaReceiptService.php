@@ -32,7 +32,7 @@ class SevaReceiptService
         $output = GujaratiPdf::render('receipts.seva-receipt', [
             'booking' => $booking,
             'receipt_number' => $receiptNumber,
-            'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+            'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
             'trust_address' => SystemSetting::getValue('trust_address', 'Antarjal, Gandhidham, Kutch - 370205'),
             'amount_in_words' => NumberToWords::convert((float) $booking->total_amount),
         ], ['format' => 'A4', 'watermark' => 'SEVA RECEIPT']);

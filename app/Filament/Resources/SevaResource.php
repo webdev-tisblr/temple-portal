@@ -274,6 +274,9 @@ class SevaResource extends Resource
                 ->description('Add any number of rules — each one is when + who + channel + message. Applies to bookings confirmed after the rule exists.')
                 ->collapsed()
                 ->schema([
+                    Forms\Components\Toggle::make('send_darshan_on_booking_date')
+                        ->label('Send daily darshan photo to booked devotees')
+                        ->helperText('When the day\'s first Daily Darshan photo is uploaded, every devotee with a confirmed booking of this seva for that date receives it — via the templates configured on the "Darshan — photo for booking-day devotees" trigger.'),
                     Forms\Components\Repeater::make('reminderRules')
                         ->relationship()
                         ->hiddenLabel()

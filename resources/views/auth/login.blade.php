@@ -46,28 +46,37 @@
                 <div class="mb-4">
                     <label for="phone" class="block text-sm font-medium text-amber-600 mb-1">{{ __('login.mobile_number') }}</label>
                     <div class="flex">
-                        <span class="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-amber-800/30 bg-amber-900/20 text-amber-500 text-sm font-medium">
-                            +91
-                        </span>
+                        <select
+                            x-model="dial"
+                            aria-label="Country code"
+                            class="rounded-l-lg border border-r-0 border-amber-800/30 bg-amber-900/20 text-amber-500 text-sm font-medium focus:border-amber-600 focus:ring-amber-600/20 pr-7"
+                        >
+                            @foreach(config('dial_codes') as $dc)
+                                <option value="{{ $dc['code'] }}" class="bg-[#2a1608] text-amber-100">+{{ $dc['code'] }} {{ $dc['label'] }}</option>
+                            @endforeach
+                        </select>
                         <input
                             type="tel"
                             id="phone"
-                            name="phone"
-                            maxlength="10"
-                            pattern="[6-9][0-9]{9}"
+                            maxlength="14"
+                            inputmode="numeric"
                             placeholder="98765 43210"
                             required
                             autofocus
                             class="flex-1 block w-full rounded-r-lg bg-transparent border-amber-800/30 text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20 text-lg tracking-wider"
                             x-model="phone"
+                            @input="phone = phone.replace(/\D/g, '')"
                         >
+                        {{-- Canonical value posted to the server: bare national
+                             number for India, cc+number digits otherwise. --}}
+                        <input type="hidden" name="phone" :value="fullPhone()">
                     </div>
                 </div>
 
                 <button
                     type="submit"
                     class="w-full btn-divine py-3 px-4 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
-                    :disabled="phone.length !== 10 || loading"
+                    :disabled="!phoneValid() || loading"
                 >
                     <span x-show="!loading">{{ __('login.send_otp') }}</span>
                     <span x-show="loading" class="flex items-center justify-center">
@@ -85,7 +94,7 @@
         <div x-show="step === 2" x-transition>
             <h2 class="text-xl font-semibold text-amber-100/80 mb-2">{{ __('login.enter_otp') }}</h2>
             <p class="text-amber-100/40 text-sm mb-6">
-                <span x-text="'+91 ' + phone"></span> {{ __('login.otp_sent_suffix') }}
+                <span x-text="displayPhone()"></span> {{ __('login.otp_sent_suffix') }}
             </p>
 
             <form action="{{ route('login.otp.verify') }}" method="POST" @submit="loading = true">
@@ -156,9 +165,30 @@
 function loginForm() {
     return {
         step: {{ session('otp_sent') ? '2' : '1' }},
+        // After a POST round-trip this is the CANONICAL phone (bare 10
+        // digits for India, cc+number digits for international).
         phone: '{{ session("phone", "") }}',
+        dial: '91',
         otpDigits: ['', '', '', '', '', ''],
         loading: false,
+
+        fullPhone() {
+            return this.dial === '91' ? this.phone : this.dial + this.phone;
+        },
+
+        phoneValid() {
+            if (this.dial === '91') {
+                return /^[6-9]\d{9}$/.test(this.phone);
+            }
+            const full = this.dial + this.phone;
+            return this.phone.length >= 5 && full.length >= 8 && full.length <= 15;
+        },
+
+        displayPhone() {
+            return this.phone.length === 10 && /^[6-9]/.test(this.phone)
+                ? '+91 ' + this.phone
+                : '+' + this.phone;
+        },
 
         handleOtpInput(index, event) {
             const value = event.target.value.replace(/\D/g, '');

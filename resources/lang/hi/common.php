@@ -19,4 +19,7 @@ return [
     'details' => 'विवरण',
     // Full legal-style trust name for the © line
     'trust_full_name' => 'श्री पातालिया हनुमानजी सेवा ट्रस्ट',
+    // Bar shown to sessions handed off from the mobile app
+    'return_to_app_text' => 'यहाँ का काम पूरा? ऐप में जारी रखें।',
+    'return_to_app_button' => 'ऐप खोलें',
 ];

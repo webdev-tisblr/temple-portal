@@ -128,7 +128,7 @@ class StatusCardService
             $value = match ($fieldKey) {
                 '_donor_name' => $devotee?->name,
                 '_date' => now()->setTimezone('Asia/Kolkata')->format('d M Y'),
-                '_temple_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+                '_temple_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
                 default => null,
             };
             if ($value === null || $value === '') {

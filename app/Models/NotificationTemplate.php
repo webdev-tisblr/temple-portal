@@ -57,6 +57,7 @@ class NotificationTemplate extends Model
         'wa_template_name',
         'wa_template_language',
         'wa_components',
+        'wa_variants',
         'sms_template_id',
         'push_title',
         'push_body',
@@ -70,6 +71,9 @@ class NotificationTemplate extends Model
     protected $casts = [
         'is_enabled' => 'boolean',
         'wa_components' => 'array',
+        // Per-language WhatsApp variants: { gu|hi|en: {template_name,
+        // language_code, components} }. See waVariantFor().
+        'wa_variants' => 'array',
         'push_title' => 'array',
         'push_body' => 'array',
         'placeholder_map' => 'array',
@@ -125,6 +129,42 @@ class NotificationTemplate extends Model
         }
 
         return [];
+    }
+
+    /**
+     * Pick the WhatsApp template variant for a devotee locale.
+     *
+     * Fallback chain: requested locale → gu → any configured variant →
+     * legacy single-template columns (rows saved before wa_variants
+     * existed) → null. Each variant is
+     * { template_name, language_code, components }.
+     */
+    public function waVariantFor(string $locale): ?array
+    {
+        $variants = is_array($this->wa_variants) ? $this->wa_variants : [];
+
+        foreach ([$locale, 'gu'] as $candidate) {
+            $v = $variants[$candidate] ?? null;
+            if (is_array($v) && ! empty($v['template_name'])) {
+                return $v;
+            }
+        }
+
+        foreach ($variants as $v) {
+            if (is_array($v) && ! empty($v['template_name'])) {
+                return $v;
+            }
+        }
+
+        if (! empty($this->wa_template_name)) {
+            return [
+                'template_name' => $this->wa_template_name,
+                'language_code' => $this->wa_template_language ?? 'en',
+                'components' => $this->wa_components ?? [],
+            ];
+        }
+
+        return null;
     }
 
     /** Convenience scope used by the dispatcher. */

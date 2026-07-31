@@ -2,7 +2,7 @@
 
 return [
     'subtitle' => 'Famous places around the temple',
-    'intro' => 'Shree Pataliya Hanumanji Dham is located in Gandhidham-Kutch. There are many famous religious sites, historical places and spots full of natural beauty nearby, which pilgrims can surely visit.',
+    'intro' => 'Shree Patadiya Hanumanji Dham is located in Gandhidham-Kutch. There are many famous religious sites, historical places and spots full of natural beauty nearby, which pilgrims can surely visit.',
     't_transport' => 'Transport',
     't_historical' => 'Historical',
     't_natural' => 'Natural',

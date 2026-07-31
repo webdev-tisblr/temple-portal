@@ -72,6 +72,19 @@ class SmsService
         if (! $this->isConfigured()) {
             return ['ok' => false, 'message' => 'SMS provider not configured. Add MSG91 auth key + sender id in admin → System Settings → SMS.'];
         }
+        // MSG91 DLT routes are India-only. Non-Indian numbers must go via
+        // WhatsApp/email (OtpService already excludes the sms channel for
+        // them); fail honestly if one ever reaches this driver.
+        $digits = preg_replace('/\D/', '', $phone) ?? '';
+        $isIndian = \App\Support\PhoneNumber::isIndian($digits)
+            || (strlen($digits) === 12 && preg_match('/^91[6-9]\d{9}$/', $digits));
+        if (! $isIndian) {
+            Log::warning('SMS skipped: non-Indian number (MSG91 is India-only)', [
+                'phone' => $this->maskPhone($phone),
+                'template_id' => $templateId,
+            ]);
+            return ['ok' => false, 'message' => 'SMS not sent: MSG91 delivers to Indian numbers only.'];
+        }
         if ($templateId === '') {
             return ['ok' => false, 'message' => 'Template id is required (set per notification template OR sms_msg91_otp_template_id in settings).'];
         }

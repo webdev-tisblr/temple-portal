@@ -64,7 +64,7 @@ class GenerateSevaReceipt implements ShouldQueue
             // the app/web endpoints, so the attachment window matches 80G.
             $pdfUrl = Storage::disk('r2_private')->temporaryUrl($path, now()->addDays(7));
 
-            $trustName = SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust');
+            $trustName = SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust');
 
             $notifications->dispatch(
                 'seva.receipt',

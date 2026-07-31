@@ -39,7 +39,7 @@ class EventResource extends Resource
                 Forms\Components\DatePicker::make('end_date'),
                 Forms\Components\TimePicker::make('start_time'),
                 Forms\Components\TimePicker::make('end_time'),
-                Forms\Components\TextInput::make('location')->default('Shree Pataliya Hanumanji Temple, Antarjal'),
+                Forms\Components\TextInput::make('location')->default('Shree Patadiya Hanumanji Temple, Antarjal'),
             ])->columns(2),
 
             Forms\Components\Section::make('Settings')->schema([

@@ -2,7 +2,7 @@
 
 return [
     'subtitle' => 'Code of conduct for devotees — please follow',
-    'intro' => 'These rules have been framed by the trust to maintain the sanctity of Shree Pataliya Hanumanji Dham and the peace of all devotees. All devotees are requested to fully follow these rules.',
+    'intro' => 'These rules have been framed by the trust to maintain the sanctity of Shree Patadiya Hanumanji Dham and the peace of all devotees. All devotees are requested to fully follow these rules.',
     'r1t' => 'Remove footwear outside',
     'r1d' => 'Removing footwear before the temple entrance is mandatory. A footwear stand is available.',
     'r2t' => 'Decent dress code',

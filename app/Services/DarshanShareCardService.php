@@ -223,7 +223,7 @@ class DarshanShareCardService
         $headerHeight = $format === self::FORMAT_STORY ? 180 : 130;
         $this->drawHeaderBand($canvas, $width, $headerHeight);
 
-        $trustName = SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust');
+        $trustName = SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust');
         $this->drawHeaderText($canvas, $width, $headerHeight, $trustName);
 
         // 3. Circular darshan photo with concentric gold rings — replaces
@@ -293,7 +293,7 @@ class DarshanShareCardService
 
         // Trust name centred across the band. Font is picked by script
         // — NotoSansGujarati doesn't carry Latin glyphs, so the English
-        // SystemSetting value (e.g. "Shree Pataliya Hanumanji Seva Trust")
+        // SystemSetting value (e.g. "Shree Patadiya Hanumanji Seva Trust")
         // rendered as nothing when forced through the Gujarati font.
         // Earlier bug: blank saffron header on production until this fix.
         $headerFont = $this->pickFontForText($trustName, bold: true);
@@ -558,7 +558,7 @@ class DarshanShareCardService
      *
      *        [ Big Avatar ]   Name                       ← bold gold
      *                         Sending Daily Blessings from
-     *                         Pataliya Hanumanji Temple
+     *                         Patadiya Hanumanji Temple
      *
      * Anonymous callers omit the name; the two-line tagline is
      * vertically centred against the avatar.
@@ -598,7 +598,7 @@ class DarshanShareCardService
 
         $textStartX = $blockLeftX + $avatarSize + $gap;
         $line1 = 'Sending Daily Blessings from';
-        $line2 = 'Pataliya Hanumanji Temple';
+        $line2 = 'Patadiya Hanumanji Temple';
 
         if ($hasName) {
             $name = (string) $devotee->name;

@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\Devotee;
 use App\Models\OtpCode;
 use App\Services\Notifications\NotificationService;
+use App\Support\PhoneNumber;
 use App\Support\ReviewBypass;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -107,6 +108,10 @@ class OtpService
         // retry from the same client with a fresh code still sends, but
         // an accidental double-tap that re-enters generate() with the
         // SAME code (cache race) doesn't fire two SMS.
+        // MSG91/DLT SMS routes are India-only — for international numbers
+        // the OTP rides WhatsApp (and email when the devotee has one).
+        $onlyChannels = PhoneNumber::isIndian($phone) ? null : ['whatsapp', 'email'];
+
         app(NotificationService::class)->dispatch(
             'auth.otp',
             [
@@ -118,6 +123,7 @@ class OtpService
                 'name' => $devotee?->name,
             ],
             idempotencyKey: 'otp:' . sha1($phone . ':' . $code),
+            onlyChannels: $onlyChannels,
         );
 
         return $code;

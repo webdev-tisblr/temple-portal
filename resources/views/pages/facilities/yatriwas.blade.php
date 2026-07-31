@@ -59,7 +59,7 @@
             <p><strong class="text-amber-100/70">{{ __('yatriwas.ab') }}</strong> {{ __('yatriwas.ab_d') }}</p>
             <p><strong class="text-amber-100/70">{{ __('yatriwas.ci') }}</strong> {{ __('yatriwas.ci_d') }}</p>
             <p><strong class="text-amber-100/70">{{ __('yatriwas.id') }}</strong> {{ __('yatriwas.id_d') }}</p>
-            <p><strong class="text-amber-100/70">{{ __('yatriwas.co') }}</strong> +91 XXXXX XXXXX | Email: trust@pataliyahanuman.org</p>
+            <p><strong class="text-amber-100/70">{{ __('yatriwas.co') }}</strong> +91 XXXXX XXXXX | Email: trust@patadiyahanumanji.com</p>
         </div>
 
     </div>

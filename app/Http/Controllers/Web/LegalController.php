@@ -22,7 +22,7 @@ class LegalController extends Controller
     private function contact(): array
     {
         return [
-            'trustName' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+            'trustName' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
             'email' => SystemSetting::getValue('trust_email', 'support@patadiyahanumanji.com'),
             'phone' => SystemSetting::getValue('trust_phone', ''),
             'address' => SystemSetting::getValue('trust_address', 'Antarjal, Gandhidham, Kutch, Gujarat - 370205'),
@@ -33,7 +33,7 @@ class LegalController extends Controller
     public function privacy(): View
     {
         SEOMeta::setTitle('Privacy Policy');
-        SEOMeta::setDescription('How Shree Pataliya Hanumanji Seva Trust collects, uses, and protects your data in the temple mobile app and website.');
+        SEOMeta::setDescription('How Shree Patadiya Hanumanji Seva Trust collects, uses, and protects your data in the temple mobile app and website.');
 
         return view('pages.legal.privacy', $this->contact());
     }
@@ -41,7 +41,7 @@ class LegalController extends Controller
     public function terms(): View
     {
         SEOMeta::setTitle('Terms of Service');
-        SEOMeta::setDescription('Terms and conditions for using the Shree Pataliya Hanumanji Seva Trust app and services.');
+        SEOMeta::setDescription('Terms and conditions for using the Shree Patadiya Hanumanji Seva Trust app and services.');
 
         return view('pages.legal.terms', $this->contact());
     }
@@ -57,7 +57,7 @@ class LegalController extends Controller
     public function accountDeletion(): View
     {
         SEOMeta::setTitle('Delete Your Account');
-        SEOMeta::setDescription('How to delete your Shree Pataliya Hanumanji Seva Trust account and what data is removed or retained.');
+        SEOMeta::setDescription('How to delete your Shree Patadiya Hanumanji Seva Trust account and what data is removed or retained.');
 
         return view('pages.legal.account-deletion', $this->contact());
     }

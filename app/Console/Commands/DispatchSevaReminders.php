@@ -50,7 +50,7 @@ class DispatchSevaReminders extends Command
         $limit = max(1, (int) $this->option('limit'));
         $staleCutoff = $now->copy()->subMinutes($maxLate);
 
-        $trustName = SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust');
+        $trustName = SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust');
 
         $due = SevaReminderSchedule::query()
             ->where('status', SevaReminderSchedule::STATUS_PENDING)
@@ -204,7 +204,10 @@ class DispatchSevaReminders extends Command
                 continue;
             }
 
-            $ctx = new \App\Services\Notifications\NotificationContext(array_merge($context, $extra));
+            // 'locale' drives per-language template variant selection in
+            // the WhatsApp driver (devotee's language for devotee rules,
+            // Gujarati for staff/custom recipients).
+            $ctx = new \App\Services\Notifications\NotificationContext(array_merge($context, $extra, ['locale' => $locale]));
             $notifier->sendTemplate($template, $ctx);
             $attempted++;
         }

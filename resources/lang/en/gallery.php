@@ -1,5 +1,5 @@
 <?php
 
 return [
-    'subtitle' => 'Shree Pataliya Hanumanji Dham — photos and videos',
+    'subtitle' => 'Shree Patadiya Hanumanji Dham — photos and videos',
 ];

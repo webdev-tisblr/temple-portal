@@ -19,4 +19,7 @@ return [
     'details' => 'વિગત',
     // Full legal-style trust name for the © line
     'trust_full_name' => 'શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ',
+    // Bar shown to sessions handed off from the mobile app
+    'return_to_app_text' => 'અહીંનું કામ પૂરું? એપમાં આગળ વધો.',
+    'return_to_app_button' => 'એપ ખોલો',
 ];

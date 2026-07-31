@@ -28,7 +28,7 @@ class DevoteeResource extends Resource
         return $form->schema([
             Forms\Components\Section::make('Personal Info')->schema([
                 Forms\Components\TextInput::make('name')->required()->maxLength(255),
-                Forms\Components\TextInput::make('phone')->tel()->required()->maxLength(15)
+                Forms\Components\TextInput::make('phone')->tel()->required()->maxLength(20)
                     ->disabled(fn (?Devotee $record) => $record !== null),
                 Forms\Components\TextInput::make('email')->email()->maxLength(255),
                 Forms\Components\DatePicker::make('date_of_birth'),

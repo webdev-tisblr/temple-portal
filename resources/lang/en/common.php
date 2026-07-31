@@ -1,10 +1,10 @@
 <?php
 
 return [
-    'temple_name' => 'Shree Pataliya Hanumanji',
+    'temple_name' => 'Shree Patadiya Hanumanji',
     'trust_subtitle' => 'Seva Trust • Online',
     'language' => 'Language',
-    'trust_full' => 'Shree Pataliya Hanumanji Seva Trust',
+    'trust_full' => 'Shree Patadiya Hanumanji Seva Trust',
     'address' => 'Antarjaal, Gandhidham, Kutch — 370110',
     'address_label' => 'Address',
     'date' => 'Date',
@@ -18,5 +18,8 @@ return [
     'minimum' => 'Minimum',
     'details' => 'Details',
     // Full legal-style trust name for the © line
-    'trust_full_name' => 'Shree Pataliya Hanumanji Seva Trust',
+    'trust_full_name' => 'Shree Patadiya Hanumanji Seva Trust',
+    // Bar shown to sessions handed off from the mobile app
+    'return_to_app_text' => 'Done here? Continue in the app.',
+    'return_to_app_button' => 'Open app',
 ];

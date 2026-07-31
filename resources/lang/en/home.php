@@ -19,7 +19,7 @@ return [
     'temple_closes' => 'Temple closes',
     'go_to_darshan' => 'Go to Darshan page',
     'hero_jai' => '|| Jai Shri Ram ||',
-    'hero_line1' => 'Shree Pataliya',
+    'hero_line1' => 'Shree Patadiya',
     'hero_line2' => 'Hanumanji Dham',
     'temple_open' => 'Temple is currently open',
     'temple_closed' => 'Temple is currently closed',

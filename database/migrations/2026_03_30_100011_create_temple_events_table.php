@@ -22,7 +22,7 @@ return new class extends Migration
             $table->date('end_date')->nullable();
             $table->time('start_time')->nullable();
             $table->time('end_time')->nullable();
-            $table->string('location', 500)->default('Shree Pataliya Hanumanji Temple, Antarjal');
+            $table->string('location', 500)->default('Shree Patadiya Hanumanji Temple, Antarjal');
             $table->string('image_path', 500)->nullable();
             $table->boolean('is_featured')->default(false);
             $table->enum('status', ['draft', 'published', 'cancelled'])->default('draft');

@@ -2,7 +2,7 @@
 
 return [
     'subtitle' => 'Pilgrim lodge service — a rest house for pilgrims travelling from afar',
-    'intro' => 'Shree Pataliya Hanumanji Seva Trust provides a pilgrim lodge next to the temple premises for the comfort of pilgrims arriving from afar. All devotees coming for darshan with devotion are warmly welcomed.',
+    'intro' => 'Shree Patadiya Hanumanji Seva Trust provides a pilgrim lodge next to the temple premises for the comfort of pilgrims arriving from afar. All devotees coming for darshan with devotion are warmly welcomed.',
     'room_types' => 'Room Types',
     'dorm_t' => 'Dormitory Hall',
     'dorm_d' => 'For 10-20 people. Basic amenities. Nominal rent.',

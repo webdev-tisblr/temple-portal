@@ -322,7 +322,7 @@ function greetingCardEditor(initialOverlays, initialConfig) {
                 '_donor_name': 'Ramesh Patel',
                 '_amount': '₹5,100.00',
                 '_date': '09 Apr 2026',
-                '_temple_name': 'Shree Pataliya Hanumanji',
+                '_temple_name': 'Shree Patadiya Hanumanji',
             };
             return samples[key] || key;
         },

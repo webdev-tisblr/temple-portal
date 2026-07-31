@@ -81,7 +81,7 @@ class GenerateStoreInvoice implements ShouldQueue
                         'total_amount_formatted' => number_format((float) $this->order->total_amount, 2),
                         'items_count' => $this->order->items->count(),
                     ]),
-                    'trust_name' => SystemSetting::getValue('trust_name', 'Shree Pataliya Hanumanji Seva Trust'),
+                    'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
                     '_attachments' => $attachments,
                 ],
                 idempotencyKey: "order:{$this->order->id}:confirmed",
@@ -133,7 +133,7 @@ class GenerateStoreInvoice implements ShouldQueue
         <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
             <div style="background:#881337;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
                 <h1 style="color:#e8c36a;margin:0;font-size:20px;">Order Confirmed!</h1>
-                <p style="color:#ddd;margin:6px 0 0;font-size:13px;">Shree Pataliya Hanumanji Seva Trust — Temple Store</p>
+                <p style="color:#ddd;margin:6px 0 0;font-size:13px;">Shree Patadiya Hanumanji Seva Trust — Temple Store</p>
             </div>
 
             <div style="padding:24px;background:#fff;border:1px solid #eee;border-top:none;">
@@ -186,7 +186,7 @@ class GenerateStoreInvoice implements ShouldQueue
             </div>
 
             <div style="padding:16px;text-align:center;background:#f5f0ea;border-radius:0 0 8px 8px;border:1px solid #eee;border-top:none;">
-                <p style="margin:0;font-size:11px;color:#999;">Shree Pataliya Hanumanji Seva Trust</p>
+                <p style="margin:0;font-size:11px;color:#999;">Shree Patadiya Hanumanji Seva Trust</p>
                 <p style="margin:2px 0 0;font-size:11px;color:#bbb;">Antarjal, Gandhidham, Kutch - Gujarat</p>
             </div>
         </div>

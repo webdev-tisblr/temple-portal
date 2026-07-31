@@ -104,7 +104,7 @@ class SystemSettings extends Page implements HasForms
                                     ->helperText('Google Play Store listing link.'),
                                 Forms\Components\Toggle::make('app_scheme_enabled')
                                     ->label('"Open app" button on the website banner')
-                                    ->helperText('Shows the Open-app button on the return-to-the-app bar for devotees who arrived from the app. Turn ON only after the app build with the patadiyahanumanji:// link (v1.4.6+) is rolled out — older builds show a browser error.'),
+                                    ->helperText('Makes the return-to-the-app bar tappable for devotees who arrived from the app: opens the app via its patadiyahanumanji:// link (v1.4.6+), and on older builds without the link it falls back to the App Store / Play Store page after ~1.6s. Safe to keep ON.'),
                                 Forms\Components\Group::make([
                                     Forms\Components\Select::make('push_notification_tone')
                                         ->label('App notification tone')

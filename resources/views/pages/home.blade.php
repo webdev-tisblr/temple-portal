@@ -362,7 +362,7 @@
             @endif
         </div>
         <div class="rounded-2xl overflow-hidden min-h-[380px]" style="border:1px solid #ecdfc4;">
-            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3670.0!2d70.13!3d23.08!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjPCsDA0JzQ4LjAiTiA3MMKwMDcnNDguMCJF!5e0!3m2!1sen!2sin!4v1"
+            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3580.4742050651294!2d70.0855247!3d23.0494366!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3950b83a7a237f4d%3A0xa8bcdb1e5393f156!2sPatadiya%20Hanuman%20Temple!5e1!3m2!1sen!2sin!4v1785498678062!5m2!1sen!2sin"
                     width="100%" height="100%" style="border:0; min-height:380px;" allowfullscreen="" loading="lazy" class="w-full h-full"></iframe>
         </div>
     </div>

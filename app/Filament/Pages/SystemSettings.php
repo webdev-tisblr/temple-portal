@@ -102,6 +102,41 @@ class SystemSettings extends Page implements HasForms
                                     ->url()
                                     ->placeholder('https://play.google.com/store/apps/details?id=com.patadiyahanumanji.app')
                                     ->helperText('Google Play Store listing link.'),
+                                Forms\Components\Toggle::make('app_scheme_enabled')
+                                    ->label('"Open app" button on the website banner')
+                                    ->helperText('Shows the Open-app button on the return-to-the-app bar for devotees who arrived from the app. Turn ON only after the app build with the patadiyahanumanji:// link (v1.4.6+) is rolled out — older builds show a browser error.'),
+                                Forms\Components\Group::make([
+                                    Forms\Components\Select::make('push_notification_tone')
+                                        ->label('App notification tone')
+                                        // Only list tones actually bundled in the
+                                        // current app build (FirebaseService has the
+                                        // matching allowlist). Ghanti/Aarti rejoin
+                                        // here once their clips ship in the app.
+                                        ->options([
+                                            'default' => 'System default',
+                                            'jayshreeram' => 'Jay Shree Ram',
+                                        ])
+                                        // mount() only fills keys that exist in the
+                                        // DB — pin blank state to 'default' so the
+                                        // closed select can never DISPLAY a custom
+                                        // tone that isn't actually saved.
+                                        ->afterStateHydrated(function (Forms\Components\Select $component, $state) {
+                                            if (blank($state)) {
+                                                $component->state('default');
+                                            }
+                                        })
+                                        ->live()
+                                        ->helperText('Which sound app push notifications play. The tones are bundled inside the app — pick a custom tone only after the app build that ships them (v1.4.6+) is widely rolled out; on older Android builds, pushes sent to a tone channel are NOT shown at all.'),
+                                    Forms\Components\Placeholder::make('push_tone_preview')
+                                        ->hiddenLabel()
+                                        ->content(fn (Forms\Get $get) => in_array($get('push_notification_tone'), ['jayshreeram'], true)
+                                            ? new \Illuminate\Support\HtmlString(
+                                                '<audio controls preload="none" style="height:36px;max-width:100%;" src="'
+                                                .e(asset('sounds/'.$get('push_notification_tone').'.mp3'))
+                                                .'"></audio>'
+                                            )
+                                            : new \Illuminate\Support\HtmlString('<em style="font-size:.8rem;color:#9ca3af;">System default — plays each phone\'s own notification sound.</em>')),
+                                ]),
                             ])->columns(2)->collapsible(),
 
                         Forms\Components\Section::make('iOS Donations — App Store Compliance')
@@ -117,21 +152,6 @@ class SystemSettings extends Page implements HasForms
                                     ->url()
                                     ->placeholder('https://patadiyahanumanji.com/donate')
                                     ->helperText('Where the iOS app sends devotees to donate. Leave blank to use the default.'),
-                                Forms\Components\Toggle::make('app_scheme_enabled')
-                                    ->label('"Open app" button on the website banner')
-                                    ->helperText('Shows the Open-app button on the return-to-the-app bar for devotees who arrived from the app. Turn ON only after the app build with the patadiyahanumanji:// link (v1.4.6+) is rolled out — older builds show a browser error.'),
-                                Forms\Components\Select::make('push_notification_tone')
-                                    ->label('App notification tone')
-                                    // Only list tones actually bundled in the
-                                    // current app build (FirebaseService has the
-                                    // matching allowlist). Ghanti/Aarti rejoin
-                                    // here once their clips ship in the app.
-                                    ->options([
-                                        'default' => 'System default',
-                                        'jayshreeram' => 'Jay Shree Ram',
-                                    ])
-                                    ->default('default')
-                                    ->helperText('Which sound app push notifications play. The tones are bundled inside the app — pick a custom tone only after the app build that ships them (v1.4.6+) is widely rolled out; on older Android builds, pushes sent to a tone channel are NOT shown at all.'),
                             ])->columns(2),
 
                         Forms\Components\Section::make('App Store Review — Test Login')

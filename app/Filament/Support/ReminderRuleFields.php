@@ -141,7 +141,7 @@ final class ReminderRuleFields
                     Forms\Components\Textarea::make("body_{$locale}")
                         ->label("Message {$label}")
                         ->rows(3)
-                        ->helperText('Placeholders: {{devotee_name}} {{seva_name}} {{booking_date}} {{slot_time}} {{time_remaining_label}} {{trust_name}} {{admin_name}}'),
+                        ->helperText('Placeholders: {{devotee_name}} {{seva_name}} {{booking_date}} {{slot_time}} {{time_remaining_label}} {{trust_name}} {{admin_name}} {{assignee_name}} {{assignee_phone}}'),
                 ], id: 'rule_message'),
             ])->visible(fn (Get $get): bool => $get('channel') !== NotificationTemplate::CHANNEL_WHATSAPP),
 

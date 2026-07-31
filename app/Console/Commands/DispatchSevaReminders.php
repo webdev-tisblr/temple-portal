@@ -267,6 +267,8 @@ class DispatchSevaReminders extends Command
                 'hours_remaining' => 'hours_remaining',
                 'time_remaining_label' => 'time_remaining_label',
                 'booking_id' => 'booking.id',
+                'assignee_name' => 'booking.seva.assignee.name',
+                'assignee_phone' => 'booking.seva.assignee.phone',
                 'trust_name' => 'trust_name',
             ],
         ]);

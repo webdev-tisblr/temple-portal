@@ -47,7 +47,10 @@ class GenerateSevaReceipt implements ShouldQueue
     {
         try {
             $path = $receipts->generateReceipt($this->booking);
-            $this->booking->refresh()->loadMissing('devotee', 'seva');
+            // seva.assignee too — booking goes into the context as an
+            // ARRAY, so the assignee_name/phone placeholders only resolve
+            // if the relation is loaded before toArray().
+            $this->booking->refresh()->loadMissing('devotee', 'seva.assignee');
 
             Log::info('Seva receipt generated', [
                 'booking_id' => $this->booking->id,

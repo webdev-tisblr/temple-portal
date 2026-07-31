@@ -179,7 +179,18 @@ jobs:
                     php artisan optimize:clear
                     php artisan config:cache
                     php artisan route:cache
-                    php artisan view:cache
+                    # view:cache races live traffic: the moment view:clear (in
+                    # optimize:clear) empties storage/framework/views, FPM
+                    # recompiles requested views as www-data, and view:cache
+                    # (running as deploy) then can't overwrite those files —
+                    # 2026-07-31 deploy failed exactly this way. Sweep any
+                    # foreign-owned files first, and on a residual collision
+                    # sweep + retry once (the double race is ~impossible).
+                    find storage/framework/views -name '*.php' -delete
+                    php artisan view:cache || {
+                        find storage/framework/views -name '*.php' -delete
+                        php artisan view:cache
+                    }
                     php artisan filament:cache-components 2>/dev/null || true
 
                     # VPS: reload PHP-FPM so every worker picks up the new

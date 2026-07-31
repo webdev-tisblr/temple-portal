@@ -52,7 +52,10 @@
                             class="rounded-l-lg border border-r-0 border-amber-800/30 bg-amber-900/20 text-amber-500 text-sm font-medium focus:border-amber-600 focus:ring-amber-600/20 pr-7"
                         >
                             @foreach(config('dial_codes') as $dc)
-                                <option value="{{ $dc['code'] }}" class="bg-[#2a1608] text-amber-100">+{{ $dc['code'] }} {{ $dc['label'] }}</option>
+                                {{-- Code only — the country name made the closed
+                                     select eat half the input row. title keeps
+                                     the name on hover for disambiguation. --}}
+                                <option value="{{ $dc['code'] }}" title="{{ $dc['label'] }}" class="bg-[#2a1608] text-amber-100">+{{ $dc['code'] }}</option>
                             @endforeach
                         </select>
                         <input

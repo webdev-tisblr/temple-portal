@@ -79,6 +79,13 @@ class SystemSettings extends Page implements HasForms
                             Forms\Components\TextInput::make('youtube_channel_id')->label('YouTube Channel ID'),
                             Forms\Components\Select::make('default_language')->label('Default Language')
                                 ->options(['gu' => 'Gujarati', 'hi' => 'Hindi', 'en' => 'English'])->default('gu'),
+                            Forms\Components\FileUpload::make('live_darshan_placeholder_image')
+                                ->label('Live darshan — offline image')
+                                ->image()
+                                ->disk('r2')
+                                ->directory('live-darshan')
+                                ->maxSize(4096)
+                                ->helperText('Shown on the app\'s Live Darshan card whenever the stream is not running (and as the thumbnail fallback while live). Recommended 16:9, e.g. 1280×720. Leave empty to fall back to today\'s daily darshan photo.'),
                         ])->columns(2),
 
                         Forms\Components\Section::make('Mobile App')
@@ -325,6 +332,12 @@ class SystemSettings extends Page implements HasForms
             // (a raw false would otherwise persist as an empty string).
             if (is_bool($value)) {
                 $value = $value ? '1' : '0';
+            }
+
+            // FileUpload state can dehydrate as a single-item array —
+            // settings values are flat strings (R2 paths).
+            if (is_array($value)) {
+                $value = (string) (reset($value) ?: '');
             }
 
             SystemSetting::updateOrCreate(

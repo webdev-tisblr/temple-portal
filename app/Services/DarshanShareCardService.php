@@ -820,7 +820,8 @@ class DarshanShareCardService
         // cards that had tofu boxes for the trust-name header.
         // v19: LC_ALL fix — v18 cards rendered via FPM had unshaped Indic
         // text (pango failed in the C locale) and are cached for 30 days.
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v19"), 0, 12);
+        // v20: Pataliya → Patadiya footer spelling fix.
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v20"), 0, 12);
 
         return self::STORAGE_PREFIX."/{$date}/{$devoteeSegment}-{$format}-{$hash}.jpg";
     }

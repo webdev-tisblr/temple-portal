@@ -239,9 +239,17 @@ class ContentController extends BaseApiController
         $schedule = \App\Models\DarshanTiming::scheduleNow();
         $isLive = ! empty($streamUrl) && $schedule['is_open'];
 
-        // Placeholder for the off state: today's daily darshan photo.
-        $photo = \App\Models\DailyDarshanPhoto::where('is_active', true)
-            ->orderByDesc('captured_on')->orderByDesc('id')->first();
+        // Placeholder for the off state: the admin-uploaded image from
+        // System Settings → General wins; today's daily darshan photo is
+        // the fallback when none is set.
+        $customPlaceholder = SystemSetting::getValue('live_darshan_placeholder_image', '');
+        $photo = $customPlaceholder
+            ? null
+            : \App\Models\DailyDarshanPhoto::where('is_active', true)
+                ->orderByDesc('captured_on')->orderByDesc('id')->first();
+        $placeholderUrl = $customPlaceholder
+            ? image_url($customPlaceholder)
+            : ($photo?->image_path ? image_url($photo->image_path) : null);
 
         return $this->success([
             'stream_url' => $streamUrl,
@@ -251,7 +259,7 @@ class ContentController extends BaseApiController
             'next_darshan_day' => $schedule['next_opening']?->isToday()
                 ? 'today'
                 : ($schedule['next_opening']?->isTomorrow() ? 'tomorrow' : $schedule['next_opening']?->format('D')),
-            'placeholder_image_url' => $photo?->image_path ? image_url($photo->image_path) : null,
+            'placeholder_image_url' => $placeholderUrl,
             'channel_id' => $channelId,
         ]);
     }

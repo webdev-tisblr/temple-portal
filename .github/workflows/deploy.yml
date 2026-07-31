@@ -131,6 +131,14 @@ jobs:
                     # missing temple_seva_reminder_rules table). Commands that are
                     # allowed to fail keep their explicit `|| true` guards.
                     set -e
+                    # Group-writable artifacts (664/775): compiled views etc.
+                    # are written by three users (deploy here, www-data via
+                    # FPM, deploy via cron/workers) — without g+w, whoever
+                    # wrote a file last blocks the others from recompiling it
+                    # (2026-07-31: every PDF download 500'd this way). FPM
+                    # (systemd UMask), the workers (supervisor umask) and the
+                    # scheduler cron carry the same 0002.
+                    umask 0002
                     # Take a fresh DB snapshot to the offsite r2_backup disk BEFORE
                     # running migrations, so a bad/destructive migration can be
                     # rolled back from the most recent pre-migration dump. Tolerant

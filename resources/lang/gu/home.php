@@ -12,7 +12,7 @@ return [
     'festival' => 'ઉત્સવ અને કાર્યક્રમ',
     'upcoming' => 'આગામી કાર્યક્રમો',
     'details' => 'વિગત જુઓ',
-    'community_hall' => 'સભાખંડ',
+    'community_hall' => 'હોલ',
     'guest_capacity' => 'મહેમાન ક્ષમતા',
     'per_day' => 'પ્રતિ દિવસ',
     'check_availability' => 'બુકિંગ કરો',

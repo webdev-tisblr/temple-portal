@@ -24,7 +24,7 @@ class AppStringOverrideResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-language';
 
-    protected static ?string $navigationGroup = 'Communication';
+    protected static ?string $navigationGroup = 'One-Time Setup';
 
     protected static ?int $navigationSort = 40;
 

@@ -85,10 +85,18 @@ class DarshanTiming extends Model
                 $open = $row->getAttributes()[$openCol] ?? null;
                 $close = $row->getAttributes()[$closeCol] ?? null;
                 if ($open && $close) {
-                    $windows[] = [
-                        $day->copy()->setTimeFromTimeString($open),
-                        $day->copy()->setTimeFromTimeString($close),
-                    ];
+                    $openAt = $day->copy()->setTimeFromTimeString($open);
+                    $closeAt = $day->copy()->setTimeFromTimeString($close);
+                    // A close at/before the open ("15:00–00:00") means the
+                    // window crosses midnight. Without rolling the close to
+                    // the next day, Carbon::between() silently swaps the
+                    // inverted endpoints and 15:00–00:00 matched the whole
+                    // MORNING instead (2026-08-01: live showed at 13:31 on
+                    // a till-13:00 Saturday).
+                    if ($closeAt->lessThanOrEqualTo($openAt)) {
+                        $closeAt->addDay();
+                    }
+                    $windows[] = [$openAt, $closeAt];
                 }
             }
             return $windows;

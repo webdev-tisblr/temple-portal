@@ -40,17 +40,32 @@ class AppStringOverrideResource extends Resource
             Forms\Components\Section::make()
                 ->description('Patches ONE app wording without a store release. The key must exactly match the app\'s l10n key (ask the developer or check assets/l10n/en.json — e.g. home.qa_store, login.phone_label). Phones pick the fix up on next app open (builds v1.4.6+). Delete the row once the correction ships inside a store build.')
                 ->schema([
-                    Forms\Components\TextInput::make('key')
-                        ->label('App string key')
-                        ->placeholder('home.qa_store')
+                    Forms\Components\Select::make('key')
+                        ->label('App string')
+                        ->options(fn () => self::keyOptions())
+                        ->searchable()
                         ->required()
-                        ->maxLength(150)
-                        ->regex('/^[a-z0-9_.]+$/i')
-                        ->helperText('Exactly as in the app\'s l10n files — wrong keys are ignored silently.'),
+                        ->live()
+                        ->helperText('Search by the ENGLISH wording you see in the app — the list holds every app string (a snapshot from the current app release).'),
                     Forms\Components\Select::make('locale')
-                        ->label('Language')
+                        ->label('Language to fix')
                         ->options(['gu' => 'ગુજરાતી', 'hi' => 'हिन्दी', 'en' => 'English'])
-                        ->required(),
+                        ->required()
+                        ->live(),
+                    Forms\Components\Placeholder::make('current_text')
+                        ->label('Current text in the app')
+                        ->columnSpanFull()
+                        ->visible(fn (Forms\Get $get) => filled($get('key')))
+                        ->content(function (Forms\Get $get) {
+                            $key = $get('key');
+                            $rows = [];
+                            foreach (['gu' => 'ગુજરાતી', 'hi' => 'हिन्दी', 'en' => 'English'] as $code => $label) {
+                                $text = self::bundled($code)[$key] ?? '—';
+                                $rows[] = '<strong>'.$label.':</strong> '.e($text);
+                            }
+
+                            return new \Illuminate\Support\HtmlString(implode('<br>', $rows));
+                        }),
                     Forms\Components\Textarea::make('value')
                         ->label('Corrected text')
                         ->rows(2)
@@ -85,6 +100,36 @@ class AppStringOverrideResource extends Resource
                 ]),
             ])
             ->defaultSort('updated_at', 'desc');
+    }
+
+    /**
+     * Bundled app strings for one locale, from the snapshot copied out
+     * of the app repo (resources/app-l10n/*.json). Refresh the snapshot
+     * whenever a store build changes the app's l10n files.
+     */
+    private static function bundled(string $locale): array
+    {
+        static $cache = [];
+
+        if (! isset($cache[$locale])) {
+            $path = resource_path("app-l10n/{$locale}.json");
+            $cache[$locale] = is_file($path)
+                ? (json_decode((string) file_get_contents($path), true) ?: [])
+                : [];
+        }
+
+        return $cache[$locale];
+    }
+
+    /** "key — English text" options so admins search by visible wording. */
+    private static function keyOptions(): array
+    {
+        $options = [];
+        foreach (self::bundled('en') as $key => $text) {
+            $options[$key] = $key.' — '.\Illuminate\Support\Str::limit((string) $text, 60);
+        }
+
+        return $options;
     }
 
     public static function getPages(): array

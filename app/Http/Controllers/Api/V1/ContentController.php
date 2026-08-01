@@ -223,6 +223,37 @@ class ContentController extends BaseApiController
     }
 
     /**
+     * Wording hotfixes the app merges over its bundled gu/hi/en strings
+     * on launch. Public + heavily cached: an empty overrides map is the
+     * normal steady state. `version` lets the client skip rewriting its
+     * local cache when nothing changed.
+     */
+    public function appStrings(): JsonResponse
+    {
+        $payload = \Illuminate\Support\Facades\Cache::remember(
+            \App\Models\AppStringOverride::CACHE_KEY,
+            300,
+            function () {
+                $rows = \App\Models\AppStringOverride::where('is_active', true)->get();
+
+                $overrides = ['gu' => [], 'hi' => [], 'en' => []];
+                foreach ($rows as $row) {
+                    if (array_key_exists($row->locale, $overrides)) {
+                        $overrides[$row->locale][$row->key] = $row->value;
+                    }
+                }
+
+                return [
+                    'version' => (int) ($rows->max('updated_at')?->timestamp ?? 0),
+                    'overrides' => $overrides,
+                ];
+            },
+        );
+
+        return $this->success($payload);
+    }
+
+    /**
      * Return live darshan stream configuration from system settings.
      */
     public function liveDarshan(): JsonResponse

@@ -67,6 +67,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     // call this; drop once app_min_version >= the release without blog UI.
     Route::get('/content/announcements', fn () => response()->json(
         ['success' => true, 'message' => 'Success', 'data' => []]));
+    Route::get('/content/app-strings', [ContentController::class, 'appStrings']);
     Route::get('/content/live-darshan', [ContentController::class, 'liveDarshan']);
     Route::get('/content/darshan-timings', [ContentController::class, 'darshanTimings']);
     Route::get('/content/daily-darshan-photo', [ContentController::class, 'dailyDarshanPhoto']);

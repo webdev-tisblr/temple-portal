@@ -57,23 +57,24 @@
                     </div>
                 </div>
             @else
-                {{-- Off-hours / no-stream placeholder: daily darshan photo (if
-                     any) + when darshan is next available. --}}
+                {{-- Off-hours / no-stream placeholder: the admin-set offline
+                     image (falls back to the daily darshan photo) + when
+                     darshan is next available. --}}
                 <div class="card-sacred overflow-hidden">
-                    @if(isset($dailyDarshanPhoto) && $dailyDarshanPhoto?->image_path)
-                        <div class="aspect-[4/3] relative">
-                            <img src="{{ image_url($dailyDarshanPhoto->image_path) }}"
-                                 alt="{{ __('darshan.today') }}"
+                    @if(!empty($livePlaceholderUrl))
+                        <div class="aspect-video relative">
+                            <img src="{{ $livePlaceholderUrl }}"
+                                 alt="{{ __('darshan.live_offline') }}"
                                  class="absolute inset-0 w-full h-full object-cover">
                             <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent"></div>
                             <div class="absolute bottom-0 left-0 right-0 p-5 text-center">
-                                <h3 class="text-lg font-bold text-gold">{{ __('darshan.live_offline') }}</h3>
+                                <h3 class="text-lg font-bold text-white">{{ __('darshan.live_offline') }}</h3>
                                 @if(!empty($nextDarshanAt))
-                                    <p class="text-amber-100/85 text-sm mt-1">
+                                    <p class="text-white text-sm mt-1">
                                         {{ __('darshan.next_darshan') }}:
                                         <span class="font-semibold tabular-nums">{{ $nextDarshanAt->format('h:i A') }}</span>
                                         @if(!$nextDarshanAt->isToday())
-                                            <span class="opacity-75">({{ $nextDarshanAt->isTomorrow() ? __('darshan.tomorrow') : $nextDarshanAt->format('D') }})</span>
+                                            <span class="opacity-80">({{ $nextDarshanAt->isTomorrow() ? __('darshan.tomorrow') : $nextDarshanAt->format('D') }})</span>
                                         @endif
                                     </p>
                                 @endif

@@ -57,10 +57,17 @@ class TempleController extends Controller
             }
         }
 
+        // Off-hours backdrop: the admin-set image (Daily Darshan → Live
+        // darshan settings) wins; today's darshan photo is the fallback.
+        $adminOffline = SystemSetting::getValue('live_darshan_placeholder_image', '');
+        $livePlaceholderUrl = $adminOffline
+            ? image_url($adminOffline)
+            : ($dailyDarshanPhoto?->image_path ? image_url($dailyDarshanPhoto->image_path) : null);
+
         SEOMeta::setTitle('દર્શન સમય — શ્રી પાતાળિયા હનુમાનજી');
         SEOMeta::setDescription('મંદિરના દૈનિક દર્શન સમય અને લાઇવ દર્શન.');
 
-        return view('pages.darshan', compact('timings', 'youtubeUrl', 'templeRules', 'dailyDarshanPhoto', 'isLiveNow', 'nextDarshanAt'));
+        return view('pages.darshan', compact('timings', 'youtubeUrl', 'templeRules', 'dailyDarshanPhoto', 'isLiveNow', 'nextDarshanAt', 'livePlaceholderUrl'));
     }
 
     public function trustees(): View

@@ -45,6 +45,18 @@ class TempleController extends Controller
         $isLiveNow = ! empty($youtubeUrl) && $schedule['is_open'];
         $nextDarshanAt = $schedule['next_opening'];
 
+        // Resolve channel-style /live URLs to the current live video so
+        // the chromeless player (which needs a video id) always mounts —
+        // otherwise those URLs fell back to a plain YouTube iframe.
+        if ($isLiveNow && ! youtube_video_id($youtubeUrl)) {
+            $channelId = SystemSetting::getValue('live_darshan_channel_id', '')
+                ?: SystemSetting::getValue('youtube_channel_id', '');
+            $resolvedId = \App\Support\YouTubeLive::resolveVideoId($youtubeUrl, $channelId ?: null);
+            if ($resolvedId) {
+                $youtubeUrl = "https://www.youtube.com/watch?v={$resolvedId}";
+            }
+        }
+
         SEOMeta::setTitle('દર્શન સમય — શ્રી પાતાળિયા હનુમાનજી');
         SEOMeta::setDescription('મંદિરના દૈનિક દર્શન સમય અને લાઇવ દર્શન.');
 

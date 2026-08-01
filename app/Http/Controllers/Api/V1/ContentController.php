@@ -270,6 +270,13 @@ class ContentController extends BaseApiController
         $schedule = \App\Models\DarshanTiming::scheduleNow();
         $isLive = ! empty($streamUrl) && $schedule['is_open'];
 
+        // Current live video id (resolves channel-style /live URLs too) —
+        // drives the real live thumbnail + in-app playback. Only probed
+        // while live; outside darshan hours clients show the placeholder.
+        $liveVideoId = $isLive
+            ? \App\Support\YouTubeLive::resolveVideoId($streamUrl, $channelId ?: null)
+            : null;
+
         // Placeholder for the off state: the admin-uploaded image from
         // System Settings → General wins; today's daily darshan photo is
         // the fallback when none is set.
@@ -292,6 +299,10 @@ class ContentController extends BaseApiController
                 : ($schedule['next_opening']?->isTomorrow() ? 'tomorrow' : $schedule['next_opening']?->format('D')),
             'placeholder_image_url' => $placeholderUrl,
             'channel_id' => $channelId,
+            'live_video_id' => $liveVideoId,
+            'live_thumbnail_url' => $liveVideoId
+                ? \App\Support\YouTubeLive::thumbnailUrl($liveVideoId)
+                : null,
         ]);
     }
 

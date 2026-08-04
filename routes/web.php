@@ -111,7 +111,7 @@ Route::redirect('/blog/{slug}', '/', 301);
 
 // Contact
 Route::get('/contact', [ContactController::class, 'index'])->name('contact');
-Route::post('/contact', [ContactController::class, 'submit'])->name('contact.submit');
+Route::post('/contact', [ContactController::class, 'submit'])->name('contact.submit')->middleware('turnstile');
 
 // Permanent signed receipt/invoice links — embedded in confirmation
 // messages (WhatsApp document headers, email bodies). Signature is the
@@ -140,7 +140,7 @@ Route::get('/hall-booking/check', [HallBookingController::class, 'checkAvailabil
 
 // Auth
 Route::get('/login', [AuthWebController::class, 'showLogin'])->name('login');
-Route::post('/login/otp/send', [AuthWebController::class, 'sendOtp'])->name('login.otp.send');
+Route::post('/login/otp/send', [AuthWebController::class, 'sendOtp'])->name('login.otp.send')->middleware('turnstile');
 Route::post('/login/otp/verify', [AuthWebController::class, 'verifyOtp'])->name('login.otp.verify');
 Route::post('/logout', [AuthWebController::class, 'logout'])->name('logout');
 // App→web session handoff — consumes the single-use token minted by

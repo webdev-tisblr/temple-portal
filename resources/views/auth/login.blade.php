@@ -76,6 +76,8 @@
                     </div>
                 </div>
 
+                <x-turnstile />
+
                 <button
                     type="submit"
                     class="w-full btn-divine py-3 px-4 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"

@@ -185,6 +185,20 @@ class SystemSettings extends Page implements HasForms
                                     ->password()->revealable()->placeholder('Enter webhook secret'),
                             ])->columns(2)->collapsible(),
 
+                        // Cloudflare Turnstile — public form protection.
+                        // Inert until BOTH keys are set: the <x-turnstile />
+                        // widget renders nothing and the `turnstile` route
+                        // middleware passes everything through.
+                        Forms\Components\Section::make('Cloudflare Turnstile — Form Protection')
+                            ->icon('heroicon-o-shield-check')
+                            ->description('Free CAPTCHA on the public website forms (contact + OTP login). Create a widget at Cloudflare dashboard → Turnstile for patadiyahanumanji.com (mode: Managed) and paste both keys. Leave empty to disable.')
+                            ->schema([
+                                Forms\Components\TextInput::make('turnstile_site_key')->label('Site Key')
+                                    ->placeholder('0x4AAA...'),
+                                Forms\Components\TextInput::make('turnstile_secret_key')->label('Secret Key')
+                                    ->password()->revealable()->placeholder('Enter secret key'),
+                            ])->columns(2)->collapsible(),
+
                         // Email / SMTP
                         Forms\Components\Section::make('Email / SMTP')
                             ->icon('heroicon-o-envelope')
@@ -328,6 +342,7 @@ class SystemSettings extends Page implements HasForms
             'trust_' => 'trust',
             'receipt_' => 'payment',
             'razorpay_' => 'payment',
+            'turnstile_' => 'security',
             'mail_' => 'mail',
             'whatsapp_' => 'whatsapp',
             'sms_' => 'sms',

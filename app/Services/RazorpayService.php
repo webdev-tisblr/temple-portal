@@ -38,17 +38,20 @@ class RazorpayService
 
     public function verifyWebhookSignature(string $payload, string $signature): bool
     {
-        try {
-            Api::verifyWebhookSignature(
-                $payload,
-                $signature,
-                SystemSetting::getValue('razorpay_webhook_secret', config('razorpay.webhook_secret'))
-            );
+        // Manual HMAC — the old `Api::verifyWebhookSignature()` static
+        // call doesn't exist on the SDK's Api class (it lives on Utility),
+        // so EVERY webhook delivery 500'd before the signature was ever
+        // checked (found 2026-08-04: zero rows in the webhook events
+        // table since launch). Razorpay signs the raw body with
+        // HMAC-SHA256(hex) using the webhook secret; hash_equals is the
+        // timing-safe comparison.
+        $secret = SystemSetting::getValue('razorpay_webhook_secret', config('razorpay.webhook_secret'));
 
-            return true;
-        } catch (SignatureVerificationError) {
+        if (! is_string($secret) || $secret === '' || $signature === '') {
             return false;
         }
+
+        return hash_equals(hash_hmac('sha256', $payload, $secret), $signature);
     }
 
     public function verifyPaymentSignature(string $orderId, string $paymentId, string $signature): bool

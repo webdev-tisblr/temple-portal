@@ -113,24 +113,12 @@ class PaymentCaptureService
             if ($booking !== null) {
                 $booking->update(['status' => 'confirmed']);
                 $booking->loadMissing('devotee', 'seva');
-                // dispatch() uses DB::afterCommit internally → safe to
-                // call inside the transaction; the actual driver work
-                // fires once the transaction commits.
-                //
-                // NotificationService dispatches ALL enabled templates
-                // for the key — so admin-role templates (for pujari /
-                // staff / etc.) fire alongside the devotee template
-                // here. No caller-side fan-out needed; the service
-                // expands admin_role strategy internally.
-                app(NotificationService::class)->dispatch(
-                    'seva.booking.confirmed',
-                    [
-                        'booking' => $booking,
-                        'devotee' => $booking->devotee,
-                        'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
-                    ],
-                    idempotencyKey: "payment:{$payment->id}:seva.booking.confirmed",
-                );
+                // The seva.booking.confirmed notification is NOT sent
+                // here — it fires from GenerateSevaReceipt (post-commit
+                // block below) so the single confirmation message can
+                // carry the receipt PDF + signed receipt_pdf_url.
+                // Merged flow, 2026-08-04; the old separate seva.receipt
+                // trigger is retired.
                 $captured['booking'] = $booking;
             }
 

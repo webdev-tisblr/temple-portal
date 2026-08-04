@@ -28,12 +28,22 @@ class GenerateStoreInvoice implements ShouldQueue
 
     public function handle(InvoiceService $invoiceService): void
     {
-        $path = $invoiceService->generateInvoice($this->order);
+        // A PDF failure must not swallow the confirmation — the signed
+        // invoice_pdf_url regenerates the PDF on first click anyway.
+        $path = null;
+        try {
+            $path = $invoiceService->generateInvoice($this->order);
 
-        Log::info('Store invoice generated', [
-            'order_id' => $this->order->id,
-            'order_number' => $this->order->order_number,
-        ]);
+            Log::info('Store invoice generated', [
+                'order_id' => $this->order->id,
+                'order_number' => $this->order->order_number,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Store invoice PDF failed — confirming without attachment', [
+                'order_id' => $this->order->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         $this->order->loadMissing('devotee', 'items', 'payment');
         $devotee = $this->order->devotee;
@@ -73,17 +83,27 @@ class GenerateStoreInvoice implements ShouldQueue
                 }
             }
 
+            $context = [
+                'devotee' => $devotee,
+                'order' => array_merge($this->order->toArray(), [
+                    'total_amount_formatted' => number_format((float) $this->order->total_amount, 2),
+                    'items_count' => $this->order->items->count(),
+                ]),
+                'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
+                // Permanent signed link — regenerates the PDF on miss;
+                // WhatsApp document headers point at this.
+                'invoice_pdf_url' => \Illuminate\Support\Facades\URL::signedRoute('store.invoice.link', ['order' => $this->order->id]),
+            ];
+
+            // Key must be ABSENT (not []) when there is no PDF: contexts
+            // with an _attachments key always send inline, never outbox.
+            if ($attachments !== []) {
+                $context['_attachments'] = $attachments;
+            }
+
             app(NotificationService::class)->dispatch(
                 'store.order.confirmed',
-                [
-                    'devotee' => $devotee,
-                    'order' => array_merge($this->order->toArray(), [
-                        'total_amount_formatted' => number_format((float) $this->order->total_amount, 2),
-                        'items_count' => $this->order->items->count(),
-                    ]),
-                    'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
-                    '_attachments' => $attachments,
-                ],
+                $context,
                 idempotencyKey: "order:{$this->order->id}:confirmed",
             );
 

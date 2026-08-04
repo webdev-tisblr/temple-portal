@@ -35,7 +35,7 @@ use Illuminate\Console\Command;
  *                            { devotee, receipt, donation, donor_name,
  *                              amount, amount_formatted, receipt_pdf_url,
  *                              greeting_card_url, trust_name }
- *   seva.booking.confirmed → { booking, devotee, trust_name }
+ *   seva.booking.confirmed → { booking (array + merged label/receipt keys), devotee, trust_name, receipt_number, receipt_pdf_url }
  *   hall.booking.confirmed → { booking (array), devotee, trust_name }
  *   store.order.confirmed  → { devotee, order (array), trust_name }
  *   auth.otp               → { phone, otp, expires_in_minutes, ... }
@@ -246,15 +246,28 @@ class AuditNotificationPlaceholders extends Command
                 ];
 
             case 'seva.booking.confirmed':
+                // Mirrors GenerateSevaReceipt's merged context (2026-08-04):
+                // booking as ARRAY + explicit label keys + receipt fields.
                 $booking = SevaBooking::query()
                     ->where('status', 'confirmed')
-                    ->with('devotee', 'seva')
-                    ->latest('id')->first();
+                    ->with('devotee', 'seva.assignee')
+                    ->orderByRaw('receipt_number IS NULL')
+                    ->latest('created_at')->first();
                 if (! $booking) return ['__no_data' => true];
                 return [
-                    'booking' => $booking,
+                    'booking' => array_merge($booking->toArray(), [
+                        'seva_name' => $booking->seva?->name_gu,
+                        'seva_name_en' => $booking->seva?->name_en,
+                        'booking_date' => $booking->booking_date?->format('d M Y'),
+                        'slot_label' => $booking->slot_time_label,
+                        'slot_time_label' => $booking->slot_time_label,
+                        'slot_time' => $booking->slot_time_label,
+                        'total_amount_formatted' => number_format((float) $booking->total_amount, 2),
+                    ]),
                     'devotee' => $booking->devotee,
                     'trust_name' => $trustName,
+                    'receipt_number' => $booking->receipt_number ?? 'SEVA-00000000-XXXXXXXXXX',
+                    'receipt_pdf_url' => '(signed URL — generated at dispatch)',
                 ];
 
             case 'hall.booking.confirmed':
@@ -282,6 +295,7 @@ class AuditNotificationPlaceholders extends Command
                     ]),
                     'devotee' => $booking->devotee,
                     'trust_name' => $trustName,
+                    'invoice_pdf_url' => '(signed URL — generated at dispatch)',
                 ];
 
             case 'store.order.confirmed':
@@ -297,6 +311,7 @@ class AuditNotificationPlaceholders extends Command
                         'items_count' => $order->items?->count() ?? 0,
                     ]),
                     'trust_name' => $trustName,
+                    'invoice_pdf_url' => '(signed URL — generated at dispatch)',
                 ];
 
             case 'auth.otp':

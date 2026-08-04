@@ -4,24 +4,20 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Web;
 
-use App\Helpers\NumberToWords;
 use App\Http\Controllers\Controller;
+use App\Jobs\GenerateHallInvoice;
 use App\Models\Hall;
 use App\Models\HallBooking;
 use App\Models\Payment;
 use App\Models\SystemSetting;
-use App\Services\Notifications\NotificationService;
 use App\Services\PaymentCaptureService;
 use App\Services\RazorpayService;
-use App\Support\Pdf\GujaratiPdf;
 use Artesaos\SEOTools\Facades\SEOMeta;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -244,8 +240,16 @@ class HallBookingController extends Controller
 
             Log::info('Hall booking confirmed (test mode)', ['booking_id' => $result['booking']->id]);
 
-            // Generate invoice
-            $this->generateHallInvoice($result['booking']);
+            // Same post-capture path as live payments: PDF + the single
+            // hall.booking.confirmed dispatch live in the job.
+            try {
+                GenerateHallInvoice::dispatchSync($result['booking']);
+            } catch (\Throwable $e) {
+                Log::error('Test-mode hall invoice job failed', [
+                    'booking_id' => $result['booking']->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
             return view('pages.hall-booking.success', [
                 'verified' => true,
@@ -317,8 +321,9 @@ class HallBookingController extends Controller
         // sweep NULLs invoice_path when it deletes the object.
         if (! $booking->invoice_path) {
             try {
-                // false = self-heal regen, don't re-email the customer.
-                $this->generateHallInvoice($booking, sendEmail: false);
+                // Service, not the job — self-heal regen must not
+                // re-notify the customer.
+                app(\App\Services\HallInvoiceService::class)->generateInvoice($booking);
                 $booking->refresh();
             } catch (\Throwable $e) {
                 Log::error('On-demand hall invoice regen failed', [
@@ -337,111 +342,8 @@ class HallBookingController extends Controller
         return private_file_redirect($booking->invoice_path, $filename);
     }
 
-    /**
-     * Generate the hall booking invoice PDF + persist to R2.
-     *
-     * $sendEmail = true on initial confirmation flow (emails the customer
-     *   their PDF). false when called from a self-heal download path so
-     *   we don't email the customer every time they redownload the PDF.
-     */
-    public function generateHallInvoice(HallBooking $booking, bool $sendEmail = true): void
-    {
-        try {
-            $booking->loadMissing('hall', 'devotee');
-
-            $trustName = SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust');
-            $trustAddress = SystemSetting::getValue('trust_address', 'Antarjal, Gandhidham, Kutch - 370205');
-
-            $bookingNumber = 'HALL-'.$booking->id.'-'.$booking->created_at->format('Ymd');
-
-            // mPDF via GujaratiPdf, NOT DomPDF — hirer names/addresses carry
-            // Gujarati, which DomPDF cannot shape (matra/conjunct garbling).
-            $output = GujaratiPdf::render('invoices.hall-booking-invoice', [
-                'booking' => $booking,
-                'trust_name' => $trustName,
-                'trust_address' => $trustAddress,
-                'booking_number' => $bookingNumber,
-                'amount_in_words' => NumberToWords::convert((float) $booking->total_amount),
-            ], ['format' => 'A4', 'watermark' => 'HALL BOOKING']);
-
-            $directory = 'hall-invoices';
-            $filename = "{$bookingNumber}.pdf";
-            $path = "{$directory}/{$filename}";
-
-            Storage::disk('r2_private')->put($path, $output);
-
-            $booking->update(['invoice_path' => $path]);
-
-            // Fire notification trigger only on the initial confirmation
-            // path. Self-heal regeneration calls this with $sendEmail=false
-            // to avoid re-notifying the customer every time the PDF is
-            // re-downloaded. Notifications are dispatched via configured
-            // NotificationTemplate rows (WhatsApp / SMS / push). Hall
-            // booking no longer collects contact_email; the trust can
-            // wire email via the devotee's profile email if needed.
-            if ($sendEmail) {
-                $this->emailHallInvoice($booking, $path);
-            }
-
-        } catch (\Exception $e) {
-            Log::error('Hall invoice generation failed', [
-                'booking_id' => $booking->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
-
-    private function emailHallInvoice(HallBooking $booking, string $path): void
-    {
-        try {
-            $pdfBytes = Storage::disk('r2_private')->get($path);
-            $bookingNumber = 'HALL-'.$booking->id.'-'.$booking->created_at->format('Ymd');
-
-            $bookingTypeLabel = match ($booking->booking_type) {
-                'full_day' => 'Full Day',
-                'half_day_morning' => 'Half Day (Morning)',
-                'half_day_evening' => 'Half Day (Evening)',
-                default => ucfirst($booking->booking_type),
-            };
-
-            // Single dispatch entry — every enabled NotificationTemplate
-            // for 'hall.booking.confirmed' (email today; WhatsApp / push
-            // when the admin enables them) fires from here.
-            app(NotificationService::class)->dispatch(
-                'hall.booking.confirmed',
-                [
-                    'booking' => array_merge($booking->toArray(), [
-                        'booking_number' => $bookingNumber,
-                        'booking_type_label' => $bookingTypeLabel,
-                        'booking_date' => $booking->booking_date?->format('d M Y'),
-                        'total_amount_formatted' => number_format((float) $booking->total_amount, 2),
-                        'contact_phone' => $booking->contact_phone,
-                        'contact_name' => $booking->contact_name,
-                        'hall' => $booking->hall ? $booking->hall->toArray() : null,
-                    ]),
-                    'devotee' => $booking->devotee,
-                    'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
-                    '_attachments' => [[
-                        'data' => $pdfBytes,
-                        'name' => "HallBooking_{$bookingNumber}.pdf",
-                        'mime' => 'application/pdf',
-                    ]],
-                ],
-                idempotencyKey: "hall-booking:{$booking->id}:confirmed",
-            );
-
-            Log::info('Hall booking invoice dispatched via NotificationService', [
-                'booking_id' => $booking->id,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Hall invoice dispatch failed', [
-                'booking_id' => $booking->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
-
-    // The hall-booking confirmation email body now lives in the
-    // notification_templates table (see NotificationTemplatesSeeder
-    // for the seeded default). Removed: buildHallInvoiceEmailHtml().
+    // PDF render + hall.booking.confirmed dispatch both live in
+    // GenerateHallInvoice (job) / HallInvoiceService now — the old
+    // generateHallInvoice() + emailHallInvoice() duplicates were
+    // removed 2026-08-04 when the receipt merged into the trigger.
 }

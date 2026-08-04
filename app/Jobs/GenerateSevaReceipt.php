@@ -15,22 +15,29 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 
 /**
  * Builds the seva-booking receipt PDF, writes it to R2 private, and
- * fires the `seva.receipt` notification with the PDF attached.
+ * fires the SINGLE `seva.booking.confirmed` notification carrying the
+ * receipt (PDF attached for email, permanent signed receipt_pdf_url
+ * for WhatsApp document headers / message bodies).
+ *
+ * This is the merged flow (2026-08-04): payment captured → receipt
+ * generated → one confirmation trigger. The old separate `seva.receipt`
+ * trigger is retired; its template rows were re-keyed by migration.
  *
  * Mirrors GenerateHallInvoice: lives outside the PaymentCaptureService
  * transaction so a slow PDF render can never hold the Payment row's
  * lock. Dispatched by PaymentCaptureService::markCaptured after the
  * booking row commits to status='confirmed'.
  *
- * Nothing sends unless an admin has created + enabled a
- * NotificationTemplate for `seva.receipt` (zero auto-fire policy) —
- * the separate `seva.booking.confirmed` trigger is unaffected.
+ * A PDF failure must NOT swallow the confirmation: the trigger still
+ * fires without the attachment — the signed URL regenerates the PDF
+ * on first click, so the link in the message stays serviceable.
  *
- * `$sendNotification = false` is used by the self-heal regeneration
- * path so re-downloading the PDF doesn't re-notify the devotee.
+ * `$sendNotification = false` is used by self-heal regeneration paths
+ * so re-downloading the PDF doesn't re-notify the devotee.
  */
 class GenerateSevaReceipt implements ShouldQueue
 {
@@ -45,62 +52,72 @@ class GenerateSevaReceipt implements ShouldQueue
 
     public function handle(SevaReceiptService $receipts, NotificationService $notifications): void
     {
+        $pdfBytes = null;
+
         try {
             $path = $receipts->generateReceipt($this->booking);
-            // seva.assignee too — booking goes into the context as an
-            // ARRAY, so the assignee_name/phone placeholders only resolve
-            // if the relation is loaded before toArray().
-            $this->booking->refresh()->loadMissing('devotee', 'seva.assignee');
+            $pdfBytes = Storage::disk('r2_private')->get($path);
 
             Log::info('Seva receipt generated', [
                 'booking_id' => $this->booking->id,
                 'receipt_number' => $this->booking->receipt_number,
             ]);
-
-            if (! $this->sendNotification) {
-                return;
-            }
-
-            $pdfBytes = Storage::disk('r2_private')->get($path);
-            // Presigned link for WhatsApp document headers — the file may
-            // be swept after 7 days, but downloads regenerate on miss via
-            // the app/web endpoints, so the attachment window matches 80G.
-            $pdfUrl = Storage::disk('r2_private')->temporaryUrl($path, now()->addDays(7));
-
-            $trustName = SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust');
-
-            $notifications->dispatch(
-                'seva.receipt',
-                [
-                    'booking' => array_merge($this->booking->toArray(), [
-                        'seva_name' => $this->booking->seva?->name_gu,
-                        'seva_name_en' => $this->booking->seva?->name_en,
-                        'booking_date' => $this->booking->booking_date?->format('d M Y'),
-                        'slot_label' => $this->booking->slot_time_label,
-                        'total_amount_formatted' => number_format((float) $this->booking->total_amount, 2),
-                    ]),
-                    'devotee' => $this->booking->devotee,
-                    'trust_name' => $trustName,
-                    'receipt_number' => $this->booking->receipt_number,
-                    'receipt_pdf_url' => $pdfUrl,
-                    '_attachments' => [[
-                        'data' => $pdfBytes,
-                        'name' => "Seva_Receipt_{$this->booking->receipt_number}.pdf",
-                        'mime' => 'application/pdf',
-                    ]],
-                ],
-                idempotencyKey: "seva-booking:{$this->booking->id}:receipt",
-            );
-
-            Log::info('Seva receipt dispatched via NotificationService', [
-                'booking_id' => $this->booking->id,
-            ]);
         } catch (\Throwable $e) {
-            Log::error('Seva receipt generation failed', [
+            Log::error('Seva receipt PDF failed — confirming without attachment', [
                 'booking_id' => $this->booking->id,
                 'error' => $e->getMessage(),
             ]);
-            throw $e;
         }
+
+        if (! $this->sendNotification) {
+            return;
+        }
+
+        // seva.assignee too — booking goes into the context as an
+        // ARRAY, so the assignee_name/phone placeholders only resolve
+        // if the relation is loaded before toArray().
+        $this->booking->refresh()->loadMissing('devotee', 'seva.assignee');
+
+        $context = [
+            'booking' => array_merge($this->booking->toArray(), [
+                'seva_name' => $this->booking->seva?->name_gu,
+                'seva_name_en' => $this->booking->seva?->name_en,
+                'booking_date' => $this->booking->booking_date?->format('d M Y'),
+                // slot_time_label is an accessor and does NOT survive
+                // toArray(); templates map it under three names (legacy
+                // confirmed-, legacy receipt-, and raw-column paths).
+                'slot_label' => $this->booking->slot_time_label,
+                'slot_time_label' => $this->booking->slot_time_label,
+                'slot_time' => $this->booking->slot_time_label,
+                'total_amount_formatted' => number_format((float) $this->booking->total_amount, 2),
+            ]),
+            'devotee' => $this->booking->devotee,
+            'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
+            'receipt_number' => $this->booking->receipt_number,
+            // Permanent signed link — regenerates the PDF on miss, so it
+            // outlives the 7-day r2_private sweep (unlike a presign).
+            'receipt_pdf_url' => URL::signedRoute('seva.receipt.link', ['booking' => $this->booking->id]),
+        ];
+
+        // Key must be ABSENT (not []) when there is no PDF: contexts with
+        // an _attachments key always send inline, never via the outbox.
+        if ($pdfBytes !== null) {
+            $context['_attachments'] = [[
+                'data' => $pdfBytes,
+                'name' => "Seva_Receipt_{$this->booking->receipt_number}.pdf",
+                'mime' => 'application/pdf',
+            ]];
+        }
+
+        $notifications->dispatch(
+            'seva.booking.confirmed',
+            $context,
+            idempotencyKey: "seva-booking:{$this->booking->id}:confirmed",
+        );
+
+        Log::info('Seva booking confirmation dispatched via NotificationService', [
+            'booking_id' => $this->booking->id,
+            'has_pdf' => $pdfBytes !== null,
+        ]);
     }
 }

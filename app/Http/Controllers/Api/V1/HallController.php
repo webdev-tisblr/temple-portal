@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Http\Controllers\Web\HallBookingController;
 use App\Models\Hall;
 use App\Models\HallBooking;
 use App\Models\Payment;
@@ -289,12 +288,10 @@ class HallController extends BaseApiController
         // No R2 ->exists() probe — S3 HEADs from Hostinger hang, and the
         // sweep NULLs invoice_path when it deletes the object.
         if (! $booking->invoice_path) {
-            // The web controller has the inline generator; call it as a
-            // service-like action. sendEmail=false so we don't re-email the
-            // customer every time they redownload from the mobile app.
+            // Service, not the GenerateHallInvoice job — self-heal regen
+            // must not re-notify the customer on every redownload.
             try {
-                app(HallBookingController::class)
-                    ->generateHallInvoice($booking, sendEmail: false);
+                app(\App\Services\HallInvoiceService::class)->generateInvoice($booking);
                 $booking->refresh();
             } catch (\Throwable $e) {
                 Log::error('On-demand hall invoice regen failed (api)', [

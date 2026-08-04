@@ -113,6 +113,16 @@ Route::redirect('/blog/{slug}', '/', 301);
 Route::get('/contact', [ContactController::class, 'index'])->name('contact');
 Route::post('/contact', [ContactController::class, 'submit'])->name('contact.submit');
 
+// Permanent signed receipt/invoice links — embedded in confirmation
+// messages (WhatsApp document headers, email bodies). Signature is the
+// authorization; PDFs regenerate on miss, so links never expire.
+// NOT in the CacheGuestResponse whitelist / Cloudflare cache rule.
+Route::middleware(['signed', 'throttle:30,1'])->group(function () {
+    Route::get('/r/seva-receipt/{booking}', [\App\Http\Controllers\Web\ReceiptLinkController::class, 'sevaReceipt'])->name('seva.receipt.link');
+    Route::get('/r/store-invoice/{order}', [\App\Http\Controllers\Web\ReceiptLinkController::class, 'storeInvoice'])->name('store.invoice.link');
+    Route::get('/r/hall-invoice/{booking}', [\App\Http\Controllers\Web\ReceiptLinkController::class, 'hallInvoice'])->name('hall.invoice.link');
+});
+
 // Store (public)
 Route::get('/store', [StoreWebController::class, 'index'])->name('store.index');
 Route::get('/store/category/{slug}', [StoreWebController::class, 'category'])->name('store.category');

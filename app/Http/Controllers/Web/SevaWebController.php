@@ -234,6 +234,18 @@ class SevaWebController extends Controller
 
             Log::info('Web seva booking confirmed (test mode)', ['booking_id' => $result['booking']->id]);
 
+            // Same post-capture path as live payments: receipt PDF + the
+            // single seva.booking.confirmed dispatch live in the job.
+            // Without this, test-mode seva bookings sent nothing at all.
+            try {
+                \App\Jobs\GenerateSevaReceipt::dispatchSync($result['booking']);
+            } catch (\Throwable $e) {
+                Log::error('Test-mode seva receipt job failed', [
+                    'booking_id' => $result['booking']->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             return view('pages.seva.booking-success', [
                 'verified' => true,
                 'booking' => $result['booking']->load('seva'),

@@ -25,8 +25,8 @@ namespace App\Services\Notifications;
  *   donation.confirmed     → app/Services/PaymentCaptureService.php
  *   donation.receipt_80g   → app/Jobs/Generate80GReceipt.php
  *   donation.greeting_card → app/Jobs/GenerateGreetingCard.php
- *   seva.booking.confirmed → app/Services/PaymentCaptureService.php
- *   hall.booking.confirmed → app/Http/Controllers/Web/HallBookingController.php
+ *   seva.booking.confirmed → app/Jobs/GenerateSevaReceipt.php
+ *   hall.booking.confirmed → app/Jobs/GenerateHallInvoice.php
  *   store.order.confirmed  → app/Jobs/GenerateStoreInvoice.php
  *   auth.otp               → app/Services/OtpService.php
  *   contact.submitted      → app/Http/Controllers/Web/ContactController.php
@@ -103,46 +103,30 @@ final class NotificationRegistry
             ],
 
             // ── Seva flow ─────────────────────────────────────────────
-            // Context: booking (SevaBooking w/ devotee + seva loaded),
-            //   devotee, trust_name.
-            // Seva model exposes name_gu/hi/en — no plain `name` column.
-            'seva.booking.confirmed' => [
-                'label' => 'Seva — booking confirmed',
-                'description' => 'Fires when a seva booking payment is captured. Devotee recipient.',
-                'placeholders' => [
-                    'devotee_name' => 'Devotee name (devotee.name)',
-                    'seva_name' => 'Seva name in Gujarati (booking.seva.name_gu)',
-                    'booking_date' => 'Booking date (booking.booking_date)',
-                    'slot_time' => 'Slot time — reads "Whole day"/"Whole week" for full-day sevas (booking.slot_time_label)',
-                    'amount' => 'Total amount (booking.total_amount)',
-                    'booking_id' => 'Booking ID (booking.id)',
-                    'assignee_name' => 'Seva assignee (pujari/staff) name — empty when the seva has no assignee (booking.seva.assignee.name)',
-                    'assignee_phone' => 'Seva assignee phone — empty when the seva has no assignee (booking.seva.assignee.phone)',
-                    'trust_name' => 'Trust name from System Settings (trust_name)',
-                ],
-            ],
-
-            // Fires from GenerateSevaReceipt right after payment capture.
+            // MERGED trigger (2026-08-04): fires from GenerateSevaReceipt
+            // right after payment capture, once the receipt PDF exists —
+            // the ONE confirmation message carries the receipt. The old
+            // separate `seva.receipt` trigger is retired; its template
+            // rows were re-keyed here by migration.
             // Context: booking (SevaBooking->toArray() merged with:
-            //   seva_name (gu), seva_name_en, booking_date formatted
-            //   'd M Y', slot_label, total_amount_formatted,
-            //   receipt_number), devotee, trust_name, receipt_number,
-            //   receipt_pdf_url (presigned, 7 days), _attachments (PDF).
-            // Separate deliverable from seva.booking.confirmed so the
-            // trust can enable either or both independently.
-            'seva.receipt' => [
-                'label' => 'Seva — booking receipt',
-                'description' => 'Fires when the seva booking receipt PDF is generated (right after payment capture). PDF attached for email; use receipt_pdf_url for WhatsApp document headers.',
+            //   seva_name (gu), seva_name_en, booking_date 'd M Y',
+            //   slot_label / slot_time_label / slot_time (all the label),
+            //   total_amount_formatted, receipt_number), devotee,
+            //   trust_name, receipt_number, receipt_pdf_url (permanent
+            //   signed link), _attachments (PDF — absent if render failed).
+            'seva.booking.confirmed' => [
+                'label' => 'Seva — booking confirmed (with receipt)',
+                'description' => 'Fires when a seva booking payment is captured and the receipt PDF is generated — one message carrying the receipt. For WhatsApp, point the Header (DOCUMENT) link at {{ receipt_pdf_url }} (permanent link, regenerates on demand); for email the PDF is attached automatically.',
                 'placeholders' => [
                     'devotee_name' => 'Devotee name (devotee.name)',
                     'seva_name' => 'Seva name in Gujarati (booking.seva_name)',
                     'seva_name_en' => 'Seva name in English (booking.seva_name_en)',
                     'booking_date' => 'Seva date, e.g. 28 Jul 2026 (booking.booking_date)',
-                    'slot_time' => 'Slot label — reads "Whole day"/"Whole week" for full-day sevas (booking.slot_label)',
+                    'slot_time' => 'Slot label — reads "Whole day"/"Whole week" for full-day sevas (booking.slot_time_label)',
                     'quantity' => 'Quantity booked (booking.quantity)',
                     'amount' => 'Total amount, formatted (booking.total_amount_formatted)',
                     'receipt_number' => 'Receipt number (receipt_number)',
-                    'receipt_pdf_url' => 'Receipt PDF link — presigned, valid 7 days (receipt_pdf_url)',
+                    'receipt_pdf_url' => 'Receipt PDF link — permanent, regenerates on demand (receipt_pdf_url)',
                     'booking_id' => 'Booking ID (booking.id)',
                     'assignee_name' => 'Seva assignee (pujari/staff) name — empty when the seva has no assignee (booking.seva.assignee.name)',
                     'assignee_phone' => 'Seva assignee phone — empty when the seva has no assignee (booking.seva.assignee.phone)',
@@ -207,11 +191,12 @@ final class NotificationRegistry
             //   with: booking_number, booking_type_label, booking_date
             //   formatted, total_amount_formatted, contact_phone,
             //   contact_name, hall (array)), devotee, trust_name,
-            //   _attachments.
+            //   invoice_pdf_url (permanent signed link), _attachments
+            //   (absent if PDF render failed).
             // Hall.name (not localized).
             'hall.booking.confirmed' => [
                 'label' => 'Hall — booking confirmed',
-                'description' => 'Fires when a hall booking payment is captured.',
+                'description' => 'Fires when a hall booking payment is captured and the invoice PDF is generated. For WhatsApp, point the Header (DOCUMENT) link at {{ invoice_pdf_url }} (permanent link, regenerates on demand); for email the PDF is attached automatically.',
                 'placeholders' => [
                     'contact_name' => 'Contact name (booking.contact_name)',
                     'contact_phone' => 'Contact phone (booking.contact_phone)',
@@ -221,22 +206,25 @@ final class NotificationRegistry
                     'purpose' => 'Booking purpose (booking.purpose)',
                     'amount' => 'Total amount with thousands separator (booking.total_amount_formatted)',
                     'booking_number' => 'Booking number (booking.booking_number)',
+                    'invoice_pdf_url' => 'Invoice PDF link — permanent, regenerates on demand (invoice_pdf_url)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
             ],
 
             // ── Store flow ────────────────────────────────────────────
             // Context: devotee, order (array of Order->toArray() merged
-            //   with: total_amount_formatted, items_count),
-            //   trust_name, _attachments.
+            //   with: total_amount_formatted, items_count), trust_name,
+            //   invoice_pdf_url (permanent signed link), _attachments
+            //   (absent if PDF render failed).
             'store.order.confirmed' => [
                 'label' => 'Store — order confirmed',
-                'description' => 'Fires when a store order payment is captured.',
+                'description' => 'Fires when a store order payment is captured and the invoice PDF is generated. For WhatsApp, point the Header (DOCUMENT) link at {{ invoice_pdf_url }} (permanent link, regenerates on demand); for email the PDF is attached automatically.',
                 'placeholders' => [
                     'devotee_name' => 'Devotee name (devotee.name)',
                     'order_number' => 'Order number (order.order_number)',
                     'amount' => 'Total amount with thousands separator (order.total_amount_formatted)',
                     'item_count' => 'Number of distinct items (order.items_count)',
+                    'invoice_pdf_url' => 'Invoice PDF link — permanent, regenerates on demand (invoice_pdf_url)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
             ],

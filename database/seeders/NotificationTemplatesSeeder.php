@@ -96,14 +96,17 @@ class NotificationTemplatesSeeder extends Seeder
                 ],
             ],
 
-            // ── SEVA RECEIPT — email ──────────────────────────────────────
+            // ── SEVA BOOKING CONFIRMED (merged, receipt-carrying) — email ──
+            // One message per booking: confirmation + receipt PDF attached.
+            // The old separate seva.receipt trigger/template was merged in
+            // here (2026-08-04 migration re-keys existing installs).
             [
-                'key' => 'seva.receipt',
+                'key' => 'seva.booking.confirmed',
                 'channel' => NotificationTemplate::CHANNEL_EMAIL,
-                'label' => 'Seva receipt — devotee email',
-                'description' => 'Sent with the seva booking receipt PDF attached when a seva payment is captured. Separate from the booking-confirmed message.',
+                'label' => 'Seva booking — confirmation email (with receipt)',
+                'description' => 'Sent when a seva booking payment is captured; the receipt PDF is attached and {{ receipt_pdf_url }} links to it permanently.',
                 'is_enabled' => true,
-                'subject' => 'Seva Booking Receipt — {{ receipt_number }}',
+                'subject' => 'Seva booking confirmed — {{ seva_name }}',
                 'body' => $this->sevaReceiptHtml(),
                 'recipient_strategy' => NotificationTemplate::RECIPIENT_DEVOTEE,
                 'recipient_value' => null,
@@ -111,8 +114,10 @@ class NotificationTemplatesSeeder extends Seeder
                     'devotee_name' => 'devotee.name',
                     'seva_name' => 'booking.seva_name',
                     'booking_date' => 'booking.booking_date',
+                    'slot_time' => 'booking.slot_time_label',
                     'amount' => 'booking.total_amount_formatted',
                     'receipt_number' => 'receipt_number',
+                    'receipt_pdf_url' => 'receipt_pdf_url',
                     'trust_name' => 'trust_name',
                 ],
             ],
@@ -172,27 +177,6 @@ class NotificationTemplatesSeeder extends Seeder
                 'placeholder_map' => [
                     'donor_name' => 'devotee.name',
                     'amount' => 'donation.amount',
-                    'trust_name' => 'trust_name',
-                ],
-            ],
-
-            // ── SEVA BOOKING CONFIRMED — email ────────────────────────────
-            [
-                'key' => 'seva.booking.confirmed',
-                'channel' => NotificationTemplate::CHANNEL_EMAIL,
-                'label' => 'Seva booking — confirmation email',
-                'description' => 'Sent when a seva booking payment is captured.',
-                'is_enabled' => true,
-                'subject' => 'Seva booking confirmed — {{ seva_name }}',
-                'body' => $this->sevaBookingHtml(),
-                'recipient_strategy' => NotificationTemplate::RECIPIENT_DEVOTEE,
-                'recipient_value' => null,
-                'placeholder_map' => [
-                    'devotee_name' => 'devotee.name',
-                    'seva_name' => 'booking.seva.name_gu',
-                    'booking_date' => 'booking.booking_date',
-                    'slot_time' => 'booking.slot_time',
-                    'amount' => 'booking.total_amount',
                     'trust_name' => 'trust_name',
                 ],
             ],
@@ -300,29 +284,6 @@ class NotificationTemplatesSeeder extends Seeder
         HTML;
     }
 
-    private function sevaBookingHtml(): string
-    {
-        return <<<'HTML'
-        <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
-            <div style="background:#881337;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
-                <h1 style="color:#e8c36a;margin:0;font-size:20px;">Seva Booking Confirmed</h1>
-                <p style="color:#ddd;margin:6px 0 0;font-size:13px;">{{ trust_name }}</p>
-            </div>
-            <div style="padding:24px;background:#fff;border:1px solid #eee;border-top:none;border-radius:0 0 8px 8px;">
-                <p style="margin:0 0 14px;">Dear <strong>{{ devotee_name }}</strong>,</p>
-                <p style="margin:0 0 14px;color:#555;">Your seva has been confirmed.</p>
-                <table style="width:100%;border-collapse:collapse;margin:8px 0 14px;background:#f9f5ef;border-radius:6px;overflow:hidden;">
-                    <tr><td style="padding:10px 14px;color:#888;font-size:12px;">Seva</td><td style="padding:10px 14px;font-weight:700;color:#881337;">{{ seva_name }}</td></tr>
-                    <tr><td style="padding:10px 14px;color:#888;font-size:12px;">Date</td><td style="padding:10px 14px;font-weight:600;">{{ booking_date }}</td></tr>
-                    <tr><td style="padding:10px 14px;color:#888;font-size:12px;">Slot</td><td style="padding:10px 14px;font-weight:600;">{{ slot_time }}</td></tr>
-                    <tr style="background:#f0e8d8;"><td style="padding:12px 14px;font-weight:700;font-size:14px;color:#881337;">Amount</td><td style="padding:12px 14px;font-weight:700;font-size:14px;color:#881337;">₹{{ amount }}</td></tr>
-                </table>
-                <p style="margin:14px 0 0;color:#881337;font-weight:600;">May Shree Hanumanji bless you and your family.</p>
-            </div>
-        </div>
-        HTML;
-    }
-
     private function hallBookingHtml(): string
     {
         return <<<'HTML'
@@ -404,19 +365,20 @@ class NotificationTemplatesSeeder extends Seeder
         return <<<'HTML'
         <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
             <div style="background:#881337;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
-                <h1 style="color:#e8c36a;margin:0;font-size:20px;">Your Seva Booking Receipt</h1>
+                <h1 style="color:#e8c36a;margin:0;font-size:20px;">Seva Booking Confirmed</h1>
                 <p style="color:#ddd;margin:6px 0 0;font-size:13px;">{{ trust_name }}</p>
             </div>
             <div style="padding:24px;background:#fff;border:1px solid #eee;border-top:none;">
                 <p style="margin:0 0 16px;">Dear <strong>{{ devotee_name }}</strong>,</p>
-                <p style="margin:0 0 16px;color:#555;">Thank you for booking a seva. Your booking receipt is attached to this email.</p>
+                <p style="margin:0 0 16px;color:#555;">Your seva booking is confirmed. The receipt is attached to this email.</p>
                 <table style="width:100%;border-collapse:collapse;margin:8px 0 16px;background:#f9f5ef;border-radius:6px;overflow:hidden;">
                     <tr><td style="padding:10px 14px;color:#888;font-size:12px;">Receipt No.</td><td style="padding:10px 14px;font-weight:700;color:#881337;">{{ receipt_number }}</td></tr>
                     <tr><td style="padding:10px 14px;color:#888;font-size:12px;">Seva</td><td style="padding:10px 14px;font-weight:600;">{{ seva_name }}</td></tr>
                     <tr><td style="padding:10px 14px;color:#888;font-size:12px;">Seva date</td><td style="padding:10px 14px;font-weight:600;">{{ booking_date }}</td></tr>
+                    <tr><td style="padding:10px 14px;color:#888;font-size:12px;">Slot</td><td style="padding:10px 14px;font-weight:600;">{{ slot_time }}</td></tr>
                     <tr style="background:#f0e8d8;"><td style="padding:12px 14px;font-weight:700;font-size:14px;color:#881337;">Amount</td><td style="padding:12px 14px;font-weight:700;font-size:14px;color:#881337;">₹{{ amount }}</td></tr>
                 </table>
-                <p style="margin:20px 0 0;color:#555;font-size:13px;">Please retain the attached PDF for your records.</p>
+                <p style="margin:20px 0 0;color:#555;font-size:13px;">Please retain the attached PDF for your records. You can also <a href="{{ receipt_pdf_url }}" style="color:#881337;font-weight:600;">download your receipt</a> anytime.</p>
                 <p style="margin:16px 0 0;color:#881337;font-weight:600;">May Shree Hanumanji bless you and your family.</p>
             </div>
             <div style="padding:16px;text-align:center;background:#f5f0ea;border-radius:0 0 8px 8px;border:1px solid #eee;border-top:none;">

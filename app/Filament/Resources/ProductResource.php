@@ -58,15 +58,23 @@ class ProductResource extends Resource
                 Forms\Components\TextInput::make('price')->numeric()->prefix('₹')->required()
                     ->label(fn (Forms\Get $get) => $get('has_variants') ? 'Starting Price (display)' : 'Price')
                     ->helperText(fn (Forms\Get $get) => $get('has_variants') ? 'Shown as "₹xxx+" on listings. Set to lowest variant price.' : ''),
+                // Untracked products are always purchasable — no counts,
+                // nothing decremented on sale, no restock on cancel.
+                Forms\Components\Toggle::make('track_stock')
+                    ->label('Track Stock')
+                    ->default(true)
+                    ->live()
+                    ->helperText('Off = unlimited availability (no stock counts anywhere). On = manage stock below; sales reduce it and the product shows Out of Stock at zero.')
+                    ->columnSpanFull(),
                 // Top-level stock — only meaningful for non-variant products.
                 // Hidden when has_variants is on so admins don't accidentally
                 // edit it (variant stock is on each row below instead).
                 Forms\Components\TextInput::make('stock_quantity')
                     ->numeric()
                     ->minValue(0)
-                    ->required(fn (Forms\Get $get) => ! $get('has_variants'))
+                    ->required(fn (Forms\Get $get) => $get('track_stock') && ! $get('has_variants'))
                     ->default(0)
-                    ->visible(fn (Forms\Get $get) => ! $get('has_variants'))
+                    ->visible(fn (Forms\Get $get) => $get('track_stock') && ! $get('has_variants'))
                     ->helperText('Total units in stock. For variable products, set stock on each variant below instead.'),
                 Forms\Components\Repeater::make('variants')
                     ->label('Price & Stock Variants')
@@ -78,8 +86,11 @@ class ProductResource extends Resource
                             ->required()->numeric()->prefix('₹')->minValue(1),
                         // Per-variant stock. Variable products gate
                         // add-to-cart against THIS number, not stock_quantity.
+                        // Hidden entirely for untracked products.
                         Forms\Components\TextInput::make('stock')->label('Stock')
-                            ->required()->numeric()->minValue(0)->default(0)
+                            ->required(fn (Forms\Get $get) => (bool) $get('../../track_stock'))
+                            ->numeric()->minValue(0)->default(0)
+                            ->visible(fn (Forms\Get $get) => (bool) $get('../../track_stock'))
                             ->helperText('Units available for this option.'),
                     ])
                     ->columns(3)
@@ -123,15 +134,19 @@ class ProductResource extends Resource
                 Tables\Columns\TextColumn::make('price')->prefix('₹')->sortable()
                     ->description(fn (Product $record) => $record->has_variants ? 'Variable' : null),
                 Tables\Columns\TextColumn::make('stock_quantity')->label('Stock')
-                    // Variable products: sum each variant's stock so the
-                    // admin sees a total at-a-glance. Non-variant products
-                    // just show the column value as-is.
-                    ->state(fn (Product $record) => $record->has_variants
-                        ? (string) collect($record->variants ?? [])->sum(fn ($v) => (int) ($v['stock'] ?? 0))
-                        : (string) $record->stock_quantity)
-                    ->description(fn (Product $record) => $record->has_variants
-                        ? 'across ' . count($record->variants ?? []) . ' variants'
-                        : null),
+                    // Untracked → ∞. Variable products: sum each variant's
+                    // stock so the admin sees a total at-a-glance.
+                    // Non-variant products just show the column value.
+                    ->state(fn (Product $record) => ! $record->track_stock
+                        ? '∞'
+                        : ($record->has_variants
+                            ? (string) collect($record->variants ?? [])->sum(fn ($v) => (int) ($v['stock'] ?? 0))
+                            : (string) $record->stock_quantity))
+                    ->description(fn (Product $record) => ! $record->track_stock
+                        ? 'not tracked'
+                        : ($record->has_variants
+                            ? 'across ' . count($record->variants ?? []) . ' variants'
+                            : null)),
                 Tables\Columns\ToggleColumn::make('is_active')->label('Active'),
                 Tables\Columns\IconColumn::make('is_featured')->label('Featured')->boolean(),
                 Tables\Columns\IconColumn::make('is_seva_only')->label('Seva Only')->boolean()->toggleable(isToggledHiddenByDefault: true),

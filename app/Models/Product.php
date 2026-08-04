@@ -43,6 +43,7 @@ class Product extends Model
         'description_en',
         'price',
         'stock_quantity',
+        'track_stock',
         'image_path',
         'is_active',
         'is_featured',
@@ -55,6 +56,7 @@ class Product extends Model
     protected $casts = [
         'price' => 'decimal:2',
         'stock_quantity' => 'integer',
+        'track_stock' => 'boolean',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
         'has_variants' => 'boolean',
@@ -98,6 +100,11 @@ class Product extends Model
      */
     public function inStock(): bool
     {
+        // Untracked products are always purchasable (unlimited stock).
+        if (! $this->track_stock) {
+            return true;
+        }
+
         if ($this->has_variants && ! empty($this->variants)) {
             foreach ($this->variants as $v) {
                 if ((int) ($v['stock'] ?? 0) > 0) {
@@ -164,6 +171,10 @@ class Product extends Model
      */
     public function decrementStock(int $qty): int
     {
+        if (! $this->track_stock) {
+            return 0; // unlimited — nothing to decrement, never a shortfall
+        }
+
         $available = (int) $this->stock_quantity;
         $applied = min($qty, max(0, $available));
         $shortfall = $qty - $applied;
@@ -183,6 +194,10 @@ class Product extends Model
      */
     public function decrementVariantStock(string $label, int $qty): bool
     {
+        if (! $this->track_stock) {
+            return true; // unlimited — nothing to decrement
+        }
+
         if (! $this->has_variants || empty($this->variants)) {
             return false;
         }
@@ -208,6 +223,10 @@ class Product extends Model
     /** Reverse of decrementStock. Used when a confirmed order is cancelled. */
     public function incrementStock(int $qty): void
     {
+        if (! $this->track_stock) {
+            return; // unlimited — nothing was decremented
+        }
+
         $this->increment('stock_quantity', $qty);
     }
 
@@ -218,6 +237,10 @@ class Product extends Model
      */
     public function incrementVariantStock(string $label, int $qty): bool
     {
+        if (! $this->track_stock) {
+            return true; // unlimited — nothing was decremented
+        }
+
         if (! $this->has_variants || empty($this->variants)) {
             return false;
         }

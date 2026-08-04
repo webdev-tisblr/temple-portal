@@ -131,9 +131,12 @@ class StoreController extends BaseApiController
                     // either paid (and stock went negative) or abandoned
                     // (and the order sat as a ghost).
                     $variantLabel = $item['variant_label'] ?? null;
-                    $available = $variantLabel && $product->has_variants
-                        ? ($product->getVariantStock($variantLabel) ?? 0)
-                        : $product->stock_quantity;
+                    // Untracked products are unlimited.
+                    $available = ! $product->track_stock
+                        ? PHP_INT_MAX
+                        : ($variantLabel && $product->has_variants
+                            ? ($product->getVariantStock($variantLabel) ?? 0)
+                            : $product->stock_quantity);
 
                     if ($available < (int) $item['quantity']) {
                         $label = $variantLabel ? " ({$variantLabel})" : '';
@@ -321,11 +324,14 @@ class StoreController extends BaseApiController
         // and to show "n left" badges.
         $variants = null;
         if ($p->has_variants && ! empty($p->variants)) {
+            // Untracked products: every variant reads as available with
+            // no count (the app's `in_stock` default is true, so old
+            // versions behave identically).
             $variants = collect($p->variants)->map(fn ($v) => [
                 'label' => $v['label'] ?? '',
                 'price' => (float) ($v['price'] ?? 0),
-                'stock' => (int) ($v['stock'] ?? 0),
-                'in_stock' => (int) ($v['stock'] ?? 0) > 0,
+                'stock' => $p->track_stock ? (int) ($v['stock'] ?? 0) : null,
+                'in_stock' => $p->track_stock ? (int) ($v['stock'] ?? 0) > 0 : true,
             ])->all();
         }
 
@@ -342,9 +348,13 @@ class StoreController extends BaseApiController
             // For variable products `stock_quantity` is the SUM across
             // all variants — display only; the source of truth for
             // ordering is the per-variant `stock` field above.
-            'stock_quantity' => $p->has_variants
-                ? collect($p->variants ?? [])->sum(fn ($v) => (int) ($v['stock'] ?? 0))
-                : $p->stock_quantity,
+            // Untracked products report null (no count to show).
+            'stock_quantity' => ! $p->track_stock
+                ? null
+                : ($p->has_variants
+                    ? collect($p->variants ?? [])->sum(fn ($v) => (int) ($v['stock'] ?? 0))
+                    : $p->stock_quantity),
+            'track_stock' => $p->track_stock,
             'in_stock' => $p->inStock(),
             'image_url' => $p->image_path ? image_url($p->image_path) : null,
             'is_featured' => $p->is_featured,

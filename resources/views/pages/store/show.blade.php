@@ -93,7 +93,13 @@
                      when the user picks a variant; for non-variant products
                      it's static. maxStock is wired in the Alpine bag below. --}}
                 <div class="mb-6">
-                    @if($product->inStock())
+                    @if(! $product->track_stock)
+                        {{-- Untracked: always available, no count shown. --}}
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-emerald-950/50 text-emerald-400 border border-emerald-800/30">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                            In Stock
+                        </span>
+                    @elseif($product->inStock())
                         <template x-if="maxStock > 0">
                             <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-emerald-950/50 text-emerald-400 border border-emerald-800/30">
                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
@@ -125,11 +131,12 @@
                                     <div class="flex flex-wrap gap-2">
                                         @foreach($product->variants as $i => $variant)
                                             @php
-                                                $variantStock = (int) ($variant['stock'] ?? 0);
+                                                // Untracked products: every variant is available.
+                                                $variantStock = $product->track_stock ? (int) ($variant['stock'] ?? 0) : PHP_INT_MAX;
                                             @endphp
                                             <button type="button"
                                                 @if($variantStock > 0)
-                                                    @click="selectedVariant = {{ $i }}; selectedPrice = {{ (float) $variant['price'] }}; variantLabel = '{{ e($variant['label']) }}'; maxStock = {{ $variantStock }}; quantity = Math.min(quantity, maxStock)"
+                                                    @click="selectedVariant = {{ $i }}; selectedPrice = {{ (float) $variant['price'] }}; variantLabel = '{{ e($variant['label']) }}'; maxStock = {{ $product->track_stock ? $variantStock : 999999 }}; quantity = Math.min(quantity, maxStock)"
                                                 @else
                                                     disabled
                                                 @endif
@@ -243,11 +250,15 @@ function productPage() {
     });
 
     const hasVariants = {{ $product->has_variants ? 'true' : 'false' }};
+    // Untracked products never cap quantities or grey out variants.
+    const trackStock = {{ $product->track_stock ? 'true' : 'false' }};
     const variants = @json($product->variants ?? []);
     // Default-select the first IN-STOCK variant so the picker doesn't
     // open on a sold-out option (which would lock the user out of
     // add-to-cart). Falls back to index 0 only if every variant is out.
-    const firstInStock = hasVariants ? variants.findIndex(v => (parseInt(v.stock || 0)) > 0) : -1;
+    const firstInStock = hasVariants
+        ? (trackStock ? variants.findIndex(v => (parseInt(v.stock || 0)) > 0) : (variants.length > 0 ? 0 : -1))
+        : -1;
     const initialIdx = firstInStock >= 0 ? firstInStock : (hasVariants && variants.length > 0 ? 0 : null);
     const initialVariant = hasVariants && initialIdx !== null ? variants[initialIdx] : null;
 
@@ -256,8 +267,11 @@ function productPage() {
         currentImage: allImages.length > 0 ? allImages[0] : null,
         quantity: 1,
         // Variable products: stock for the currently-selected variant.
-        // Non-variant: top-level stock_quantity.
-        maxStock: hasVariants ? parseInt(initialVariant?.stock ?? 0) : {{ (int) $product->stock_quantity }},
+        // Non-variant: top-level stock_quantity. Untracked: effectively
+        // unlimited (server never gates these either).
+        maxStock: !trackStock
+            ? 999999
+            : (hasVariants ? parseInt(initialVariant?.stock ?? 0) : {{ (int) $product->stock_quantity }}),
         hasVariants: hasVariants,
         selectedVariant: initialIdx,
         selectedPrice: initialVariant ? parseFloat(initialVariant.price) : {{ (float) $product->price }},

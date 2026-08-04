@@ -460,8 +460,10 @@
     --tw-gradient-to: rgba(122, 30, 30, 0.06) !important;
 }
 
-/* Generic text colors that assume dark bg */
-.text-white { color: #2A1810 !important; }
+/* Generic text colors that assume dark bg.
+   NOTE: .text-white is deliberately NOT remapped — every live usage sits
+   on a dark image/overlay (darshan offline card, lightboxes, popup
+   controls, badge chips) and the old remap forced them all dark. */
 .text-stone-200,
 .text-stone-100 { color: #2A1810 !important; }
 

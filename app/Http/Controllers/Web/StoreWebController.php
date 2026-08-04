@@ -160,10 +160,12 @@ class StoreWebController extends Controller
 
         // Stock check — variable products gate against the picked
         // variant's stock; non-variant products use the top-level
-        // stock_quantity column.
-        $availableStock = $product->has_variants
-            ? ($product->getVariantStock($request->variant_label) ?? 0)
-            : $product->stock_quantity;
+        // stock_quantity column. Untracked products are unlimited.
+        $availableStock = ! $product->track_stock
+            ? PHP_INT_MAX
+            : ($product->has_variants
+                ? ($product->getVariantStock($request->variant_label) ?? 0)
+                : $product->stock_quantity);
 
         if ($availableStock < (int) $request->quantity) {
             return response()->json(['success' => false, 'message' => 'પૂરતો સ્ટોક ઉપલબ્ધ નથી.'], 422);
@@ -357,10 +359,13 @@ class StoreWebController extends Controller
             $product = $products->get($productId);
 
             // Variant products: gate against the picked variant's stock,
-            // not the (irrelevant) top-level stock_quantity.
-            $available = $variantLabel
-                ? ($product->getVariantStock($variantLabel) ?? 0)
-                : $product->stock_quantity;
+            // not the (irrelevant) top-level stock_quantity. Untracked
+            // products are unlimited.
+            $available = ! $product->track_stock
+                ? PHP_INT_MAX
+                : ($variantLabel
+                    ? ($product->getVariantStock($variantLabel) ?? 0)
+                    : $product->stock_quantity);
 
             if ($available < $quantity) {
                 return back()->withErrors(['cart' => "{$product->name} માટે પૂરતો સ્ટોક ઉપલબ્ધ નથી."]);

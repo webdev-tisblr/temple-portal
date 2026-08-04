@@ -45,7 +45,9 @@ class HallController extends BaseApiController
                     'description_en' => text_preview($h->description_en),
                     'capacity' => $h->capacity,
                     'price_per_day' => (float) $h->price_per_day,
-                    'price_per_half_day' => (float) $h->price_per_half_day,
+                    // price_per_half_day removed 2026-08-04 — bookings are
+                    // full-day only. Old app versions fall back to 0 and
+                    // never send half-day (server would 422 anyway).
                     'amenities' => $h->amenities ?? [],
                     'rules' => $h->rules,
                     'rules_gu' => $h->rules_gu,
@@ -69,21 +71,19 @@ class HallController extends BaseApiController
         $request->validate(['date' => 'required|date|after_or_equal:today']);
 
         $date = $request->query('date');
-        $bookings = HallBooking::where('hall_id', $hall->id)
+        // Full-day only (2026-08-04): ANY pending/confirmed booking blocks
+        // the date. The three flags are kept (all equal) so older app
+        // versions keep rendering availability correctly.
+        $booked = HallBooking::where('hall_id', $hall->id)
             ->where('booking_date', $date)
             ->whereIn('status', ['pending', 'confirmed'])
-            ->pluck('booking_type')
-            ->toArray();
-
-        $fullDayBooked = in_array('full_day', $bookings);
-        $morningBooked = in_array('half_day_morning', $bookings) || $fullDayBooked;
-        $eveningBooked = in_array('half_day_evening', $bookings) || $fullDayBooked;
+            ->exists();
 
         return $this->success([
             'date' => $date,
-            'full_day_available' => ! $fullDayBooked && ! $morningBooked && ! $eveningBooked,
-            'morning_available' => ! $morningBooked,
-            'evening_available' => ! $eveningBooked,
+            'full_day_available' => ! $booked,
+            'morning_available' => ! $booked,
+            'evening_available' => ! $booked,
         ]);
     }
 
@@ -106,27 +106,27 @@ class HallController extends BaseApiController
         $start = $monthStart->copy()->max(now()->startOfDay());
         $end = $monthStart->copy()->endOfMonth();
 
-        // booking_type sets per date for the month, in one query.
-        $byDate = HallBooking::where('hall_id', $hall->id)
+        // Full-day only: any pending/confirmed booking blocks the date.
+        // One query covers the month; the three flags stay (all equal)
+        // for older app versions.
+        $bookedDates = HallBooking::where('hall_id', $hall->id)
             ->whereBetween('booking_date', [$start->toDateString(), $end->toDateString()])
             ->whereIn('status', ['pending', 'confirmed'])
-            ->get(['booking_date', 'booking_type'])
-            ->groupBy(fn ($b) => Carbon::parse($b->booking_date)->toDateString());
+            ->pluck('booking_date')
+            ->map(fn ($d) => Carbon::parse($d)->toDateString())
+            ->unique()
+            ->flip();
 
         $dates = [];
         for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
             $key = $cursor->toDateString();
-            $types = ($byDate[$key] ?? collect())->pluck('booking_type')->all();
-
-            $fullDayBooked = in_array('full_day', $types, true);
-            $morningBooked = $fullDayBooked || in_array('half_day_morning', $types, true);
-            $eveningBooked = $fullDayBooked || in_array('half_day_evening', $types, true);
+            $available = ! $bookedDates->has($key);
 
             $dates[] = [
                 'date' => $key,
-                'full_day_available' => ! $morningBooked && ! $eveningBooked,
-                'morning_available' => ! $morningBooked,
-                'evening_available' => ! $eveningBooked,
+                'full_day_available' => $available,
+                'morning_available' => $available,
+                'evening_available' => $available,
             ];
         }
 
@@ -138,35 +138,30 @@ class HallController extends BaseApiController
 
     public function book(Request $request, Hall $hall): JsonResponse
     {
+        // Full-day only (2026-08-04). booking_type stays validated so an
+        // old app version attempting a half-day booking gets a clear 422
+        // instead of being silently charged the full-day price.
         $validated = $request->validate([
             'booking_date' => 'required|date|after_or_equal:today',
-            'booking_type' => 'required|in:full_day,half_day_morning,half_day_evening',
+            'booking_type' => 'sometimes|in:full_day',
             'purpose' => 'required|string|max:500',
             'expected_guests' => 'nullable|integer|min:1',
             'contact_name' => 'required|string|max:255',
             'contact_phone' => 'required|string|max:15',
         ]);
+        $validated['booking_type'] = 'full_day';
 
-        $amount = $validated['booking_type'] === 'full_day'
-            ? (float) $hall->price_per_day
-            : (float) $hall->price_per_half_day;
+        $amount = (float) $hall->price_per_day;
 
-        // Refuse overlapping bookings — same day, overlapping slot type,
-        // pending or confirmed on another booking.
+        // Refuse overlapping bookings — ANY pending/confirmed booking on
+        // the date blocks it (legacy half-day rows block the whole date).
         $conflict = HallBooking::where('hall_id', $hall->id)
             ->where('booking_date', $validated['booking_date'])
             ->whereIn('status', ['pending', 'confirmed'])
-            ->where(function ($q) use ($validated) {
-                $q->where('booking_type', 'full_day');
-                if ($validated['booking_type'] === 'full_day') {
-                    return;
-                }
-                $q->orWhere('booking_type', $validated['booking_type']);
-            })
             ->exists();
 
         if ($conflict) {
-            return $this->error('આ તારીખ અને સમય પર હોલ પહેલેથી બુક છે.', 409);
+            return $this->error('આ તારીખ પર હોલ પહેલેથી બુક છે.', 409);
         }
 
         $devotee = $request->user();

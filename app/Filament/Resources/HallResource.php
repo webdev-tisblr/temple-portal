@@ -37,15 +37,15 @@ class HallResource extends Resource
                     ->required(),
             ]),
 
+            // Bookings are full-day only (2026-08-04): single price.
             Forms\Components\Section::make('Pricing')->schema([
                 Forms\Components\TextInput::make('price_per_day')
+                    ->label('Price (per day)')
                     ->numeric()
                     ->prefix('₹')
-                    ->required(),
-                Forms\Components\TextInput::make('price_per_half_day')
-                    ->numeric()
-                    ->prefix('₹'),
-            ])->columns(2),
+                    ->required()
+                    ->helperText('Hall bookings are full-day only — one price per date.'),
+            ]),
 
             Forms\Components\Section::make('Image')->schema([
                 Forms\Components\FileUpload::make('image_path')

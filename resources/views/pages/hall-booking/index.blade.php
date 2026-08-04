@@ -112,13 +112,10 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                {{-- Full-day only (2026-08-04): single price row. --}}
                                 <tr class="border-t border-amber-900/15">
                                     <td class="px-4 py-2.5 text-amber-100/70">{{ __('halls.full_day_paren') }}</td>
                                     <td class="px-4 py-2.5 text-right font-bold text-gold">₹{{ number_format((float) $hall->price_per_day) }}</td>
-                                </tr>
-                                <tr class="border-t border-amber-900/15">
-                                    <td class="px-4 py-2.5 text-amber-100/70">{{ __('halls.half_day_paren') }}</td>
-                                    <td class="px-4 py-2.5 text-right font-bold text-gold">₹{{ number_format((float) $hall->price_per_half_day) }}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -221,30 +218,11 @@
                         </div>
                     </div>
 
-                    {{-- Booking Type --}}
-                    <div class="mb-5">
-                        <label class="block text-sm font-medium text-amber-600 mb-2">{{ __('halls.booking_type') }} <span class="text-red-400">*</span></label>
-                        <div class="flex flex-wrap gap-3">
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="radio" name="booking_type_select" value="full_day" x-model="bookingType" @change="checkAvailability()"
-                                       class="text-amber-600 border-amber-800/30 focus:ring-amber-600/20 bg-transparent">
-                                <span class="text-sm text-amber-100/70">{{ __('halls.full_day_paren') }}</span>
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="radio" name="booking_type_select" value="half_day_morning" x-model="bookingType" @change="checkAvailability()"
-                                       class="text-amber-600 border-amber-800/30 focus:ring-amber-600/20 bg-transparent">
-                                <span class="text-sm text-amber-100/70">{{ __('halls.half_day_morning') }}</span>
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="radio" name="booking_type_select" value="half_day_evening" x-model="bookingType" @change="checkAvailability()"
-                                       class="text-amber-600 border-amber-800/30 focus:ring-amber-600/20 bg-transparent">
-                                <span class="text-sm text-amber-100/70">{{ __('halls.half_day_evening') }}</span>
-                            </label>
-                        </div>
-                    </div>
+                    {{-- Full-day only (2026-08-04): booking-type radios removed.
+                         Picking a date immediately shows available / booked. --}}
 
                     {{-- Availability Status --}}
-                    <div x-show="selectedDate && bookingType" x-transition class="mb-5">
+                    <div x-show="selectedDate" x-transition class="mb-5">
                         <div x-show="checking" class="text-amber-100/40 text-sm py-2">
                             <svg class="animate-spin h-5 w-5 inline mr-2" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
@@ -270,7 +248,6 @@
                         @csrf
                         <input type="hidden" name="hall_id" value="{{ $hall->id }}">
                         <input type="hidden" name="booking_date" :value="selectedDate">
-                        <input type="hidden" name="booking_type" :value="bookingType">
 
                         <div class="space-y-4">
                             {{-- Contact Name --}}
@@ -308,7 +285,7 @@
                         </div>
 
                         {{-- Price Display --}}
-                        <div class="mt-6 p-4 bg-amber-900/20 border border-amber-800/30 rounded-lg" x-show="bookingType">
+                        <div class="mt-6 p-4 bg-amber-900/20 border border-amber-800/30 rounded-lg">
                             <div class="flex justify-between items-center">
                                 <span class="text-amber-100/50 text-sm">{{ __('halls.amount_to_pay') }}</span>
                                 <span class="text-2xl font-bold text-gold" x-text="'₹' + calculatedAmount.toLocaleString('en-IN')"></span>
@@ -319,9 +296,9 @@
                         <div class="mt-6">
                             @auth('devotee')
                                 <button type="submit"
-                                    :disabled="!selectedDate || !bookingType || available !== true"
+                                    :disabled="!selectedDate || available !== true"
                                     class="w-full px-8 py-3 btn-divine disabled:opacity-40 disabled:cursor-not-allowed">
-                                    <span x-text="bookingType ? @js(__('halls.book_prefix')) + calculatedAmount.toLocaleString('en-IN') : @js(__('halls.book'))"></span>
+                                    <span x-text="@js(__('halls.book_prefix')) + calculatedAmount.toLocaleString('en-IN')"></span>
                                 </button>
                             @else
                                 <a href="{{ route('login') }}" class="flex items-center justify-center w-full px-8 py-3 btn-divine">
@@ -361,8 +338,8 @@ function hallGallery() {
 }
 
 function hallBooking() {
+    // Full-day only (2026-08-04) — one price, no booking-type state.
     const pricePerDay = {{ (float) $hall->price_per_day }};
-    const pricePerHalfDay = {{ (float) $hall->price_per_half_day }};
     const hallId = {{ $hall->id }};
 
     // Chip labels — local-time midnight so day-of-week / month labels
@@ -381,7 +358,6 @@ function hallBooking() {
 
     return {
         selectedDate: '',
-        bookingType: '',
         checking: false,
         available: null,
         upcomingDays: [],
@@ -436,7 +412,8 @@ function hallBooking() {
                         dayLabel: dayLabels[dt.getDay()],
                         dayOfMonth: dt.getDate(),
                         monthLabel: monthLabels[dt.getMonth()],
-                        disabled: !e.full_day_available && !e.morning_available && !e.evening_available,
+                        // Full-day only: any booking blocks the whole date.
+                        disabled: !e.full_day_available,
                     };
                 });
             } catch (e) {
@@ -451,20 +428,18 @@ function hallBooking() {
         },
 
         get calculatedAmount() {
-            if (this.bookingType === 'full_day') return pricePerDay;
-            if (this.bookingType === 'half_day_morning' || this.bookingType === 'half_day_evening') return pricePerHalfDay;
-            return 0;
+            return pricePerDay;
         },
 
         async checkAvailability() {
-            if (!this.selectedDate || !this.bookingType) {
+            if (!this.selectedDate) {
                 this.available = null;
                 return;
             }
             this.checking = true;
             this.available = null;
             try {
-                const res = await fetch(`/hall-booking/check?hall_id=${hallId}&date=${this.selectedDate}&type=${this.bookingType}`);
+                const res = await fetch(`/hall-booking/check?hall_id=${hallId}&date=${this.selectedDate}`);
                 const json = await res.json();
                 this.available = json.available ?? false;
             } catch (e) {

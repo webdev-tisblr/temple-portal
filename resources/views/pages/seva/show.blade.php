@@ -308,7 +308,8 @@ function slotPicker(sevaId) {
                 ? collect($p->variants)->map(fn ($v) => [
                     'label' => $v['label'] ?? '',
                     'price' => (float) ($v['price'] ?? 0),
-                    'in_stock' => ((int) ($v['stock'] ?? 0)) > 0,
+                    // Untracked products: every variant available.
+                    'in_stock' => ! $p->track_stock || ((int) ($v['stock'] ?? 0)) > 0,
                 ])->values()
                 : [],
         ]]);

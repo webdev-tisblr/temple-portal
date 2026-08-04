@@ -116,6 +116,29 @@ class PaymentCaptureServiceTest extends TestCase
         $this->assertSame('confirmed', $order->fresh()->status->value);
     }
 
+    public function test_untracked_product_confirms_without_touching_stock(): void
+    {
+        // track_stock=false → unlimited: capture must confirm the order
+        // and leave stock_quantity exactly as it was.
+        $product = ProductFactory::new()->create(['stock_quantity' => 0, 'track_stock' => false]);
+        $payment = PaymentFactory::new()->create();
+        $order = OrderFactory::new()->create([
+            'payment_id' => $payment->id,
+            'status' => 'pending',
+        ]);
+        OrderItemFactory::new()->create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'quantity' => 5,
+        ]);
+
+        $this->service()->markCaptured($payment);
+
+        $this->assertSame(0, (int) $product->fresh()->stock_quantity);
+        $this->assertSame('confirmed', $order->fresh()->status->value);
+        $this->assertTrue($product->fresh()->inStock());
+    }
+
     public function test_double_capture_keeps_booking_confirmed_once(): void
     {
         $payment = PaymentFactory::new()->create();

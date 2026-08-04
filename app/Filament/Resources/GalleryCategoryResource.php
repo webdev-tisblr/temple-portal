@@ -20,6 +20,10 @@ class GalleryCategoryResource extends Resource
 {
     protected static ?string $model = GalleryCategory::class;
 
+    // No sidebar entry — reached via the "Categories" button on the
+    // Gallery list page (user request 2026-08-04).
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationIcon = 'heroicon-o-tag';
 
     protected static ?string $navigationGroup = 'Content Management';

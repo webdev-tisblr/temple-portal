@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
-use App\Enums\SevaCategory;
 use App\Filament\Resources\SevaResource\Pages;
 use App\Filament\Support\ReminderRuleFields;
 use App\Filament\Support\TranslatableTabs;
@@ -55,9 +54,13 @@ class SevaResource extends Resource
                         Forms\Components\TextInput::make('phone')->tel()->maxLength(15),
                         Forms\Components\Toggle::make('is_active')->default(true),
                     ]),
-                Forms\Components\Select::make('category')->options(
-                    collect(SevaCategory::cases())->mapWithKeys(fn ($c) => [$c->value => ucfirst($c->value)])
-                )->required(),
+                Forms\Components\Select::make('category')
+                    ->options(fn (): array => \App\Models\SevaCategory::orderBy('sort_order')
+                        ->get()
+                        ->mapWithKeys(fn ($c) => [$c->slug => $c->name_en ?? $c->name_gu])
+                        ->all())
+                    ->required()
+                    ->helperText('Manage the list via the "Categories" button on the Sevas page.'),
                 Forms\Components\TextInput::make('price')->numeric()->prefix('₹')->required(),
                 Forms\Components\TextInput::make('min_price')->numeric()->prefix('₹'),
                 Forms\Components\Toggle::make('is_variable_price')->label('Variable Price'),
@@ -346,14 +349,7 @@ class SevaResource extends Resource
                 Tables\Columns\TextColumn::make('id')->label('ID')->sortable()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\ImageColumn::make('image_path')->label('Image')->circular(),
                 Tables\Columns\TextColumn::make('name_gu')->label('Name')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('category')->badge()->formatStateUsing(fn ($state) => ucfirst($state->value ?? $state))->color(fn ($state) => match ($state->value ?? $state) {
-                    'shringar' => 'danger',
-                    'vastra' => 'info',
-                    'annadan' => 'success',
-                    'puja' => 'warning',
-                    'special' => 'primary',
-                    default => 'gray',
-                }),
+                Tables\Columns\TextColumn::make('category')->badge()->formatStateUsing(fn ($state) => ucfirst((string) $state))->color('gray'),
                 Tables\Columns\TextColumn::make('price')->prefix('₹')->sortable(),
                 Tables\Columns\TextColumn::make('assignee.name')->label('Assignee')->searchable()->toggleable(),
                 Tables\Columns\ToggleColumn::make('is_active')->label('Active'),
@@ -361,9 +357,11 @@ class SevaResource extends Resource
             ])
             ->defaultSort('sort_order')
             ->filters([
-                Tables\Filters\SelectFilter::make('category')->options(
-                    collect(SevaCategory::cases())->mapWithKeys(fn ($c) => [$c->value => ucfirst($c->value)])
-                ),
+                Tables\Filters\SelectFilter::make('category')
+                    ->options(fn (): array => \App\Models\SevaCategory::orderBy('sort_order')
+                        ->get()
+                        ->mapWithKeys(fn ($c) => [$c->slug => $c->name_en ?? $c->name_gu])
+                        ->all()),
                 Tables\Filters\TernaryFilter::make('is_active')->label('Active'),
             ])
             ->actions([

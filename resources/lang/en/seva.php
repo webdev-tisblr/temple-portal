@@ -10,6 +10,7 @@ return [
     'cat_puja' => 'Puja Seva',
     'cat_special' => 'Special Sevas',
     'cat_other' => 'Other Sevas',
+    'category_count' => ':count Sevas',
     'none_available' => 'No sevas are available right now.',
     'min_amount' => 'Minimum amount:',
     'choose_date_time' => 'Select date and time',

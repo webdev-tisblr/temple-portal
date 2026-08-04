@@ -36,10 +36,25 @@ class SevaWebController extends Controller
 
         $grouped = $sevas->groupBy(fn ($seva) => $seva->getRawOriginal('category'));
 
+        // Tabs follow the admin's category sort (Seva Categories); slugs not
+        // in the managed list (legacy/orphaned) are appended so their sevas
+        // stay reachable. Only categories that actually have sevas render.
+        $categoryNames = \App\Models\SevaCategory::namesBySlug();
+        $present = $grouped->keys();
+        $categories = collect(array_keys($categoryNames))
+            ->intersect($present)
+            ->concat($present->diff(array_keys($categoryNames)))
+            ->values();
+
+        // ?category=<slug> preselects a tab (home-page category cards link
+        // here); anything unknown falls back to "all".
+        $requested = (string) request('category', '');
+        $initialCategory = $categories->contains($requested) ? $requested : 'all';
+
         SEOMeta::setTitle('સેવા અને પૂજા — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
         SEOMeta::setDescription('શ્રી પાતાળિયા હનુમાનજી મંદિરમાં સેવા અને પૂજા ઓનલાઈન બુક કરો.');
 
-        return view('pages.seva.index', compact('sevas', 'grouped'));
+        return view('pages.seva.index', compact('sevas', 'grouped', 'categories', 'categoryNames', 'initialCategory'));
     }
 
     public function show(Seva $seva): View

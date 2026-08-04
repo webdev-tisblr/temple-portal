@@ -36,7 +36,7 @@
             <div class="card-sacred p-6 sm:p-8">
                 {{-- Category Badge --}}
                 <span class="inline-block px-3 py-1 text-xs font-medium rounded-full mb-3 bg-amber-900/30 text-amber-400">
-                    {{ $seva->getRawOriginal('category') }}
+                    {{ \App\Models\SevaCategory::displayName($seva->getRawOriginal('category')) }}
                 </span>
 
                 <h1 class="divine-heading text-2xl sm:text-3xl hidden lg:block">{{ $seva->name }}</h1>

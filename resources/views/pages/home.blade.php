@@ -244,7 +244,7 @@
 {{-- =================================================================
      SEVA & PUJA
      ================================================================= --}}
-@if(isset($sevas) && $sevas->isNotEmpty())
+@if(isset($sevaCategories) && count($sevaCategories) > 0)
     <section class="py-16" style="background:#F4EAD5; border-top:1px solid #e9dfc8; border-bottom:1px solid #e9dfc8;">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-end justify-between mb-9">
@@ -255,19 +255,25 @@
                 </div>
                 <a href="{{ route('seva.index') }}" class="text-sm font-extrabold" style="color:#C45F12;">{{ __('home.view_all_sevas') }} →</a>
             </div>
+            {{-- Category cards: single-seva categories deep-link to the seva,
+                 the rest open /seva preselected on that category's tab. --}}
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
-                @foreach($sevas->take(4) as $seva)
-                    <a href="{{ route('seva.show', $seva) }}" class="block text-center rounded-2xl p-2.5 pb-6 transition hover:shadow-lg"
+                @foreach($sevaCategories as $cat)
+                    @php
+                        // Cached payload is locale-neutral; resolve here.
+                        $catName = $cat['names'][app()->getLocale()] ?? null ?: $cat['names']['gu'];
+                        $catUrl = ($cat['count'] === 1 && $cat['single_seva_id'])
+                            ? route('seva.show', $cat['single_seva_id'])
+                            : route('seva.index', ['category' => $cat['slug']]);
+                    @endphp
+                    <a href="{{ $catUrl }}" class="block text-center rounded-2xl p-2.5 pb-6 transition hover:shadow-lg"
                        style="background:#fff; border:1px solid #ecdfc4;">
                         <div class="w-full aspect-[4/3] rounded-xl overflow-hidden bg-cover bg-no-repeat bg-center"
-                             style="@if($seva->image_path)background-color:#fff;background-image:url('{{ image_url($seva->image_path) }}');@else background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@endif">
+                             style="@if($cat['image_path'])background-color:#fff;background-image:url('{{ image_url($cat['image_path']) }}');@else background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@endif">
                         </div>
-                        <div class="font-marcellus text-base sm:text-lg mt-4" style="color:#7A1E1E;">{{ $seva->name }}</div>
-                        @if($seva->description)
-                            <div class="text-xs mt-1 px-3 leading-snug line-clamp-2" style="color:#5E4F3D;">{{ text_preview($seva->description, 60) }}</div>
-                        @endif
-                        <div class="font-extrabold text-[15px] mt-3" style="color:#C45F12;">
-                            @if($seva->is_variable_price && $seva->min_price)₹{{ number_format((float) $seva->min_price) }}+@else₹{{ number_format((float) $seva->price) }}@endif
+                        <div class="font-marcellus text-base sm:text-lg mt-4" style="color:#7A1E1E;">{{ $catName }}</div>
+                        <div class="font-extrabold text-[13px] mt-3" style="color:#C45F12;">
+                            {{ __('seva.category_count', ['count' => $cat['count']]) }}
                         </div>
                     </a>
                 @endforeach

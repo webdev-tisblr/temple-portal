@@ -88,6 +88,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
 
     // Public: Sevas
     Route::get('/sevas', [SevaController::class, 'index']);
+    Route::get('/seva-categories', [SevaController::class, 'categories']);
     Route::get('/sevas/{seva}', [SevaController::class, 'show']);
     Route::get('/sevas/{seva}/slots', [SevaController::class, 'availableSlots']);
     Route::get('/sevas/{seva}/available-dates', [SevaController::class, 'availableDates']);

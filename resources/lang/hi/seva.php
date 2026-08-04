@@ -10,6 +10,7 @@ return [
     'cat_puja' => 'पूजा सेवा',
     'cat_special' => 'विशेष सेवाएँ',
     'cat_other' => 'अन्य सेवाएँ',
+    'category_count' => ':count सेवाएँ',
     'none_available' => 'अभी कोई सेवा उपलब्ध नहीं है।',
     'min_amount' => 'न्यूनतम राशि:',
     'choose_date_time' => 'तारीख और समय चुनें',

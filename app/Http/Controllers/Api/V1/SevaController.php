@@ -55,6 +55,37 @@ class SevaController extends BaseApiController
         return new SevaCollection($sevas);
     }
 
+    /**
+     * Admin-managed seva categories for the app's filter chips (mirror of
+     * /gallery-categories). Localized via X-Locale; cached until the list
+     * or the sevas change (SevaCategory::booted + SevaObserver both bust).
+     * single_seva_id: when a category holds exactly one active seva, its id
+     * — clients can deep-link straight to the seva instead of filtering.
+     */
+    public function categories(): JsonResponse
+    {
+        $categories = \App\Support\LocalizedCache::remember('seva.categories', 900, function () {
+            $active = Seva::where('is_active', true)
+                ->orderBy('sort_order')
+                ->get(['id', 'category']);
+
+            return \App\Models\SevaCategory::orderBy('sort_order')
+                ->get()
+                ->map(function (\App\Models\SevaCategory $c) use ($active) {
+                    $sevas = $active->where('category', $c->slug)->values();
+
+                    return [
+                        'slug' => $c->slug,
+                        'name' => $c->name,
+                        'seva_count' => $sevas->count(),
+                        'single_seva_id' => $sevas->count() === 1 ? $sevas->first()->id : null,
+                    ];
+                });
+        });
+
+        return $this->success($categories);
+    }
+
     public function show(Seva $seva): SevaResource
     {
         // Load the gallery only on detail (kept out of the cached list payload).

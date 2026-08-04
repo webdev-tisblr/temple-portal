@@ -20,9 +20,36 @@ class HomeController extends Controller
 {
     public function index(): View
     {
-        $sevas = Cache::remember('homepage_sevas', 600, fn () =>
-            Seva::where('is_active', true)->orderBy('sort_order')->take(6)->get()
-        );
+        // Home seva section = CATEGORY cards (admin-managed Seva Categories,
+        // 2026-08-04): up to 4 categories that have ≥1 active seva, ordered
+        // by the admin's sort. A single-seva category links straight to that
+        // seva; multi-seva categories link to /seva?category=<slug>.
+        // The payload is locale-neutral (all three names cached, the blade
+        // resolves) so this shared cache can't leak one locale's strings.
+        // Busted by SevaObserver and SevaCategory::booted().
+        $sevaCategories = Cache::remember('homepage_seva_categories', 600, function () {
+            $active = Seva::where('is_active', true)->orderBy('sort_order')->get();
+
+            return \App\Models\SevaCategory::orderBy('sort_order')->get()
+                ->map(function (\App\Models\SevaCategory $cat) use ($active) {
+                    $sevas = $active->where('category', $cat->slug)->values();
+                    if ($sevas->isEmpty()) {
+                        return null;
+                    }
+
+                    return [
+                        'slug' => $cat->slug,
+                        'names' => ['gu' => $cat->name_gu, 'hi' => $cat->name_hi, 'en' => $cat->name_en],
+                        'image_path' => $sevas->firstWhere(fn ($s) => ! empty($s->image_path))?->image_path,
+                        'count' => $sevas->count(),
+                        'single_seva_id' => $sevas->count() === 1 ? $sevas->first()->id : null,
+                    ];
+                })
+                ->filter()
+                ->take(4)
+                ->values()
+                ->all();
+        });
 
         // Home shows 3 visible at a time in a scroll-snap carousel; we
         // fetch up to 9 so admins running a full festival season fill
@@ -169,7 +196,7 @@ class HomeController extends Controller
         OpenGraph::addProperty('type', 'website');
 
         return view('pages.home', compact(
-            'sevas',
+            'sevaCategories',
             'events',
             'timings',
             'campaigns',

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\SevaCategory;
 use App\Models\Concerns\HasManagedImages;
 use App\Services\SevaSlotService;
 use Illuminate\Database\Eloquent\Model;
@@ -46,7 +45,8 @@ class Seva extends Model
     ];
 
     protected $casts = [
-        'category' => SevaCategory::class,
+        // 'category' is a plain string slug referencing
+        // temple_seva_categories.slug (admin-managed since 2026-08-04).
         'price' => 'decimal:2',
         'min_price' => 'decimal:2',
         'is_variable_price' => 'boolean',

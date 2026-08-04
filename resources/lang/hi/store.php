@@ -8,6 +8,8 @@ return [
     'no_categories' => 'अभी स्टोर में कोई श्रेणी उपलब्ध नहीं है।',
     'featured_products' => 'विशेष उत्पाद',
     'search_products' => 'उत्पाद खोजें...',
+    'all_categories' => 'सभी श्रेणियां',
+    'sort_default' => 'अनुशंसित',
     'newest' => 'नवीनतम',
     'price_asc' => 'मूल्य: कम से अधिक',
     'price_desc' => 'मूल्य: अधिक से कम',

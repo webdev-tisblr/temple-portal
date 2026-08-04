@@ -8,6 +8,8 @@ return [
     'no_categories' => 'No categories are available in the store right now.',
     'featured_products' => 'Featured Products',
     'search_products' => 'Search products...',
+    'all_categories' => 'All Categories',
+    'sort_default' => 'Recommended',
     'newest' => 'Newest',
     'price_asc' => 'Price: Low to High',
     'price_desc' => 'Price: High to Low',

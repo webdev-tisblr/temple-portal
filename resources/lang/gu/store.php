@@ -8,6 +8,8 @@ return [
     'no_categories' => 'હાલમાં સ્ટોરમાં કોઈ શ્રેણી ઉપલબ્ધ નથી.',
     'featured_products' => 'વિશેષ ઉત્પાદનો',
     'search_products' => 'ઉત્પાદન શોધો...',
+    'all_categories' => 'બધી શ્રેણીઓ',
+    'sort_default' => 'ભલામણ કરેલ',
     'newest' => 'નવીનતમ',
     'price_asc' => 'ભાવ: ઓછાથી વધુ',
     'price_desc' => 'ભાવ: વધુથી ઓછા',

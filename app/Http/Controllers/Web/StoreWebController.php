@@ -27,6 +27,12 @@ use Illuminate\View\View;
 
 class StoreWebController extends Controller
 {
+    /**
+     * Store landing: direct paginated product listing (2026-08-04 —
+     * replaced the category-cards-first layout) with a search/category/
+     * sort filter bar. Category pages stay reachable via the dropdown
+     * and product-card category links.
+     */
     public function index(): View
     {
         $categories = Cache::remember('store_categories_with_counts', 600, function () {
@@ -37,20 +43,38 @@ class StoreWebController extends Controller
                 ->get();
         });
 
-        $featured = Cache::remember('store_featured_products', 600, function () {
-            return Product::active()
-                ->forStore()
-                ->featured()
-                ->with('category')
-                ->orderBy('sort_order')
-                ->limit(8)
-                ->get();
-        });
+        $query = Product::active()->forStore()->with('category');
+
+        if ($search = request('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name_gu', 'LIKE', "%{$search}%")
+                    ->orWhere('name_hi', 'LIKE', "%{$search}%")
+                    ->orWhere('name_en', 'LIKE', "%{$search}%");
+            });
+        }
+
+        if ($categorySlug = request('category')) {
+            $selected = $categories->firstWhere('slug', $categorySlug);
+            if ($selected) {
+                $query->where('category_id', $selected->id);
+            }
+        }
+
+        // Default: curated order (featured first, then admin sort_order);
+        // explicit sorts match the labels in the filter bar.
+        $query = match (request('sort')) {
+            'price_asc' => $query->orderBy('price', 'asc'),
+            'price_desc' => $query->orderBy('price', 'desc'),
+            'newest' => $query->orderBy('created_at', 'desc'),
+            default => $query->orderBy('is_featured', 'desc')->orderBy('sort_order'),
+        };
+
+        $products = $query->paginate(12)->withQueryString();
 
         SEOMeta::setTitle('મંદિર સ્ટોર — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
         SEOMeta::setDescription('શ્રી પાતાળિયા હનુમાનજી મંદિર સ્ટોરમાંથી પૂજા સામગ્રી અને ધાર્મિક ચીજો ખરીદો.');
 
-        return view('pages.store.index', compact('categories', 'featured'));
+        return view('pages.store.index', compact('categories', 'products'));
     }
 
     public function category(string $slug): View

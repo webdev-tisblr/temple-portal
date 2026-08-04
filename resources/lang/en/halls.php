@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'login_to_view_form' => 'Please log in to select a date and book.',
     'gallery' => 'Photos & Videos',
     'subtitle' => 'Spacious halls available through Shree Patadiya Hanumanji Seva Trust for weddings, satsang, religious programs and social functions',
     'subtitle_short' => 'Available for weddings, satsang, religious programs and social functions',

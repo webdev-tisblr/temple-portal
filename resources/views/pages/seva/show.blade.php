@@ -71,6 +71,17 @@
 
                 {{-- Booking Section --}}
                 @if($seva->requires_booking)
+                    @guest('devotee')
+                        {{-- Guests see a login prompt instead of the booking
+                             form (consistent site-wide; 2026-08-04). --}}
+                        <div class="card-sacred p-6">
+                            <h2 class="text-lg font-semibold text-gold mb-4">{{ __('seva.choose_date_time') }}</h2>
+                            <p class="text-sm text-amber-100/60 mb-5">{{ __('halls.login_to_view_form') }}</p>
+                            <a href="{{ route('login') }}" class="flex items-center justify-center w-full px-8 py-3 btn-divine">
+                                {{ __('seva.login_to_book') }}
+                            </a>
+                        </div>
+                    @else
                     <div class="card-sacred p-6" x-data="slotPicker({{ $seva->id }})">
                         <h2 class="text-lg font-semibold text-gold mb-4">{{ __('seva.choose_date_time') }}</h2>
 
@@ -254,31 +265,26 @@
                             </div>
                         </div>
 
-                        {{-- Book Button --}}
+                        {{-- Book Button (whole panel is auth-gated above) --}}
                         <div class="mt-6">
-                            @auth('devotee')
-                                <form method="POST" action="{{ route('seva.book', $seva) }}">
-                                    @csrf
-                                    <input type="hidden" name="booking_date" :value="selectedDate">
-                                    <input type="hidden" name="slot_time" :value="selectedSlot">
-                                    <input type="hidden" name="quantity" value="1">
-                                    <input type="hidden" name="devotee_name_for_seva" :value="devoteeName">
-                                    <input type="hidden" name="sankalp" :value="sankalp">
-                                    <input type="hidden" name="selected_product_id" :value="selectedProductId">
-                                    <input type="hidden" name="selected_variant_label" :value="selectedVariant">
-                                    <button type="submit"
-                                        :disabled="!canBook()"
-                                        class="w-full px-8 py-3 btn-divine disabled:opacity-40 disabled:cursor-not-allowed">
-                                        {{ __('seva.book_for') }}<span x-text="displayPrice()"></span>
-                                    </button>
-                                </form>
-                            @else
-                                <a href="{{ route('login') }}" class="flex items-center justify-center w-full px-8 py-3 btn-divine">
-                                    {{ __('seva.login_to_book') }}
-                                </a>
-                            @endauth
+                            <form method="POST" action="{{ route('seva.book', $seva) }}">
+                                @csrf
+                                <input type="hidden" name="booking_date" :value="selectedDate">
+                                <input type="hidden" name="slot_time" :value="selectedSlot">
+                                <input type="hidden" name="quantity" value="1">
+                                <input type="hidden" name="devotee_name_for_seva" :value="devoteeName">
+                                <input type="hidden" name="sankalp" :value="sankalp">
+                                <input type="hidden" name="selected_product_id" :value="selectedProductId">
+                                <input type="hidden" name="selected_variant_label" :value="selectedVariant">
+                                <button type="submit"
+                                    :disabled="!canBook()"
+                                    class="w-full px-8 py-3 btn-divine disabled:opacity-40 disabled:cursor-not-allowed">
+                                    {{ __('seva.book_for') }}<span x-text="displayPrice()"></span>
+                                </button>
+                            </form>
                         </div>
                     </div>
+                    @endguest
                 @else
                     <div class="card-sacred p-6">
                         <a href="#" class="flex items-center justify-center w-full px-8 py-3 btn-divine">

@@ -143,9 +143,20 @@
         <div class="lg:w-1/3">
             <div class="lg:sticky lg:top-24">
 
-                {{-- Booking Form --}}
-                <div class="card-sacred p-6" x-data="hallBooking()">
+                {{-- Booking Form — guests see a login prompt instead of the
+                     form (consistent with the store page; 2026-08-04). The
+                     Alpine bag only mounts for logged-in devotees so guests
+                     don't trigger availability API calls. --}}
+                <div class="card-sacred p-6">
                     <h2 class="divine-heading text-xl mb-6">{{ __('halls.booking_form') }}</h2>
+
+                    @guest('devotee')
+                        <p class="text-sm text-amber-100/60 mb-5">{{ __('halls.login_to_view_form') }}</p>
+                        <a href="{{ route('login') }}" class="flex items-center justify-center w-full px-8 py-3 btn-divine">
+                            {{ __('seva.login_to_book') }}
+                        </a>
+                    @else
+                    <div x-data="hallBooking()">
 
                     {{-- Validation Errors --}}
                     @if($errors->any())
@@ -292,21 +303,17 @@
                             </div>
                         </div>
 
-                        {{-- Submit Button --}}
+                        {{-- Submit Button (whole panel is auth-gated above) --}}
                         <div class="mt-6">
-                            @auth('devotee')
-                                <button type="submit"
-                                    :disabled="!selectedDate || available !== true"
-                                    class="w-full px-8 py-3 btn-divine disabled:opacity-40 disabled:cursor-not-allowed">
-                                    <span x-text="@js(__('halls.book_prefix')) + calculatedAmount.toLocaleString('en-IN')"></span>
-                                </button>
-                            @else
-                                <a href="{{ route('login') }}" class="flex items-center justify-center w-full px-8 py-3 btn-divine">
-                                    {{ __('seva.login_to_book') }}
-                                </a>
-                            @endauth
+                            <button type="submit"
+                                :disabled="!selectedDate || available !== true"
+                                class="w-full px-8 py-3 btn-divine disabled:opacity-40 disabled:cursor-not-allowed">
+                                <span x-text="@js(__('halls.book_prefix')) + calculatedAmount.toLocaleString('en-IN')"></span>
+                            </button>
                         </div>
                     </form>
+                    </div>
+                    @endguest
                 </div>
 
             </div>

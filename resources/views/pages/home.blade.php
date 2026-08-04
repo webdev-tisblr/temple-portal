@@ -236,32 +236,8 @@
             <h2 class="font-marcellus text-3xl sm:text-4xl mt-2.5" style="color:#7A1E1E;">{{ __('home.donation_campaigns') }}</h2>
             <p class="text-sm mt-2" style="color:#5E4F3D;">{{ __('home.campaigns_sub') }}</p>
         </div>
-        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            @foreach($campaigns->take(3) as $c)
-                @php
-                    $goal = (float) $c->goal_amount; $raised = (float) $c->raised_amount;
-                    $pct = $goal > 0 ? min(100, round($raised / $goal * 100)) : 0;
-                @endphp
-                <a href="{{ route('projects.show', $c->slug) }}" class="block rounded-2xl overflow-hidden transition hover:-translate-y-0.5"
-                   style="background:#fff; border:1px solid #ecdfc4; box-shadow:0 2px 10px rgba(122,30,30,.06);">
-                    <div class="w-full aspect-[4/3] bg-cover bg-no-repeat bg-center" style="@if($c->cover_image_url)background-color:#fff;background-image:url('{{ $c->cover_image_url }}');@else background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@endif"></div>
-                    <div class="p-6">
-                        <div class="font-marcellus text-xl" style="color:#7A1E1E;">{{ $c->title }}</div>
-                        @if($c->description)
-                            <div class="text-sm mt-1.5 leading-relaxed line-clamp-2" style="color:#5E4F3D;">{{ text_preview($c->description, 110) }}</div>
-                        @endif
-                        <div class="mt-4 h-2 rounded-full" style="background:#f0e6cf;">
-                            <div class="h-2 rounded-full" style="width:{{ $pct }}%; background:linear-gradient(90deg,#E8751A,#C45F12);"></div>
-                        </div>
-                        <div class="flex justify-between mt-2.5 text-xs">
-                            <span class="font-extrabold" style="color:#7A1E1E;">₹{{ number_format($raised) }}</span>
-                            <span style="color:#5E4F3D;">{{ __('home.of') }} ₹{{ number_format($goal) }} · {{ $pct }}%</span>
-                        </div>
-                        <div class="mt-4 text-center font-extrabold text-sm py-2.5 rounded-full" style="background:#7A1E1E; color:#FFF7EC;">{{ __('home.contribute') }}</div>
-                    </div>
-                </a>
-            @endforeach
-        </div>
+        {{-- Adaptive: 1 → full-width horizontal card, 2 → 50/50, 3 → 3-col --}}
+        @include('partials.campaign-grid', ['campaignItems' => $campaigns->take(3)])
     </section>
 @endif
 
@@ -300,11 +276,15 @@
     </section>
 @endif
 
+{{-- Community Hall band — sits between Seva & Puja and Upcoming Events
+     (order swapped with events 2026-08-04 per trust request). --}}
+@include('partials.home-hall-band')
+
 {{-- =================================================================
      UPCOMING EVENTS (compact strip)
      ================================================================= --}}
 @if(isset($events) && $events->count() > 0)
-    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8">
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-8">
         <div class="flex items-end justify-between mb-8">
             <div>
                 <div class="text-[11px] eyebrow" style="color:#C45F12;">{{ __('home.festival') }}</div>
@@ -329,8 +309,6 @@
     </section>
 @endif
 
-{{-- Community Hall band — sits between Upcoming Events and Come for Darshan. --}}
-@include('partials.home-hall-band')
 
 {{-- =================================================================
      VISIT

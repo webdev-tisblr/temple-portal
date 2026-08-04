@@ -153,12 +153,12 @@ class ReceiptTriggerMergeTest extends TestCase
         $this->assertSame('captured', $payment->fresh()->status->value);
         $this->assertSame('confirmed', $booking->fresh()->status->value);
         $this->assertSame(
-            1,
+            2,
             DB::table('temple_seva_reminder_schedules')
                 ->where('seva_booking_id', $booking->id)
                 ->where('offset', '1440m')
                 ->count(),
-            'one schedule row per offset, second rule is a no-op'
+            'one schedule row PER RULE — same-offset rules both fire'
         );
     }
 

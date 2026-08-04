@@ -64,18 +64,19 @@ class SevaReminderScheduler
                 continue; // reminder point already passed at confirmation
             }
 
-            // The search key MUST mirror the table's unique index
-            // (seva_booking_id, offset) — it used to be (booking, rule_id),
-            // so two active rules sharing one offset made the second
-            // firstOrCreate MISS the existing row and hit a 1062 inside
-            // the payment-capture transaction, rolling back the capture
-            // (2026-08-04 prod incident: paid booking stuck pending +
-            // 500 on the success page). One schedule row per offset;
-            // the first rule at that offset wins.
+            // One row PER RULE — the unique index is (booking, rule_id,
+            // offset) since 2026-08-04, so several rules can share an
+            // offset (devotee + assignee + custom phone at "1 day
+            // before"). The search key must always mirror the unique
+            // index: a mismatch here once 1062'd inside the payment-
+            // capture transaction and rolled back a live capture.
             $row = SevaReminderSchedule::firstOrCreate(
-                ['seva_booking_id' => $booking->getKey(), 'offset' => $rule->offset_minutes.'m'],
                 [
+                    'seva_booking_id' => $booking->getKey(),
                     'rule_id' => $rule->getKey(),
+                    'offset' => $rule->offset_minutes.'m',
+                ],
+                [
                     'fire_at' => $fireAt,
                     'status' => SevaReminderSchedule::STATUS_PENDING,
                 ],

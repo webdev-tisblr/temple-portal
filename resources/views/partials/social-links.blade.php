@@ -4,17 +4,11 @@
      settings bag as the ribbon / popup / app-install banner, so it costs
      nothing extra per request and the admin save busts the cache.
 
-     Placement choice (checked against partials/home-darshan-widget.blade.php,
-     which is lg-only at right-0 top-44 z-40, and the app-install bottom sheet
-     at z-[90]):
-       • Desktop (≥1024px): right edge, vertically centered, z-30 — sits well
-         below the darshan tab; if the opened darshan panel reaches mid-screen
-         on a short viewport its higher z-index overlays these icons instead
-         of fighting them.
-       • Mobile (<1024px): smaller icons stacked bottom-right, lifted above
-         the bottom edge; the darshan widget is hidden below lg so there is no
-         collision, and the app-install bottom sheet intentionally covers the
-         stack while it is on screen (it is dismissible).
+     Placement: LEFT edge (user request 2026-08-04) — which also fully avoids
+     the lg-only darshan widget docked at right-0. Desktop (≥1024px): left
+     edge, vertically centered, z-30. Mobile (<1024px): smaller icons stacked
+     bottom-left above the safe area; the app-install bottom sheet (z-[90])
+     intentionally covers the stack while shown (it is dismissible).
      Colors follow the parchment theme: #FBF5EA buttons, #7A1E1E icons,
      #E8751A on hover. --}}
 @php
@@ -33,12 +27,12 @@
 @endphp
 @if(count($socialLinks) > 0)
     <style>
-        .sph-social{position:fixed;right:.625rem;bottom:calc(5.5rem + env(safe-area-inset-bottom));z-index:30;display:flex;flex-direction:column;gap:.5rem;}
+        .sph-social{position:fixed;left:.625rem;bottom:calc(5.5rem + env(safe-area-inset-bottom));z-index:30;display:flex;flex-direction:column;gap:.5rem;}
         .sph-social a{display:flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:9999px;background:#FBF5EA;border:1px solid rgba(122,30,30,.2);box-shadow:0 2px 10px rgba(60,30,10,.18);color:#7A1E1E;transition:color .15s ease,transform .15s ease,box-shadow .15s ease;}
-        .sph-social a:hover{color:#E8751A;transform:translateX(-2px);box-shadow:0 4px 14px rgba(60,30,10,.25);}
+        .sph-social a:hover{color:#E8751A;transform:translateX(2px);box-shadow:0 4px 14px rgba(60,30,10,.25);}
         .sph-social svg{width:1.05rem;height:1.05rem;}
         @media (min-width:1024px){
-            .sph-social{top:50%;bottom:auto;transform:translateY(-50%);right:.75rem;gap:.625rem;}
+            .sph-social{top:50%;bottom:auto;transform:translateY(-50%);left:.75rem;gap:.625rem;}
             .sph-social a{width:2.5rem;height:2.5rem;}
             .sph-social svg{width:1.2rem;height:1.2rem;}
         }

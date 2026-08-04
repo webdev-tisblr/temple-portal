@@ -15,6 +15,7 @@ class DeviceToken extends Model
         'devotee_id',
         'token',
         'platform',
+        'app_version',
         'is_active',
         'last_used_at',
     ];

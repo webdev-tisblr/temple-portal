@@ -46,6 +46,7 @@ class DeviceTokenController extends BaseApiController
             [
                 'devotee_id' => $devotee->getKey(),
                 'platform' => $validated['platform'],
+                ...(isset($validated['app_version']) ? ['app_version' => $validated['app_version']] : []),
                 'is_active' => true,
                 'last_used_at' => now(),
             ],
@@ -76,6 +77,7 @@ class DeviceTokenController extends BaseApiController
                 // before the auth state propagates).
                 ...($devoteeId ? ['devotee_id' => $devoteeId] : []),
                 'platform' => $validated['platform'],
+                ...(isset($validated['app_version']) ? ['app_version' => $validated['app_version']] : []),
                 'is_active' => true,
                 'last_used_at' => now(),
             ],
@@ -114,14 +116,17 @@ class DeviceTokenController extends BaseApiController
     }
 
     /**
-     * @return array{token: string, platform: string}
+     * @return array{token: string, platform: string, app_version?: string}
      */
     private function validateInput(Request $request): array
     {
-        /** @var array{token: string, platform: string} $validated */
+        /** @var array{token: string, platform: string, app_version?: string} $validated */
         $validated = $request->validate([
             'token' => ['required', 'string', 'min:32'],
             'platform' => ['required', 'in:android,ios'],
+            // Optional: builds ≥ 1.4.6 report their version so pushes can
+            // target capabilities (custom tone channels) per device.
+            'app_version' => ['sometimes', 'nullable', 'string', 'max:20', 'regex:/^[0-9]+(\.[0-9]+)*$/'],
         ]);
 
         return $validated;

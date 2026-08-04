@@ -27,6 +27,14 @@ use Throwable;
 class FirebaseService
 {
     /**
+     * Minimum app version whose builds bundle the custom tone sound files
+     * and Android notification channels. Older builds must NEVER receive a
+     * custom-tone payload: Android silently drops a push aimed at a channel
+     * that doesn't exist on the device.
+     */
+    private const CUSTOM_TONE_MIN_VERSION = '1.4.6';
+
+    /**
      * @param  array<string, string>  $data  FCM data payload — values MUST be strings
      */
     public function sendToDevice(string $token, string $title, string $body, array $data = [], ?string $imageUrl = null): bool
@@ -37,7 +45,11 @@ class FirebaseService
         }
 
         try {
-            $message = $this->buildMessage($title, $body, $data, $imageUrl)
+            $capable = $this->customToneConfigured() !== null
+                && $this->isToneCapable(
+                    \App\Models\DeviceToken::query()->where('token', $token)->value('app_version'),
+                );
+            $message = $this->buildMessage($title, $body, $data, $imageUrl, $capable)
                 ->toToken($token);
             $messaging->send($message);
             return true;
@@ -75,10 +87,28 @@ class FirebaseService
             return $results;
         }
 
-        $message = $this->buildMessage($title, $body, $data, $imageUrl);
+        // When a custom tone is configured, split the fleet into tone-capable
+        // tokens (registered by a build ≥ CUSTOM_TONE_MIN_VERSION) and legacy
+        // tokens, and send each cohort a payload it can actually render —
+        // legacy devices get the default channel instead of a silent drop.
+        $groups = [];
+        if ($this->customToneConfigured() === null) {
+            $groups[] = [false, $tokens];
+        } else {
+            [$capable, $legacy] = $this->partitionByToneCapability($tokens);
+            if ($capable !== []) {
+                $groups[] = [true, $capable];
+            }
+            if ($legacy !== []) {
+                $groups[] = [false, $legacy];
+            }
+        }
 
-        // FCM sendMulticast supports up to 500 tokens per call.
-        foreach (array_chunk($tokens, 500) as $chunk) {
+        foreach ($groups as [$toneCapable, $groupTokens]) {
+            $message = $this->buildMessage($title, $body, $data, $imageUrl, $toneCapable);
+
+            // FCM sendMulticast supports up to 500 tokens per call.
+            foreach (array_chunk($groupTokens, 500) as $chunk) {
             try {
                 $report = $messaging->sendMulticast($message, $chunk);
 
@@ -121,9 +151,57 @@ class FirebaseService
                     'batch_size' => count($chunk),
                 ]);
             }
+            }
         }
 
         return $results;
+    }
+
+    /**
+     * The admin-selected custom tone key, or null when the default tone is
+     * active. Valid keys = tones actually bundled in app builds
+     * ≥ CUSTOM_TONE_MIN_VERSION ('ghanti'/'aarti' rejoin when their clips
+     * ship). An unknown value behaves as default, never a broken channel.
+     */
+    private function customToneConfigured(): ?string
+    {
+        $tone = \App\Models\SystemSetting::getValue('push_notification_tone', 'default');
+
+        return in_array($tone, ['jayshreeram'], true) ? $tone : null;
+    }
+
+    /**
+     * A device can render the custom tone only if its registration reported
+     * an app version ≥ CUSTOM_TONE_MIN_VERSION. Null (builds ≤ 1.4.5 never
+     * report one) = not capable.
+     */
+    private function isToneCapable(?string $appVersion): bool
+    {
+        return $appVersion !== null
+            && version_compare($appVersion, self::CUSTOM_TONE_MIN_VERSION, '>=');
+    }
+
+    /**
+     * @param  array<int, string>  $tokens
+     * @return array{0: array<int, string>, 1: array<int, string>}  [capable, legacy]
+     */
+    private function partitionByToneCapability(array $tokens): array
+    {
+        $versions = \App\Models\DeviceToken::query()
+            ->whereIn('token', $tokens)
+            ->pluck('app_version', 'token');
+
+        $capable = [];
+        $legacy = [];
+        foreach ($tokens as $token) {
+            if ($this->isToneCapable($versions[$token] ?? null)) {
+                $capable[] = $token;
+            } else {
+                $legacy[] = $token;
+            }
+        }
+
+        return [$capable, $legacy];
     }
 
     /**
@@ -136,7 +214,7 @@ class FirebaseService
      *
      * @param  array<string, string>  $data
      */
-    private function buildMessage(string $title, string $body, array $data, ?string $imageUrl): CloudMessage
+    private function buildMessage(string $title, string $body, array $data, ?string $imageUrl, bool $customToneCapable = false): CloudMessage
     {
         $notification = $imageUrl
             ? FcmNotification::create($title, $body, $imageUrl)
@@ -144,18 +222,16 @@ class FirebaseService
 
         // Custom notification tone — the admin picks one of the tones
         // BUNDLED in the app (System Settings → App → notification tone).
-        // The sound files + Android channels only exist in app builds
-        // ≥ v1.4.6. On older Android builds a push aimed at an unknown
-        // channel_id is silently DROPPED, so select a custom tone only
-        // after that build is widely rolled out. Channel ids and sound
-        // names must match PushNotificationService in the Flutter app
-        // (channel 'temple_{tone}_v1', raw resource '{tone}', iOS
-        // '{tone}.caf' in the Runner bundle).
-        // Valid keys = tones actually BUNDLED in the current app build
-        // ('ghanti'/'aarti' rejoin when their clips ship). An unknown
-        // value falls back to the default channel, never a broken one.
-        $tone = \App\Models\SystemSetting::getValue('push_notification_tone', 'default');
-        $customSound = in_array($tone, ['jayshreeram'], true);
+        // Applied ONLY when the caller marked this message's recipients as
+        // tone-capable (app_version ≥ CUSTOM_TONE_MIN_VERSION): the sound
+        // files + Android channels only exist in those builds, and on older
+        // Android builds a push aimed at an unknown channel_id is silently
+        // DROPPED. Channel ids and sound names must match
+        // PushNotificationService in the Flutter app (channel
+        // 'temple_{tone}_v1', raw resource '{tone}', iOS '{tone}.caf' in
+        // the Runner bundle).
+        $tone = $customToneCapable ? $this->customToneConfigured() : null;
+        $customSound = $tone !== null;
         $androidChannel = $customSound ? "temple_{$tone}_v1" : 'temple_default';
         $androidSound = $customSound ? $tone : 'default';
         $apnsSound = $customSound ? "{$tone}.caf" : 'default';

@@ -6,7 +6,12 @@ on:
 
 jobs:
   # ───────────────────────────────────────────────────────────────
-  # Gate job: a red build here BLOCKS deploy (deploy `needs: test`).
+  # Gate job — currently REPORTING-ONLY and runs IN PARALLEL with
+  # deploy (no `needs: test` on the deploy job): while both checks
+  # below are continue-on-error the gate can't block anything, so
+  # serializing behind it only added ~5 min to every deploy. When
+  # arming the gate (see steps below), restore `needs: test` on the
+  # deploy job so a red build blocks the deploy again.
   # Runs the Pint style check (free, deterministic) and the PHPUnit
   # suite against a throwaway MySQL 8 service container. The project
   # is MySQL-only — there is no sqlite path — so the DB tests need a
@@ -58,8 +63,8 @@ jobs:
       # watch them go green, THEN arm the gate:
       #   1. run `vendor/bin/pint` once locally + commit the formatting pass,
       #   2. confirm `php artisan test` is green in a CI run,
-      #   3. remove the `continue-on-error: true` lines below so a red build
-      #      blocks deploy (the `deploy` job already `needs: test`).
+      #   3. remove the `continue-on-error: true` lines below AND restore
+      #      `needs: test` on the deploy job so a red build blocks deploy.
       - name: Check code style (Pint)
         continue-on-error: true
         run: ./vendor/bin/pint --test
@@ -96,7 +101,6 @@ jobs:
   # ───────────────────────────────────────────────────────────────
   deploy:
     runs-on: [self-hosted, vps]
-    needs: test
 
     steps:
       - uses: actions/checkout@v4

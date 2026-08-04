@@ -106,6 +106,11 @@ class Devotee extends Authenticatable
         $devotee = static::create([
             'phone' => $phone,
             'name' => '',
+            // Seed the language from the request locale (API: X-Locale via
+            // SetApiLocale, web: cookie via SetLocale — both run before this),
+            // so a Hindi/English signup doesn't default to 'gu'. Existing
+            // devotees are never overwritten here.
+            'language' => in_array(app()->getLocale(), ['gu', 'hi', 'en'], true) ? app()->getLocale() : 'gu',
             'phone_verified_at' => now(),
             'last_login_at' => now(),
         ]);

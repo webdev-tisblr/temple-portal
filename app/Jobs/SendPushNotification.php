@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\DeviceToken;
+use App\Models\Devotee;
 use App\Models\Notification;
 use App\Services\FirebaseService;
 use Illuminate\Bus\Queueable;
@@ -55,11 +56,13 @@ class SendPushNotification implements ShouldQueue
                 return;
             }
 
-            $tokenValues = array_column($tokens, 'token');
-            $totalRecipients = count($tokenValues);
+            $totalRecipients = count($tokens);
 
-            $title = $notification->title_gu ?: ($notification->title_en ?: 'શ્રી પાતાળિયા હનુમાનજી');
-            $body = $notification->body_gu ?: ($notification->body_en ?: '');
+            // One FCM multicast per language group, so each recipient gets
+            // the push in their own language (title_{lang} ?: gu ?: en).
+            // Tokens without a devotee (or an unknown language) go to 'gu'.
+            $groups = $this->groupTokensByLanguage($tokens);
+            $groupCounts = array_map('count', $groups);
 
             // FCM `data` payload values must all be strings — the Flutter
             // side json-decodes intent_params when navigating.
@@ -82,22 +85,40 @@ class SendPushNotification implements ShouldQueue
                 'intent_params' => $notification->intent_params,
                 'data_payload' => $data,
                 'token_count' => $totalRecipients,
+                'by_language' => $groupCounts,
             ]);
 
-            $results = $firebaseService->sendToMultiple(
-                $tokenValues,
-                $title,
-                $body,
-                $data,
-                $imageUrl,
-            );
+            $successTotal = 0;
+            $failureTotal = 0;
+            $invalidTokens = [];
 
-            if (!empty($results['invalid_tokens'])) {
-                DeviceToken::whereIn('token', $results['invalid_tokens'])
+            foreach ($groups as $lang => $groupTokens) {
+                $title = $notification->{"title_{$lang}"}
+                    ?: ($notification->title_gu ?: ($notification->title_en ?: 'શ્રી પાતાળિયા હનુમાનજી'));
+                $body = $notification->{"body_{$lang}"}
+                    ?: ($notification->body_gu ?: ($notification->body_en ?: ''));
+
+                $results = $firebaseService->sendToMultiple(
+                    $groupTokens,
+                    $title,
+                    $body,
+                    $data,
+                    $imageUrl,
+                );
+
+                $successTotal += (int) ($results['success'] ?? 0);
+                $failureTotal += (int) ($results['failure'] ?? 0);
+                if (!empty($results['invalid_tokens'])) {
+                    $invalidTokens = array_merge($invalidTokens, $results['invalid_tokens']);
+                }
+            }
+
+            if (!empty($invalidTokens)) {
+                DeviceToken::whereIn('token', $invalidTokens)
                     ->update(['is_active' => false]);
 
                 Log::info('SendPushNotification: deactivated invalid tokens', [
-                    'count' => count($results['invalid_tokens']),
+                    'count' => count($invalidTokens),
                 ]);
             }
 
@@ -105,14 +126,15 @@ class SendPushNotification implements ShouldQueue
                 'status' => 'sent',
                 'sent_at' => now(),
                 'total_recipients' => $totalRecipients,
-                'delivered_count' => $results['success'],
+                'delivered_count' => $successTotal,
             ]);
 
             Log::info('SendPushNotification: completed', [
                 'notification_id' => $notification->id,
                 'total' => $totalRecipients,
-                'success' => $results['success'],
-                'failure' => $results['failure'],
+                'success' => $successTotal,
+                'failure' => $failureTotal,
+                'by_language' => $groupCounts,
             ]);
 
         } catch (\Throwable $e) {
@@ -125,6 +147,36 @@ class SendPushNotification implements ShouldQueue
 
             throw $e;
         }
+    }
+
+    /**
+     * Group token values by the owning devotee's language.
+     *
+     * Tokens without a devotee, or whose devotee has no recognised
+     * language, land in the 'gu' group (temple default).
+     *
+     * @param array<int, array{token: string, devotee_id: string|null}> $tokens
+     * @return array<string, array<int, string>> language => token values
+     */
+    private function groupTokensByLanguage(array $tokens): array
+    {
+        $devoteeIds = array_values(array_unique(array_filter(array_column($tokens, 'devotee_id'))));
+
+        $languages = empty($devoteeIds)
+            ? collect()
+            : Devotee::whereIn('id', $devoteeIds)->pluck('language', 'id');
+
+        $groups = [];
+        foreach ($tokens as $row) {
+            $lang = $row['devotee_id'] !== null ? ($languages[$row['devotee_id']] ?? null) : null;
+            $lang = $lang instanceof \BackedEnum ? $lang->value : $lang;
+            if (!in_array($lang, ['gu', 'hi', 'en'], true)) {
+                $lang = 'gu';
+            }
+            $groups[$lang][] = $row['token'];
+        }
+
+        return $groups;
     }
 
     /**

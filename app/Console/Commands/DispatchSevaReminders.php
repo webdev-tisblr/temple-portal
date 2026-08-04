@@ -252,8 +252,15 @@ class DispatchSevaReminders extends Command
             'is_enabled' => true,
             'subject' => $title,
             'body' => $body,
-            'push_title' => $title,
-            'push_body' => $body,
+            // push_title/push_body are array-cast (locale => text) on
+            // NotificationTemplate. PushNotificationDriver looks up
+            // $titles[$locale] ?? $titles['gu'] ?? $titles['en'] — a plain
+            // string here made that lookup yield '' and silently dropped
+            // every inline reminder push. Key by the rule's resolved
+            // locale, which is the same 'locale' the dispatch context
+            // carries, so the driver's first lookup always hits.
+            'push_title' => [$locale => $title],
+            'push_body' => [$locale => $body],
             'recipient_strategy' => $strategy,
             'recipient_value' => $value,
             'placeholder_map' => [

@@ -41,6 +41,7 @@
     @endif
 
     @include('partials.site-popup')
+    @include('partials.social-links')
 
     @stack('scripts')
 </body>

@@ -68,6 +68,8 @@ class HomePageSettingsPage extends Page implements HasForms
         // App-install banner (store URLs stay in System Settings → Mobile App)
         'banner_enabled', 'banner_cooldown_days', 'banner_delay_seconds',
         'banner_starts_at', 'banner_ends_at',
+        // Social links (sticky icons sidebar on the public site)
+        'social_youtube', 'social_instagram', 'social_facebook',
     ];
 
     /** Keys that hold a JSON-encoded array of IDs. */
@@ -247,6 +249,29 @@ class HomePageSettingsPage extends Page implements HasForms
                         ->helperText('How long after the page loads the card slides up.'),
                     Forms\Components\DateTimePicker::make('banner_starts_at')->label('Show from')->native(false)->displayFormat('d M Y h:i A')->seconds(false),
                     Forms\Components\DateTimePicker::make('banner_ends_at')->label('Show until')->native(false)->displayFormat('d M Y h:i A')->seconds(false),
+                ])->columns(2),
+
+            Forms\Components\Section::make('Social Links')
+                ->description('The temple\'s social media pages. Filled-in links appear as a sticky icons sidebar on every page of the website.')
+                ->schema([
+                    Forms\Components\TextInput::make('social_youtube')
+                        ->label('YouTube channel')
+                        ->url()
+                        ->placeholder('https://www.youtube.com/@…')
+                        ->maxLength(500)
+                        ->helperText('Leave empty to hide the icon'),
+                    Forms\Components\TextInput::make('social_instagram')
+                        ->label('Instagram profile')
+                        ->url()
+                        ->placeholder('https://www.instagram.com/…')
+                        ->maxLength(500)
+                        ->helperText('Leave empty to hide the icon'),
+                    Forms\Components\TextInput::make('social_facebook')
+                        ->label('Facebook page')
+                        ->url()
+                        ->placeholder('https://www.facebook.com/…')
+                        ->maxLength(500)
+                        ->helperText('Leave empty to hide the icon'),
                 ])->columns(2),
         ]);
     }

@@ -94,6 +94,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
 
     // Public: Gallery & Events
     Route::get('/gallery', [ContentController::class, 'gallery']);
+    Route::get('/gallery-categories', [ContentController::class, 'galleryCategories']);
     Route::get('/events', [ContentController::class, 'events']);
 
     // Public: Store

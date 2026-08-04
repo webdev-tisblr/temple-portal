@@ -416,6 +416,24 @@ class ContentController extends BaseApiController
     }
 
     /**
+     * Admin-managed gallery categories for the app's filter chips.
+     * Localized via X-Locale; cached until the list changes.
+     */
+    public function galleryCategories(): JsonResponse
+    {
+        $categories = \App\Support\LocalizedCache::remember('gallery.categories', 900, function () {
+            return \App\Models\GalleryCategory::orderBy('sort_order')
+                ->get()
+                ->map(fn (\App\Models\GalleryCategory $c) => [
+                    'slug' => $c->slug,
+                    'name' => $c->name,
+                ]);
+        });
+
+        return $this->success($categories);
+    }
+
+    /**
      * Return published events, optionally filtered by type.
      */
     public function events(Request $request): JsonResponse

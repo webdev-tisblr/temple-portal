@@ -85,7 +85,7 @@
         <button @click="activeCategory = '{{ $cat }}'"
                 :class="activeCategory === '{{ $cat }}' ? 'bg-gold text-stone-900 font-bold' : 'bg-transparent text-amber-100/50 border border-amber-800/30 hover:border-amber-600'"
                 class="px-4 py-1.5 rounded-full text-sm font-medium transition capitalize">
-            {{ $cat }}
+            {{ $categoryNames[$cat] ?? ucfirst($cat) }}
         </button>
         @endforeach
     </div>

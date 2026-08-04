@@ -39,10 +39,14 @@ class GalleryResource extends Resource
                     ->placeholder('https://youtu.be/xxxxxxxxxxx')
                     ->required(fn (Forms\Get $get): bool => $get('type') === 'video')
                     ->visible(fn (Forms\Get $get): bool => $get('type') === 'video'),
-                Forms\Components\Select::make('category')->options([
-                    'temple' => 'Temple', 'deity' => 'Deity', 'festival' => 'Festival',
-                    'event' => 'Event', 'wallpaper' => 'Wallpaper', 'other' => 'Other',
-                ])->default('temple')->required(),
+                Forms\Components\Select::make('category')
+                    ->options(fn (): array => \App\Models\GalleryCategory::orderBy('sort_order')
+                        ->get()
+                        ->mapWithKeys(fn ($c) => [$c->slug => $c->name_en ?? $c->name_gu])
+                        ->all())
+                    ->default('temple')
+                    ->required()
+                    ->helperText('Manage the list under Content Management → Gallery Categories.'),
                 Forms\Components\Toggle::make('is_wallpaper')->label('Available as Wallpaper'),
                 Forms\Components\TextInput::make('sort_order')->numeric()->default(0),
             ])->columns(2),
@@ -61,10 +65,11 @@ class GalleryResource extends Resource
             ])
             ->defaultSort('sort_order')
             ->filters([
-                Tables\Filters\SelectFilter::make('category')->options([
-                    'temple' => 'Temple', 'deity' => 'Deity', 'festival' => 'Festival',
-                    'event' => 'Event', 'wallpaper' => 'Wallpaper', 'other' => 'Other',
-                ]),
+                Tables\Filters\SelectFilter::make('category')
+                    ->options(fn (): array => \App\Models\GalleryCategory::orderBy('sort_order')
+                        ->get()
+                        ->mapWithKeys(fn ($c) => [$c->slug => $c->name_en ?? $c->name_gu])
+                        ->all()),
                 Tables\Filters\TernaryFilter::make('is_wallpaper'),
             ])
             ->actions([Tables\Actions\EditAction::make()])

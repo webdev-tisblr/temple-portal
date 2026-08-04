@@ -151,6 +151,7 @@ jobs:
                     # like contact.submitted have a delivery body the moment
                     # the trigger fires.
                     php artisan db:seed --class=Database\\Seeders\\NotificationTemplatesSeeder --force || true
+                    php artisan db:seed --class=Database\\Seeders\\GalleryCategorySeeder --force || true
                     # Materialise reminder rows for bookings confirmed before the
                     # pre-computed seva reminder schedule existed. Idempotent
                     # (firstOrCreate on booking+offset) — only has an effect the

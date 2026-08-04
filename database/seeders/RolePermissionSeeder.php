@@ -55,6 +55,7 @@ class RolePermissionSeeder extends Seeder
         'donation::type',
         'event',
         'gallery',
+        'gallery::category',
         'hall',
         'hall::booking',
         'notification',
@@ -204,6 +205,7 @@ class RolePermissionSeeder extends Seeder
                 $crud('daily::darshan::photo'),
                 $crud('event'),
                 $crud('gallery'),
+                $crud('gallery::category'),
                 $crud('page'),
 
                 // Catalog

@@ -161,6 +161,9 @@ class CleanPlayer {
         this.live = root.dataset.live === '1' || root.dataset.live === '';
         this.autoplay = root.dataset.autoplay === '1';
         this.title = root.dataset.title || '';
+        // data-poster: caller-supplied poster image (e.g. a campaign's cover
+        // photo). Overrides YouTube's thumbnails entirely — no probe/upgrade.
+        this.posterSrc = root.dataset.poster || null;
         this.player = null;
         this.ticker = null;
         this.hideTimer = null;
@@ -180,7 +183,7 @@ class CleanPlayer {
         const p = document.createElement('div');
         p.className = 'ytc-poster';
         p.innerHTML =
-            `<img alt="" src="https://i.ytimg.com/vi/${this.id}/hqdefault.jpg">` +
+            `<img alt="" src="${this.posterSrc || `https://i.ytimg.com/vi/${this.id}/hqdefault.jpg`}">` +
             `<button type="button" class="ytc-bigplay" aria-label="Play">${I.play}</button>`;
         const img = p.querySelector('img');
 
@@ -199,9 +202,11 @@ class CleanPlayer {
                 `</div>`);
         };
         img.addEventListener('error', brandFallback);
-        const probe = new Image();
-        probe.onerror = brandFallback;
-        probe.src = `https://i.ytimg.com/vi/${this.id}/mqdefault.jpg`;
+        if (!this.posterSrc) {
+            const probe = new Image();
+            probe.onerror = brandFallback;
+            probe.src = `https://i.ytimg.com/vi/${this.id}/mqdefault.jpg`;
+        }
 
         if (this.live) {
             // Live streams are 16:9; no portrait probing needed.
@@ -214,11 +219,12 @@ class CleanPlayer {
             const oar = new Image();
             oar.onload = () => {
                 if (!oar.naturalWidth || !oar.naturalHeight) return;
-                img.src = oar.src;
+                if (!this.posterSrc) img.src = oar.src;
                 this.applyRatio(oar.naturalWidth / oar.naturalHeight);
             };
             oar.onerror = () => {
                 this.applyRatio(16 / 9);
+                if (this.posterSrc) return;
                 // Upgrade to the HD poster when it exists (tiny grey 120px image otherwise).
                 const hd = new Image();
                 hd.onload = () => { if (hd.naturalWidth > 200) img.src = hd.src; };

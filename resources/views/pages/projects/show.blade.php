@@ -35,7 +35,12 @@
             {{-- Title (desktop) --}}
             <h1 class="divine-heading text-2xl sm:text-3xl hidden lg:block">{{ $project->title }}</h1>
 
-            {{-- ---- Featured Video ---- --}}
+            {{-- ---- Hero: featured video, else the cover image ----
+                 Rules (decided 2026-08-04): an uploaded cover image is always
+                 honoured. With a video it becomes the pre-play poster; without
+                 one it renders as-is (natural ratio, height-capped) above the
+                 gallery. The gallery never suppresses the cover. --}}
+            @php $cover = $project->image_path ? image_url($project->image_path) : null; @endphp
             @if($project->featured_video_url)
                 @php $fv = $project->featured_video_url; @endphp
                 <div class="card-sacred overflow-hidden">
@@ -46,11 +51,18 @@
                          @endif
                          class="relative mx-auto @if(!youtube_video_id($fv)) aspect-video @endif bg-black">
                         @if(youtube_video_id($fv))
-                            <x-yt-clean :url="$fv" :title="$project->title" class="absolute inset-0 w-full h-full" />
+                            <x-yt-clean :url="$fv" :title="$project->title" :poster="$cover" class="absolute inset-0 w-full h-full" />
                         @else
-                            <video class="absolute inset-0 w-full h-full" controls src="{{ $fv }}"></video>
+                            <video class="absolute inset-0 w-full h-full" controls src="{{ $fv }}" @if($cover) poster="{{ $cover }}" @endif></video>
                         @endif
                     </div>
+                </div>
+            @elseif($cover)
+                {{-- Cover image as-is: natural aspect ratio, capped height --}}
+                <div class="card-sacred overflow-hidden">
+                    <img src="{{ $cover }}"
+                         alt="{{ $project->title }}"
+                         class="mx-auto w-auto max-w-full max-h-[70vh]">
                 </div>
             @endif
 
@@ -64,16 +76,7 @@
                         'bare' => true,
                     ])
                 </div>
-            @elseif($project->image_path)
-                {{-- Single Image --}}
-                <div class="card-sacred overflow-hidden">
-                    <div class="aspect-[4/3] bg-black/40">
-                        <img src="{{ image_url($project->image_path) }}"
-                             alt="{{ $project->title }}"
-                             class="w-full h-full object-cover">
-                    </div>
-                </div>
-            @else
+            @elseif(! $project->featured_video_url && ! $cover)
                 {{-- Placeholder --}}
                 <div class="card-sacred overflow-hidden">
                     <div class="aspect-[4/3] flex items-center justify-center"

@@ -1,10 +1,10 @@
 <?php
 
 return [
-    'temple_name' => 'श्री पातालिया हनुमानजी',
+    'temple_name' => 'श्री पाताळिया हनुमानजी',
     'trust_subtitle' => 'सेवा ट्रस्ट • अंतरजाल',
     'language' => 'भाषा',
-    'trust_full' => 'श्री पातालिया हनुमानजी सेवा ट्रस्ट',
+    'trust_full' => 'श्री पाताळिया हनुमानजी सेवा ट्रस्ट',
     'address' => 'अंतरजाल, गांधीधाम, कच्छ — 370110',
     'address_label' => 'पता',
     'date' => 'तारीख',
@@ -18,7 +18,7 @@ return [
     'minimum' => 'न्यूनतम',
     'details' => 'विवरण',
     // Full legal-style trust name for the © line
-    'trust_full_name' => 'श्री पातालिया हनुमानजी सेवा ट्रस्ट',
+    'trust_full_name' => 'श्री पाताळिया हनुमानजी सेवा ट्रस्ट',
     // Bar shown to sessions handed off from the mobile app
     'return_to_app_text' => 'यहाँ का काम पूरा? ऐप में जारी रखें।',
     'return_to_app_button' => 'ऐप खोलें',

@@ -19,7 +19,7 @@ return [
     'temple_closes' => 'मंदिर बंद होता है',
     'go_to_darshan' => 'दर्शन पेज पर जाएं',
     'hero_jai' => '|| जय श्री राम ||',
-    'hero_line1' => 'श्री पातालिया',
+    'hero_line1' => 'श्री पाताळिया',
     'hero_line2' => 'हनुमानजी धाम',
     'temple_open' => 'मंदिर अभी खुला है',
     'temple_closed' => 'मंदिर अभी बंद है',

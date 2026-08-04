@@ -1,11 +1,11 @@
 {
   "resources/css/app.css": {
-    "file": "assets/app-BGsPfBal.css",
+    "file": "assets/app-D8RArCYp.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-DBD2bNZA.js",
+    "file": "assets/app-JHnofhwD.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -14,7 +14,7 @@
     ]
   },
   "resources/js/clean-youtube.js": {
-    "file": "assets/clean-youtube-cwESir5N.js",
+    "file": "assets/clean-youtube-B3r5D-mC.js",
     "name": "clean-youtube",
     "src": "resources/js/clean-youtube.js",
     "isEntry": true

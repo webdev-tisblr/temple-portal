@@ -122,6 +122,46 @@ class ReceiptTriggerMergeTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_capture_survives_duplicate_offset_reminder_rules(): void
+    {
+        // 2026-08-04 prod incident: two active reminder rules sharing one
+        // offset made the scheduler's firstOrCreate collide with the
+        // (booking, offset) unique index INSIDE the capture transaction —
+        // rolling back the payment capture itself. The devotee paid,
+        // got a 500, and the booking stayed pending.
+        $payment = PaymentFactory::new()->create();
+        $booking = SevaBookingFactory::new()->create([
+            'payment_id' => $payment->id,
+            'status' => 'pending',
+            'booking_date' => now()->addDays(10)->toDateString(),
+        ]);
+
+        foreach ([1, 2] as $i) {
+            \App\Models\SevaReminderRule::create([
+                'seva_id' => $booking->seva_id,
+                'is_active' => true,
+                'offset_minutes' => 1440, // same offset on both rules
+                'recipient_type' => 'devotee',
+                'channels' => ['push'],
+                'title_gu' => "યાદ અપાવવું {$i}",
+                'body_gu' => 'સેવા આવતીકાલે છે',
+            ]);
+        }
+
+        app(PaymentCaptureService::class)->markCaptured($payment, 'pay_dup_rules');
+
+        $this->assertSame('captured', $payment->fresh()->status->value);
+        $this->assertSame('confirmed', $booking->fresh()->status->value);
+        $this->assertSame(
+            1,
+            DB::table('temple_seva_reminder_schedules')
+                ->where('seva_booking_id', $booking->id)
+                ->where('offset', '1440m')
+                ->count(),
+            'one schedule row per offset, second rule is a no-op'
+        );
+    }
+
     public function test_migration_rekeys_receipt_template_and_disables_plain_duplicate(): void
     {
         // Recreate the pre-merge world: enabled plain confirmed + enabled

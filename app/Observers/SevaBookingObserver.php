@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Models\SevaBooking;
 use App\Services\SevaReminderScheduler;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Keeps the seva reminder schedule in step with a booking's lifecycle,
@@ -27,7 +28,7 @@ class SevaBookingObserver
     public function created(SevaBooking $booking): void
     {
         if ($this->isConfirmed($booking)) {
-            $this->scheduler->generateForBooking($booking);
+            $this->generateSafely($booking);
         }
     }
 
@@ -43,12 +44,31 @@ class SevaBookingObserver
         }
 
         if ($this->isConfirmed($booking)) {
-            $this->scheduler->generateForBooking($booking);
+            $this->generateSafely($booking);
             return;
         }
 
         // Left the confirmed state — drop any reminders not yet sent.
         $this->scheduler->cancelPendingFor($booking);
+    }
+
+    /**
+     * Reminder scheduling must NEVER break the money path. This observer
+     * fires inside PaymentCaptureService's transaction — an uncaught
+     * exception here rolls back the payment capture itself (2026-08-04
+     * prod incident). Reminders can be regenerated later by the
+     * seva:backfill-reminder-schedule command; a lost capture cannot.
+     */
+    private function generateSafely(SevaBooking $booking): void
+    {
+        try {
+            $this->scheduler->generateForBooking($booking);
+        } catch (\Throwable $e) {
+            Log::error('SevaBookingObserver: reminder generation failed — booking confirm continues', [
+                'booking_id' => $booking->getKey(),
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function isConfirmed(SevaBooking $booking): bool

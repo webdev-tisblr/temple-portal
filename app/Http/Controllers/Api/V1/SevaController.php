@@ -67,18 +67,22 @@ class SevaController extends BaseApiController
         $categories = \App\Support\LocalizedCache::remember('seva.categories', 900, function () {
             $active = Seva::where('is_active', true)
                 ->orderBy('sort_order')
-                ->get(['id', 'category']);
+                ->get(['id', 'category', 'image_path']);
 
             return \App\Models\SevaCategory::orderBy('sort_order')
                 ->get()
                 ->map(function (\App\Models\SevaCategory $c) use ($active) {
                     $sevas = $active->where('category', $c->slug)->values();
+                    $image = $sevas->firstWhere(fn ($s) => ! empty($s->image_path))?->image_path;
 
                     return [
                         'slug' => $c->slug,
                         'name' => $c->name,
                         'seva_count' => $sevas->count(),
                         'single_seva_id' => $sevas->count() === 1 ? $sevas->first()->id : null,
+                        // First active seva's image — the app home renders
+                        // category cards just like the website home section.
+                        'image_url' => $image ? image_url($image) : null,
                     ];
                 });
         });

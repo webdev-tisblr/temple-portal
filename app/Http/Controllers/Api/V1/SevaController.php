@@ -274,8 +274,12 @@ class SevaController extends BaseApiController
                 if ($variantPrice === null) {
                     return $this->error('પસંદ કરેલો વિકલ્પ ઉપલબ્ધ નથી.', 422);
                 }
-                $unitPrice = (float) $variantPrice;
-            } else {
+                // Zero-priced option = the option doesn't set the price;
+                // the seva's own price stays in effect (mirrors starts_from).
+                if ((float) $variantPrice > 0) {
+                    $unitPrice = (float) $variantPrice;
+                }
+            } elseif ((float) $selectedProduct->price > 0) {
                 $unitPrice = (float) $selectedProduct->price;
             }
         }

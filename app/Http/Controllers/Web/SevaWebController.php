@@ -97,8 +97,12 @@ class SevaWebController extends Controller
                 if ($variantPrice === null) {
                     return back()->withErrors(['selected_variant_label' => 'પસંદ કરેલો વિકલ્પ ઉપલબ્ધ નથી.']);
                 }
-                $unitPrice = (float) $variantPrice;
-            } else {
+                // Zero-priced option = the option doesn't set the price;
+                // the seva's own price stays in effect (mirrors starts_from).
+                if ((float) $variantPrice > 0) {
+                    $unitPrice = (float) $variantPrice;
+                }
+            } elseif ((float) $selectedProduct->price > 0) {
                 $unitPrice = (float) $selectedProduct->price;
             }
         }

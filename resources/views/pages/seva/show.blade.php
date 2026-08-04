@@ -242,7 +242,7 @@
                                                 <button type="button" @click="selectedVariant = v.label" :disabled="!v.in_stock"
                                                     :class="selectedVariant === v.label ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-900 border-amber-500 font-bold' : (v.in_stock ? 'bg-transparent text-amber-100/60 border-amber-800/30 hover:border-amber-600' : 'opacity-30 cursor-not-allowed border-amber-900/20')"
                                                     class="px-3 py-2 border rounded-lg text-xs font-medium transition"
-                                                    x-text="v.label + ' — ₹' + Number(v.price).toLocaleString('en-IN')">
+                                                    x-text="v.price > 0 ? (v.label + ' — ₹' + Number(v.price).toLocaleString('en-IN')) : v.label">
                                                 </button>
                                             </template>
                                         </div>
@@ -360,13 +360,16 @@ function slotPicker(sevaId) {
             return !!(p && p.has_variants);
         },
         unitPrice() {
+            // Zero-priced product/variant = the option doesn't set the
+            // price; the seva's own price (basePrice) stays in effect.
             const p = this.currentProduct();
             if (!p) return basePrice;
             if (p.has_variants) {
                 const v = p.variants.find(x => x.label === this.selectedVariant);
-                return v ? v.price : p.price;
+                const vp = v ? v.price : p.price;
+                return vp > 0 ? vp : basePrice;
             }
-            return p.price;
+            return p.price > 0 ? p.price : basePrice;
         },
         displayPrice() {
             return '₹' + Number(this.unitPrice()).toLocaleString('en-IN');

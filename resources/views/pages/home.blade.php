@@ -271,10 +271,9 @@
                         <div class="w-full aspect-[4/3] rounded-xl overflow-hidden bg-cover bg-no-repeat bg-center"
                              style="@if($cat['image_path'])background-color:#fff;background-image:url('{{ image_url($cat['image_path']) }}');@else background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@endif">
                         </div>
-                        <div class="font-marcellus text-base sm:text-lg mt-4" style="color:#7A1E1E;">{{ $catName }}</div>
-                        <div class="font-extrabold text-[13px] mt-3" style="color:#C45F12;">
-                            {{ __('seva.category_count', ['count' => $cat['count']]) }}
-                        </div>
+                        {{-- Title only — the seva count was dropped 2026-08-04
+                             (user request); title sized up to carry the card. --}}
+                        <div class="font-marcellus text-xl sm:text-2xl mt-4 mb-2" style="color:#7A1E1E;">{{ $catName }}</div>
                     </a>
                 @endforeach
             </div>

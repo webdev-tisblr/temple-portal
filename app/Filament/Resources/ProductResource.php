@@ -29,13 +29,18 @@ class ProductResource extends Resource
     {
         return $form->schema([
             Forms\Components\Section::make('Basic Info')->schema([
-                \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
-                    Forms\Components\TextInput::make("name_{$locale}")->label("Name {$label}")->required()->maxLength(255)
-                        ->afterStateUpdated($locale === 'en'
-                            ? fn (Set $set, ?string $state) => $set('slug', Str::slug($state ?? ''))
-                            : null),
-                    Forms\Components\RichEditor::make("description_{$locale}")->label("Description {$label}"),
-                ]),
+                \App\Filament\Support\TranslatableTabs::make(function (string $locale, string $label) {
+                    $name = Forms\Components\TextInput::make("name_{$locale}")->label("Name {$label}")->required()->maxLength(255);
+                    if ($locale === 'en') {
+                        $name->live(onBlur: true)
+                            ->afterStateUpdated(fn (Set $set, ?string $state) => $set('slug', Str::slug($state ?? '')));
+                    }
+
+                    return [
+                        $name,
+                        Forms\Components\RichEditor::make("description_{$locale}")->label("Description {$label}"),
+                    ];
+                }),
                 Forms\Components\TextInput::make('slug')->required()->unique(ignoreRecord: true)->maxLength(255),
                 Forms\Components\Select::make('category_id')
                     ->label('Category')

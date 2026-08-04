@@ -29,15 +29,19 @@ class DonationCampaignResource extends Resource
     {
         return $form->schema([
             Forms\Components\Section::make('Content')->schema([
-                \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
-                    Forms\Components\TextInput::make("title_{$locale}")->label("Title {$label}")->required($locale === 'gu')->maxLength(500)
-                        ->live(onBlur: $locale === 'en')
-                        ->afterStateUpdated($locale === 'en'
-                            ? fn (Set $set, ?string $state) => $set('slug', Str::slug($state ?? ''))
-                            : null),
-                    Forms\Components\Textarea::make("description_{$locale}")->label("Short Description {$label}")->rows(3),
-                    Forms\Components\RichEditor::make("writeup_{$locale}")->label("Detailed Writeup {$label}"),
-                ]),
+                \App\Filament\Support\TranslatableTabs::make(function (string $locale, string $label) {
+                    $title = Forms\Components\TextInput::make("title_{$locale}")->label("Title {$label}")->required($locale === 'gu')->maxLength(500);
+                    if ($locale === 'en') {
+                        $title->live(onBlur: true)
+                            ->afterStateUpdated(fn (Set $set, ?string $state) => $set('slug', Str::slug($state ?? '')));
+                    }
+
+                    return [
+                        $title,
+                        Forms\Components\Textarea::make("description_{$locale}")->label("Short Description {$label}")->rows(3),
+                        Forms\Components\RichEditor::make("writeup_{$locale}")->label("Detailed Writeup {$label}"),
+                    ];
+                }),
                 Forms\Components\TextInput::make('slug')->required()->unique(ignoreRecord: true)->maxLength(255),
                 Forms\Components\FileUpload::make('image_path')->label('Cover Image')->image()->directory('campaigns')->maxSize(2048),
             ])->columns(2),

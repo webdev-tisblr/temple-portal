@@ -1,6 +1,6 @@
 @php
     use App\Models\SystemSetting;
-    $trustName    = SystemSetting::getValue('trust_name', 'શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
+    $trustName    = SystemSetting::getLocalized('trust_name', null, 'શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
     $trustPhone   = SystemSetting::getValue('trust_phone');
     $trustEmail   = SystemSetting::getValue('trust_email');
 @endphp

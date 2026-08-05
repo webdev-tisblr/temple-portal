@@ -71,19 +71,24 @@ class HallController extends BaseApiController
         $request->validate(['date' => 'required|date|after_or_equal:today']);
 
         $date = $request->query('date');
-        // Full-day only (2026-08-04): ANY pending/confirmed booking blocks
-        // the date. The three flags are kept (all equal) so older app
-        // versions keep rendering availability correctly.
-        $booked = HallBooking::where('hall_id', $hall->id)
-            ->where('booking_date', $date)
-            ->whereIn('status', ['pending', 'confirmed'])
-            ->exists();
+        // Admin blockout wins over everything; otherwise full-day only
+        // (2026-08-04): ANY pending/confirmed booking blocks the date.
+        // The three flags are kept (all equal) so older app versions
+        // keep rendering availability correctly.
+        $blackoutReason = $hall->blackoutReason((string) $date);
+        $booked = $blackoutReason !== null
+            || HallBooking::where('hall_id', $hall->id)
+                ->where('booking_date', $date)
+                ->whereIn('status', ['pending', 'confirmed'])
+                ->exists();
 
         return $this->success([
             'date' => $date,
             'full_day_available' => ! $booked,
             'morning_available' => ! $booked,
             'evening_available' => ! $booked,
+            'blocked' => $blackoutReason !== null,
+            'blocked_reason' => $blackoutReason,
         ]);
     }
 
@@ -120,13 +125,18 @@ class HallController extends BaseApiController
         $dates = [];
         for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
             $key = $cursor->toDateString();
-            $available = ! $bookedDates->has($key);
+            // Admin blockout wins over bookings; older apps just see
+            // full_day_available=false and disable the chip.
+            $blackoutReason = $hall->blackoutReason($key);
+            $available = $blackoutReason === null && ! $bookedDates->has($key);
 
             $dates[] = [
                 'date' => $key,
                 'full_day_available' => $available,
                 'morning_available' => $available,
                 'evening_available' => $available,
+                'blocked' => $blackoutReason !== null,
+                'blocked_reason' => $blackoutReason,
             ];
         }
 

@@ -170,7 +170,8 @@ class SevaReminderScheduler
         // configured reminder time on the booking day, never midnight.
         $seva = $booking->seva ?? $booking->seva()->first();
         $slotSvc = app(SevaSlotService::class);
-        $config = $slotSvc->normalizeConfig($seva?->slot_config);
+        // configFor() follows the shared slot pool when the seva has one.
+        $config = $seva ? $slotSvc->configFor($seva) : $slotSvc->normalizeConfig(null);
         [$hour, $minute] = $slotSvc->fullDayAnchorTime($config);
         $date->setTime($hour, $minute);
 

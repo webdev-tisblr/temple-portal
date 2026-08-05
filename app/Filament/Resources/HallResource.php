@@ -91,6 +91,35 @@ class HallResource extends Resource
                     ->placeholder('e.g. AC, Sound System'),
             ]),
 
+            Forms\Components\Section::make('Availability — Blockout Dates')
+                ->icon('heroicon-o-no-symbol')
+                ->description('Dates listed here cannot be booked (web + app), regardless of existing bookings — for maintenance, trust events, festivals, etc.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('blackout_dates')
+                        ->hiddenLabel()
+                        ->schema([
+                            Forms\Components\DatePicker::make('date')
+                                ->label('Date')
+                                ->required()
+                                ->native(false)
+                                ->displayFormat('d/m/Y')
+                                ->minDate(now()->startOfDay()),
+                            Forms\Components\TextInput::make('reason')
+                                ->label('Reason (shown to devotees)')
+                                ->required()
+                                ->maxLength(255)
+                                ->placeholder('e.g. ટ્રસ્ટ કાર્યક્રમ માટે બુક'),
+                        ])
+                        ->columns(2)
+                        ->collapsed()
+                        ->defaultItems(0)
+                        ->addActionLabel('Add Blockout Date')
+                        ->itemLabel(fn (array $state): ?string => ($state['date'] ?? null)
+                            ? \Illuminate\Support\Carbon::parse($state['date'])->format('d/m/Y').' — '.($state['reason'] ?? '')
+                            : null),
+                ]),
+
             Forms\Components\Toggle::make('is_active')
                 ->default(true),
         ]);

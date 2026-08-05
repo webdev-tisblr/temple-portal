@@ -43,6 +43,7 @@ class Hall extends Model
         'price_per_day',
         'price_per_half_day',
         'amenities',
+        'blackout_dates',
         'rules',
         'rules_gu',
         'rules_hi',
@@ -56,8 +57,25 @@ class Hall extends Model
         'price_per_day' => 'decimal:2',
         'price_per_half_day' => 'decimal:2',
         'amenities' => 'array',
+        'blackout_dates' => 'array',
         'is_active' => 'boolean',
     ];
+
+    /**
+     * Admin blockout check: returns the reason string when the date is
+     * blocked (mirrors SevaSlotService::getBlackoutReason), else null.
+     * Entries are {date: 'YYYY-MM-DD', reason: string}.
+     */
+    public function blackoutReason(string $date): ?string
+    {
+        foreach ((array) $this->blackout_dates as $entry) {
+            if (($entry['date'] ?? null) === $date) {
+                return $entry['reason'] ?? '';
+            }
+        }
+
+        return null;
+    }
 
     /**
      * Locale-aware name. Falls back to Gujarati (the primary language),

@@ -20,7 +20,7 @@ class ContactController extends Controller
     {
         $trustPhone = SystemSetting::getValue('trust_phone');
         $trustEmail = SystemSetting::getValue('trust_email');
-        $trustAddress = SystemSetting::getValue('trust_address');
+        $trustAddress = SystemSetting::getLocalized('trust_address');
 
         SEOMeta::setTitle('સંપર્ક — શ્રી પાતાળિયા હનુમાનજી');
 

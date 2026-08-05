@@ -288,7 +288,7 @@ class SevaController extends BaseApiController
         // Full-day / full-week sevas have no time slot — force slot_time to the
         // mode sentinel so capacity checks + storage stay consistent regardless
         // of what the client sent.
-        $slotType = $this->slotService->slotType($this->slotService->normalizeConfig($seva->slot_config));
+        $slotType = $this->slotService->slotType($this->slotService->configFor($seva));
         if ($slotType !== SevaSlotService::SLOT_TYPE_TIME) {
             $validated['slot_time'] = $slotType;
         }

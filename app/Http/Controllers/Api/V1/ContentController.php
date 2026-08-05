@@ -98,7 +98,18 @@ class ContentController extends BaseApiController
         }
         RateLimiter::hit($bucketKey, 3600);
 
-        $result = $service->generate($photo, $devotee, $format);
+        // Admin-designed template first (uploaded background + overlay
+        // layout, per-language); the built-in drawn design remains the
+        // fallback when no active template exists for this format or
+        // the template render fails.
+        $result = null;
+        $template = \App\Models\DarshanCardTemplate::forFormat((string) $format);
+        if ($template) {
+            $result = app(\App\Services\DarshanCardTemplateService::class)
+                ->generate($template, $photo, $devotee, app()->getLocale());
+        }
+
+        $result ??= $service->generate($photo, $devotee, $format);
 
         return $this->success([
             'url' => $result['url'],
@@ -244,7 +255,11 @@ class ContentController extends BaseApiController
                 }
 
                 return [
-                    'version' => (int) ($rows->max('updated_at')?->timestamp ?? 0),
+                    // Content hash, not max(updated_at): deleting or
+                    // deactivating the newest row must still change the
+                    // version, or clients would keep their stale cache
+                    // (timestamps can only regress in that case).
+                    'version' => sha1(json_encode($overrides)),
                     'overrides' => $overrides,
                 ];
             },
@@ -571,16 +586,19 @@ class ContentController extends BaseApiController
      */
     public function templeInfo(): JsonResponse
     {
-        $info = Cache::remember('content.temple_info.v1', 1800, function () {
+        // Locale-keyed cache: the payload bakes in locale-resolved settings
+        // (X-Locale header via SetApiLocale), so a plain Cache::remember
+        // would leak the first requester's language to everyone.
+        $info = \App\Support\LocalizedCache::remember('content.temple_info.v1', 1800, function () {
             return [
-                'name' => SystemSetting::getValue('trust_name', 'શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ'),
+                'name' => SystemSetting::getLocalized('trust_name', null, 'શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ'),
                 'phone' => SystemSetting::getValue('trust_phone'),
                 'email' => SystemSetting::getValue('trust_email'),
-                'address' => SystemSetting::getValue('trust_address'),
-                'about' => SystemSetting::getValue('trust_about'),
-                'rules' => SystemSetting::getValue('trust_rules'),
-                'nearby' => SystemSetting::getValue('trust_nearby'),
-                'facilities' => SystemSetting::getValue('trust_facilities'),
+                'address' => SystemSetting::getLocalized('trust_address'),
+                'about' => SystemSetting::getLocalized('trust_about'),
+                'rules' => SystemSetting::getLocalized('trust_rules'),
+                'nearby' => SystemSetting::getLocalized('trust_nearby'),
+                'facilities' => SystemSetting::getLocalized('trust_facilities'),
                 'map_url' => SystemSetting::getValue('trust_map_url'),
                 'youtube_channel_url' => SystemSetting::getValue('youtube_channel_url'),
                 'whatsapp_number' => SystemSetting::getValue('trust_whatsapp'),

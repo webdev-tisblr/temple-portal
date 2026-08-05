@@ -53,6 +53,25 @@ class SystemSetting extends Model
         return $map[$key] ?? $default;
     }
 
+    /**
+     * Locale-aware setting lookup. Convention (matches trust_tagline):
+     * the bare key holds the Gujarati/default value; hi/en live in
+     * `{key}_hi` / `{key}_en` and fall back to the bare key when empty.
+     */
+    public static function getLocalized(string $key, ?string $locale = null, string $default = ''): string
+    {
+        $locale = $locale ?: app()->getLocale();
+
+        if (in_array($locale, ['hi', 'en'], true)) {
+            $value = self::getValue("{$key}_{$locale}");
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return self::getValue($key, $default);
+    }
+
     public static function setValue(string $key, string $value): void
     {
         static::updateOrCreate(
@@ -67,6 +86,8 @@ class SystemSetting extends Model
     public static function forgetCache(): void
     {
         Cache::forget(self::CACHE_KEY);
-        Cache::forget('content.temple_info.v1'); // API temple-info payload built from these settings
+        // API temple-info payload built from these settings — now stored
+        // per-locale (LocalizedCache), so bust every language variant.
+        \App\Support\LocalizedCache::forget('content.temple_info.v1');
     }
 }

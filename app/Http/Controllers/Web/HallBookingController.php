@@ -60,6 +60,18 @@ class HallBookingController extends Controller
             'date' => ['required', 'date'],
         ]);
 
+        // Admin blockout wins over everything (maintenance/trust events).
+        $hall = Hall::find($request->integer('hall_id'));
+        $blackoutReason = $hall?->blackoutReason((string) $request->date);
+        if ($blackoutReason !== null) {
+            return response()->json([
+                'available' => false,
+                'message' => $blackoutReason !== ''
+                    ? $blackoutReason
+                    : 'આ તારીખે હૉલ બુકિંગ ઉપલબ્ધ નથી.',
+            ]);
+        }
+
         if ($this->hallDateBooked($request->integer('hall_id'), (string) $request->date)) {
             return response()->json([
                 'available' => false,
@@ -103,6 +115,13 @@ class HallBookingController extends Controller
 
         $devotee = Auth::guard('devotee')->user();
         $hall = Hall::where('id', $validated['hall_id'])->where('is_active', true)->firstOrFail();
+
+        $blackoutReason = $hall->blackoutReason($validated['booking_date']);
+        if ($blackoutReason !== null) {
+            return back()->withErrors(['booking_date' => $blackoutReason !== ''
+                ? $blackoutReason
+                : 'આ તારીખે હૉલ બુકિંગ ઉપલબ્ધ નથી.']);
+        }
 
         if ($this->hallDateBooked((int) $hall->id, $validated['booking_date'])) {
             return back()->withErrors(['booking_date' => 'આ તારીખ માટે હૉલ પહેલેથી બુક છે.']);

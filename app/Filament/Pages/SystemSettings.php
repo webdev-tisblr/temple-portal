@@ -51,8 +51,19 @@ class SystemSettings extends Page implements HasForms
                     ->icon('heroicon-o-building-library')
                     ->schema([
                         Forms\Components\Section::make('Trust Details')->schema([
-                            Forms\Components\TextInput::make('trust_name')->label('Trust Name')->required(),
-                            Forms\Components\Textarea::make('trust_address')->label('Address')->rows(2),
+                            // Name + address are shown to devotees in their
+                            // chosen language (footer, contact, home visit
+                            // block, app temple-info). Bare key = Gujarati;
+                            // hi/en live in suffixed keys and fall back to
+                            // Gujarati when left empty.
+                            \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                                Forms\Components\TextInput::make($locale === 'gu' ? 'trust_name' : "trust_name_{$locale}")
+                                    ->label("Trust Name {$label}")
+                                    ->required($locale === 'gu'),
+                                Forms\Components\Textarea::make($locale === 'gu' ? 'trust_address' : "trust_address_{$locale}")
+                                    ->label("Address {$label}")
+                                    ->rows(2),
+                            ], id: 'trust_identity_translations'),
                             Forms\Components\TextInput::make('trust_pan')->label('Trust PAN'),
                             Forms\Components\TextInput::make('trust_phone')->label('Phone'),
                             Forms\Components\TextInput::make('trust_email')->label('Email'),
@@ -67,6 +78,33 @@ class SystemSettings extends Page implements HasForms
                                     ->helperText($locale === 'gu' ? 'Short description shown under the trust logo in the public footer. 1–2 sentences.' : null),
                             ], id: 'tagline_translations'),
                         ])->columns(2),
+
+                        Forms\Components\Section::make('Website & App Trust Info')
+                            ->description('Shown on the app\'s Temple Info screen (and available to the website). Each text is per-language — empty Hindi/English falls back to Gujarati.')
+                            ->collapsed()
+                            ->schema([
+                                \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                                    Forms\Components\Textarea::make($locale === 'gu' ? 'trust_about' : "trust_about_{$locale}")
+                                        ->label("About the Trust {$label}")
+                                        ->rows(4),
+                                    Forms\Components\Textarea::make($locale === 'gu' ? 'trust_rules' : "trust_rules_{$locale}")
+                                        ->label("Temple Rules {$label}")
+                                        ->rows(4),
+                                    Forms\Components\Textarea::make($locale === 'gu' ? 'trust_nearby' : "trust_nearby_{$locale}")
+                                        ->label("Nearby Places {$label}")
+                                        ->rows(3),
+                                    Forms\Components\Textarea::make($locale === 'gu' ? 'trust_facilities' : "trust_facilities_{$locale}")
+                                        ->label("Facilities {$label}")
+                                        ->rows(3),
+                                ], id: 'trust_info_translations'),
+                                Forms\Components\TextInput::make('trust_map_url')
+                                    ->label('Google Maps URL')
+                                    ->url()
+                                    ->helperText('Used by the footer "Directions" link, home Visit block and the app.'),
+                                Forms\Components\TextInput::make('trust_whatsapp')
+                                    ->label('Trust WhatsApp Number')
+                                    ->helperText('Shown in the footer and the app temple-info screen.'),
+                            ])->columns(2),
 
                         Forms\Components\Section::make('80G Details')->schema([
                             Forms\Components\TextInput::make('trust_80g_reg_no')->label('80G Registration No.'),

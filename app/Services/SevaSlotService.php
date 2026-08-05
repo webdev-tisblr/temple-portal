@@ -34,6 +34,56 @@ class SevaSlotService
     public const DEFAULT_FULLDAY_ANCHOR = '09:00';
 
     /**
+     * Per-request memo of pool member ids: pool_id => list<int seva id>.
+     *
+     * @var array<int, list<int>>
+     */
+    private array $poolMemberIds = [];
+
+    /**
+     * The slot config that actually governs a seva: its pool's config
+     * when it belongs to a shared slot pool, else its own. Always
+     * normalized to v2.
+     */
+    public function configFor(Seva $seva): array
+    {
+        if ($seva->slot_pool_id) {
+            $seva->loadMissing('slotPool');
+            if ($seva->slotPool) {
+                return $this->normalizeConfig($seva->slotPool->slot_config);
+            }
+        }
+
+        return $this->normalizeConfig($seva->slot_config);
+    }
+
+    /**
+     * The seva ids whose bookings count against this seva's capacity:
+     * every member of its pool (active or not — their bookings still
+     * occupy slots), or just the seva itself when unpooled.
+     *
+     * @return list<int>
+     */
+    public function memberIds(Seva $seva): array
+    {
+        if (! $seva->slot_pool_id) {
+            return [(int) $seva->id];
+        }
+
+        $poolId = (int) $seva->slot_pool_id;
+        if (! array_key_exists($poolId, $this->poolMemberIds)) {
+            $this->poolMemberIds[$poolId] = Seva::where('slot_pool_id', $poolId)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        }
+
+        // The seva itself is always included even if the memo raced a
+        // just-saved pool assignment.
+        return array_values(array_unique([...$this->poolMemberIds[$poolId], (int) $seva->id]));
+    }
+
+    /**
      * Resolve the slot mode from a normalized config, defaulting safely.
      */
     public function slotType(array $config): string
@@ -126,7 +176,8 @@ class SevaSlotService
      */
     private function countFullUnitBookings(Seva $seva, string $slotType, string $date, bool $lock = false): int
     {
-        $q = SevaBooking::where('seva_id', $seva->id)
+        // Pool members share capacity — count bookings across the pool.
+        $q = SevaBooking::whereIn('seva_id', $this->memberIds($seva))
             ->whereIn('status', ['pending', 'confirmed', 'completed'])
             ->where('slot_time', $slotType);
 
@@ -190,7 +241,7 @@ class SevaSlotService
      */
     public function getSlotsForDate(Seva $seva, string $date): array
     {
-        $config = $this->normalizeConfig($seva->slot_config);
+        $config = $this->configFor($seva);
 
         if (! $this->isDateInAcceptancePeriod($config, $date)) {
             return [];
@@ -274,7 +325,7 @@ class SevaSlotService
      */
     public function getSlotAvailability(Seva $seva, string $date): array
     {
-        $config = $this->normalizeConfig($seva->slot_config);
+        $config = $this->configFor($seva);
 
         // Check acceptance period
         if (! $this->isDateInAcceptancePeriod($config, $date)) {
@@ -346,9 +397,9 @@ class SevaSlotService
             ];
         }
 
-        // Count bookings per slot
+        // Count bookings per slot — across the pool when the seva shares one.
         $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
-        $bookingCounts = SevaBooking::where('seva_id', $seva->id)
+        $bookingCounts = SevaBooking::whereIn('seva_id', $this->memberIds($seva))
             ->where('booking_date', $date)
             // `pending` holds the slot during the ~10-30s payment window
             // so two devotees can't race-book the same slot while one
@@ -431,10 +482,12 @@ class SevaSlotService
      */
     private function getAvailableDatesInRange(Seva $seva, Carbon $start, Carbon $end): array
     {
-        $config = $this->normalizeConfig($seva->slot_config);
+        $config = $this->configFor($seva);
 
-        // Bulk-fetch the booking counts for the window, then index by date+slot.
-        $rows = SevaBooking::where('seva_id', $seva->id)
+        // Bulk-fetch the booking counts for the window, then index by
+        // date+slot. Pool members share capacity, so the count spans
+        // every seva in the pool.
+        $rows = SevaBooking::whereIn('seva_id', $this->memberIds($seva))
             ->whereBetween('booking_date', [$start->toDateString(), $end->toDateString()])
             // `pending` holds the slot during the ~10-30s payment window
             // so two devotees can't race-book the same slot while one
@@ -557,7 +610,7 @@ class SevaSlotService
      */
     public function validateBooking(Seva $seva, string $date, ?string $slotTime): ?string
     {
-        $config = $this->normalizeConfig($seva->slot_config);
+        $config = $this->configFor($seva);
 
         if (! $this->isDateInAcceptancePeriod($config, $date)) {
             return 'This seva is not accepting bookings for this date.';
@@ -614,7 +667,7 @@ class SevaSlotService
         }
 
         $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
-        $currentBookings = SevaBooking::where('seva_id', $seva->id)
+        $currentBookings = SevaBooking::whereIn('seva_id', $this->memberIds($seva))
             ->where('booking_date', $date)
             ->where('slot_time', $slotTime)
             // `pending` holds the slot during the ~10-30s payment window
@@ -654,7 +707,7 @@ class SevaSlotService
             return true;
         }
 
-        $config = $this->normalizeConfig($seva->slot_config);
+        $config = $this->configFor($seva);
         $slotType = $this->slotType($config);
         $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
 
@@ -668,7 +721,10 @@ class SevaSlotService
             return true;
         }
 
-        $currentBookings = SevaBooking::where('seva_id', $seva->id)
+        // whereIn keeps InnoDB's locking-read semantics: concurrent
+        // bookings for ANY pool member on this date+slot serialise on
+        // the same row/gap locks, exactly as the single-seva case did.
+        $currentBookings = SevaBooking::whereIn('seva_id', $this->memberIds($seva))
             ->where('booking_date', $date)
             ->where('slot_time', $slotTime)
             ->whereIn('status', ['pending', 'confirmed', 'completed'])

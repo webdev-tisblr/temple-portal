@@ -70,6 +70,8 @@ class RolePermissionSeeder extends Seeder
         'seva::booking',
         'seva::category',
         'seva::reminder::rule',
+        'seva::slot::pool',
+        'darshan::card::template',
         'status::template',
         'trustee',
     ];
@@ -212,6 +214,8 @@ class RolePermissionSeeder extends Seeder
                 // Catalog
                 $crud('seva'),
                 $crud('seva::category'),
+                $crud('seva::slot::pool'),
+                $crud('darshan::card::template'),
                 $crud('hall'),
                 $crud('product'),
                 $crud('product::category'),

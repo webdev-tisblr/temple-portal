@@ -24,62 +24,15 @@ class CreateSeva extends CreateRecord
 
     public static function normalizeSlotConfigForSave(array $data): array
     {
-        $days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        // Slot-config normalization is shared with SlotPoolResource.
+        $data = \App\Filament\Support\SlotConfigFields::normalizeForSave($data);
 
-        // Normalize default slots: trim seconds, sort, dedupe
-        if (isset($data['slot_config']['weekly_schedule']['default'])) {
-            $data['slot_config']['weekly_schedule']['default'] = self::cleanTimeSlots(
-                $data['slot_config']['weekly_schedule']['default']
-            );
-        }
-
-        // Process day overrides
-        foreach ($days as $day) {
-            $toggleKey = "customize_{$day}";
-
-            if (empty($data[$toggleKey])) {
-                $data['slot_config']['weekly_schedule'][$day] = null;
-            } else {
-                $slots = $data['slot_config']['weekly_schedule'][$day] ?? [];
-                $data['slot_config']['weekly_schedule'][$day] = self::cleanTimeSlots($slots);
-            }
-
-            unset($data[$toggleKey]);
-        }
-
-        // Map the flat full-day days checkbox field back into slot_config
-        // as a plain list of weekday names (empty = available every day).
-        $fullDayDays = $data['full_day_days'] ?? [];
-        $data['slot_config']['full_day_days'] = is_array($fullDayDays) ? array_values($fullDayDays) : [];
-        unset($data['full_day_days']);
-
-        // Stamp version
-        if (! empty($data['slot_config'])) {
-            $data['slot_config']['version'] = 2;
-        }
-
-        // Handle product selection toggle (transient field)
+        // Handle product selection toggle (transient field, seva-only)
         if (empty($data['enable_product_selection'])) {
             $data['linked_products'] = null;
         }
         unset($data['enable_product_selection']);
 
         return $data;
-    }
-
-    /**
-     * Normalize time values: trim to HH:MM, remove nulls/empties, sort, dedupe.
-     */
-    private static function cleanTimeSlots(array $slots): array
-    {
-        $cleaned = collect($slots)
-            ->filter()
-            ->map(fn ($t) => substr((string) $t, 0, 5)) // "06:00:00" → "06:00"
-            ->unique()
-            ->sort()
-            ->values()
-            ->toArray();
-
-        return $cleaned;
     }
 }

@@ -22,10 +22,10 @@ class LegalController extends Controller
     private function contact(): array
     {
         return [
-            'trustName' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
+            'trustName' => SystemSetting::getLocalized('trust_name', null, 'Shree Patadiya Hanumanji Seva Trust'),
             'email' => SystemSetting::getValue('trust_email', 'support@patadiyahanumanji.com'),
             'phone' => SystemSetting::getValue('trust_phone', ''),
-            'address' => SystemSetting::getValue('trust_address', 'Antarjal, Gandhidham, Kutch, Gujarat - 370205'),
+            'address' => SystemSetting::getLocalized('trust_address', null, 'Antarjal, Gandhidham, Kutch, Gujarat - 370205'),
             'updated' => 'June 2026',
         ];
     }

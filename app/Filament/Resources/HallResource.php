@@ -96,6 +96,21 @@ class HallResource extends Resource
                 ->description('Dates listed here cannot be booked (web + app), regardless of existing bookings — for maintenance, trust events, festivals, etc.')
                 ->collapsed()
                 ->schema([
+                    Forms\Components\CheckboxList::make('blackout_days')
+                        ->label('Block every week on these days')
+                        ->options([
+                            'monday' => 'Monday',
+                            'tuesday' => 'Tuesday',
+                            'wednesday' => 'Wednesday',
+                            'thursday' => 'Thursday',
+                            'friday' => 'Friday',
+                            'saturday' => 'Saturday',
+                            'sunday' => 'Sunday',
+                        ])
+                        ->columns(['default' => 2, 'sm' => 4, 'lg' => 7])
+                        ->gridDirection('row')
+                        ->bulkToggleable()
+                        ->helperText('Recurring weekly closure — e.g. tick Monday and NO Monday is ever bookable. Leave all unchecked for no weekly restriction. One-off dates go in the list below.'),
                     Forms\Components\Repeater::make('blackout_dates')
                         ->hiddenLabel()
                         ->schema([

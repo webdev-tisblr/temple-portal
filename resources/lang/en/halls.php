@@ -41,4 +41,5 @@ return [
     'booked_sub' => 'Your hall booking has been recorded successfully. The invoice will be sent via email/WhatsApp.',
     'hall' => 'Hall',
     'payment_failed_sub' => 'The payment for the hall booking could not be completed.',
+    'weekday_blocked' => 'Hall booking is not available on this day.',
 ];

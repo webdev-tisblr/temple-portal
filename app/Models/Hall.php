@@ -44,6 +44,7 @@ class Hall extends Model
         'price_per_half_day',
         'amenities',
         'blackout_dates',
+        'blackout_days',
         'rules',
         'rules_gu',
         'rules_hi',
@@ -58,19 +59,31 @@ class Hall extends Model
         'price_per_half_day' => 'decimal:2',
         'amenities' => 'array',
         'blackout_dates' => 'array',
+        'blackout_days' => 'array',
         'is_active' => 'boolean',
     ];
 
     /**
      * Admin blockout check: returns the reason string when the date is
      * blocked (mirrors SevaSlotService::getBlackoutReason), else null.
-     * Entries are {date: 'YYYY-MM-DD', reason: string}.
+     * Two layers, specific date first:
+     *   blackout_dates — [{date: 'YYYY-MM-DD', reason: string}]
+     *   blackout_days  — recurring weekly closures, list of lowercase
+     *                    weekday names ('monday'…'sunday')
      */
     public function blackoutReason(string $date): ?string
     {
         foreach ((array) $this->blackout_dates as $entry) {
             if (($entry['date'] ?? null) === $date) {
                 return $entry['reason'] ?? '';
+            }
+        }
+
+        $days = array_map('strtolower', (array) $this->blackout_days);
+        if ($days !== []) {
+            $weekday = strtolower(\Illuminate\Support\Carbon::parse($date)->format('l'));
+            if (in_array($weekday, $days, true)) {
+                return __('halls.weekday_blocked');
             }
         }
 

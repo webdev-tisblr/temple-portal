@@ -18,7 +18,12 @@ class Seva extends Model
 
     protected function managedImages(): array
     {
-        return ['image_path' => 'r2'];
+        return [
+            'image_path' => 'r2',
+            'greeting_card_template' => 'r2',
+            'greeting_card_template_hi' => 'r2',
+            'greeting_card_template_en' => 'r2',
+        ];
     }
 
     protected $fillable = [
@@ -34,6 +39,7 @@ class Seva extends Model
         'is_variable_price',
         'image_path',
         'slot_config',
+        'slot_pool_id',
         'requires_booking',
         'is_active',
         'sort_order',
@@ -42,6 +48,10 @@ class Seva extends Model
         'reminder_mode',
         'send_darshan_on_booking_date',
         'linked_products',
+        'greeting_card_template',
+        'greeting_card_template_hi',
+        'greeting_card_template_en',
+        'greeting_card_config',
     ];
 
     protected $casts = [
@@ -53,6 +63,7 @@ class Seva extends Model
         'slot_config' => 'array',
         'reminder_offsets' => 'array',
         'linked_products' => 'array',
+        'greeting_card_config' => 'array',
         'requires_booking' => 'boolean',
         'send_darshan_on_booking_date' => 'boolean',
         'is_active' => 'boolean',
@@ -76,6 +87,12 @@ class Seva extends Model
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(AdminUser::class, 'assignee_id');
+    }
+
+    /** Shared capacity pool — when set, slot settings come from the pool. */
+    public function slotPool(): BelongsTo
+    {
+        return $this->belongsTo(SevaSlotPool::class, 'slot_pool_id');
     }
 
     public function bookings(): HasMany
@@ -133,7 +150,8 @@ class Seva extends Model
 
     public function getResolvedSlotConfig(): array
     {
-        return app(SevaSlotService::class)->normalizeConfig($this->slot_config);
+        // Pool members follow the POOL's slot settings, not their own.
+        return app(SevaSlotService::class)->configFor($this);
     }
 
     public function getSlotsForDate(string $date): array

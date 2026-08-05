@@ -80,6 +80,8 @@ Route::get('/locale/{locale}', function (string $locale) {
 
 // Seva
 Route::get('/seva', [SevaWebController::class, 'index'])->name('seva.index');
+// MUST be registered before /seva/{seva} or the wildcard swallows it.
+Route::get('/seva/greeting-card/{booking}', [SevaWebController::class, 'greetingCard'])->name('seva.greeting-card');
 Route::get('/seva/{seva}', [SevaWebController::class, 'show'])->name('seva.show');
 
 // Donation (public view)

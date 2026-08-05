@@ -36,12 +36,16 @@ class SevaBooking extends Model
         'cancellation_reason',
         'receipt_number',
         'receipt_path',
+        'greeting_card_path',
     ];
 
-    /** Cascade-delete the cached receipt PDF with the row. */
+    /** Cascade-delete the cached receipt PDF + greeting card with the row. */
     protected function managedImages(): array
     {
-        return ['receipt_path' => 'r2_private'];
+        return [
+            'receipt_path' => 'r2_private',
+            'greeting_card_path' => 'r2_private',
+        ];
     }
 
     protected $casts = [

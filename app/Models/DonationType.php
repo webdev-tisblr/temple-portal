@@ -25,7 +25,11 @@ class DonationType extends Model
 
     protected function managedImages(): array
     {
-        return ['greeting_card_template' => 'r2'];
+        return [
+            'greeting_card_template' => 'r2',
+            'greeting_card_template_hi' => 'r2',
+            'greeting_card_template_en' => 'r2',
+        ];
     }
 
     protected $fillable = [
@@ -40,6 +44,8 @@ class DonationType extends Model
         'extra_fields',
         'greeting_card_config',
         'greeting_card_template',
+        'greeting_card_template_hi',
+        'greeting_card_template_en',
         'is_active',
         'sort_order',
     ];

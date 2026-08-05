@@ -7,21 +7,25 @@
     $templateUrl = $templatePath ? image_url($templatePath) : null;
     $statePath = $statePath ?? 'data.greeting_card_config';
 
-    $availableVars = [
-        ['key' => '_donor_name', 'label' => 'Donor Name', 'type' => 'text', 'auto' => true],
-        ['key' => '_amount', 'label' => 'Amount', 'type' => 'text', 'auto' => true],
-        ['key' => '_date', 'label' => 'Date', 'type' => 'text', 'auto' => true],
-        ['key' => '_temple_name', 'label' => 'Temple Name', 'type' => 'text', 'auto' => true],
-    ];
-    if (is_array($extraFields)) {
-        foreach ($extraFields as $f) {
-            if (!empty($f['key'])) {
-                $availableVars[] = [
-                    'key' => $f['key'],
-                    'label' => $f['label_en'] ?? $f['key'],
-                    'type' => $f['type'] ?? 'text',
-                    'auto' => false,
-                ];
+    // Callers (Seva / Darshan templates) may inject their own variable
+    // buttons; the default set below is the donation-type one.
+    if (! isset($availableVars) || ! is_array($availableVars)) {
+        $availableVars = [
+            ['key' => '_donor_name', 'label' => 'Donor Name', 'type' => 'text', 'auto' => true],
+            ['key' => '_amount', 'label' => 'Amount', 'type' => 'text', 'auto' => true],
+            ['key' => '_date', 'label' => 'Date', 'type' => 'text', 'auto' => true],
+            ['key' => '_temple_name', 'label' => 'Temple Name', 'type' => 'text', 'auto' => true],
+        ];
+        if (is_array($extraFields)) {
+            foreach ($extraFields as $f) {
+                if (!empty($f['key'])) {
+                    $availableVars[] = [
+                        'key' => $f['key'],
+                        'label' => $f['label_en'] ?? $f['key'],
+                        'type' => $f['type'] ?? 'text',
+                        'auto' => false,
+                    ];
+                }
             }
         }
     }
@@ -321,8 +325,12 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             const samples = {
                 '_donor_name': 'Ramesh Patel',
                 '_amount': '₹5,100.00',
-                '_date': '09 Apr 2026',
+                '_date': '09/04/2026',
                 '_temple_name': 'Shree Patadiya Hanumanji',
+                '_seva_name': 'Sundarkand Path',
+                '_booking_date': '15/08/2026',
+                '_slot': '07:00 AM',
+                '_sankalp': 'For family wellbeing',
             };
             return samples[key] || key;
         },

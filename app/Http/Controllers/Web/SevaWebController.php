@@ -112,7 +112,7 @@ class SevaWebController extends Controller
         // Full-day / full-week sevas have no time slot — force slot_time to the
         // mode sentinel so capacity checks + storage stay consistent.
         $slotSvc = app(SevaSlotService::class);
-        $slotType = $slotSvc->slotType($slotSvc->normalizeConfig($seva->slot_config));
+        $slotType = $slotSvc->slotType($slotSvc->configFor($seva));
         if ($slotType !== SevaSlotService::SLOT_TYPE_TIME) {
             $validated['slot_time'] = $slotType;
         }
@@ -265,6 +265,17 @@ class SevaWebController extends Controller
                 ]);
             }
 
+            // Greeting card is its own deliverable (seva.greeting_card),
+            // mirroring the live-payment path in PaymentCaptureService.
+            try {
+                \App\Jobs\GenerateSevaGreetingCard::dispatchSync($result['booking']);
+            } catch (\Throwable $e) {
+                Log::error('Test-mode seva greeting card job failed', [
+                    'booking_id' => $result['booking']->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             return view('pages.seva.booking-success', [
                 'verified' => true,
                 'booking' => $result['booking']->load('seva'),
@@ -322,5 +333,30 @@ class SevaWebController extends Controller
     public function bookingFailure(): View
     {
         return view('pages.seva.booking-failure');
+    }
+
+    /**
+     * Permanent public greeting-card link for a seva booking — mirrors
+     * DonationWebController::greetingCard. Cards live on r2_private with
+     * aggressive retention; the sweep NULLs greeting_card_path when it
+     * deletes the object, so a non-null path means the file is present
+     * (no R2 ->exists() probe). Regenerates on miss in the devotee's
+     * current preferred language.
+     */
+    public function greetingCard(string $bookingId): \Symfony\Component\HttpFoundation\StreamedResponse|\Illuminate\Http\RedirectResponse
+    {
+        $booking = SevaBooking::findOrFail($bookingId);
+
+        if (empty($booking->greeting_card_path)) {
+            $regeneratedPath = app(\App\Services\GreetingCardService::class)->generateForSevaBooking($booking);
+            $booking->refresh();
+            // null return = the seva has no card template configured at
+            // all — no card was ever supposed to exist. 404 is correct.
+            if (! $regeneratedPath || empty($booking->greeting_card_path)) {
+                abort(404);
+            }
+        }
+
+        return private_file_redirect($booking->greeting_card_path, null, inline: true, contentType: 'image/png');
     }
 }

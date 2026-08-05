@@ -91,13 +91,28 @@ class DonationTypeResource extends Resource
                 ->description('Upload a background, then drag & drop text/image overlays on the visual canvas.')
                 ->schema([
                     Forms\Components\FileUpload::make('greeting_card_template')
-                        ->label('Background Template Image')
+                        ->label('Background Template Image (Gujarati / default)')
                         ->directory('greeting-templates')
                         ->image()
                         ->maxSize(5120)
-                        ->helperText('Recommended: 1200x800px PNG or JPG.')
+                        ->helperText('Recommended: 1200x800px PNG or JPG. The overlay layout below is positioned on THIS image and is shared by all languages.')
                         ->columnSpanFull()
                         ->live(),
+
+                    Forms\Components\Grid::make(2)->schema([
+                        Forms\Components\FileUpload::make('greeting_card_template_hi')
+                            ->label('Background (Hindi)')
+                            ->directory('greeting-templates')
+                            ->image()
+                            ->maxSize(5120)
+                            ->helperText('Optional. MUST be the same dimensions as the Gujarati image — falls back to Gujarati when empty.'),
+                        Forms\Components\FileUpload::make('greeting_card_template_en')
+                            ->label('Background (English)')
+                            ->directory('greeting-templates')
+                            ->image()
+                            ->maxSize(5120)
+                            ->helperText('Optional. MUST be the same dimensions as the Gujarati image — falls back to Gujarati when empty.'),
+                    ]),
 
                     Forms\Components\Placeholder::make('card_editor_ui')
                         ->content(fn ($record) => view('filament.components.greeting-card-editor', [

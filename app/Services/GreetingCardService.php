@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Donation;
+use App\Models\SevaBooking;
+use App\Models\SystemSetting;
 use App\Support\ScriptFont;
 use App\Support\ShapedText;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -37,6 +40,32 @@ class GreetingCardService
         }
     }
 
+    /**
+     * Generate a greeting card image for a seva booking (when the seva
+     * has a card template configured). Same pipeline as donations —
+     * only the template owner, variables and output path differ.
+     */
+    public function generateForSevaBooking(SevaBooking $booking): ?string
+    {
+        if (! function_exists('imagecreatefrompng')) {
+            Log::warning('GD extension not available, skipping seva greeting card generation');
+
+            return null;
+        }
+
+        try {
+            return $this->generateSevaCard($booking);
+        } catch (\Throwable $e) {
+            Log::error('Seva greeting card generation failed', [
+                'booking_id' => $booking->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return null;
+        }
+    }
+
     private function generateCard(Donation $donation): ?string
     {
         $donation->loadMissing('donationType', 'devotee');
@@ -46,60 +75,133 @@ class GreetingCardService
             return null;
         }
 
-        $overlays = $donationType->greeting_card_config['overlays'] ?? [];
-        if (empty($overlays)) {
+        $locale = $this->localeForDevotee($donation->devotee);
+
+        $pngBytes = $this->composeCard(
+            $this->templateForLocale($donationType, $locale),
+            $donationType->greeting_card_config['overlays'] ?? [],
+            fn (string $fieldKey): ?string => $this->resolveFieldValue($fieldKey, $donation, $locale),
+        );
+        if ($pngBytes === null) {
             return null;
         }
 
-        // Load the template image bytes from R2 public bucket.
+        $outputPath = 'greeting-cards/'.$donation->id.'.png';
+        Storage::disk('r2_private')->put($outputPath, $pngBytes);
+        $donation->update(['greeting_card_path' => $outputPath]);
+
+        return $outputPath;
+    }
+
+    private function generateSevaCard(SevaBooking $booking): ?string
+    {
+        $booking->loadMissing('seva', 'devotee');
+        $seva = $booking->seva;
+
+        if (! $seva || ! $seva->greeting_card_template || ! $seva->greeting_card_config) {
+            return null;
+        }
+
+        $locale = $this->localeForDevotee($booking->devotee);
+
+        // slot_time_label translates via __() — render under the devotee's
+        // locale so "Full Day" comes out in their language, then restore.
+        $previousLocale = app()->getLocale();
+        app()->setLocale($locale);
         try {
-            $templateBytes = Storage::disk('r2')->get($donationType->greeting_card_template);
+            $pngBytes = $this->composeCard(
+                $this->templateForLocale($seva, $locale),
+                $seva->greeting_card_config['overlays'] ?? [],
+                fn (string $fieldKey): ?string => $this->resolveSevaFieldValue($fieldKey, $booking, $locale),
+            );
+        } finally {
+            app()->setLocale($previousLocale);
+        }
+        if ($pngBytes === null) {
+            return null;
+        }
+
+        $outputPath = 'greeting-cards/seva/'.$booking->id.'.png';
+        Storage::disk('r2_private')->put($outputPath, $pngBytes);
+        $booking->update(['greeting_card_path' => $outputPath]);
+
+        return $outputPath;
+    }
+
+    /**
+     * Devotee's preferred render language, defaulting to Gujarati.
+     */
+    private function localeForDevotee(?Model $devotee): string
+    {
+        $locale = $devotee?->getAttribute('language');
+        $locale = $locale instanceof \BackedEnum ? $locale->value : $locale;
+
+        return in_array($locale, ['gu', 'hi', 'en'], true) ? $locale : 'gu';
+    }
+
+    /**
+     * Pick the background template for a locale. The bare column is the
+     * Gujarati/default image; hi/en variants fall back to it when the
+     * admin hasn't uploaded one. All variants share ONE overlay layout,
+     * so locale images must have the same dimensions.
+     */
+    private function templateForLocale(Model $owner, string $locale): ?string
+    {
+        $path = match ($locale) {
+            'hi' => $owner->getAttribute('greeting_card_template_hi'),
+            'en' => $owner->getAttribute('greeting_card_template_en'),
+            default => null,
+        };
+
+        return $path ?: $owner->getAttribute('greeting_card_template');
+    }
+
+    /**
+     * Shared compositing pipeline: fetch the template from R2 public,
+     * apply every overlay through the caller's field resolver, return
+     * the finished PNG bytes (null on any unrecoverable problem).
+     */
+    private function composeCard(?string $templatePath, array $overlays, callable $resolve): ?string
+    {
+        if (! $templatePath || empty($overlays)) {
+            return null;
+        }
+
+        try {
+            $templateBytes = Storage::disk('r2')->get($templatePath);
         } catch (\Throwable $e) {
             Log::warning('Greeting card template fetch failed', [
-                'path' => $donationType->greeting_card_template,
+                'path' => $templatePath,
                 'error' => $e->getMessage(),
             ]);
 
             return null;
         }
         if (! $templateBytes) {
-            Log::warning('Greeting card template not found on R2', [
-                'path' => $donationType->greeting_card_template,
-            ]);
+            Log::warning('Greeting card template not found on R2', ['path' => $templatePath]);
 
             return null;
         }
 
         $image = imagecreatefromstring($templateBytes);
         if (! $image) {
-            Log::warning('Failed to decode template bytes into GD image', [
-                'path' => $donationType->greeting_card_template,
-            ]);
+            Log::warning('Failed to decode template bytes into GD image', ['path' => $templatePath]);
 
             return null;
         }
 
         $fontPath = $this->resolveFontPath();
 
-        // Process each overlay
         foreach ($overlays as $overlay) {
-            $this->applyOverlay($image, $overlay, $donation, $fontPath);
+            $this->applyOverlay($image, $overlay, $resolve, $fontPath);
         }
-
-        // Capture the rendered PNG into a byte string and write to R2 private.
-        $outputPath = 'greeting-cards/'.$donation->id.'.png';
 
         ob_start();
         imagepng($image);
         $pngBytes = (string) ob_get_clean();
         imagedestroy($image);
 
-        Storage::disk('r2_private')->put($outputPath, $pngBytes);
-
-        // Update the donation record
-        $donation->update(['greeting_card_path' => $outputPath]);
-
-        return $outputPath;
+        return $pngBytes;
     }
 
     /**
@@ -139,9 +241,10 @@ class GreetingCardService
     }
 
     /**
-     * Apply a single overlay (text or image) onto the card.
+     * Apply a single overlay (text or image) onto the card. $resolve maps
+     * a field key to its rendered value (donation vs seva resolver).
      */
-    private function applyOverlay(\GdImage $image, array $overlay, Donation $donation, ?string $fontPath): void
+    private function applyOverlay(\GdImage $image, array $overlay, callable $resolve, ?string $fontPath): void
     {
         $type = $overlay['type'] ?? 'text';
         $fieldKey = $overlay['field_key'] ?? null;
@@ -150,7 +253,7 @@ class GreetingCardService
             return;
         }
 
-        $value = $this->resolveFieldValue($fieldKey, $donation);
+        $value = $resolve($fieldKey);
         if ($value === null || $value === '') {
             return;
         }
@@ -170,17 +273,17 @@ class GreetingCardService
     }
 
     /**
-     * Resolve the value for a field key.
+     * Resolve the value for a donation field key.
      * Keys starting with _ are special auto-fields.
      */
-    private function resolveFieldValue(string $fieldKey, Donation $donation): ?string
+    private function resolveFieldValue(string $fieldKey, Donation $donation, string $locale = 'gu'): ?string
     {
         if (str_starts_with($fieldKey, '_')) {
             return match ($fieldKey) {
                 '_donor_name' => $donation->devotee?->name,
                 '_amount' => "\u{20B9}".number_format((float) $donation->amount, 2),
-                '_date' => now()->format('d M Y'),
-                '_temple_name' => 'Shree Patadiya Hanumanji Seva Trust',
+                '_date' => now()->format('d/m/Y'),
+                '_temple_name' => $this->templeName($locale),
                 default => null,
             };
         }
@@ -188,6 +291,43 @@ class GreetingCardService
         $extraData = $donation->extra_data ?? [];
 
         return isset($extraData[$fieldKey]) ? (string) $extraData[$fieldKey] : null;
+    }
+
+    /**
+     * Resolve the value for a seva-booking field key.
+     */
+    private function resolveSevaFieldValue(string $fieldKey, SevaBooking $booking, string $locale = 'gu'): ?string
+    {
+        return match ($fieldKey) {
+            '_donor_name' => $booking->devotee_name_for_seva ?: $booking->devotee?->name,
+            '_seva_name' => $this->sevaNameForLocale($booking, $locale),
+            '_booking_date' => $booking->booking_date?->format('d/m/Y'),
+            '_slot' => $booking->slot_time_label,
+            '_amount' => "\u{20B9}".number_format((float) $booking->total_amount, 2),
+            '_sankalp' => $booking->sankalp,
+            '_date' => now()->format('d/m/Y'),
+            '_temple_name' => $this->templeName($locale),
+            default => null,
+        };
+    }
+
+    private function sevaNameForLocale(SevaBooking $booking, string $locale): ?string
+    {
+        $seva = $booking->seva;
+        if (! $seva) {
+            return null;
+        }
+
+        return match ($locale) {
+            'hi' => $seva->name_hi ?: $seva->name_gu,
+            'en' => $seva->name_en ?: $seva->name_gu,
+            default => $seva->name_gu,
+        };
+    }
+
+    private function templeName(string $locale): string
+    {
+        return SystemSetting::getLocalized('trust_name', $locale, 'Shree Patadiya Hanumanji Seva Trust');
     }
 
     /**

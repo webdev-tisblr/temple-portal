@@ -134,6 +134,29 @@ final class NotificationRegistry
                 ],
             ],
 
+            // Context: devotee, booking (SevaBooking->toArray() merged with
+            //   seva_name (gu), seva_name_en, booking_date 'd/m/Y',
+            //   slot_label), name, donor_name (booked-for name), seva_name,
+            //   amount, amount_formatted, greeting_card_url, trust_name,
+            //   _attachments (the card PNG). Dispatched by
+            //   GenerateSevaGreetingCard only when the seva has a card
+            //   template configured. The card image itself is rendered in
+            //   the devotee's preferred language (per-locale backgrounds).
+            'seva.greeting_card' => [
+                'label' => 'Seva — greeting card',
+                'description' => 'Fires after a seva booking is captured when the seva has a greeting-card template. For WhatsApp, point the Header (IMAGE) link at {{ greeting_card_url }}; for email the PNG is attached automatically.',
+                'placeholders' => [
+                    'name' => 'Booked-for devotee name (name)',
+                    'donor_name' => 'Booked-for devotee name — alias of name (donor_name)',
+                    'seva_name' => 'Seva name in Gujarati (seva_name)',
+                    'booking_date' => 'Seva date, e.g. 15/08/2026 (booking.booking_date)',
+                    'amount' => 'Total amount in INR (amount)',
+                    'amount_formatted' => 'Amount with thousands separator (amount_formatted)',
+                    'greeting_card_url' => 'Greeting card image URL — permanent public link (greeting_card_url)',
+                    'trust_name' => 'Trust name from System Settings (trust_name)',
+                ],
+            ],
+
             // Fires from the seva:dispatch-reminders cron at each
             // reminder_offset configured on the seva. ALL enabled
             // templates for this key fire on every dispatch — admin

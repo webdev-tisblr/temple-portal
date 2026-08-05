@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Jobs\Generate80GReceipt;
 use App\Jobs\GenerateGreetingCard;
 use App\Jobs\GenerateHallInvoice;
+use App\Jobs\GenerateSevaGreetingCard;
 use App\Jobs\GenerateSevaReceipt;
 use App\Jobs\GenerateStoreInvoice;
 use App\Models\Donation;
@@ -250,6 +251,18 @@ class PaymentCaptureService
                 GenerateSevaReceipt::dispatchSync($captured['booking']);
             } catch (\Throwable $e) {
                 Log::error('PaymentCapture: seva receipt generation failed', [
+                    'booking_id' => $captured['booking']->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            // Greeting card is a fully separate deliverable — its own job,
+            // its own `seva.greeting_card` trigger. Isolated so a card
+            // failure never affects the receipt (and vice-versa).
+            try {
+                GenerateSevaGreetingCard::dispatchSync($captured['booking']);
+            } catch (\Throwable $e) {
+                Log::error('PaymentCapture: seva greeting card generation failed', [
                     'booking_id' => $captured['booking']->id,
                     'error' => $e->getMessage(),
                 ]);

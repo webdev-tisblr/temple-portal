@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\Donation;
+use App\Models\SevaBooking;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -53,7 +54,11 @@ class CleanGeneratedGreetingCards extends Command
                     // a clean regenerate via the controller's miss-path,
                     // rather than a stale-path check that would 404 if
                     // the DB say "we have a card" but R2 disagrees.
+                    // Seva cards live under greeting-cards/seva/ and are
+                    // swept by this same walk.
                     $clearedColumns += Donation::where('greeting_card_path', $path)
+                        ->update(['greeting_card_path' => null]);
+                    $clearedColumns += SevaBooking::where('greeting_card_path', $path)
                         ->update(['greeting_card_path' => null]);
                 }
             } catch (\Throwable $e) {

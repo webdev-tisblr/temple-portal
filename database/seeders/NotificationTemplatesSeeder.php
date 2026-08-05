@@ -96,6 +96,27 @@ class NotificationTemplatesSeeder extends Seeder
                 ],
             ],
 
+            // ── SEVA GREETING CARD — email ────────────────────────────────
+            // Mirrors the donation greeting card: only fires when the seva
+            // has a card template configured, so enabling by default is
+            // harmless for sevas without one.
+            [
+                'key' => 'seva.greeting_card',
+                'channel' => NotificationTemplate::CHANNEL_EMAIL,
+                'label' => 'Seva greeting card — devotee email',
+                'description' => 'Sent with the greeting card PNG attached when a seva has a card template configured. Independent of the booking confirmation.',
+                'is_enabled' => true,
+                'subject' => 'A greeting card from {{ trust_name }}',
+                'body' => $this->greetingCardHtml(),
+                'recipient_strategy' => NotificationTemplate::RECIPIENT_DEVOTEE,
+                'recipient_value' => null,
+                'placeholder_map' => [
+                    'donor_name' => 'donor_name',
+                    'greeting_card_url' => 'greeting_card_url',
+                    'trust_name' => 'trust_name',
+                ],
+            ],
+
             // ── SEVA BOOKING CONFIRMED (merged, receipt-carrying) — email ──
             // One message per booking: confirmation + receipt PDF attached.
             // The old separate seva.receipt trigger/template was merged in

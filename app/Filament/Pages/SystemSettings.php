@@ -596,7 +596,10 @@ class SystemSettings extends Page implements HasForms
         }
 
         $code = (string) random_int(100000, 999999);
-        $result = $sms->sendTemplate($recipient, $templateId, ['var1' => $code]);
+        // var1 = code, var2 = validity minutes — matches the trust's
+        // two-variable DLT OTP template ("...is {#var#}. This OTP is
+        // valid for {#var#} minutes...").
+        $result = $sms->sendTemplate($recipient, $templateId, ['var1' => $code, 'var2' => '10']);
 
         Notification::make()
             ->title($result['ok'] ? "Test OTP sent (code: {$code})" : 'Test SMS failed')

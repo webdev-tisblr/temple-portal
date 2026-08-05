@@ -240,8 +240,12 @@ class NotificationTemplatesSeeder extends Seeder
                 'sms_template_id' => null,
                 'recipient_strategy' => NotificationTemplate::RECIPIENT_CONTEXT_PATH,
                 'recipient_value' => 'phone',
+                // Matches the trust's DLT-registered OTP template, which has
+                // TWO {#var#} markers: the code, then the validity minutes
+                // ("...is {#var#}. This OTP is valid for {#var#} minutes...").
                 'placeholder_map' => [
                     'var1' => 'otp',
+                    'var2' => 'expires_in_minutes',
                 ],
             ],
 

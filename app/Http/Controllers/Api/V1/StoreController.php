@@ -48,6 +48,7 @@ class StoreController extends BaseApiController
         $query = Product::query()
             ->active()
             ->forStore()
+            ->with('images')
             ->orderBy('sort_order');
 
         if ($request->query('category_id')) {
@@ -87,6 +88,8 @@ class StoreController extends BaseApiController
             || ($product->category && $product->category->is_seva_only)) {
             return $this->error('Product not found', 404);
         }
+
+        $product->load('images');
 
         return $this->success($this->mapProduct($product));
     }
@@ -357,6 +360,17 @@ class StoreController extends BaseApiController
             'track_stock' => $p->track_stock,
             'in_stock' => $p->inStock(),
             'image_url' => $p->image_path ? image_url($p->image_path) : null,
+            // Full gallery: primary image first, then the extra images in
+            // admin sort order. Older app builds ignore this key.
+            'images' => collect([$p->image_path ? image_url($p->image_path) : null])
+                ->concat(
+                    ($p->relationLoaded('images') ? $p->images : collect())
+                        ->sortBy('sort_order')
+                        ->map(fn ($i) => $i->image_path ? image_url($i->image_path) : null)
+                )
+                ->filter()
+                ->unique()
+                ->values(),
             'is_featured' => $p->is_featured,
             'has_variants' => $p->has_variants,
             'variants' => $variants,

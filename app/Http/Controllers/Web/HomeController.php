@@ -183,8 +183,36 @@ class HomeController extends Controller
             return \App\Models\Hall::where('is_active', true)->first();
         });
 
+        // Prasad highlight strip (between hall band and events). Payload is
+        // locale-NEUTRAL (all name locales stored, resolved in the blade) so
+        // one cache entry serves gu/hi/en — same pattern as sevaCategories.
+        $prasadProducts = Cache::remember('home.prasad.v1', 900, function () {
+            if (SystemSetting::getValue('site_prasad_enabled', '1') !== '1') {
+                return [];
+            }
+
+            $pickedIds = json_decode(SystemSetting::getValue('site_prasad_product_ids', '[]'), true);
+            $query = \App\Models\Product::query()->active()->forStore();
+
+            if (is_array($pickedIds) && $pickedIds !== []) {
+                $query->whereIn('id', $pickedIds);
+            } else {
+                $query->featured();
+            }
+
+            return $query->orderBy('sort_order')->take(4)->get()
+                ->map(fn ($p) => [
+                    'id' => $p->id,
+                    'slug' => $p->slug,
+                    'names' => ['gu' => $p->name_gu, 'hi' => $p->name_hi, 'en' => $p->name_en],
+                    'image_path' => $p->image_path,
+                    'display_price' => $p->getDisplayPrice(),
+                    'in_stock' => $p->inStock(),
+                ])->all();
+        });
+
         $visit = [
-            'address' => SystemSetting::getValue('trust_address', 'અંતરજાળ, ગાંધીધામ, કચ્છ — 370110'),
+            'address' => SystemSetting::getLocalized('trust_address', null, 'અંતરજાળ, ગાંધીધામ, કચ્છ — 370110'),
             'phone' => SystemSetting::getValue('trust_phone', ''),
             'email' => SystemSetting::getValue('trust_email', ''),
             'map_url' => SystemSetting::getValue('trust_map_url', ''),
@@ -210,6 +238,7 @@ class HomeController extends Controller
             'closesAt',
             'hall',
             'visit',
+            'prasadProducts',
         ));
     }
 }

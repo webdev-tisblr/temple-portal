@@ -30,7 +30,7 @@
                         @foreach($donations as $donation)
                         <tr class="hover:bg-amber-900/10 transition">
                             <td class="px-5 py-4 text-amber-100/60">
-                                {{ $donation->created_at->format('d M Y') }}
+                                {{ $donation->created_at->format('d/m/Y') }}
                             </td>
                             <td class="px-5 py-4 font-bold text-gold">₹{{ number_format((float) $donation->amount) }}</td>
                             <td class="px-5 py-4">

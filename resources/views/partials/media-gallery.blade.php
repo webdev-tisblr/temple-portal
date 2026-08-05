@@ -48,9 +48,22 @@
             <p class="text-sm font-semibold text-amber-100/50 mb-4">{{ $heading }}</p>
         @endif
 
+        @php
+            // Photo-only list for the lightbox (videos keep inline players).
+            $lightboxPhotos = $galleryItems->where('kind', 'photo')->pluck('src')->values();
+        @endphp
         <div class="relative" x-data="{
-                scroll(dir) { this.$refs.strip.scrollBy({ left: dir * this.$refs.strip.clientWidth * 0.8, behavior: 'smooth' }); }
-             }">
+                photos: {{ \Illuminate\Support\Js::from($lightboxPhotos) }},
+                lightboxIdx: null,
+                scroll(dir) { this.$refs.strip.scrollBy({ left: dir * this.$refs.strip.clientWidth * 0.8, behavior: 'smooth' }); },
+                openLightbox(i) { this.lightboxIdx = i; },
+                closeLightbox() { this.lightboxIdx = null; },
+                nextPhoto() { if (this.lightboxIdx !== null) this.lightboxIdx = (this.lightboxIdx + 1) % this.photos.length; },
+                prevPhoto() { if (this.lightboxIdx !== null) this.lightboxIdx = (this.lightboxIdx - 1 + this.photos.length) % this.photos.length; }
+             }"
+             @keydown.escape.window="closeLightbox()"
+             @keydown.arrow-right.window="nextPhoto()"
+             @keydown.arrow-left.window="prevPhoto()">
             {{-- The strip: uniform height, natural widths, snap scrolling. --}}
             <div x-ref="strip"
                  class="media-strip flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 h-52 sm:h-64">
@@ -73,12 +86,14 @@
                         <video class="h-full w-auto max-w-none flex-shrink-0 snap-start rounded-xl bg-black border border-amber-900/20"
                                controls preload="metadata" src="{{ $item['src'] }}"></video>
                     @else
-                        <a href="{{ $item['src'] }}" target="_blank" rel="noopener"
-                           class="h-full flex-shrink-0 snap-start rounded-xl overflow-hidden border border-amber-900/20 bg-black/30">
+                        {{-- Opens the in-page lightbox (same tab, slidable)
+                             instead of the old target=_blank raw image. --}}
+                        <button type="button" @click="openLightbox({{ $lightboxPhotos->search($item['src']) }})"
+                                class="h-full flex-shrink-0 snap-start rounded-xl overflow-hidden border border-amber-900/20 bg-black/30 cursor-zoom-in">
                             {{-- h-full + w-auto keeps the image's natural aspect ratio at the strip height. --}}
                             <img src="{{ $item['src'] }}" alt="{{ $title ?? '' }}" loading="lazy"
                                  class="h-full w-auto max-w-none hover:opacity-90 transition">
-                        </a>
+                        </button>
                     @endif
                 @endforeach
             </div>
@@ -94,6 +109,37 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </button>
             @endif
+
+            {{-- Lightbox overlay: same-tab, keyboard (Esc / ← →) + on-screen
+                 arrows, tap outside the photo to close. --}}
+            <template x-teleport="body">
+                <div x-show="lightboxIdx !== null" x-cloak x-transition.opacity
+                     class="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4"
+                     @click.self="closeLightbox()">
+                    <img :src="lightboxIdx !== null ? photos[lightboxIdx] : ''" alt="{{ $title ?? '' }}"
+                         class="max-h-full max-w-full object-contain rounded-lg select-none">
+
+                    <button type="button" @click="closeLightbox()" aria-label="Close"
+                            class="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+
+                    <template x-if="photos.length > 1">
+                        <div>
+                            <button type="button" @click.stop="prevPhoto()" aria-label="Previous"
+                                    class="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                            </button>
+                            <button type="button" @click.stop="nextPhoto()" aria-label="Next"
+                                    class="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            </button>
+                            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm font-medium"
+                                 x-text="(lightboxIdx + 1) + ' / ' + photos.length"></div>
+                        </div>
+                    </template>
+                </div>
+            </template>
         </div>
     </div>
 @endif

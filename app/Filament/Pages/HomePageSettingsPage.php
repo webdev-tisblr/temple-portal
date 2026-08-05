@@ -60,6 +60,8 @@ class HomePageSettingsPage extends Page implements HasForms
         'hero_sub_gu', 'hero_sub_hi', 'hero_sub_en',
         // Featured cards
         'card_campaign_ids', 'card_event_ids', 'card_show_hall', 'card_hall_id',
+        // Prasad highlight section (between hall band and events)
+        'prasad_enabled', 'prasad_product_ids',
         // Top ribbon
         'ribbon_enabled', 'ribbon_text_gu', 'ribbon_text_hi', 'ribbon_text_en',
         'ribbon_link', 'ribbon_starts_at', 'ribbon_ends_at',
@@ -73,13 +75,13 @@ class HomePageSettingsPage extends Page implements HasForms
     ];
 
     /** Keys that hold a JSON-encoded array of IDs. */
-    private const JSON_KEYS = ['card_campaign_ids', 'card_event_ids'];
+    private const JSON_KEYS = ['card_campaign_ids', 'card_event_ids', 'prasad_product_ids'];
 
     /** Keys that hold a JSON array of associative rows (kept as-is, not int-cast). */
     private const RAW_JSON_KEYS = ['popup_slides'];
 
     /** Keys that are booleans (toggles). */
-    private const BOOL_KEYS = ['hero_video_audio', 'hero_video_controls', 'card_show_hall', 'ribbon_enabled', 'popup_enabled', 'banner_enabled'];
+    private const BOOL_KEYS = ['hero_video_audio', 'hero_video_controls', 'card_show_hall', 'ribbon_enabled', 'popup_enabled', 'banner_enabled', 'prasad_enabled'];
 
     public function mount(): void
     {
@@ -191,6 +193,24 @@ class HomePageSettingsPage extends Page implements HasForms
                         ->placeholder('Latest active hall')
                         ->helperText('The hall shown in the home card and hall band (its button links straight to that hall). Leave empty to use the most recent active hall.')
                         ->visible(fn (Get $get) => (bool) $get('card_show_hall')),
+                ])->columns(2),
+
+            Forms\Components\Section::make('Prasad Highlight')
+                ->description('The prasad strip on the home page (after the hall band, before events). Shows up to 4 products.')
+                ->schema([
+                    Forms\Components\Toggle::make('prasad_enabled')
+                        ->label('Show the prasad section')
+                        ->default(true)
+                        ->live(),
+                    Forms\Components\Select::make('prasad_product_ids')
+                        ->label('Products to feature')
+                        ->multiple()->searchable()->preload()
+                        // name is a localized accessor (name_gu/hi/en), not a
+                        // real column — load models before plucking.
+                        ->options(fn () => \App\Models\Product::where('is_active', true)->orderBy('sort_order')->get()->pluck('name', 'id'))
+                        ->placeholder('Featured products (automatic)')
+                        ->helperText('Leave empty to auto-show products marked "Featured" in the store. First 4 are shown.')
+                        ->visible(fn (Get $get) => (bool) $get('prasad_enabled')),
                 ])->columns(2),
 
             Forms\Components\Section::make('Top Ribbon')
@@ -306,6 +326,7 @@ class HomePageSettingsPage extends Page implements HasForms
         Cache::forget('home.hero_config.v1');
         Cache::forget('home.hero_cards.v1');
         Cache::forget('home.hall.v1');
+        Cache::forget('home.prasad.v1');
 
         Notification::make()->title('Home page settings saved')->success()->send();
     }

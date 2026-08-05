@@ -219,35 +219,31 @@ class DarshanShareCardService
         $canvas = $this->manager->createImage($width, $height)
             ->fill(self::C_BURGUNDY);
 
+        $text = $this->cardText();
+
         // 2. Saffron top band (trust branding).
         $headerHeight = $format === self::FORMAT_STORY ? 180 : 130;
         $this->drawHeaderBand($canvas, $width, $headerHeight);
+        $this->drawHeaderText($canvas, $width, $headerHeight, $text['trust']);
 
-        $trustName = SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust');
-        $this->drawHeaderText($canvas, $width, $headerHeight, $trustName);
+        // 3. Darshan photo — 4:5 vertical rectangle (captures the full
+        //    sanctum, both murtis included — the old circle cropped the
+        //    lower murti out), borderless, its bottom third fading into
+        //    the burgundy so photo and card read as one surface.
+        $photoW = $format === self::FORMAT_STORY ? 840 : 420;
+        $photoH = intval($photoW * 5 / 4);
+        $photoLeft = intval(($width - $photoW) / 2);
+        $photoTop = $headerHeight + ($format === self::FORMAT_STORY ? 44 : 34);
+        $this->drawDarshanPhotoRect($canvas, $photo, $photoLeft, $photoTop, $photoW, $photoH);
+        $photoBottom = $photoTop + $photoH;
 
-        // 3. Circular darshan photo with concentric gold rings — replaces
-        //    the rectangular gold-frame layout.
-        $photoRadius = $format === self::FORMAT_STORY ? 430 : 290;
-        $photoCenter = [
-            'x' => intval($width / 2),
-            'y' => $headerHeight + 60 + $photoRadius,
-        ];
-        $this->drawCircularDarshanPhoto($canvas, $photo, $photoCenter, $photoRadius);
+        // 4. Blessing — dominant centred element, localized.
+        $blessingY = $photoBottom + ($format === self::FORMAT_STORY ? 86 : 61);
+        $this->drawBlessing($canvas, $width, $blessingY, $format, $text['blessing']);
 
-        // 4. 'જય શ્રી રામ' blessing — dominant centred element.
-        $blessingY = $photoCenter['y'] + $photoRadius
-            + ($format === self::FORMAT_STORY ? 110 : 75);
-        $this->drawBlessing($canvas, $width, $blessingY, $format);
-
-        // 5. Devotee block — big side-by-side, whole composition centred
-        //    horizontally. Offset chosen so the avatar has roughly equal
-        //    breathing room above (to the divider) and below (to the
-        //    footer meta). Story math: divider at blessing+88, footer at
-        //    height-100, avatar 280px tall → centerline at blessing+349
-        //    puts a ~120px margin both sides.
-        $rowY = $blessingY + ($format === self::FORMAT_STORY ? 349 : 215);
-        $this->drawDevoteeBlock($canvas, $devotee, $width, $rowY, $format);
+        // 5. Devotee block — avatar + name + localized tagline, centred.
+        $rowY = $blessingY + ($format === self::FORMAT_STORY ? 266 : 150);
+        $this->drawDevoteeBlock($canvas, $devotee, $width, $rowY, $format, $text);
 
         // 6. Footer meta — pulled close to the row so no empty burgundy
         //    gap shows below the avatar.
@@ -283,101 +279,141 @@ class DarshanShareCardService
     {
         $centerY = intval($headerHeight / 2);
 
-        // ૐ glyph on the left as a vertical anchor.
-        $canvas->text('ૐ', 76, $centerY + 18, function (FontFactory $font) {
-            $font->filename($this->gujaratiFont(bold: true));
-            $font->size(72);
-            $font->color(self::C_WHITE);
-            $font->align('left', 'center');
-        });
-
-        // Trust name centred across the band. Font is picked by script
-        // — NotoSansGujarati doesn't carry Latin glyphs, so the English
-        // SystemSetting value (e.g. "Shree Patadiya Hanumanji Seva Trust")
-        // rendered as nothing when forced through the Gujarati font.
-        // Earlier bug: blank saffron header on production until this fix.
+        // (The ૐ glyph that used to anchor the left edge is removed per
+        // design feedback — the band carries only the trust name now,
+        // truly centred since there's no glyph to offset around.)
         $headerFont = $this->pickFontForText($trustName, bold: true);
-        $this->drawTextShaped($canvas, $trustName, intval($width / 2) + 30, $centerY, 40, self::C_WHITE, 'center', 'center',
-            fn () => $canvas->text($trustName, intval($width / 2) + 30, $centerY, function (FontFactory $font) use ($headerFont) {
+        $this->drawTextShaped($canvas, $trustName, intval($width / 2), $centerY, 40, self::C_WHITE, 'center', 'center',
+            fn () => $canvas->text($trustName, intval($width / 2), $centerY, function (FontFactory $font) use ($headerFont) {
                 $font->filename($headerFont);
                 $font->size(40);
                 $font->color(self::C_WHITE);
                 $font->align('center', 'center');
                 $font->lineHeight(1.2);
-            }));
+            }), $this->pangoSerifFamilyFor($trustName));
     }
 
     /**
-     * Pick a font file whose glyph coverage matches the script in $text.
-     *
-     * NotoSansGujarati supports only the Gujarati Unicode block. DejaVuSans
-     * covers Latin + extended punctuation but nothing Indic. A real
-     * font-fallback chain would need Imagick's font config; we approximate
-     * by detecting the first Gujarati codepoint and routing accordingly.
+     * All card copy, localized to the requesting devotee's app language
+     * (SetApiLocale applies X-Locale before the controller runs). Every
+     * string that lands on the card comes from here — no hardcoded
+     * English left in the drawing methods.
+     */
+    private function cardText(): array
+    {
+        return match (app()->getLocale()) {
+            'hi' => [
+                'blessing' => 'जय श्री राम',
+                'line1' => 'पातालिया हनुमानजी मंदिर की ओर से',
+                'line2' => 'दैनिक दर्शन आशीर्वाद',
+                'trust' => 'श्री पातालिया हनुमानजी सेवा ट्रस्ट',
+            ],
+            'en' => [
+                'blessing' => 'Jai Shri Ram',
+                'line1' => 'Sending Daily Blessings from',
+                'line2' => 'Patadiya Hanumanji Temple',
+                'trust' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
+            ],
+            default => [
+                'blessing' => 'જય શ્રી રામ',
+                'line1' => 'પાતાળિયા હનુમાનજી મંદિર તરફથી',
+                'line2' => 'દૈનિક દર્શન આશીર્વાદ',
+                'trust' => 'શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ',
+            ],
+        };
+    }
+
+    /**
+     * Pick a font FILE whose glyph coverage matches the script in $text,
+     * in the same families the Flutter app renders with (AppFonts.serif:
+     * Noto Serif Gujarati / Noto Serif Devanagari / Marcellus). Used by
+     * the Intervention fallback path; the pango path picks the matching
+     * fontconfig family via [pangoSerifFamilyFor]/[pangoSansFamilyFor].
      */
     private function pickFontForText(string $text, bool $bold): string
     {
         if (preg_match('/[\x{0A80}-\x{0AFF}]/u', $text)) {
-            return $this->gujaratiFont(bold: $bold);
+            return resource_path('fonts/NotoSerifGujarati-SemiBold.ttf');
+        }
+        if (preg_match('/[\x{0900}-\x{097F}]/u', $text)) {
+            return resource_path('fonts/NotoSerifDevanagari-SemiBold.ttf');
         }
 
-        return $this->englishFont();
+        return resource_path('fonts/Marcellus-Regular.ttf');
+    }
+
+    /** Fontconfig serif family for pango, matched to $text's script. */
+    private function pangoSerifFamilyFor(string $text): ?string
+    {
+        if (preg_match('/[\x{0A80}-\x{0AFF}]/u', $text)) {
+            return 'Noto Serif Gujarati';
+        }
+        if (preg_match('/[\x{0900}-\x{097F}]/u', $text)) {
+            return 'Noto Serif Devanagari';
+        }
+
+        return null; // Latin never routes through pango
     }
 
     /**
-     * Cover-crop the darshan photo to a square the size of the photo
-     * circle's diameter, alpha-mask it into a clean circle (Imagick only),
-     * insert onto the canvas, and stamp two concentric gold rings.
-     *
-     * Earlier implementation tried to mask corners by drawing four
-     * burgundy circles AFTER inserting the square photo. The geometry
-     * produced a 4-pointed star (not a circle) AND the masking circles
-     * bled outside the photo bounds, eating into the saffron header.
-     * The Imagick path now masks BEFORE insert — no bleed possible,
-     * crisp circular crop. GD falls back to a square photo because GD's
-     * alpha-mask compositing isn't reachable through Intervention v4.
+     * Cover-crop the darshan photo to a 4:5 vertical rectangle and place
+     * it borderless on the canvas. The bottom ~30% receives a burgundy
+     * gradient (transparent → opaque card colour) so the photo dissolves
+     * into the background instead of ending on a hard edge. Replaces the
+     * circular crop, which couldn't hold both murtis in frame.
      */
-    private function drawCircularDarshanPhoto(
+    private function drawDarshanPhotoRect(
         ImageInterface $canvas,
         DailyDarshanPhoto $photo,
-        array $center,
-        int $radius,
+        int $left,
+        int $top,
+        int $w,
+        int $h,
     ): void {
-        $diameter = $radius * 2;
-        $left = $center['x'] - $radius;
-        $top = $center['y'] - $radius;
-
         try {
             $bytes = Storage::disk('r2')->get($photo->image_path);
             if ($bytes === null || $bytes === '') {
                 throw new \RuntimeException('empty photo bytes');
             }
-            $img = $this->manager->decodeBinary($bytes)->cover($diameter, $diameter);
-
-            $this->applyCircularMask($img, $diameter);
-
+            $img = $this->manager->decodeBinary($bytes)->cover($w, $h);
             $canvas->insert($img, $left, $top);
         } catch (\Throwable $e) {
             Log::error('DarshanShareCard: photo load failed', [
                 'image_path' => $photo->image_path,
                 'error' => $e->getMessage(),
             ]);
-            // Fallback — a saffron-coloured disk in place of the photo.
-            $canvas->drawCircle(function (CircleFactory $c) use ($center, $radius) {
-                $c->at($center['x'], $center['y']);
-                $c->radius($radius);
-                $c->background(self::C_SAFFRON_DEEP);
+            // Fallback — a saffron field where the photo would sit.
+            $canvas->drawRectangle(function (RectangleFactory $r) use ($left, $top, $w, $h) {
+                $r->at($left, $top);
+                $r->size($w, $h);
+                $r->background(self::C_SAFFRON_DEEP);
             });
         }
 
-        // Single thin gold ring on the edge — the concentric outer halo
-        // is dropped in this iteration to match the minimal mockup.
-        $canvas->drawCircle(function (CircleFactory $c) use ($center, $radius) {
-            $c->at($center['x'], $center['y']);
-            $c->radius($radius);
-            $c->background('rgba(0,0,0,0)');
-            $c->border(self::C_GOLD, 4);
-        });
+        $this->drawBottomFade($canvas, $left, $w, $top + $h, intval($h * 0.30));
+    }
+
+    /**
+     * Stacked 4px strips of increasingly opaque burgundy over the
+     * photo's bottom edge — a gradient both GD and Imagick can draw
+     * through Intervention's rgba() rectangle fills. The ease-in
+     * exponent keeps the upper strips near-invisible so the blend
+     * starts subtle and lands fully opaque exactly at the photo edge.
+     */
+    private function drawBottomFade(ImageInterface $canvas, int $left, int $width, int $bottom, int $fadeHeight): void
+    {
+        [$r, $g, $b] = sscanf(self::C_BURGUNDY, '#%02x%02x%02x');
+        $step = 4;
+        $steps = max(1, intdiv($fadeHeight, $step));
+        for ($i = 0; $i < $steps; $i++) {
+            $alpha = (($i + 1) / $steps) ** 1.6;
+            $y = $bottom - $fadeHeight + $i * $step;
+            $canvas->drawRectangle(function (RectangleFactory $rect) use ($left, $width, $y, $step, $r, $g, $b, $alpha) {
+                $rect->at($left, $y);
+                $rect->size($width, $step);
+                $rect->background(sprintf('rgba(%d,%d,%d,%.3f)', $r, $g, $b, $alpha));
+            });
+        }
     }
 
     /**
@@ -464,9 +500,10 @@ class DarshanShareCardService
         string $halign,
         string $valign,
         callable $fallback,
+        ?string $pangoFamily = null,
     ): void {
         if (ShapedText::needsShaping($text) && ShapedText::available()) {
-            $gd = ShapedText::render($text, $sizePx, $hexColor);
+            $gd = ShapedText::render($text, $sizePx, $hexColor, null, $pangoFamily);
             if ($gd instanceof \GdImage) {
                 $w = imagesx($gd);
                 $h = imagesy($gd);
@@ -489,19 +526,21 @@ class DarshanShareCardService
         $fallback();
     }
 
-    private function drawBlessing(ImageInterface $canvas, int $width, int $y, string $format): void
+    private function drawBlessing(ImageInterface $canvas, int $width, int $y, string $format, string $blessing): void
     {
         $cx = intval($width / 2);
 
-        // 'જય શ્રી રામ' — dominant centred element.
+        // Blessing line ('જય શ્રી રામ' / 'जय श्री राम' / 'Jai Shri Ram')
+        // — dominant centred element, serif per the app's typography.
         $blessSize = $format === self::FORMAT_STORY ? 100 : 72;
-        $this->drawTextShaped($canvas, 'જય શ્રી રામ', $cx, $y, $blessSize, self::C_GOLD_BRIGHT, 'center', 'center',
-            fn () => $canvas->text('જય શ્રી રામ', $cx, $y, function (FontFactory $font) use ($blessSize) {
-                $font->filename($this->gujaratiFont(bold: true));
+        $blessFont = $this->pickFontForText($blessing, bold: true);
+        $this->drawTextShaped($canvas, $blessing, $cx, $y, $blessSize, self::C_GOLD_BRIGHT, 'center', 'center',
+            fn () => $canvas->text($blessing, $cx, $y, function (FontFactory $font) use ($blessSize, $blessFont) {
+                $font->filename($blessFont);
                 $font->size($blessSize);
                 $font->color(self::C_GOLD_BRIGHT);
                 $font->align('center', 'center');
-            }));
+            }), $this->pangoSerifFamilyFor($blessing));
 
         // Gold divider underneath — short dashes either side of a centred
         // dot. Earlier 2px stroke was too thin to read at full size; now
@@ -542,7 +581,7 @@ class DarshanShareCardService
         $today = Carbon::now()->locale('en')->translatedFormat('d M Y');
         // Separator switched from bullet to pipe per the new mockup.
         $canvas->text($today.'   |   patadiyahanumanji.com', $cx, $metaY, function (FontFactory $font) {
-            $font->filename($this->englishFont());
+            $font->filename($this->sansFont());
             $font->size(26);
             $font->color(self::C_CREAM_BODY);
             $font->align('center', 'center');
@@ -572,17 +611,16 @@ class DarshanShareCardService
         int $width,
         int $y,
         string $format,
+        array $text,
     ): void {
-        // Bigger again per user feedback — height growing is fine.
-        $avatarSize = $format === self::FORMAT_STORY ? 280 : 200;
-        $nameSize = $format === self::FORMAT_STORY ? 72 : 52;
-        $bodySize = $format === self::FORMAT_STORY ? 42 : 30;
+        $avatarSize = $format === self::FORMAT_STORY ? 260 : 150;
+        $nameSize = $format === self::FORMAT_STORY ? 68 : 48;
+        $bodySize = $format === self::FORMAT_STORY ? 40 : 28;
         $gap = $format === self::FORMAT_STORY ? 50 : 36;
         // Width estimate for the longest body line — used to centre the
-        // whole avatar+text composition on the canvas. The tagline is
-        // a fixed English string so the estimate is stable enough; if
-        // a future caller localises the lines, swap to a measured
-        // bounding box via Imagick's queryFontMetrics.
+        // whole avatar+text composition on the canvas. Localized lines
+        // land in the same ballpark (the Gujarati/Hindi taglines were
+        // written to similar lengths as the English ones).
         $textWidthEstimate = $format === self::FORMAT_STORY ? 620 : 450;
 
         $blockWidth = $avatarSize + $gap + $textWidthEstimate;
@@ -597,15 +635,26 @@ class DarshanShareCardService
         }
 
         $textStartX = $blockLeftX + $avatarSize + $gap;
-        $line1 = 'Sending Daily Blessings from';
-        $line2 = 'Patadiya Hanumanji Temple';
+        $line1 = (string) $text['line1'];
+        $line2 = (string) $text['line2'];
+
+        $drawBodyLine = function (string $line, int $lineY) use ($canvas, $textStartX, $bodySize): void {
+            // Body copy is sans, like the app (Hind Vadodara / Hind).
+            // Indic lines shape through pango's sans families; Latin
+            // renders straight from the bundled Hind Vadodara TTF.
+            $this->drawTextShaped($canvas, $line, $textStartX, $lineY, $bodySize, self::C_CREAM_BODY, 'left', 'center',
+                fn () => $canvas->text($line, $textStartX, $lineY, function (FontFactory $font) use ($bodySize) {
+                    $font->filename($this->sansFont());
+                    $font->size($bodySize);
+                    $font->color(self::C_CREAM_BODY);
+                    $font->align('left', 'center');
+                }));
+        };
 
         if ($hasName) {
             $name = (string) $devotee->name;
             $nameFont = $this->pickFontForText($name, bold: true);
 
-            // 3 stacked text lines centred vertically against the (much
-            // bigger) avatar. Gaps scale with the name + body sizes.
             $nameToBody = $format === self::FORMAT_STORY ? 80 : 58;
             $bodyLineGap = $format === self::FORMAT_STORY ? 62 : 44;
 
@@ -619,40 +668,17 @@ class DarshanShareCardService
                     $font->size($nameSize);
                     $font->color(self::C_GOLD_BRIGHT);
                     $font->align('left', 'center');
-                }));
-            $canvas->text($line1, $textStartX, $body1Y, function (FontFactory $font) use ($bodySize) {
-                $font->filename($this->englishFont());
-                $font->size($bodySize);
-                $font->color(self::C_CREAM_BODY);
-                $font->align('left', 'center');
-            });
-            $canvas->text($line2, $textStartX, $body2Y, function (FontFactory $font) use ($bodySize) {
-                $font->filename($this->englishFont());
-                $font->size($bodySize);
-                $font->color(self::C_CREAM_BODY);
-                $font->align('left', 'center');
-            });
+                }), $this->pangoSerifFamilyFor($name));
+            $drawBodyLine($line1, $body1Y);
+            $drawBodyLine($line2, $body2Y);
 
             return;
         }
 
         // Anonymous — just two tagline lines, centred against the avatar.
         $bodyLineGap = $format === self::FORMAT_STORY ? 66 : 48;
-        $line1Y = $y - intval($bodyLineGap / 2);
-        $line2Y = $y + intval($bodyLineGap / 2);
-
-        $canvas->text($line1, $textStartX, $line1Y, function (FontFactory $font) use ($bodySize) {
-            $font->filename($this->englishFont());
-            $font->size($bodySize);
-            $font->color(self::C_CREAM_BODY);
-            $font->align('left', 'center');
-        });
-        $canvas->text($line2, $textStartX, $line2Y, function (FontFactory $font) use ($bodySize) {
-            $font->filename($this->englishFont());
-            $font->size($bodySize);
-            $font->color(self::C_CREAM_BODY);
-            $font->align('left', 'center');
-        });
+        $drawBodyLine($line1, $y - intval($bodyLineGap / 2));
+        $drawBodyLine($line2, $y + intval($bodyLineGap / 2));
     }
 
     /**
@@ -821,30 +847,18 @@ class DarshanShareCardService
         // v19: LC_ALL fix — v18 cards rendered via FPM had unshaped Indic
         // text (pango failed in the C locale) and are cached for 30 days.
         // v20: Pataliya → Patadiya footer spelling fix.
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|v20"), 0, 12);
+        // v21: 4:5 rect photo + bottom fade, no ૐ, localized copy, app fonts.
+        // Locale is part of the identity now — the card's text follows
+        // X-Locale, so each language renders its own file.
+        $locale = app()->getLocale();
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|{$locale}|v21"), 0, 12);
 
-        return self::STORAGE_PREFIX."/{$date}/{$devoteeSegment}-{$format}-{$hash}.jpg";
+        return self::STORAGE_PREFIX."/{$date}/{$devoteeSegment}-{$format}-{$locale}-{$hash}.jpg";
     }
 
-    private function gujaratiFont(bool $bold): string
+    /** App-matching sans (Hind Vadodara) for body copy, meta, Latin lines. */
+    private function sansFont(): string
     {
-        return resource_path($bold
-            ? 'fonts/NotoSansGujarati-Bold.ttf'
-            : 'fonts/NotoSansGujarati-Regular.ttf'
-        );
-    }
-
-    private function englishFont(): string
-    {
-        // Latin numerals + URL — DejaVuSans ships with dompdf and is
-        // always available. The Gujarati font would render Latin glyphs
-        // too but the metrics look thinner; DejaVu keeps the meta line
-        // balanced.
-        $vendor = base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans.ttf');
-        if (file_exists($vendor)) {
-            return $vendor;
-        }
-
-        return $this->gujaratiFont(bold: false);
+        return resource_path('fonts/HindVadodara-Regular.ttf');
     }
 }

@@ -85,7 +85,7 @@
                         </div>
                         <div class="flex items-center justify-between py-2 border-t border-amber-900/15">
                             <span class="text-amber-100/40 text-xs">{{ __('dashboard.registered') }}</span>
-                            <span class="text-xs text-amber-100/60">{{ $devotee->created_at?->format('d M Y') }}</span>
+                            <span class="text-xs text-amber-100/60">{{ $devotee->created_at?->format('d/m/Y') }}</span>
                         </div>
                     </div>
                 </div>

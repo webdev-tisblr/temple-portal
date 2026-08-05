@@ -34,7 +34,7 @@
                                 <span class="font-semibold text-amber-100/70">{{ optional($booking->seva)->name ?? 'N/A' }}</span>
                             </td>
                             <td class="px-5 py-4 text-amber-100/60">
-                                {{ optional($booking->booking_date)->format('d M Y') ?? optional($booking->created_at)->format('d M Y') }}
+                                {{ optional($booking->booking_date)->format('d/m/Y') ?? optional($booking->created_at)->format('d/m/Y') }}
                             </td>
                             <td class="px-5 py-4 text-amber-100/60">
                                 {{ $booking->slot_time_label ?? '—' }}

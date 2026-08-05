@@ -42,9 +42,9 @@
                 <div>
                     <p class="text-xs text-amber-600">{{ __('common.date') }}</p>
                     <p class="text-amber-100/70 font-semibold text-sm">
-                        {{ $event->start_date->format('d M Y') }}
+                        {{ $event->start_date->format('d/m/Y') }}
                         @if($event->end_date && !$event->start_date->isSameDay($event->end_date))
-                            &ndash; {{ $event->end_date->format('d M Y') }}
+                            &ndash; {{ $event->end_date->format('d/m/Y') }}
                         @endif
                     </p>
                 </div>

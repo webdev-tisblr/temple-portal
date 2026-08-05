@@ -9,7 +9,7 @@ return [
     'address_label' => 'पता',
     'date' => 'तारीख',
     'time' => 'समय',
-    'amount' => 'राशि',
+    'amount' => 'सेवा मूल्य',
     'try_again' => 'पुनः प्रयास करें',
     'status' => 'स्थिति',
     'email' => 'ईमेल',

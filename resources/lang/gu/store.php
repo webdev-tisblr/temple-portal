@@ -17,6 +17,7 @@ return [
     'no_products' => 'આ શ્રેણીમાં કોઈ ઉત્પાદન મળ્યું નથી.',
     'view_all_products' => 'બધા ઉત્પાદનો જુઓ',
     'in_stock' => 'ઉપલબ્ધ',
+    'out_of_stock' => 'સ્ટોકમાં નથી',
     'choose_option' => 'વિકલ્પ પસંદ કરો',
     'quantity' => 'જથ્થો',
     'adding' => 'ઉમેરાઈ રહ્યું છે...',

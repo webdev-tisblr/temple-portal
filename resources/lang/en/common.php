@@ -9,7 +9,7 @@ return [
     'address_label' => 'Address',
     'date' => 'Date',
     'time' => 'Time',
-    'amount' => 'Amount',
+    'amount' => 'Seva Donation',
     'try_again' => 'Try again',
     'status' => 'Status',
     'email' => 'Email',

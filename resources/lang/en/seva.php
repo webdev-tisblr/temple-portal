@@ -12,7 +12,7 @@ return [
     'cat_other' => 'Other Sevas',
     'category_count' => ':count Sevas',
     'none_available' => 'No sevas are available right now.',
-    'min_amount' => 'Minimum amount:',
+    'min_amount' => 'Minimum seva donation:',
     'choose_date_time' => 'Select date and time',
     'choose_date' => 'Select date',
     'loading_dates' => 'Loading dates...',

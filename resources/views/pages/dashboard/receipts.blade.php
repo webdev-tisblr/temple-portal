@@ -42,7 +42,7 @@
                                 <span class="font-mono text-sm font-semibold text-amber-100/70">{{ $receipt->receipt_number }}</span>
                             </td>
                             <td class="px-5 py-4 text-amber-100/60">
-                                {{ optional($receipt->donation_date)->format('d M Y') ?? optional($receipt->created_at)->format('d M Y') }}
+                                {{ optional($receipt->donation_date)->format('d/m/Y') ?? optional($receipt->created_at)->format('d/m/Y') }}
                             </td>
                             <td class="px-5 py-4 font-bold text-gold">
                                 ₹{{ number_format($receipt->amount) }}

@@ -22,7 +22,7 @@
 <body>
     <div class="header">
         <h1>Shree Patadiya Hanumanji Seva Trust</h1>
-        <p style="font-size:8px;color:#888;margin-bottom:4px;">Trust Reg. No: A/1497 Dated 28-04-1994 &nbsp;|&nbsp; 80G Reg. No: A.A/RG./80G/12/G.R./2011-12/3958 &nbsp;|&nbsp; PAN: AAKTS1478C</p>
+        <p style="font-size:8px;color:#888;margin-bottom:4px;">Trust Reg. No: A/1497 Dated 26-04-1994 &nbsp;|&nbsp; 80G Reg. No: A.A/RG./80G/12/G.R./2011-12/3958 &nbsp;|&nbsp; PAN: AAKTS1478C</p>
         <h1 style="font-size:14px;margin-top:6px;">Donation Report</h1>
         <p>{{ \Carbon\Carbon::parse($dateFrom)->format('d M Y') }} &mdash; {{ \Carbon\Carbon::parse($dateTo)->format('d M Y') }}</p>
     </div>

@@ -17,7 +17,7 @@
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div>
                             <p class="text-gold font-bold">{{ $order->order_number }}</p>
-                            <p class="text-xs text-amber-100/40 mt-0.5">{{ $order->created_at->format('d M Y, h:i A') }}</p>
+                            <p class="text-xs text-amber-100/40 mt-0.5">{{ $order->created_at->format('d/m/Y, h:i A') }}</p>
                         </div>
                         <div class="flex items-center gap-3">
                             <span class="px-2.5 py-1 rounded-full text-xs font-semibold

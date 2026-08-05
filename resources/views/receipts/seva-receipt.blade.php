@@ -59,7 +59,7 @@
             </div>
             <div class="trust-name">{{ $trust_name }}</div>
             <div class="trust-address">{{ $trust_address }}</div>
-            <div class="trust-reg" style="font-size: 8px; color: #888; margin-top: 3px;">Trust Reg. No: A/1497 Dated 28-04-1994 &nbsp;|&nbsp; PAN: AAKTS1478C</div>
+            <div class="trust-reg" style="font-size: 8px; color: #888; margin-top: 3px;">Trust Reg. No: A/1497 Dated 26-04-1994 &nbsp;|&nbsp; PAN: AAKTS1478C</div>
             <div style="margin-top: 10px;">
                 <span class="receipt-title">Seva Booking Receipt</span>
             </div>

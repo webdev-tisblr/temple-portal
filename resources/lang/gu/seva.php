@@ -12,7 +12,7 @@ return [
     'cat_other' => 'અન્ય સેવાઓ',
     'category_count' => ':count સેવાઓ',
     'none_available' => 'હાલમાં કોઈ સેવા ઉપલબ્ધ નથી.',
-    'min_amount' => 'ન્યૂનતમ રકમ:',
+    'min_amount' => 'ન્યૂનતમ સેવા મૂલ્ય:',
     'choose_date_time' => 'તારીખ અને સમય પસંદ કરો',
     'choose_date' => 'તારીખ પસંદ કરો',
     'loading_dates' => 'તારીખો લોડ થઈ રહી છે...',

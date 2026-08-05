@@ -11,7 +11,7 @@ return [
     'events' => 'Events',
     'projects' => 'Projects',
     'gallery' => 'Gallery',
-    'store' => 'Store',
+    'store' => 'Prasad',
     'halls' => 'Hall Booking',
     'contact' => 'Contact',
     'home' => 'Home',

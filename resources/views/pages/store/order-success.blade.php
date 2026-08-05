@@ -23,7 +23,7 @@
                 </div>
                 <div class="flex justify-between py-2.5 border-b border-amber-900/20">
                     <span class="text-amber-100/40">{{ __('common.date') }}</span>
-                    <span class="font-medium text-amber-100/70">{{ $order->created_at->format('d M Y, h:i A') }}</span>
+                    <span class="font-medium text-amber-100/70">{{ $order->created_at->format('d/m/Y, h:i A') }}</span>
                 </div>
 
                 {{-- Items Summary --}}

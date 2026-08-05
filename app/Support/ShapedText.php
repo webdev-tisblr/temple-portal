@@ -50,17 +50,20 @@ final class ShapedText
      * @param  float  $fontSizePx  Desired glyph size in pixels (rendered at 72dpi where pt == px).
      * @param  string  $hexColor  '#RRGGBB' (or without '#').
      * @param  int|null  $wrapWidthPx  When set, pango wraps and centres lines within this width.
+     * @param  string|null  $fontFamily  Fontconfig family override (e.g. 'Noto Serif Gujarati')
+     *                                   so callers can match their surface's typography;
+     *                                   null keeps the script-detected sans default.
      * @return \GdImage|null null on any failure — caller uses its GD fallback.
      */
-    public static function render(string $text, float $fontSizePx, string $hexColor, ?int $wrapWidthPx = null): ?\GdImage
+    public static function render(string $text, float $fontSizePx, string $hexColor, ?int $wrapWidthPx = null, ?string $fontFamily = null): ?\GdImage
     {
         if (! self::available() || trim($text) === '') {
             return null;
         }
 
-        $family = preg_match('/[\x{0A80}-\x{0AFF}]/u', $text)
+        $family = $fontFamily ?? (preg_match('/[\x{0A80}-\x{0AFF}]/u', $text)
             ? 'Noto Sans Gujarati'
-            : 'Noto Sans Devanagari';
+            : 'Noto Sans Devanagari');
 
         $tmp = tempnam(sys_get_temp_dir(), 'shaped-');
         if ($tmp === false) {

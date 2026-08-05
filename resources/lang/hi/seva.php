@@ -12,7 +12,7 @@ return [
     'cat_other' => 'अन्य सेवाएँ',
     'category_count' => ':count सेवाएँ',
     'none_available' => 'अभी कोई सेवा उपलब्ध नहीं है।',
-    'min_amount' => 'न्यूनतम राशि:',
+    'min_amount' => 'न्यूनतम सेवा मूल्य:',
     'choose_date_time' => 'तारीख और समय चुनें',
     'choose_date' => 'तारीख चुनें',
     'loading_dates' => 'तारीखें लोड हो रही हैं...',

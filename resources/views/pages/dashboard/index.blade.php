@@ -66,7 +66,7 @@
                     <tbody class="divide-y divide-amber-900/15">
                         @forelse($recentDonations as $donation)
                         <tr class="hover:bg-amber-900/10 transition">
-                            <td class="px-4 py-3 text-amber-100/60">{{ $donation->created_at->format('d M Y') }}</td>
+                            <td class="px-4 py-3 text-amber-100/60">{{ $donation->created_at->format('d/m/Y') }}</td>
                             <td class="px-4 py-3 font-semibold text-gold">₹{{ number_format((float) $donation->amount) }}</td>
                             <td class="px-4 py-3">
                                 <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-900/30 text-amber-400">
@@ -110,7 +110,7 @@
                         @forelse($recentBookings as $booking)
                         <tr class="hover:bg-amber-900/10 transition">
                             <td class="px-4 py-3 text-amber-100/60 font-medium">{{ $booking->seva?->name ?? '—' }}</td>
-                            <td class="px-4 py-3 text-amber-100/50">{{ $booking->booking_date->format('d M Y') }}</td>
+                            <td class="px-4 py-3 text-amber-100/50">{{ $booking->booking_date->format('d/m/Y') }}</td>
                             <td class="px-4 py-3">
                                 @php $s = $booking->status instanceof \App\Enums\BookingStatus ? $booking->status->value : (string)$booking->status; @endphp
                                 <span class="px-2 py-0.5 rounded-full text-xs font-semibold

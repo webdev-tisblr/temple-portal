@@ -17,6 +17,7 @@ return [
     'no_products' => 'No products found in this category.',
     'view_all_products' => 'View all products',
     'in_stock' => 'available',
+    'out_of_stock' => 'Out of stock',
     'choose_option' => 'Select an option',
     'quantity' => 'Quantity',
     'adding' => 'Adding...',

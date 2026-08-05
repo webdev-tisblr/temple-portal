@@ -17,6 +17,7 @@ return [
     'no_products' => 'इस श्रेणी में कोई उत्पाद नहीं मिला।',
     'view_all_products' => 'सभी उत्पाद देखें',
     'in_stock' => 'उपलब्ध',
+    'out_of_stock' => 'स्टॉक में नहीं',
     'choose_option' => 'विकल्प चुनें',
     'quantity' => 'मात्रा',
     'adding' => 'जोड़ा जा रहा है...',

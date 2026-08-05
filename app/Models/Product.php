@@ -22,6 +22,7 @@ class Product extends Model
         $bust = static function (): void {
             \Illuminate\Support\Facades\Cache::forget('store_featured_products');
             \Illuminate\Support\Facades\Cache::forget('store_categories_with_counts');
+            \Illuminate\Support\Facades\Cache::forget('home.prasad.v1'); // home page prasad highlight strip
         };
         static::saved($bust);
         static::deleted($bust);

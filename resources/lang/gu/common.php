@@ -9,7 +9,7 @@ return [
     'address_label' => 'સરનામું',
     'date' => 'તારીખ',
     'time' => 'સમય',
-    'amount' => 'રકમ',
+    'amount' => 'સેવા મૂલ્ય',
     'try_again' => 'ફરી પ્રયાસ કરો',
     'status' => 'સ્થિતિ',
     'email' => 'ઈમેલ',

@@ -1,9 +1,9 @@
 <?php
 
 return [
-    'subtitle' => 'Every donation strengthens the Dham\'s seva initiatives.',
-    'choose_amount' => 'Choose donation amount',
-    'enter_amount' => 'Enter amount',
+    'subtitle' => 'Every donation strengthens Shree Patadiya Dham\'s seva initiatives.',
+    'choose_amount' => 'Select seva donation',
+    'enter_amount' => 'Enter seva donation',
     'type' => 'Donation purpose',
     'choose_type' => '-- Choose donation purpose --',
     'purpose' => 'Detailed purpose (optional)',
@@ -28,6 +28,6 @@ return [
     'choose_cause' => 'Choose a cause',
     'donating_to' => 'Donating to',
     'general_cause' => 'Where it is needed most',
-    'title' => 'Support the Dham',
-    'amount_label' => 'Donation amount',
+    'title' => 'Support Shree Patadiya Dham',
+    'amount_label' => 'Seva Donation',
 ];

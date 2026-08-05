@@ -411,7 +411,12 @@ class DarshanShareCardService
             $canvas->drawRectangle(function (RectangleFactory $rect) use ($left, $width, $y, $step, $r, $g, $b, $alpha) {
                 $rect->at($left, $y);
                 $rect->size($width, $step);
-                $rect->background(sprintf('rgba(%d,%d,%d,%.3f)', $r, $g, $b, $alpha));
+                // Intervention v4's rgba() parser rejects trailing-zero
+                // alphas ("1.000" → InvalidArgumentException; Sentry
+                // 2026-08-05) — %.3f always emits them, so the final,
+                // fully-opaque strip threw on every render. (string)round()
+                // yields "1" / "0.348" which the parser accepts.
+                $rect->background(sprintf('rgba(%d,%d,%d,%s)', $r, $g, $b, (string) round($alpha, 3)));
             });
         }
     }

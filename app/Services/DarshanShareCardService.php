@@ -8,7 +8,6 @@ use App\Models\DailyDarshanPhoto;
 use App\Models\Devotee;
 use App\Models\SystemSetting;
 use App\Support\ShapedText;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -248,7 +247,7 @@ class DarshanShareCardService
         // 6. Footer meta — pulled close to the row so no empty burgundy
         //    gap shows below the avatar.
         $footerY = $height - ($format === self::FORMAT_STORY ? 100 : 65);
-        $this->drawFooterMeta($canvas, $width, $footerY);
+        $this->drawFooterMeta($canvas, $photo, $width, $footerY);
 
         return $canvas;
     }
@@ -580,12 +579,17 @@ class DarshanShareCardService
      * lift it closer to the devotee block and absorb the empty
      * burgundy gap the user flagged.
      */
-    private function drawFooterMeta(ImageInterface $canvas, int $width, int $metaY): void
+    private function drawFooterMeta(ImageInterface $canvas, DailyDarshanPhoto $photo, int $width, int $metaY): void
     {
         $cx = intval($width / 2);
-        $today = Carbon::now()->locale('en')->translatedFormat('d M Y');
+        // The photo's own darshan date, not now() — the latest photo can
+        // be yesterday's if an upload was missed, and the card must not
+        // claim a darshan that didn't happen. Numeric d/m/Y (trust
+        // standard) keeps the footer locale-neutral, so the Latin sans
+        // font below never has to shape Indic month names.
+        $date = ($photo->captured_on ?? now())->format('d/m/Y');
         // Separator switched from bullet to pipe per the new mockup.
-        $canvas->text($today.'   |   patadiyahanumanji.com', $cx, $metaY, function (FontFactory $font) {
+        $canvas->text($date.'   |   patadiyahanumanji.com', $cx, $metaY, function (FontFactory $font) {
             $font->filename($this->sansFont());
             $font->size(26);
             $font->color(self::C_CREAM_BODY);
@@ -855,8 +859,9 @@ class DarshanShareCardService
         // v21: 4:5 rect photo + bottom fade, no ૐ, localized copy, app fonts.
         // Locale is part of the identity now — the card's text follows
         // X-Locale, so each language renders its own file.
+        // v22: footer date = photo captured_on (was now()) in d/m/Y.
         $locale = app()->getLocale();
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|{$locale}|v21"), 0, 12);
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|{$locale}|v22"), 0, 12);
 
         return self::STORAGE_PREFIX."/{$date}/{$devoteeSegment}-{$format}-{$locale}-{$hash}.jpg";
     }

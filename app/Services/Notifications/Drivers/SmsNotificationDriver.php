@@ -76,30 +76,26 @@ final class SmsNotificationDriver implements NotificationDriver
         $variables = [];
         foreach ($rawMap as $key => $path) {
             if (! is_string($key) || ! str_starts_with($key, 'var')) continue;
-            $value = $context->get((string) $path, '');
-            // MSG91 expects scalar values — never inline a structure.
-            // If a context lookup landed on an Eloquent collection or
-            // a nested array the previous code silently sent an empty
-            // string. Log it so the admin can see they picked the wrong
-            // dot-path (e.g. "donation.devotee" instead of
-            // "donation.devotee.name").
-            if (is_array($value) || is_object($value)) {
-                Log::warning('Notification: SMS variable resolved to non-scalar — sending empty', [
-                    'template_key' => $template->key,
-                    'sms_variable' => $key,
-                    'context_path' => $path,
-                    'value_type' => is_object($value) ? get_class($value) : 'array',
-                ]);
-                $value = '';
-            } elseif ($value === '' || $value === null) {
+            // MSG91 expects scalar values. Route through the shared
+            // display coercion so dates, enums and TIME columns come
+            // out formatted the same as every other channel — a raw
+            // (string) cast here turned Carbon-cast columns like
+            // booking_date into empty strings.
+            $raw = $context->get((string) $path);
+            $value = NotificationContext::formatForDisplay($raw);
+            if ($value === '') {
+                // Either the field is genuinely empty or the admin
+                // picked a dot-path that landed on a structure (e.g.
+                // "donation.devotee" instead of "donation.devotee.name")
+                // — value_type tells them which.
                 Log::warning('Notification: SMS variable resolved to empty', [
                     'template_key' => $template->key,
                     'sms_variable' => $key,
                     'context_path' => $path,
+                    'value_type' => is_object($raw) ? get_class($raw) : gettype($raw),
                 ]);
-                $value = '';
             }
-            $variables[$key] = (string) $value;
+            $variables[$key] = $value;
         }
 
         $result = $this->sms->sendTemplate(

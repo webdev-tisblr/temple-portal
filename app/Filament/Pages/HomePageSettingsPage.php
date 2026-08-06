@@ -60,6 +60,8 @@ class HomePageSettingsPage extends Page implements HasForms
         'hero_sub_gu', 'hero_sub_hi', 'hero_sub_en',
         // Featured cards
         'card_campaign_ids', 'card_event_ids', 'card_show_hall', 'card_hall_id',
+        // Mobile app home — campaign shown first in the app's home carousel
+        'app_home_campaign_id',
         // Prasad highlight section (between hall band and events)
         'prasad_enabled', 'prasad_product_ids',
         // Top ribbon
@@ -193,6 +195,19 @@ class HomePageSettingsPage extends Page implements HasForms
                         ->placeholder('Latest active hall')
                         ->helperText('The hall shown in the home card and hall band (its button links straight to that hall). Leave empty to use the most recent active hall.')
                         ->visible(fn (Get $get) => (bool) $get('card_show_hall')),
+                ])->columns(2),
+
+            Forms\Components\Section::make('Mobile App Home')
+                ->description('What the app\'s home screen leads with.')
+                ->schema([
+                    Forms\Components\Select::make('app_home_campaign_id')
+                        ->label('Campaign on the app home')
+                        ->searchable()->preload()
+                        // title is a localized accessor — load models
+                        // before plucking (raw pluck 500s, 2026-07 lesson).
+                        ->options(fn () => DonationCampaign::where('is_active', true)->orderByDesc('id')->get()->pluck('title', 'id'))
+                        ->placeholder('Automatic (featured, then newest)')
+                        ->helperText('This campaign appears first in the app home carousel. Leave empty for the automatic order.'),
                 ])->columns(2),
 
             Forms\Components\Section::make('Prasad Highlight')

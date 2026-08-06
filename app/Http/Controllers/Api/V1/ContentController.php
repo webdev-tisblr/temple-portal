@@ -326,9 +326,16 @@ class ContentController extends BaseApiController
      */
     public function campaigns(): JsonResponse
     {
+        // Admin-chosen campaign for the app home carousel (Home Page Design
+        // → Mobile App Home). It leads the list; the app renders the list
+        // in server order, so first = the card devotees see on Home.
+        $homeCampaignId = (int) SystemSetting::getValue('site_app_home_campaign_id', '0');
+
         $campaigns = DonationCampaign::query()
             ->with('subCauses')
             ->where('is_active', true)
+            ->when($homeCampaignId > 0, fn ($q) => $q->orderByRaw('(id = ?) desc', [$homeCampaignId]))
+            ->orderByDesc('is_featured')
             ->orderByDesc('created_at')
             ->get()
             ->map(fn (DonationCampaign $campaign) => $this->mapCampaign($campaign));

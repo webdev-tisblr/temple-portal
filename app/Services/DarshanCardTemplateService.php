@@ -135,7 +135,9 @@ class DarshanCardTemplateService
             $value = match ($fieldKey) {
                 '_donor_name' => $devotee?->name,
                 '_caption' => $this->captionForLocale($photo, $locale),
-                '_date' => now()->setTimezone('Asia/Kolkata')->format('d/m/Y'),
+                // The photo's darshan date, not now() — the latest photo
+                // may be from a previous day if an upload was missed.
+                '_date' => ($photo->captured_on ?? now()->setTimezone('Asia/Kolkata'))->format('d/m/Y'),
                 '_temple_name' => SystemSetting::getLocalized('trust_name', $locale, 'Shree Patadiya Hanumanji Seva Trust'),
                 default => null,
             };
@@ -192,8 +194,10 @@ class DarshanCardTemplateService
     {
         $date = optional($photo->captured_on)->toDateString() ?: now()->toDateString();
 
+        // 'tpl-v2': footer date = photo captured_on (was now()) — bumped so
+        // cards cached with a wrong date regenerate.
         $seed = implode('|', [
-            'tpl',
+            'tpl-v2',
             $template->id,
             optional($template->updated_at)->timestamp,
             $photo->id,

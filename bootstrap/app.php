@@ -18,6 +18,13 @@ return Application::configure(basePath: dirname(__DIR__))
             // Bypasses admin / api / asset paths internally.
             \App\Http\Middleware\ComingSoonMode::class,
             \App\Http\Middleware\SetLocale::class,
+            // Single-active-login: a devotee session superseded by a login
+            // on another device is logged out here and the request
+            // continues as a guest — on EVERY page, so the header and
+            // protected routes always agree. MUST run before
+            // CacheGuestResponse so the just-logged-out request is a
+            // plain guest by the time caching decisions happen.
+            \App\Http\Middleware\EnsureSingleDevoteeSession::class,
             // Guest full-page cache — MUST run after SetLocale (cache
             // key includes the resolved locale) and after ComingSoonMode
             // (never caches over the gate's short-circuit).
@@ -33,8 +40,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['locale']);
         $middleware->alias([
             'profile.complete' => \App\Http\Middleware\EnsureProfileComplete::class,
-            // Single-active-login epoch check for devotee web sessions.
-            'single.session' => \App\Http\Middleware\EnsureSingleDevoteeSession::class,
             // Cloudflare Turnstile server check — inert until the admin
             // sets the keys in System Settings → Cloudflare Turnstile.
             'turnstile' => \App\Http\Middleware\VerifyTurnstile::class,

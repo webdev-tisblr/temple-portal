@@ -153,7 +153,7 @@ Route::get('/auth/app-login', [AuthWebController::class, 'appLogin'])
     ->name('auth.app-login');
 
 // Authenticated devotee routes
-Route::middleware(['auth:devotee', 'single.session'])->group(function () {
+Route::middleware('auth:devotee')->group(function () {
     // Profile completion (accessible even with incomplete profile)
     Route::get('/profile/complete', [DashboardController::class, 'showCompleteProfile'])->name('profile.complete');
     Route::post('/profile/complete', [DashboardController::class, 'saveCompleteProfile'])->name('profile.complete.save');

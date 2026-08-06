@@ -15,13 +15,23 @@ use Symfony\Component\HttpFoundation\Response;
  * Every fresh login (app or web) bumps devotees.auth_epoch via
  * Devotee::revokeOtherLogins(); each web session stores the epoch it was
  * created under. A mismatch means the devotee has since logged in
- * elsewhere — this session is force-logged-out and sent to /login.
+ * elsewhere — this session is dead.
  *
- * Applied only to the auth:devotee route group (never to guest/cached
- * paths — CacheGuestResponse and the Cloudflare edge rule are untouched).
+ * Runs on EVERY web request (appended to the web group, before
+ * CacheGuestResponse): a superseded session is logged out and the
+ * request CONTINUES as a guest. That keeps the whole site consistent —
+ * header, public pages and protected pages all agree instantly. On
+ * protected routes the auth:devotee middleware (which runs at the route
+ * layer, after this) then redirects to /login as normal.
+ *
+ * Guests cost nothing here (guard->user() is null). Running before
+ * CacheGuestResponse means a just-logged-out request is a plain guest
+ * request by the time caching decisions happen — no half-authed
+ * responses can be cached.
+ *
  * Session rows can't be deleted per-devotee (the sessions table's
- * user_id is a bigint and the driver may be file), so the epoch check is
- * the driver-agnostic mechanism.
+ * user_id is a bigint and the driver may be file), so the epoch check
+ * is the driver-agnostic mechanism.
  */
 class EnsureSingleDevoteeSession
 {
@@ -36,12 +46,6 @@ class EnsureSingleDevoteeSession
                 Auth::guard('devotee')->logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
-
-                // Gujarati-first hardcoded copy, matching the OTP error
-                // strings in AuthWebController (no lang/ files exist).
-                return redirect()
-                    ->route('login')
-                    ->withErrors(['phone' => 'તમે બીજા ડિવાઇસ પર લૉગિન કર્યું હોવાથી અહીંથી લૉગઆઉટ થયા છો. ફરી લૉગિન કરો.']);
             }
         }
 

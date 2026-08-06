@@ -135,6 +135,14 @@ class SystemSettings extends Page implements HasForms
                                     ->url()
                                     ->placeholder('https://play.google.com/store/apps/details?id=com.patadiyahanumanji.app')
                                     ->helperText('Google Play Store listing link.'),
+                                Forms\Components\TextInput::make('app_whatsapp_group_url')
+                                    ->label('WhatsApp group invite link')
+                                    ->url()
+                                    ->placeholder('https://chat.whatsapp.com/XXXXXXXXXXXX')
+                                    ->helperText('The trust\'s devotee WhatsApp group. Shown as a "Join our WhatsApp Group" row in the app\'s More screen.'),
+                                Forms\Components\Toggle::make('app_whatsapp_group_enabled')
+                                    ->label('Show "Join our WhatsApp Group" in the app')
+                                    ->helperText('OFF hides the row in the app instantly — no app update needed.'),
                                 Forms\Components\Toggle::make('app_scheme_enabled')
                                     ->label('"Open app" button on the website banner')
                                     ->helperText('Makes the return-to-the-app bar tappable for devotees who arrived from the app: opens the app via its patadiyahanumanji:// link (v1.4.6+), and on older builds without the link it falls back to the App Store / Play Store page after ~1.6s. Safe to keep ON.'),

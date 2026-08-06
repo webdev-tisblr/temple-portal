@@ -58,6 +58,10 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
                     'app_donate_web_url',
                     'https://patadiyahanumanji.com/donate',
                 ),
+                // "Join our WhatsApp Group" row in the app's More screen —
+                // hidden when the toggle is off or the URL is empty.
+                'whatsapp_group_url' => \App\Models\SystemSetting::getValue('app_whatsapp_group_url', ''),
+                'whatsapp_group_enabled' => \App\Models\SystemSetting::getValue('app_whatsapp_group_enabled', '0') === '1',
             ],
         ]);
     });
@@ -97,6 +101,10 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::get('/gallery', [ContentController::class, 'gallery']);
     Route::get('/gallery-categories', [ContentController::class, 'galleryCategories']);
     Route::get('/events', [ContentController::class, 'events']);
+
+    // Public: User Guides / Help Center
+    Route::get('/guides', [\App\Http\Controllers\Api\V1\GuideController::class, 'index']);
+    Route::get('/guides/{id}', [\App\Http\Controllers\Api\V1\GuideController::class, 'show'])->whereNumber('id');
 
     // Public: Store
     Route::get('/store/categories', [StoreController::class, 'categories']);

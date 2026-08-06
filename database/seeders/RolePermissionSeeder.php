@@ -56,6 +56,8 @@ class RolePermissionSeeder extends Seeder
         'event',
         'gallery',
         'gallery::category',
+        'guide',
+        'guide::category',
         'hall',
         'hall::booking',
         'notification',
@@ -209,6 +211,8 @@ class RolePermissionSeeder extends Seeder
                 $crud('event'),
                 $crud('gallery'),
                 $crud('gallery::category'),
+                $crud('guide'),
+                $crud('guide::category'),
                 $crud('page'),
 
                 // Catalog
@@ -296,6 +300,7 @@ class RolePermissionSeeder extends Seeder
                 $readOnly('product'),
                 $readOnly('event'),
                 $readOnly('gallery'),
+                $readOnly('guide'),
                 $readOnly('daily::darshan::photo'),
                 $readOnly('donation'),
                 $readOnly('donation::campaign'),
@@ -314,6 +319,7 @@ class RolePermissionSeeder extends Seeder
                 $readOnly('seva::booking'),
                 $readOnly('event'),
                 $readOnly('gallery'),
+                $readOnly('guide'),
                 $readOnly('daily::darshan::photo'),
             ),
 

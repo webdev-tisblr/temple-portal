@@ -66,6 +66,12 @@ class AuthController extends BaseApiController
             );
         }
 
+        // Single active login: this fresh login invalidates every other
+        // device's token and every web session before the new token is
+        // minted. (refreshToken() deliberately does NOT do this — it only
+        // rotates its own token.)
+        $devotee->revokeOtherLogins();
+
         $token = $devotee->createToken('mobile-app')->plainTextToken;
 
         return $this->success([

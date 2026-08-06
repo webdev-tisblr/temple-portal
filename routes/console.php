@@ -119,6 +119,12 @@ Schedule::command('notifications:prune-logs')
 Schedule::command('model:prune', ['--model' => [OtpCode::class, \App\Models\WebLoginToken::class]])
     ->daily();
 
+// GC expired Sanctum token rows (90-day expiry; single-active-login also
+// hard-deletes on re-login, but tokens from abandoned devices linger).
+Schedule::command('sanctum:prune-expired', ['--hours' => 24])
+    ->dailyAt('04:45')
+    ->withoutOverlapping();
+
 // Database backup at 02:00 every night. A missed/failed backup is a
 // silent catastrophe (you only find out you have no backup when you
 // need to restore), so log failures loudly for the monitor to catch.

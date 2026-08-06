@@ -42,7 +42,7 @@ class CreateNotification extends CreateRecord
 
         if ($target !== null && $target !== '' && $intent !== null) {
             $data['intent_params'] = match ($intent) {
-                'seva-detail', 'campaign-detail', 'event-detail' => ['id' => $target],
+                'seva-detail', 'campaign-detail', 'event-detail', 'guide-detail' => ['id' => $target],
                 default => null,
             };
         } else {

@@ -75,9 +75,17 @@ class AuthWebController extends Controller
             );
         }
 
+        // Single active login: a fresh web login invalidates every app
+        // token and other browser session before this one is opened.
+        $devotee->revokeOtherLogins();
+
         Auth::guard('devotee')->login($devotee);
 
         $request->session()->regenerate();
+
+        // Stamp this session with the epoch it was born under —
+        // EnsureSingleDevoteeSession compares it on every request.
+        $request->session()->put('devotee_auth_epoch', $devotee->auth_epoch);
 
         // Apply the devotee's saved language preference to the site so it
         // follows them across devices (app and web share devotee.language).
@@ -132,9 +140,16 @@ class AuthWebController extends Controller
             return redirect()->route('donate');
         }
 
+        // Same login lineage as the app that issued the handoff token —
+        // deliberately NO revokeOtherLogins() here (it would log the app
+        // out of its own session mid-donate). The session is stamped with
+        // the CURRENT epoch so it stays valid exactly as long as the
+        // app's login does.
         Auth::guard('devotee')->login($devotee);
 
         $request->session()->regenerate();
+
+        $request->session()->put('devotee_auth_epoch', $devotee->auth_epoch);
 
         // Mark this session as originating from the mobile app so the
         // "return to the app" banner can show while the devotee browses

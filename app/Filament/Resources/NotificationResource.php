@@ -113,6 +113,7 @@ class NotificationResource extends Resource
                             'seva-detail' => 'Seva',
                             'campaign-detail' => 'Campaign',
                             'event-detail' => 'Event',
+                            'guide-detail' => 'Guide',
                             default => 'Target',
                         })
                         ->options(function (Get $get): array {
@@ -120,6 +121,11 @@ class NotificationResource extends Resource
                                 'seva-detail' => Seva::query()->orderBy('name_gu')->pluck('name_gu', 'id')->all(),
                                 'campaign-detail' => DonationCampaign::query()->orderBy('title_gu')->pluck('title_gu', 'id')->all(),
                                 'event-detail' => Event::query()->orderByDesc('start_date')->pluck('title_gu', 'id')->all(),
+                                'guide-detail' => \App\Models\Guide::query()
+                                    ->where('is_active', true)
+                                    ->orderBy('sort_order')
+                                    ->pluck('title_gu', 'id')
+                                    ->all(),
                                 default => [],
                             };
                         })
@@ -127,12 +133,12 @@ class NotificationResource extends Resource
                         ->preload()
                         ->required(fn (Get $get): bool => in_array(
                             $get('intent'),
-                            ['seva-detail', 'campaign-detail', 'event-detail'],
+                            ['seva-detail', 'campaign-detail', 'event-detail', 'guide-detail'],
                             true,
                         ))
                         ->visible(fn (Get $get): bool => in_array(
                             $get('intent'),
-                            ['seva-detail', 'campaign-detail', 'event-detail'],
+                            ['seva-detail', 'campaign-detail', 'event-detail', 'guide-detail'],
                             true,
                         )),
                 ]),
@@ -414,6 +420,8 @@ class NotificationResource extends Resource
             'profile' => 'Profile',
             'contact' => 'Contact us',
             'inbox' => 'Notification inbox',
+            'guides' => 'Guides list',
+            'guide-detail' => 'Specific guide',
         ];
     }
 }

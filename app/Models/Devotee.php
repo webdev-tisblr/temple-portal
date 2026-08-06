@@ -39,6 +39,7 @@ class Devotee extends Authenticatable
         'is_active',
         'phone_verified_at',
         'last_login_at',
+        'auth_epoch',
     ];
 
     protected $casts = [
@@ -47,6 +48,7 @@ class Devotee extends Authenticatable
         'is_active' => 'boolean',
         'phone_verified_at' => 'datetime',
         'last_login_at' => 'datetime',
+        'auth_epoch' => 'integer',
     ];
 
     public function sevaBookings(): HasMany
@@ -62,6 +64,27 @@ class Devotee extends Authenticatable
     public function deviceTokens(): HasMany
     {
         return $this->hasMany(DeviceToken::class, 'devotee_id');
+    }
+
+    /**
+     * Single-active-login: invalidate every OTHER device/browser before a
+     * fresh login is issued. Three coordinated steps:
+     *   1. delete all Sanctum tokens → other apps 401 and auto-logout;
+     *   2. bump auth_epoch → other web sessions fail the
+     *      EnsureSingleDevoteeSession check and are logged out;
+     *   3. detach FCM rows → devotee-targeted pushes stop reaching the
+     *      surrendered devices (they keep receiving 'all' broadcasts);
+     *      the new device re-registers its token right after login.
+     *
+     * Callers issue their own token / session AFTER this. Must NOT be
+     * called from the app→web handoff (appLogin) — that is the same
+     * login lineage, not a new device.
+     */
+    public function revokeOtherLogins(): void
+    {
+        $this->tokens()->delete();
+        $this->increment('auth_epoch');
+        $this->deviceTokens()->update(['devotee_id' => null]);
     }
 
     public function hallBookings(): HasMany

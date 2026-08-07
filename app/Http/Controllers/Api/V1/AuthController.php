@@ -50,7 +50,15 @@ class AuthController extends BaseApiController
         }
 
         if (!$isValid) {
-            return $this->error('Invalid or expired OTP', 401);
+            // 422, NOT 401. This endpoint is unauthenticated and a wrong or
+            // already-used code is a validation failure, not a dead session.
+            // Answering 401 made the app's Dio interceptor delete the stored
+            // bearer token, so a devotee who was signed in got silently
+            // logged out and every authenticated call afterwards failed with
+            // "Unauthenticated" (account deletion was how we found it). The
+            // client now guards this too, but keeping the status honest is
+            // what protects app versions already out in the field.
+            return $this->error('Invalid or expired OTP', 422);
         }
 
         // Devotee::resolveForLogin handles the soft-delete tombstone

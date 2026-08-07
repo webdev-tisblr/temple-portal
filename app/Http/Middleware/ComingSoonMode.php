@@ -18,8 +18,19 @@ use Symfony\Component\HttpFoundation\Response;
  * renders a branded "coming soon" page with HTTP 503.
  *
  * Admin URLs (the Filament panel) and API routes are always allowed
- * through so the trust can edit settings, manage notifications, and
- * the mobile app keeps working even when the public site is hidden.
+ * through so the trust can edit settings and manage notifications.
+ *
+ * The mobile app needs more than `api/*`: it also opens CMS pages in a
+ * WebView and hands its session to the web for the iOS donate flow. Those,
+ * the already-delivered signed receipt links, the payment return URLs and
+ * the store-review legal pages all stay reachable — hiding the website must
+ * not break links that are already out in the world.
+ *
+ * NOTE: the Cloudflare edge Cache Rule caches `/`, `darshan`, `gallery`,
+ * `projects`, `trustees` and `pages/*`. Because this gate answers 503,
+ * Cloudflare's stale-on-error will keep serving its cached copies of those
+ * pages indefinitely. Flipping `coming_soon_mode` in either direction
+ * REQUIRES a Cloudflare cache purge.
  */
 class ComingSoonMode
 {
@@ -27,6 +38,7 @@ class ComingSoonMode
     private const BYPASS_PATHS = [
         'admin',
         'admin/*',
+        'admin-tools/*',
         'livewire/*',
         'filament/*',
         'api/*',
@@ -35,7 +47,37 @@ class ComingSoonMode
         'storage/*',
         'favicon*',
         '_opcache_reset.php',
+
+        // Health checks. UptimeRobot monitors /up/deep, and `up` on its own
+        // is an exact match that does NOT cover it.
         'up',
+        'up/*',
+
+        // Permanent signed receipt/invoice links, already embedded in
+        // WhatsApp/email confirmations that devotees still have.
+        'r/*',
+
+        // Flutter WebView pages + the app->web session handoff.
+        'pages/*/embed',
+        'auth/app-login',
+
+        // Payment returns — someone who has just paid must never land on
+        // the coming-soon page.
+        'seva/booking/success',
+        'seva/booking/failure',
+        'store/order/success',
+        'store/order/failure',
+        'hall-booking/success',
+        'hall-booking/failure',
+        'donate/thank-you',
+        'seva/greeting-card/*',
+        'donate/greeting-card/*',
+
+        // Apple/Google reviewers open these during store review.
+        'privacy-policy',
+        'terms',
+        'refund-policy',
+        'account-deletion',
     ];
 
     public function handle(Request $request, Closure $next): Response
@@ -58,7 +100,13 @@ class ComingSoonMode
             return $next($request);
         }
 
-        return response()->view('pages.coming-soon', [], 503);
+        // CDN-Cache-Control is what Cloudflare actually obeys; without it the
+        // edge can pin this page and keep serving it after the flag goes off.
+        return response()
+            ->view('pages.coming-soon', [], 503)
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('CDN-Cache-Control', 'no-store')
+            ->header('Retry-After', '3600');
     }
 
     private function shouldBypass(Request $request): bool

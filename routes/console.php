@@ -24,17 +24,10 @@ Artisan::command('inspire', function () {
 |--------------------------------------------------------------------------
 */
 
-// Process queued jobs every 5 minutes (stop-on-failure, no overlap).
-// The queue drains money-path side effects (invoices, receipts,
-// notifications), so a silent failure here means devotees stop getting
-// confirmations — surface it in the log for the uptime/log monitor.
-Schedule::command('queue:work --stop-when-empty --tries=3')
-    ->everyFiveMinutes()
-    ->withoutOverlapping()
-    ->runInBackground()
-    ->onFailure(function () {
-        Log::error('Scheduled task failed: queue:work');
-    });
+// NOTE: there is deliberately no scheduled `queue:work` here. The two
+// always-on Supervisor workers own the queue (see CLAUDE.md). The old
+// every-5-minute fallback was a Hostinger shared-hosting artifact; running
+// it alongside the workers just spawns a competing short-lived consumer.
 
 // Retry failed jobs hourly
 Schedule::command('queue:retry all')
@@ -62,12 +55,12 @@ Schedule::call(function () {
         $notification->update(['status' => 'sending']);
         SendPushNotification::dispatch($notification);
     }
-})->everyMinute()->name('dispatch-scheduled-notifications')->withoutOverlapping();
+})->everyMinute()->name('dispatch-scheduled-notifications')->withoutOverlapping(5);
 
 // Cancel stale pending bookings every 5 minutes
 Schedule::command('bookings:clean-stale')
     ->everyFiveMinutes()
-    ->withoutOverlapping();
+    ->withoutOverlapping(10);
 
 // Seva reminders — every 5 min. Reminders are pre-computed into
 // temple_seva_reminder_schedules when a booking is confirmed (see
@@ -76,9 +69,12 @@ Schedule::command('bookings:clean-stale')
 // a missed tick (deploy, blip) no longer loses it — the next run picks
 // it up and sends it a little late instead of never. Within ~5 min of
 // the configured offset on a healthy schedule.
+// The 10-minute mutex expiry is load-bearing: the drain permanently skips
+// anything more than --max-late-minutes (12h) late, so a leaked lock on
+// Laravel's 24h default would silently bin half a day of reminders.
 Schedule::command('seva:dispatch-reminders')
     ->everyFiveMinutes()
-    ->withoutOverlapping()
+    ->withoutOverlapping(10)
     ->runInBackground();
 
 // Notification safety net — retry sends that stalled mid-flight (worker
@@ -89,7 +85,7 @@ Schedule::command('seva:dispatch-reminders')
 // a slow run never stacks on the next tick. See ReapNotifications.
 Schedule::command('notifications:reap')
     ->everyFiveMinutes()
-    ->withoutOverlapping()
+    ->withoutOverlapping(10)
     ->runInBackground()
     ->onFailure(function () {
         Log::error('Scheduled task failed: notifications:reap');
@@ -101,7 +97,7 @@ Schedule::command('notifications:reap')
 // via_queue flag is off (the table simply stays empty).
 Schedule::command('notifications:relay-outbox')
     ->everyFiveMinutes()
-    ->withoutOverlapping()
+    ->withoutOverlapping(10)
     ->runInBackground()
     ->onFailure(function () {
         Log::error('Scheduled task failed: notifications:relay-outbox');
@@ -113,7 +109,7 @@ Schedule::command('notifications:relay-outbox')
 // the R2 sweeps.
 Schedule::command('notifications:prune-logs')
     ->dailyAt('04:30')
-    ->withoutOverlapping();
+    ->withoutOverlapping(30);
 
 // Prune expired OTP codes + spent app→web login handoff tokens daily
 Schedule::command('model:prune', ['--model' => [OtpCode::class, \App\Models\WebLoginToken::class]])
@@ -123,7 +119,7 @@ Schedule::command('model:prune', ['--model' => [OtpCode::class, \App\Models\WebL
 // hard-deletes on re-login, but tokens from abandoned devices linger).
 Schedule::command('sanctum:prune-expired', ['--hours' => 24])
     ->dailyAt('04:45')
-    ->withoutOverlapping();
+    ->withoutOverlapping(30);
 
 // Database backup at 02:00 every night. A missed/failed backup is a
 // silent catastrophe (you only find out you have no backup when you
@@ -187,11 +183,11 @@ Schedule::command('sitemap:generate')
 // Generated status cards are a 30-day regenerable cache on r2 public.
 Schedule::command('status-cards:clean')
     ->dailyAt('04:45')
-    ->withoutOverlapping();
+    ->withoutOverlapping(30);
 
 Schedule::command('darshan:clean-share-cards')
     ->hourlyAt(30)
-    ->withoutOverlapping();
+    ->withoutOverlapping(30);
 
 // 80G receipt PDFs: 7-day retention, daily sweep. Regenerated via
 // ReceiptService::generateReceipt() on next download (~1s DomPDF).
@@ -200,7 +196,7 @@ Schedule::command('darshan:clean-share-cards')
 // PDFs at 100-150 KB each, which is noise.
 Schedule::command('receipts:clean-generated')
     ->dailyAt('03:45')
-    ->withoutOverlapping();
+    ->withoutOverlapping(30);
 
 // Store + Hall invoice PDFs: 7-day retention, daily sweep. Same
 // reasoning as receipts. Regenerated via InvoiceService::generateInvoice()
@@ -208,7 +204,7 @@ Schedule::command('receipts:clean-generated')
 // on next download (~1s DomPDF).
 Schedule::command('invoices:clean-generated')
     ->dailyAt('04:00')
-    ->withoutOverlapping();
+    ->withoutOverlapping(30);
 
 // Donation greeting card PNGs: 1-day retention, swept HOURLY for
 // the same scale reason as darshan cards. Devotees share on
@@ -218,7 +214,7 @@ Schedule::command('invoices:clean-generated')
 // fires once a day, but no harm having distinct slots).
 Schedule::command('greeting-cards:clean-generated')
     ->hourlyAt(45)
-    ->withoutOverlapping();
+    ->withoutOverlapping(30);
 
 // Update campaign raised_amount and donor_count totals hourly.
 //

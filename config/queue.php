@@ -13,12 +13,12 @@ return [
     |
     */
 
-    // Hardcoded to 'sync' on purpose: this app runs on Hostinger shared
-    // hosting where no long-running queue worker exists, so anything we
-    // dispatch async (PDF generation, mail, WhatsApp) would queue up forever.
-    // Running jobs inline keeps the user-visible flows working. The env value
-    // is intentionally ignored.
-    'default' => 'sync',
+    // Was hardcoded to 'sync' for Hostinger shared hosting, where no
+    // long-running worker existed and an async dispatch would have queued
+    // forever. On the VPS (since 2026-07-25) Redis + two always-on Supervisor
+    // workers drain the queue, so prod sets QUEUE_CONNECTION=redis. Setting it
+    // back to 'sync' is the rollback — no code change needed.
+    'default' => env('QUEUE_CONNECTION', 'redis'),
 
     /*
     |--------------------------------------------------------------------------

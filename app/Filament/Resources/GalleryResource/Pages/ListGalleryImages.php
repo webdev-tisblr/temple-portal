@@ -65,8 +65,9 @@ class ListGalleryImages extends ListRecords
                     $max = $this->bulkMaxFiles();
 
                     return [
-                        Forms\Components\Select::make('category')
-                            ->label('Category')
+                        Forms\Components\Select::make('categories')
+                            ->label('Categories')
+                            ->multiple()
                             // Same shape as GalleryResource's select: admin UI
                             // stays English, and the localised `name` accessor
                             // must not be plucked off the query builder.
@@ -74,8 +75,9 @@ class ListGalleryImages extends ListRecords
                                 ->get()
                                 ->mapWithKeys(fn ($c) => [$c->slug => $c->name_en ?? $c->name_gu])
                                 ->all())
-                            ->default('temple')
-                            ->required(),
+                            ->default(['temple'])
+                            ->required()
+                            ->helperText('Pick one or more. The first is the main category.'),
 
                         Forms\Components\FileUpload::make('images')
                             ->label('Photos')
@@ -105,15 +107,19 @@ class ListGalleryImages extends ListRecords
                     // second bulk upload lands after the first in the gallery.
                     $sortOrder = (int) GalleryImage::max('sort_order');
 
+                    $categories = array_values(array_filter((array) ($data['categories'] ?? [])));
+
                     foreach ($paths as $path) {
-                        GalleryImage::create([
+                        $image = GalleryImage::create([
                             'type' => 'photo',
                             'image_path' => $path,
-                            'category' => $data['category'],
+                            'category' => $categories[0] ?? 'temple',
                             'is_wallpaper' => (bool) ($data['is_wallpaper'] ?? false),
                             'sort_order' => ++$sortOrder,
                             'uploaded_by' => auth('admin')->id(),
                         ]);
+
+                        $image->syncCategories($categories);
                     }
 
                     Notification::make()

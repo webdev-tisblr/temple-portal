@@ -24,6 +24,7 @@
                 'type' => 'video',
                 'title' => $img->title,
                 'category' => $img->category,
+                'categories' => $img->categories->pluck('slug')->values()->all() ?: array_filter([$img->category]),
                 'src' => $id
                     ? "https://img.youtube.com/vi/{$id}/hqdefault.jpg"
                     : ($img->image_path ? image_url($img->image_path) : ''),
@@ -36,6 +37,7 @@
             'type' => 'photo',
             'title' => $img->title,
             'category' => $img->category,
+            'categories' => $img->categories->pluck('slug')->values()->all() ?: array_filter([$img->category]),
             'src' => image_url($img->image_path),
             'embed' => null,
             'youtube' => false,
@@ -51,7 +53,7 @@
         images: @js($galleryData),
         get filtered() {
             if (this.activeCategory === 'all') return this.images;
-            return this.images.filter(i => i.category === this.activeCategory);
+            return this.images.filter(i => (i.categories || [i.category]).includes(this.activeCategory));
         },
         openLightbox(index) {
             this.currentIndex = index;

@@ -73,7 +73,10 @@ class GalleryCategoryResource extends Resource
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make()
                     ->before(function (GalleryCategory $record, Tables\Actions\DeleteAction $action) {
-                        $inUse = GalleryImage::where('category', $record->slug)->count();
+                        // Count via the pivot, not the primary column: a photo
+                        // can sit in this category as a secondary and would
+                        // otherwise be missed, silently orphaning the link.
+                        $inUse = $record->images()->count();
                         if ($inUse > 0) {
                             Notification::make()
                                 ->danger()

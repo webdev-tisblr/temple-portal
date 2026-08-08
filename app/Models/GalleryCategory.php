@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Support\LocalizedCache;
 use Illuminate\Database\Eloquent\Model;
 
 class GalleryCategory extends Model
@@ -23,7 +24,7 @@ class GalleryCategory extends Model
         // Category names feed the localized web tabs and the app's chip
         // list endpoint — bust those caches whenever the list changes.
         $bust = function (): void {
-            \App\Support\LocalizedCache::forget('gallery.categories');
+            LocalizedCache::forget('gallery.categories');
         };
         static::saved($bust);
         static::deleted($bust);
@@ -37,8 +38,19 @@ class GalleryCategory extends Model
         return $this->$field ?? $this->name_gu;
     }
 
+    /**
+     * Photos in this category — including ones whose PRIMARY category is a
+     * different slug, since a photo can now sit in several at once.
+     */
     public function images()
     {
-        return $this->hasMany(GalleryImage::class, 'category', 'slug');
+        return $this->belongsToMany(
+            GalleryImage::class,
+            'temple_gallery_image_category',
+            'category_slug',
+            'gallery_image_id',
+            'slug',
+            'id',
+        );
     }
 }

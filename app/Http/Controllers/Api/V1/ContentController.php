@@ -412,10 +412,14 @@ class ContentController extends BaseApiController
         $cacheKey = $category ? "gallery.{$category}" : 'gallery.all';
 
         $images = \App\Support\LocalizedCache::remember($cacheKey, 900, function () use ($category) {
-            $query = GalleryImage::query()->orderBy('sort_order');
+            $query = GalleryImage::query()->with('categories')->orderBy('sort_order');
 
             if ($category) {
-                $query->where('category', $category);
+                // Match the pivot, not the primary column, so a photo filed
+                // under several categories shows up under each of them. This
+                // widens results for the app already installed, with no client
+                // change needed.
+                $query->whereHas('categories', fn ($q) => $q->where('category_slug', $category));
             }
 
             // Bound the unbounded fetch. Keeps the flat-list response envelope
@@ -429,7 +433,13 @@ class ContentController extends BaseApiController
                 'thumbnail_url' => $image->thumbnail_path ? image_url($image->thumbnail_path) : null,
                 'medium_url' => $image->medium_path ? image_url($image->medium_path) : null,
                 'video_url' => $image->video_url,
+                // MUST stay a scalar string. The shipped app parses this with
+                // `json['category'] as String?`; an array throws a TypeError
+                // that its `on DioException` catch does not cover, leaving the
+                // gallery permanently empty. `categories` is additive — older
+                // clients simply never read it.
                 'category' => $image->category,
+                'categories' => $image->categories->pluck('slug')->values(),
                 'is_wallpaper' => $image->is_wallpaper,
             ]);
         });

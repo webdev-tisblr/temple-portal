@@ -93,13 +93,17 @@
     </div>
     @endif
 
-    {{-- Image Grid --}}
-    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+    {{-- Masonry. CSS columns rather than a grid: temple photos are a mix of
+         portrait and landscape, and the old aspect-[4/3] tile cropped the top
+         and bottom off every portrait shot. break-inside-avoid stops a card
+         being split across a column. --}}
+    <div class="columns-2 md:columns-3 lg:columns-4 gap-3 sm:gap-4">
         <template x-for="(img, index) in filtered" :key="index">
-            <div class="relative group cursor-pointer overflow-hidden rounded-xl bg-amber-900/20 aspect-[4/3] border border-amber-900/15"
+            <div class="relative group cursor-pointer overflow-hidden rounded-xl bg-amber-900/20 border border-amber-900/15 break-inside-avoid mb-3 sm:mb-4"
                  @click="openLightbox(index)">
-                <img :src="img.src" :alt="img.title"
-                     class="w-full h-full object-cover transition duration-300 group-hover:scale-105">
+                {{-- h-auto, so each photo keeps its own proportions --}}
+                <img :src="img.src" :alt="img.title" loading="lazy"
+                     class="w-full h-auto block transition duration-300 group-hover:scale-105">
                 {{-- Play badge for video items --}}
                 <template x-if="img.type === 'video'">
                     <div class="absolute inset-0 flex items-center justify-center pointer-events-none">

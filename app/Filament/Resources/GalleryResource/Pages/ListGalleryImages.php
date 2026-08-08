@@ -17,8 +17,17 @@ class ListGalleryImages extends ListRecords
 {
     protected static string $resource = GalleryResource::class;
 
-    /** Upper bound per bulk run — also PHP's max_file_uploads on the server. */
-    private const BULK_MAX_FILES = 20;
+    /**
+     * Files per bulk run.
+     *
+     * Compression happens on submit, serially, inside one request — measured
+     * at ~1.5s for a 3410x4096 photo on the VPS. PHP-FPM kills the request at
+     * max_execution_time = 30s, so 10 leaves roughly half the budget spare for
+     * a batch of unusually large photos. Raising this without also raising
+     * max_execution_time risks a timeout part-way through, storing some images
+     * and losing the rest.
+     */
+    private const BULK_MAX_FILES = 10;
 
     protected function getHeaderActions(): array
     {

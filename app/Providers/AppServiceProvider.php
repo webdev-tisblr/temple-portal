@@ -7,6 +7,7 @@ use App\Models\SevaBooking;
 use App\Models\SystemSetting;
 use App\Observers\SevaBookingObserver;
 use App\Observers\SevaObserver;
+use App\Services\UploadedImageCompressor;
 use Filament\Actions\DeleteAction as PageDeleteAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\RichEditor;
@@ -17,6 +18,7 @@ use Filament\Tables\Columns\ImageColumn;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -81,12 +83,66 @@ class AppServiceProvider extends ServiceProvider
                       default => 'application/octet-stream',
                   };
 
+                  // In multiple() mode Filament hands the whole map of stored
+                  // names, keyed by path — passing the array straight through
+                  // would show "Array" as every file's name in FilePond.
+                  $name = is_array($storedFileNames)
+                      ? ($storedFileNames[$file] ?? basename($file))
+                      : ($storedFileNames ?: basename($file));
+
                   return [
-                      'name' => $storedFileNames ?: basename($file),
+                      'name' => $name,
                       'size' => 1,
                       'type' => $mime,
                       'url' => $component->getDisk()->url($file),
                   ];
+              })
+              // Shrink photos before they reach R2 — see UploadedImageCompressor
+              // for the why and the measured numbers. Applies to every upload in
+              // the admin, not just the gallery. Anything the compressor declines
+              // (PDFs, SVG, animated GIF, already-small images, an image it fails
+              // to decode) falls through to Filament's stock store, untouched.
+              ->saveUploadedFileUsing(function (FileUpload $component, TemporaryUploadedFile $file): ?string {
+                  try {
+                      if (! $file->exists()) {
+                          return null;
+                      }
+                  } catch (\Throwable) {
+                      return null;
+                  }
+
+                  $store = fn (): ?string => $file->{$component->getVisibility() === 'public' ? 'storePubliclyAs' : 'storeAs'}(
+                      $component->getDirectory(),
+                      $component->getUploadedFileNameForStorage($file),
+                      $component->getDiskName(),
+                  );
+
+                  $local = $file->getRealPath();
+
+                  if ($local === false || $local === '') {
+                      return $store();
+                  }
+
+                  $compressed = app(UploadedImageCompressor::class)->compress(
+                      $local,
+                      $file->getClientOriginalExtension(),
+                  );
+
+                  if ($compressed === null) {
+                      return $store();
+                  }
+
+                  // Keep Filament's ULID filename but carry the extension the
+                  // encoder actually produced (a .jpeg upload comes back .jpg).
+                  $name = preg_replace('/\.[^.]+$/', '', $component->getUploadedFileNameForStorage($file));
+                  $path = trim($component->getDirectory().'/'.$name.'.'.$compressed['extension'], '/');
+
+                  $component->getDisk()->put($path, $compressed['bytes'], [
+                      'visibility' => $component->getVisibility(),
+                      'ContentType' => $compressed['mime'],
+                  ]);
+
+                  return $path;
               });
         }, isImportant: true);
         ImageColumn::configureUsing(fn (ImageColumn $c) => $c->disk('r2'));

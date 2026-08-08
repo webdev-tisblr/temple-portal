@@ -8,9 +8,11 @@ use App\Filament\Resources\GalleryResource\Pages;
 use App\Models\GalleryImage;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 
 class GalleryResource extends Resource
 {
@@ -72,8 +74,57 @@ class GalleryResource extends Resource
                         ->all()),
                 Tables\Filters\TernaryFilter::make('is_wallpaper'),
             ])
+            // Drag to order. Bulk-uploaded photos land in upload order, and
+            // fixing that one record at a time is painful with a few hundred.
+            ->reorderable('sort_order')
             ->actions([Tables\Actions\EditAction::make()])
-            ->bulkActions([Tables\Actions\BulkActionGroup::make([Tables\Actions\DeleteBulkAction::make()])]);
+            ->bulkActions([Tables\Actions\BulkActionGroup::make([
+                Tables\Actions\BulkAction::make('setCategory')
+                    ->label('Set category')
+                    ->icon('heroicon-o-tag')
+                    ->form([
+                        Forms\Components\Select::make('category')
+                            ->label('Category')
+                            ->options(fn (): array => \App\Models\GalleryCategory::orderBy('sort_order')
+                                ->get()
+                                ->mapWithKeys(fn ($c) => [$c->slug => $c->name_en ?? $c->name_gu])
+                                ->all())
+                            ->required(),
+                    ])
+                    ->action(function (Collection $records, array $data): void {
+                        // Saved one by one on purpose: GalleryImage::booted()
+                        // busts the per-category caches from the model events,
+                        // which a mass update() would skip entirely.
+                        $records->each(fn ($record) => $record->update(['category' => $data['category']]));
+
+                        Notification::make()
+                            ->title($records->count().' moved to this category')
+                            ->success()
+                            ->send();
+                    })
+                    ->deselectRecordsAfterCompletion(),
+
+                Tables\Actions\BulkAction::make('setWallpaper')
+                    ->label('Wallpaper on / off')
+                    ->icon('heroicon-o-device-phone-mobile')
+                    ->form([
+                        Forms\Components\Toggle::make('is_wallpaper')
+                            ->label('Offer as wallpaper')
+                            ->default(true),
+                    ])
+                    ->action(function (Collection $records, array $data): void {
+                        $flag = (bool) ($data['is_wallpaper'] ?? false);
+                        $records->each(fn ($record) => $record->update(['is_wallpaper' => $flag]));
+
+                        Notification::make()
+                            ->title($records->count().' updated')
+                            ->success()
+                            ->send();
+                    })
+                    ->deselectRecordsAfterCompletion(),
+
+                Tables\Actions\DeleteBulkAction::make(),
+            ])]);
     }
 
     public static function getPages(): array

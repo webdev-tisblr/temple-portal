@@ -17,17 +17,29 @@ class ListGalleryImages extends ListRecords
 {
     protected static string $resource = GalleryResource::class;
 
+    /** Seconds budgeted per photo: ~1.5s measured for 3410x4096 on the VPS, doubled for headroom. */
+    private const SECONDS_PER_PHOTO = 3;
+
     /**
-     * Files per bulk run.
+     * How many photos one bulk run may accept.
      *
-     * Compression happens on submit, serially, inside one request — measured
-     * at ~1.5s for a 3410x4096 photo on the VPS. PHP-FPM kills the request at
-     * max_execution_time = 30s, so 10 leaves roughly half the budget spare for
-     * a batch of unusually large photos. Raising this without also raising
-     * max_execution_time risks a timeout part-way through, storing some images
-     * and losing the rest.
+     * Compression runs serially on submit inside a single request, so the real
+     * ceiling is PHP's max_execution_time — exceed it and the request is killed
+     * part-way, storing some images and losing the rest. Deriving the number
+     * rather than hardcoding it keeps the form honest about what this server
+     * can actually finish: raise max_execution_time and the limit follows on
+     * the next page load, with no code change and no stale figure in the UI.
+     *
+     * Also bounded by max_file_uploads, which PHP enforces regardless.
      */
-    private const BULK_MAX_FILES = 10;
+    private function bulkMaxFiles(): int
+    {
+        $timeLimit = (int) ini_get('max_execution_time');
+        $byTime = $timeLimit > 0 ? intdiv($timeLimit, self::SECONDS_PER_PHOTO) : 30;
+        $byUploads = (int) ini_get('max_file_uploads') ?: 20;
+
+        return max(3, min($byTime, $byUploads, 30));
+    }
 
     protected function getHeaderActions(): array
     {
@@ -49,35 +61,39 @@ class ListGalleryImages extends ListRecords
                 ->modalDescription('Pick several photos at once — each becomes its own gallery item. Large photos are scaled down and compressed automatically, so upload straight from the camera roll.')
                 ->modalSubmitActionLabel('Upload')
                 ->visible(fn (): bool => auth('admin')->user()?->can('create_gallery') ?? false)
-                ->form([
-                    Forms\Components\Select::make('category')
-                        ->label('Category')
-                        // Same shape as GalleryResource's select: admin UI stays
-                        // English, and the localised `name` accessor must not be
-                        // plucked straight off the query builder.
-                        ->options(fn (): array => GalleryCategory::orderBy('sort_order')
-                            ->get()
-                            ->mapWithKeys(fn ($c) => [$c->slug => $c->name_en ?? $c->name_gu])
-                            ->all())
-                        ->default('temple')
-                        ->required(),
+                ->form(function (): array {
+                    $max = $this->bulkMaxFiles();
 
-                    Forms\Components\FileUpload::make('images')
-                        ->label('Photos')
-                        ->image()
-                        ->multiple()
-                        ->reorderable()
-                        ->appendFiles()
-                        ->directory('gallery')
-                        ->maxFiles(self::BULK_MAX_FILES)
-                        ->maxSize(12288)
-                        ->required()
-                        ->helperText('Up to '.self::BULK_MAX_FILES.' photos per upload. Drag to set the order they appear in.'),
+                    return [
+                        Forms\Components\Select::make('category')
+                            ->label('Category')
+                            // Same shape as GalleryResource's select: admin UI
+                            // stays English, and the localised `name` accessor
+                            // must not be plucked off the query builder.
+                            ->options(fn (): array => GalleryCategory::orderBy('sort_order')
+                                ->get()
+                                ->mapWithKeys(fn ($c) => [$c->slug => $c->name_en ?? $c->name_gu])
+                                ->all())
+                            ->default('temple')
+                            ->required(),
 
-                    Forms\Components\Toggle::make('is_wallpaper')
-                        ->label('Offer as wallpaper')
-                        ->default(false),
-                ])
+                        Forms\Components\FileUpload::make('images')
+                            ->label('Photos')
+                            ->image()
+                            ->multiple()
+                            ->reorderable()
+                            ->appendFiles()
+                            ->directory('gallery')
+                            ->maxFiles($max)
+                            ->maxSize(12288)
+                            ->required()
+                            ->helperText('Up to '.$max.' photos per upload. Drag to set the order they appear in.'),
+
+                        Forms\Components\Toggle::make('is_wallpaper')
+                            ->label('Offer as wallpaper')
+                            ->default(false),
+                    ];
+                })
                 ->action(function (array $data): void {
                     $paths = array_values(array_filter((array) ($data['images'] ?? [])));
 

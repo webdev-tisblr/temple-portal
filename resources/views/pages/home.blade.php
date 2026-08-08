@@ -70,18 +70,27 @@
                 {{-- The YouTube IFrame API replaces this div with the player;
                      the resulting iframe is styled full-bleed on ready. --}}
                 <div id="hero-yt-target" data-yt-id="{{ $heroYtId }}" data-mute="{{ $heroAudio ? '0' : '1' }}"></div>
-                {{-- Poster cover: masks YouTube's own UI (center arrow, controls,
+                {{-- Cover: masks YouTube's own UI (center arrow, controls,
                      loading state) whenever the video isn't actively playing.
-                     JS fades it out on PLAYING and back in on pause/load/end. --}}
-                <div id="hero-yt-cover" class="absolute inset-0 bg-cover bg-center transition-opacity duration-500"
-                     style="background-image:url('{{ $heroImg }}');"></div>
+                     JS fades it out on PLAYING and back in on pause/load/end.
+
+                     Deliberately a flat colour, NOT the hero image: it used to
+                     carry $heroImg, which flashed the old wallpaper for the
+                     second before playback began. The masking still works —
+                     only the stale photo is gone. --}}
+                <div id="hero-yt-cover" class="absolute inset-0 transition-opacity duration-500"
+                     style="background:#290F08;"></div>
             @elseif($heroVideoIframe)
                 <iframe class="hero-video-frame absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-0"
                         src="{{ $heroVideoIframe }}" allow="autoplay; encrypted-media" allowfullscreen tabindex="-1"
                         style="width:100vw; height:56.25vw; min-height:100%; min-width:177.78vh;"></iframe>
             @else
+                {{-- No poster attribute on purpose: it showed the old hero
+                     wallpaper for the moment before the video had buffered.
+                     The flat background covers that gap instead. --}}
                 <video class="hero-video-el absolute inset-0 w-full h-full object-cover object-center"
-                       autoplay loop playsinline poster="{{ $heroImg }}" @if(!$heroAudio) muted @endif>
+                       style="background:#290F08;"
+                       autoplay loop playsinline @if(!$heroAudio) muted @endif>
                     <source src="{{ $heroVideoFile }}" type="video/mp4">
                 </video>
             @endif

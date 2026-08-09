@@ -55,4 +55,6 @@ return [
     'slot_full_week' => 'આખું અઠવાડિયું',
     'choose_option' => 'વિકલ્પ પસંદ કરો',
     'book' => 'બુક કરો',
+    // Step eyebrow above the product / date pickers when a seva offers both.
+    'step' => 'પગલું :n',
 ];

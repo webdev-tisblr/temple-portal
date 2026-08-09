@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\HasImageDerivatives;
 use App\Models\Concerns\HasManagedImages;
 use App\Support\LocalizedCache;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\Cache;
 
 class GalleryImage extends Model
 {
-    use HasManagedImages;
+    use HasImageDerivatives, HasManagedImages;
 
     protected $table = 'temple_gallery_images';
 
@@ -36,6 +37,21 @@ class GalleryImage extends Model
             'image_path' => 'r2',
             'thumbnail_path' => 'r2',
             'medium_path' => 'r2',
+        ];
+    }
+
+    /**
+     * Renditions built by ImageDerivativeService. Both columns are also in
+     * managedImages() above, so deleting a photo takes its thumbnails with
+     * it instead of orphaning two objects on the bucket.
+     */
+    protected function imageDerivatives(): array
+    {
+        return [
+            'image_path' => [
+                'thumbnail' => 'thumbnail_path',
+                'medium' => 'medium_path',
+            ],
         ];
     }
 

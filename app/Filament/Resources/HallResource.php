@@ -37,6 +37,29 @@ class HallResource extends Resource
                     ->required(),
             ]),
 
+            Forms\Components\Section::make('Booking Rules')
+                ->description('Multi-day bookings and the booking cut-off. Defaults keep the old behaviour exactly: one day at a time, no cut-off.')
+                ->schema([
+                    Forms\Components\TextInput::make('max_booking_days')
+                        ->label('Maximum days per booking')
+                        ->numeric()->minValue(1)->maxValue(90)->default(1)
+                        ->required()
+                        ->helperText('1 = single-day bookings only. Set higher to let devotees book a consecutive range (e.g. 3 = a 12th–14th booking, charged 3 × the day rate, with all three days blocked).'),
+                    Forms\Components\TextInput::make('booking_cutoff_hours')
+                        ->label('Booking cut-off (hours)')
+                        ->numeric()->minValue(0)->maxValue(8760)->default(0)
+                        ->suffix('hours')
+                        ->helperText('Devotees cannot book a date starting within the next N hours. Set 0 for no cut-off. Counted back from the day-start time below.'),
+                    Forms\Components\TimePicker::make('day_start_time')
+                        ->label('Day starts at')
+                        ->native(false)
+                        ->seconds(false)
+                        ->format('H:i')
+                        ->displayFormat('h:i A')
+                        ->default('09:00')
+                        ->helperText('A hall booking has no start time, so this is the moment the cut-off counts back from.'),
+                ])->columns(3),
+
             // Bookings are full-day only (2026-08-04): single price.
             Forms\Components\Section::make('Pricing')->schema([
                 Forms\Components\TextInput::make('price_per_day')
@@ -148,6 +171,14 @@ class HallResource extends Resource
                     ->label('Name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('capacity'),
+                Tables\Columns\TextColumn::make('max_booking_days')
+                    ->label('Max days')
+                    ->formatStateUsing(fn ($state): string => ((int) $state) > 1 ? (string) $state : 'Single day')
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('booking_cutoff_hours')
+                    ->label('Cut-off')
+                    ->formatStateUsing(fn ($state): string => ((int) $state) > 0 ? $state.' h' : '—')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('price_per_day')
                     ->prefix('₹'),
                 Tables\Columns\ToggleColumn::make('is_active'),

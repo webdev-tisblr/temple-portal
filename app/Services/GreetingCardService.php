@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\Donation;
 use App\Models\SevaBooking;
 use App\Models\SystemSetting;
+use App\Support\DevoteeLocale;
 use App\Support\ScriptFont;
 use App\Support\ShapedText;
 use Illuminate\Database\Eloquent\Model;
@@ -130,13 +131,14 @@ class GreetingCardService
 
     /**
      * Devotee's preferred render language, defaulting to Gujarati.
+     *
+     * The implementation moved to App\Support\DevoteeLocale so the receipt
+     * and invoice services share ONE copy of this rule (2026-08-09). Kept as
+     * a thin wrapper because it is used as a closure target below.
      */
     private function localeForDevotee(?Model $devotee): string
     {
-        $locale = $devotee?->getAttribute('language');
-        $locale = $locale instanceof \BackedEnum ? $locale->value : $locale;
-
-        return in_array($locale, ['gu', 'hi', 'en'], true) ? $locale : 'gu';
+        return DevoteeLocale::for($devotee);
     }
 
     /**

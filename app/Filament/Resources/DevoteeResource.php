@@ -6,6 +6,8 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\DevoteeResource\Pages;
 use App\Models\Devotee;
+use App\Rules\ValidPhoneNumber;
+use App\Support\PhoneNumber;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -28,7 +30,17 @@ class DevoteeResource extends Resource
         return $form->schema([
             Forms\Components\Section::make('Personal Info')->schema([
                 Forms\Components\TextInput::make('name')->required()->maxLength(255),
+                // G16 (2026-08-09): phone is the devotee's UNIQUE OTP login
+                // key. This field used to accept any free text, so an admin
+                // creating a devotee could store "+91 98765 43210" (spaces
+                // and prefix) — a value that never matches the normalised
+                // login lookup and breaks PhoneNumber::forWhatsApp().
+                // Normalise on dehydrate so what lands in the column is the
+                // same canonical form SendOtpRequest/VerifyOtpRequest produce.
                 Forms\Components\TextInput::make('phone')->tel()->required()->maxLength(20)
+                    ->rule(new ValidPhoneNumber)
+                    ->dehydrateStateUsing(fn (?string $state): ?string => PhoneNumber::normalize($state))
+                    ->helperText('Indian numbers are stored as bare 10 digits (no +91).')
                     ->disabled(fn (?Devotee $record) => $record !== null),
                 Forms\Components\TextInput::make('email')->email()->maxLength(255),
                 Forms\Components\DatePicker::make('date_of_birth'),

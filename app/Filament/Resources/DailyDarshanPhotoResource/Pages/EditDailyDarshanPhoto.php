@@ -27,6 +27,11 @@ class EditDailyDarshanPhoto extends EditRecord
                 ->icon('heroicon-o-paper-airplane')
                 ->color('primary')
                 ->requiresConfirmation()
+                // G12 (2026-08-09): fan-out to every devotee booked that day
+                // over WhatsApp/push. Outbound-message actions are gated on
+                // `send_announcement`, which existed in the seeder but was
+                // checked nowhere.
+                ->visible(fn (): bool => auth('admin')->user()?->can('send_announcement') ?? false)
                 ->modalDescription(fn () => 'Sends this darshan photo to every devotee with a confirmed booking on '
                     .($this->record->captured_on?->format('d M Y') ?? '—')
                     .' for sevas with the darshan toggle enabled, using the "Darshan — photo for booking-day devotees" templates.')

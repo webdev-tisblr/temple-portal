@@ -28,6 +28,12 @@ class EditNotificationTemplate extends EditRecord
                 ->label('Send test')
                 ->icon('heroicon-o-paper-airplane')
                 ->color('primary')
+                // G12 (2026-08-09): "test" sends a REAL email / WhatsApp /
+                // SMS to an arbitrary operator-supplied address or phone —
+                // i.e. it spends live BSP credit and can be pointed at any
+                // recipient. Gated on `send_announcement` like every other
+                // outbound-message action.
+                ->visible(fn (): bool => auth('admin')->user()?->can('send_announcement') ?? false)
                 ->form([
                     \Filament\Forms\Components\TextInput::make('test_recipient')
                         ->label('Recipient')

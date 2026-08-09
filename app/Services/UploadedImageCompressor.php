@@ -26,6 +26,15 @@ use Intervention\Image\ImageManager;
  * Deliberately FAIL-OPEN. compress() returns null on anything it cannot
  * handle and the caller stores the untouched original — a photo that is
  * merely larger than we would like beats an upload that errors.
+ *
+ * The fail-open used to be a hole, not a feature: a 200 MP upload blew
+ * PHP's memory limit inside decodePath(), landed in the catch, and was
+ * stored at full size. Seven such originals are live on the public bucket
+ * and are the prime suspect for the Android OOM kills. Decoding now runs
+ * through ImageDerivativeService::decodePath(), which shrink-on-loads with
+ * Imagick and lifts the memory limit for GD, so the cap below is actually
+ * enforced. Fail-open now only covers genuinely unprocessable input
+ * (non-JPEG above the 256 MP full-decode ceiling, corrupt files).
  */
 class UploadedImageCompressor
 {
@@ -60,7 +69,14 @@ class UploadedImageCompressor
         }
 
         try {
-            $image = $this->manager()->decodePath($path);
+            // Decode through ImageDerivativeService: it caps decompression
+            // bombs, uses Imagick shrink-on-load, and lifts memory_limit for
+            // the GD path. The old `manager()->decodePath()` call simply ran
+            // out of memory on a 200 MP upload, hit the fail-open catch
+            // below, and stored the bomb untouched — which is how seven
+            // 199,756,800 px originals reached production and started
+            // OOM-killing the Android app.
+            $image = app(ImageDerivativeService::class)->decodePath($path, self::MAX_EDGE);
 
             // Phone photos carry rotation in EXIF rather than in the pixels.
             // Re-encoding drops that tag, so bake it in first or portrait

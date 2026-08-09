@@ -10,9 +10,11 @@ use App\Models\Hall;
 use App\Models\HallBooking;
 use App\Models\Payment;
 use App\Models\SystemSetting;
+use App\Services\HallAvailabilityService;
 use App\Services\PaymentCaptureService;
 use App\Services\RazorpayService;
 use Artesaos\SEOTools\Facades\SEOMeta;
+use Illuminate\Support\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -50,6 +52,16 @@ class HallBookingController extends Controller
         return view('pages.hall-booking.index', compact('hall'));
     }
 
+    public function __construct(
+        private readonly HallAvailabilityService $availability,
+    ) {}
+
+    /**
+     * Availability verdict for a single date or a date RANGE.
+     * Un-wrapped payload (kept — the Alpine picker reads it directly);
+     * `reason_code`, `days`, `total_amount` and `conflicting_dates` are
+     * additive.
+     */
     public function checkAvailability(Request $request): JsonResponse
     {
         // Full-day only (2026-08-04): the half-day option was removed.
@@ -58,44 +70,50 @@ class HallBookingController extends Controller
         $request->validate([
             'hall_id' => ['required', 'integer', 'exists:temple_halls,id'],
             'date' => ['required', 'date'],
+            'end_date' => ['nullable', 'date'],
         ]);
 
-        // Admin blockout wins over everything (maintenance/trust events).
-        $hall = Hall::find($request->integer('hall_id'));
-        $blackoutReason = $hall?->blackoutReason((string) $request->date);
-        if ($blackoutReason !== null) {
-            return response()->json([
-                'available' => false,
-                'message' => $blackoutReason !== ''
-                    ? $blackoutReason
-                    : 'આ તારીખે હૉલ બુકિંગ ઉપલબ્ધ નથી.',
-            ]);
-        }
+        $hall = Hall::findOrFail($request->integer('hall_id'));
+        $start = Carbon::parse((string) $request->date)->toDateString();
+        $end = $request->filled('end_date')
+            ? Carbon::parse((string) $request->end_date)->toDateString()
+            : $start;
 
-        if ($this->hallDateBooked($request->integer('hall_id'), (string) $request->date)) {
-            return response()->json([
-                'available' => false,
-                'message' => 'આ તારીખ માટે હૉલ પહેલેથી બુક છે.',
-            ]);
-        }
+        $verdict = $this->availability->checkRange($hall, $start, $end);
+        $price = $this->availability->priceFor($hall, $start, $end);
 
         return response()->json([
-            'available' => true,
-            'message' => 'હૉલ ઉપલબ્ધ છે.',
+            'available' => $verdict['ok'],
+            'message' => $verdict['ok']
+                ? 'હૉલ ઉપલબ્ધ છે.'
+                : ($verdict['reason'] ?? 'આ તારીખ માટે હૉલ પહેલેથી બુક છે.'),
+            'reason_code' => $verdict['reason_code'],
+            'conflicting_dates' => $verdict['conflicting_dates'],
+            'days' => $price['days'],
+            'price_per_day' => $price['price_per_day'],
+            'total_amount' => $price['total'],
+            'max_booking_days' => $hall->maxBookingDays(),
         ]);
     }
 
     /**
-     * True when the hall already has ANY pending or confirmed booking on
-     * the date. Bookings are full-day only, so one booking blocks the
-     * whole date (legacy half-day rows block it too).
+     * Website twin of GET /api/v1/halls/{hall}/next-available (item 4.4).
      */
-    private function hallDateBooked(int $hallId, string $date): bool
+    public function nextAvailable(Request $request): JsonResponse
     {
-        return HallBooking::where('hall_id', $hallId)
-            ->where('booking_date', $date)
-            ->whereIn('status', ['pending', 'confirmed'])
-            ->exists();
+        $request->validate([
+            'hall_id' => ['required', 'integer', 'exists:temple_halls,id'],
+            'days' => ['nullable', 'integer', 'min:1', 'max:90'],
+        ]);
+
+        $hall = Hall::findOrFail($request->integer('hall_id'));
+        $found = $this->availability->nextAvailable($hall, null, 365, (int) $request->integer('days', 1) ?: 1);
+
+        return response()->json([
+            'found' => $found !== null,
+            'date' => $found['date'] ?? null,
+            'end_date' => $found['end_date'] ?? null,
+        ]);
     }
 
     public function book(Request $request): View
@@ -103,6 +121,8 @@ class HallBookingController extends Controller
         $validated = $request->validate([
             'hall_id' => ['required', 'integer', 'exists:temple_halls,id'],
             'booking_date' => ['required', 'date', 'after_or_equal:today'],
+            // Item 4.2 — nullable, so a single-day submit is unchanged.
+            'end_date' => ['nullable', 'date', 'after_or_equal:booking_date'],
             'purpose' => ['required', 'string', 'max:500'],
             'expected_guests' => ['nullable', 'integer'],
             'contact_name' => ['required', 'string', 'max:255'],
@@ -116,18 +136,24 @@ class HallBookingController extends Controller
         $devotee = Auth::guard('devotee')->user();
         $hall = Hall::where('id', $validated['hall_id'])->where('is_active', true)->firstOrFail();
 
-        $blackoutReason = $hall->blackoutReason($validated['booking_date']);
-        if ($blackoutReason !== null) {
-            return back()->withErrors(['booking_date' => $blackoutReason !== ''
-                ? $blackoutReason
-                : 'આ તારીખે હૉલ બુકિંગ ઉપલબ્ધ નથી.']);
+        $validated['booking_date'] = Carbon::parse($validated['booking_date'])->toDateString();
+        $validated['end_date'] = ! empty($validated['end_date'])
+            ? Carbon::parse($validated['end_date'])->toDateString()
+            : $validated['booking_date'];
+
+        // One verdict covers blackouts, the cut-off (4.3), max_booking_days
+        // and overlapping bookings across the whole range.
+        $verdict = $this->availability->checkRange($hall, $validated['booking_date'], $validated['end_date']);
+        if (! $verdict['ok']) {
+            return back()->withErrors([
+                'booking_date' => $verdict['reason'] ?? 'આ તારીખ માટે હૉલ પહેલેથી બુક છે.',
+            ]);
         }
 
-        if ($this->hallDateBooked((int) $hall->id, $validated['booking_date'])) {
-            return back()->withErrors(['booking_date' => 'આ તારીખ માટે હૉલ પહેલેથી બુક છે.']);
-        }
-
-        $totalAmount = (float) $hall->price_per_day;
+        // Server-authoritative price: flat price_per_day × days.
+        $price = $this->availability->priceFor($hall, $validated['booking_date'], $validated['end_date']);
+        $validated['days_count'] = $price['days'];
+        $totalAmount = $price['total'];
 
         // TEST MODE — skip Razorpay, direct confirm
         if (config('razorpay.test_mode')) {
@@ -137,6 +163,13 @@ class HallBookingController extends Controller
         // REAL PAYMENT MODE
         try {
             $result = DB::transaction(function () use ($validated, $devotee, $hall, $totalAmount) {
+                // Race-safe re-check under a row lock — the pre-existing
+                // hall double-booking hole (two devotees both paying for
+                // the same date) is closed here, mirroring the seva path.
+                if (! $this->availability->hasRangeCapacityForUpdate($hall, $validated['booking_date'], $validated['end_date'])) {
+                    throw new \App\Exceptions\SlotUnavailableException((string) __('availability.hall_taken_race'));
+                }
+
                 $paymentId = (string) Str::uuid();
                 $receipt = 'HALL-'.now()->format('Ymd').'-'.strtoupper(Str::random(6));
 
@@ -162,6 +195,8 @@ class HallBookingController extends Controller
                     'devotee_id' => $devotee->id,
                     'hall_id' => $hall->id,
                     'booking_date' => $validated['booking_date'],
+                    'end_date' => $validated['end_date'],
+                    'days_count' => $validated['days_count'],
                     'booking_type' => $validated['booking_type'],
                     'purpose' => $validated['purpose'],
                     'expected_guests' => $validated['expected_guests'] ?? null,
@@ -192,6 +227,8 @@ class HallBookingController extends Controller
                 'failureUrl' => route('hall.booking.failure'),
             ]);
 
+        } catch (\App\Exceptions\SlotUnavailableException $e) {
+            return back()->withErrors(['booking_date' => $e->getMessage()]);
         } catch (\Exception $e) {
             Log::error('Hall booking failed', ['error' => $e->getMessage()]);
 
@@ -203,6 +240,12 @@ class HallBookingController extends Controller
     {
         try {
             $result = DB::transaction(function () use ($validated, $devotee, $hall, $totalAmount) {
+                // Same locked re-check as the live path — test mode must not
+                // be the one place that can double-book a hall.
+                if (! $this->availability->hasRangeCapacityForUpdate($hall, $validated['booking_date'], $validated['end_date'])) {
+                    throw new \App\Exceptions\SlotUnavailableException((string) __('availability.hall_taken_race'));
+                }
+
                 $paymentId = (string) Str::uuid();
 
                 $payment = Payment::create([
@@ -220,6 +263,8 @@ class HallBookingController extends Controller
                     'devotee_id' => $devotee->id,
                     'hall_id' => $hall->id,
                     'booking_date' => $validated['booking_date'],
+                    'end_date' => $validated['end_date'],
+                    'days_count' => $validated['days_count'],
                     'booking_type' => $validated['booking_type'],
                     'purpose' => $validated['purpose'],
                     'expected_guests' => $validated['expected_guests'] ?? null,

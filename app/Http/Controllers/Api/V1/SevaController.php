@@ -118,18 +118,84 @@ class SevaController extends BaseApiController
                 return $this->error('Month out of the bookable range.', 422);
             }
 
+            $detail = $this->slotService->getDateAvailabilityForMonth($seva, $month);
+
             return $this->success([
                 'month' => $month,
-                'dates' => $this->slotService->getAvailableDatesForMonth($seva, $month),
+                // UNCHANGED: still only the bookable dates, as a list of
+                // 'Y-m-d' strings. App 1.4.8+32 reads exactly this.
+                'dates' => array_values(array_map(
+                    static fn (array $r): string => $r['date'],
+                    array_filter($detail, static fn (array $r): bool => $r['available'] === true),
+                )),
+                // ADDITIVE (item 4.1): every date of the window with a
+                // verdict, so the UI shows a "Not Available" badge instead
+                // of hiding the chip.
+                'days_detail' => $detail,
             ]);
         }
 
         $days = (int) $request->query('days', 30);
-        $dates = $this->slotService->getAvailableDates($seva, $days);
+        $days = max(1, min($days, 90));
+        $start = now()->startOfDay();
+        $detail = $this->slotService->getDateAvailabilityInRange($seva, $start, $start->copy()->addDays($days - 1));
 
         return $this->success([
             'days' => $days,
-            'dates' => $dates,
+            'dates' => array_values(array_map(
+                static fn (array $r): string => $r['date'],
+                array_filter($detail, static fn (array $r): bool => $r['available'] === true),
+            )),
+            'days_detail' => $detail,
+        ]);
+    }
+
+    /**
+     * First bookable date + slot from `from` forward (item 4.4).
+     *
+     * Replaces the app's client-side scan (up to 12 + N sequential
+     * requests) with one request, and gives the website the same
+     * affordance. Cached briefly — never long enough for a just-booked
+     * slot to keep being advertised.
+     */
+    public function nextAvailable(Request $request, Seva $seva): JsonResponse
+    {
+        $request->validate([
+            'from' => ['nullable', 'date'],
+            'horizon_days' => ['nullable', 'integer', 'min:1', 'max:730'],
+        ]);
+
+        $from = $request->query('from')
+            ? Carbon::parse((string) $request->query('from'))->toDateString()
+            : now()->toDateString();
+        $horizon = (int) $request->query('horizon_days', 365);
+
+        $ver = (int) Cache::get('sevas.cache.ver', 1);
+        $key = "seva.next_available.v{$ver}.{$seva->id}.{$from}.{$horizon}";
+
+        $found = Cache::remember($key, 60, fn () => $this->slotService->nextAvailable($seva, $from, $horizon));
+
+        if ($found === null) {
+            return $this->success([
+                'found' => false,
+                'date' => null,
+                'slot_time' => null,
+                'slot_type' => $this->slotService->slotType($this->slotService->configFor($seva)),
+                'label' => null,
+            ]);
+        }
+
+        $label = Carbon::parse($found['date'])->format('d M Y');
+        if (is_string($found['slot_time']) && preg_match('/^\d{1,2}:\d{2}$/', $found['slot_time'])) {
+            $label .= ', '.Carbon::parse($found['date'].' '.$found['slot_time'])->format('g:i A');
+        }
+
+        return $this->success([
+            'found' => true,
+            'date' => $found['date'],
+            'slot_time' => $found['slot_time'],
+            'slot_type' => $found['slot_type'],
+            'label' => $label,
         ]);
     }
 
@@ -144,8 +210,15 @@ class SevaController extends BaseApiController
 
         $response = [
             'date' => $date,
+            // UNCHANGED shape: `slots` = bookable, `booked` = not bookable.
+            // Elapsed / cut-off slots now land in `booked` rather than
+            // vanishing from both lists (item 4.1) — the web blade already
+            // renders `booked` struck-through, so they become visible-but-
+            // disabled for free, and old app builds keep ignoring them.
             'slots' => $availability['available'],
             'booked' => $availability['booked'],
+            // ADDITIVE: per-slot verdict with reason_code for the badge.
+            'slot_details' => $availability['slot_details'] ?? [],
             'slot_type' => $seva->getResolvedSlotConfig()['slot_type'] ?? 'time_slots',
             'slot_duration_minutes' => $seva->getSlotDurationMinutes(),
             'max_bookings_per_slot' => $seva->getMaxBookingsPerSlot(),

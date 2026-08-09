@@ -18,7 +18,7 @@ return [
     'check_availability' => 'બુકિંગ કરો',
     'temple_closes' => 'મંદિર બંધ થાય',
     'go_to_darshan' => 'દર્શન પેજ પર જાઓ',
-    'hero_jai' => '|| જય શ્રી રામ ||',
+    'hero_jai' => '॥ જય સિયારામ ॥',
     'hero_line1' => 'શ્રી પાતાળિયા',
     'hero_line2' => 'હનુમાનજી ધામ',
     'temple_open' => 'મંદિર હાલ ખુલ્લું છે',
@@ -56,4 +56,12 @@ return [
     'prasad_title' => 'પ્રસાદ લાડુ',
     'prasad_sub' => 'શ્રી પાતાળિયા હનુમાનજીના પ્રસાદનો લાભ ઘરે બેઠા લો',
     'prasad_view_all' => 'બધો પ્રસાદ જુઓ',
+    'prasad_cta' => 'પ્રસાદ મંગાવો',
+    'prasad_order' => 'મંગાવો',
+    'prasad_step_choose' => 'આપને જોઈતો પ્રસાદ પસંદ કરો',
+    'prasad_step_offered' => 'ધામમાં હનુમાનજીના ચરણોમાં ધરાવવામાં આવે છે',
+    'prasad_step_delivered' => 'કાળજીપૂર્વક પેક કરીને આપના ઘરે મોકલવામાં આવે છે',
+
+    // Sticky action bar (homepage only)
+    'sticky_label' => 'ઝડપી ક્રિયાઓ',
 ];

@@ -103,7 +103,7 @@
             <select x-model="selectedTypeId" @change="onTypeChange()" class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 focus:border-amber-600 focus:ring-amber-600/20">
                 <option value="" class="bg-stone-900">{{ __('donation.choose_type') }}</option>
                 @foreach($donationTypes as $type)
-                    <option value="{{ $type->id }}" class="bg-stone-900">{{ $type->name_gu }}</option>
+                    <option value="{{ $type->id }}" class="bg-stone-900">{{ $type->name }}</option>
                 @endforeach
             </select>
         </div>
@@ -126,6 +126,61 @@
             </label>
         </div>
 
+        {{-- 80G request (item 5.4).
+             The rule is strict: no valid PAN on the donor's profile means no
+             80G receipt and no receipt number, whatever the amount. This
+             checkbox is the donor's REQUEST; the server decides what can
+             actually be issued.
+
+             This lives on the WEB form on purpose — on iOS the donate flow
+             IS this page (DonateGate forces the website for App Store
+             3.2.2(iv)), so a prompt built only in Flutter would be bypassed
+             by every iPhone donor. --}}
+        @auth('devotee')
+        <div class="mb-6">
+            <label class="flex items-start gap-2">
+                <input type="checkbox" x-model="wants80g" class="mt-1 rounded border-amber-800/40 bg-transparent text-amber-500 focus:ring-amber-600/20">
+                <span>
+                    <span class="text-sm text-amber-100/60">{{ __('donation.want_80g') }}</span>
+                    @if($hasPan)
+                        <span class="ml-2 text-xs text-emerald-400">✓ {{ __('donation.pan_on_file') }}</span>
+                    @endif
+                    <span class="block text-xs text-amber-100/30 mt-0.5">{{ __('donation.want_80g_hint') }}</span>
+                </span>
+            </label>
+
+            {{-- The friendly half of the prompt. The binding guard in
+                 DonationWebController::create is the half that actually
+                 holds (it also covers a donor with JS disabled). --}}
+            @unless($hasPan)
+                <div x-show="wants80g" x-cloak
+                    class="mt-3 rounded-lg border border-amber-700/40 bg-amber-900/20 px-4 py-3">
+                    <p class="text-sm font-semibold text-amber-300">{{ __('donation.pan_required_title') }}</p>
+                    <p class="text-xs text-amber-100/50 mt-1">{{ __('donation.pan_required_body') }}</p>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        {{-- Submits the form rather than linking straight to
+                             /dashboard/profile. The server-side guard is what
+                             records the return destination (SafeRedirect, the
+                             same mechanism as post-login redirect, item 3.1),
+                             and it rebuilds a /donate URL carrying the amount,
+                             type, purpose and campaign — so saving the PAN
+                             lands the donor back on a form that is already
+                             filled in, not an empty one. Nothing is charged:
+                             the guard returns before any Razorpay order. --}}
+                        <button type="button" @click="$refs.donationForm.requestSubmit()"
+                            class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold bg-amber-600 text-stone-900 hover:bg-amber-500 transition">
+                            {{ __('donation.add_pan_now') }}
+                        </button>
+                        <button type="button" @click="wants80g = false"
+                            class="inline-flex items-center px-4 py-2 rounded-lg text-sm border border-amber-800/40 text-amber-100/60 hover:border-amber-600 transition">
+                            {{ __('donation.continue_gupt_daan') }}
+                        </button>
+                    </div>
+                </div>
+            @endunless
+        </div>
+        @endauth
+
         {{-- Submit --}}
         @auth('devotee')
             <form method="POST" action="{{ route('donate.create') }}" enctype="multipart/form-data" x-ref="donationForm">
@@ -135,6 +190,7 @@
                 <input type="hidden" name="donation_type_id" :value="selectedTypeId || ''">
                 <input type="hidden" name="purpose" :value="purpose">
                 <input type="hidden" name="anonymous" :value="anonymous ? 1 : 0">
+                <input type="hidden" name="wants_80g" :value="wants80g ? 1 : 0">
                 @if($selectedCampaign)
                     <input type="hidden" name="campaign_id" value="{{ $selectedCampaign->id }}">
                     <input type="hidden" name="sub_cause_id" :value="subCauseId || ''">
@@ -180,34 +236,20 @@
                 </button>
             </form>
         @else
-            <a href="{{ route('login') }}" class="block w-full text-center py-3 btn-divine text-lg">
+            <a href="{{ login_url() }}" class="block w-full text-center py-3 btn-divine text-lg">
                 {{ __('donation.login_to_donate') }}
             </a>
         @endauth
     </div>
 
-    {{-- Active Campaigns (hidden in single-campaign mode) --}}
+    {{-- Active Campaigns (hidden in single-campaign mode).
+         These used to be bare <div>s with no anchor anywhere inside, so the
+         cards were dead. Reuse the shared partial the home page and /projects
+         already use — it wraps every card in a real <a> to /projects/{slug}. --}}
     @if(!$selectedCampaign && $campaigns->isNotEmpty())
         <div class="mt-10">
             <h2 class="text-xl font-bold text-gold mb-4">{{ __('donation.active_campaigns') }}</h2>
-            @foreach($campaigns as $campaign)
-                <div class="card-sacred p-5 mb-4">
-                    <h3 class="font-semibold text-amber-100/70">{{ $campaign->title }}</h3>
-                    @if($campaign->description)
-                        <p class="text-sm text-amber-100/40 mt-1">{{ $campaign->description }}</p>
-                    @endif
-                    <div class="mt-3">
-                        @php $pct = $campaign->goal_amount > 0 ? min(100, round(($campaign->raised_amount / $campaign->goal_amount) * 100)) : 0; @endphp
-                        <div class="w-full bg-amber-900/30 rounded-full h-3">
-                            <div class="bg-gradient-to-r from-amber-600 to-amber-400 h-3 rounded-full transition-all" style="width: {{ $pct }}%"></div>
-                        </div>
-                        <div class="flex justify-between text-xs text-amber-100/40 mt-1">
-                            <span>₹{{ number_format((float) $campaign->raised_amount) }} {{ __('donation.raised') }}</span>
-                            <span>₹{{ number_format((float) $campaign->goal_amount) }} {{ __('donation.goal') }}</span>
-                        </div>
-                    </div>
-                </div>
-            @endforeach
+            @include('partials.campaign-grid', ['campaignItems' => $campaigns])
         </div>
     @endif
 </div>
@@ -215,18 +257,34 @@
 @push('scripts')
 <script>
 function donationForm() {
+    // Item 5.4 — form state restored from the query string after the PAN
+    // interstitial, so a donor who was sent to their profile to add a PAN
+    // comes back to the donation they had already composed instead of an
+    // empty form. Falls back to the defaults on a normal first visit.
+    const prefill = @json($prefill);
+
     return {
-        amount: 1100,
-        customAmount: '1100',
-        selectedTypeId: '',
+        amount: prefill.amount || 1100,
+        customAmount: String(prefill.amount || 1100),
+        selectedTypeId: prefill.donation_type_id || '',
         donationType: @json($selectedCampaign ? 'campaign' : 'general'),
-        subCauseId: '',
-        purpose: '',
-        anonymous: false,
+        subCauseId: prefill.sub_cause_id || '',
+        purpose: prefill.purpose || '',
+        anonymous: !!prefill.anonymous,
+        wants80g: !!prefill.wants_80g,
         currentExtraFields: [],
 
         // Donation types data from server
         donationTypesData: @json($donationTypesJs),
+
+        // Restoring selectedTypeId alone is not enough: donationType (the
+        // slug the API validates) and the dynamic extra_fields are both
+        // derived from it, and onTypeChange() is what derives them.
+        init() {
+            if (this.selectedTypeId) {
+                this.onTypeChange();
+            }
+        },
 
         // Chip click — write the preset into both the canonical amount
         // and the visible custom input so the value is editable.

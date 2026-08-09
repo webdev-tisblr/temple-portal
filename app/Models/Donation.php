@@ -11,10 +11,12 @@ use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Donation extends Model
 {
-    use HasManagedImages, HasUuid;
+    use HasManagedImages, HasUuid, LogsActivity;
 
     protected $table = 'temple_donations';
 
@@ -33,6 +35,10 @@ class Donation extends Model
         'campaign_id',
         'sub_cause_id',
         'seva_booking_id',
+        // wants_80g = the donor's request (checkout checkbox).
+        // is_80g_eligible = the system's verdict under the strict PAN rule
+        // (item 5.4). They are separate facts; do not conflate them.
+        'wants_80g',
         'is_80g_eligible',
         'receipt_generated',
         'anonymous',
@@ -45,6 +51,7 @@ class Donation extends Model
     protected $casts = [
         'donation_type' => DonationTypeEnum::class,
         'amount' => 'decimal:2',
+        'wants_80g' => 'boolean',
         'is_80g_eligible' => 'boolean',
         'receipt_generated' => 'boolean',
         'anonymous' => 'boolean',
@@ -84,5 +91,20 @@ class Donation extends Model
     public function donationType(): BelongsTo
     {
         return $this->belongsTo(DonationTypeModel::class, 'donation_type_id');
+    }
+
+    /**
+     * Money-path audit (item 6.1). `is_80g_eligible` / `anonymous` are the
+     * two columns the strict-80G rule (item 5.4) rewrites behind the
+     * donor's back, so both are logged — a "why did this become Gupt
+     * Daan?" question has to be answerable months later.
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['amount', 'donation_type', 'campaign_id', 'wants_80g', 'is_80g_eligible', 'anonymous', 'receipt_generated'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->useLogName('money');
     }
 }

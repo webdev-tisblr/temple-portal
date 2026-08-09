@@ -154,10 +154,25 @@
                 </div>
             @endif
 
-            {{-- ---- Donor List ---- --}}
+            {{-- ---- Donor List ----
+                 Two quiet text links, not a leaderboard: "Recent" is the
+                 default; "Top donors" swaps in the 10 largest offerings.
+                 Both lists come from ProjectController::donorPayload(), so
+                 Gupt Daan stays masked in either view. --}}
             @if($project->show_donor_list)
-                <div class="card-sacred p-6 sm:p-8" x-data="donorList()">
-                    <h2 class="text-xl font-bold text-gold mb-5">{{ __('projects.donors') }}</h2>
+                <div id="donors" class="card-sacred p-6 sm:p-8 scroll-mt-24" x-data="donorList()">
+                    <div class="flex flex-wrap items-baseline gap-x-4 gap-y-2 mb-5">
+                        <h2 class="text-xl font-bold text-gold">{{ __('projects.donors') }}</h2>
+                        <div class="sm:ml-auto flex items-center gap-2 text-xs">
+                            <button type="button" @click="mode = 'recent'"
+                                    :class="mode === 'recent' ? 'text-gold font-semibold' : 'text-amber-100/40 hover:text-amber-100/70'"
+                                    class="transition">{{ __('projects.donors_recent') }}</button>
+                            <span class="text-amber-100/20">·</span>
+                            <button type="button" @click="mode = 'top'"
+                                    :class="mode === 'top' ? 'text-gold font-semibold' : 'text-amber-100/40 hover:text-amber-100/70'"
+                                    class="transition">{{ __('projects.donors_top') }}</button>
+                        </div>
+                    </div>
 
                     <template x-if="allDonors.length === 0 && !loading">
                         <p class="text-amber-100/40 text-sm py-4">{{ __('projects.no_donations') }}</p>
@@ -187,8 +202,8 @@
                                 </tbody>
                             </table>
 
-                            {{-- Load More --}}
-                            <div x-show="nextPageUrl" class="mt-4 text-center">
+                            {{-- Load More (Recent only — Top is a fixed 10) --}}
+                            <div x-show="canLoadMore" class="mt-4 text-center">
                                 <button @click="loadMore()"
                                         :disabled="loading"
                                         class="px-6 py-2 border border-amber-800/30 rounded-lg text-sm font-medium text-amber-400 hover:border-amber-600 hover:text-amber-300 transition disabled:opacity-40">
@@ -232,12 +247,23 @@
 <script>
 function donorList() {
     return {
-        allDonors: @json($donorsJs),
+        // 'recent' (paginated, newest first) | 'top' (fixed 10 by amount)
+        mode: 'recent',
+        recentDonors: @json($donorsJs),
+        topDonors: @json($topDonorsJs),
         nextPageUrl: @json($donorsNextUrl),
         loading: false,
 
+        get allDonors() {
+            return this.mode === 'top' ? this.topDonors : this.recentDonors;
+        },
+
+        get canLoadMore() {
+            return this.mode === 'recent' && !!this.nextPageUrl;
+        },
+
         async loadMore() {
-            if (!this.nextPageUrl || this.loading) return;
+            if (!this.canLoadMore || this.loading) return;
             this.loading = true;
             try {
                 const res = await fetch(this.nextPageUrl, {
@@ -245,7 +271,7 @@ function donorList() {
                 });
                 const json = await res.json();
                 const newDonors = json.data || [];
-                this.allDonors = [...this.allDonors, ...newDonors];
+                this.recentDonors = [...this.recentDonors, ...newDonors];
                 this.nextPageUrl = json.next_page_url || null;
             } catch (e) {
                 console.error('Failed to load donors', e);

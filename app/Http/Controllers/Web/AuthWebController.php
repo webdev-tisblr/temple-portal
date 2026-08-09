@@ -9,6 +9,7 @@ use App\Http\Requests\Auth\SendOtpRequest;
 use App\Http\Requests\Auth\VerifyOtpRequest;
 use App\Models\Devotee;
 use App\Services\OtpService;
+use App\Support\SafeRedirect;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,8 +21,19 @@ class AuthWebController extends Controller
         private readonly OtpService $otpService,
     ) {}
 
-    public function showLogin(): View
+    public function showLogin(Request $request): View
     {
+        // A CLICKED login link ("Login to book this seva") is not a guest
+        // bounce, so Laravel never wrote session('url.intended') for it.
+        // login_url() puts the origin page in ?next=; record it here so
+        // verifyOtp() can honour it exactly like a bounced request.
+        // Anything that fails SafeRedirect's rule is dropped silently and
+        // the devotee simply lands on the dashboard.
+        //
+        // This also survives the two OTP POSTs: sendOtp() answers back()
+        // to /login?next=…, which re-enters this method.
+        SafeRedirect::remember($request->query('next'));
+
         return view('auth.login');
     }
 
@@ -75,9 +87,14 @@ class AuthWebController extends Controller
             );
         }
 
-        // Single active login: a fresh web login invalidates every app
-        // token and other browser session before this one is opened.
-        $devotee->revokeOtherLogins();
+        // Single active login PER SURFACE (2026-08-09). This used to be
+        // a global revoke, which deleted the phone's Sanctum token too —
+        // and because iOS donations are forced onto the website, every
+        // donation logged the devotee out of the app ("the app randomly
+        // ends my session", spec 07 suspect #2). Web now evicts only
+        // other WEB sessions (auth_epoch); the app's token and its FCM
+        // registration are left alone.
+        $devotee->revokeOtherLogins(Devotee::SCOPE_WEB);
 
         Auth::guard('devotee')->login($devotee);
 
@@ -93,12 +110,19 @@ class AuthWebController extends Controller
             cookie()->queue(cookie('locale', $devotee->language->value, 60 * 24 * 365, null, null, null, false));
         }
 
-        // New user or incomplete profile → force profile completion
+        // New user or incomplete profile → force profile completion.
+        // Deliberately does NOT consume the intended URL: the profile
+        // form is an interstitial, and saveCompleteProfile() calls
+        // intended() itself, so the chain
+        // "protected page → login → profile → protected page" holds.
         if (empty($devotee->name)) {
             return redirect()->route('profile.complete');
         }
 
-        return redirect()->route('dashboard.index');
+        // Back to whatever the devotee was actually trying to reach —
+        // either the URL Laravel stored when it bounced them here, or the
+        // ?next= a clicked "log in to continue" link carried (item 3.1).
+        return redirect()->to(SafeRedirect::intended(route('dashboard.index')));
     }
 
     /**
@@ -155,6 +179,19 @@ class AuthWebController extends Controller
         // "return to the app" banner can show while the devotee browses
         // beyond the handoff destination. Must be set AFTER regenerate().
         $request->session()->put('from_app', now()->toIso8601String());
+
+        // …and remember WHICH app screen launched the handoff, so the
+        // "back to the app" prompts can return the devotee there instead
+        // of dumping everyone on /home (item 3.2C). Both values were
+        // allowlisted at token-mint time.
+        $request->session()->put(
+            'from_app_intent',
+            \App\Support\AppDeepLink::isValidIntent($token->return_intent) ? $token->return_intent : 'home',
+        );
+        $request->session()->put(
+            'from_app_intent_params',
+            \App\Support\AppDeepLink::sanitizeParams($token->return_intent_params ?? []),
+        );
 
         // Same language carry-over as the OTP login above.
         if ($devotee->language !== null) {

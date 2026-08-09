@@ -12,6 +12,7 @@ use App\Models\SevaBooking;
 use App\Services\PanValidationService;
 use App\Services\ReceiptService;
 use App\Services\SevaReceiptService;
+use App\Support\SafeRedirect;
 use Artesaos\SEOTools\Facades\SEOMeta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -141,6 +142,12 @@ class DashboardController extends Controller
             abort(403);
         }
 
+        // ALLOCATION SITE #4 of 4 (item 5.4) — and the one that must NEVER
+        // allocate. It is reached only through an existing Receipt80G, so
+        // it uses ensurePdf(), which takes an issued receipt and can only
+        // refresh its cached file. Calling generateReceipt() here would
+        // have been a latent minting path if the row ever vanished.
+        //
         // Self-heal: regenerate JUST the PDF when pdf_path is null. No R2
         // ->exists() probe — S3 HEADs from Hostinger hang, and the sweep
         // NULLs pdf_path when it deletes the object, so non-null == present.
@@ -148,8 +155,7 @@ class DashboardController extends Controller
         // + WhatsApps the donor.
         if (! $receipt->pdf_path) {
             try {
-                app(ReceiptService::class)->generateReceipt($donation);
-                $receipt = $receipt->fresh();
+                $receipt = app(ReceiptService::class)->ensurePdf($receipt);
             } catch (\Throwable $e) {
                 Log::error('Receipt regen failed', [
                     'donation_id' => $donation->id,
@@ -224,37 +230,56 @@ class DashboardController extends Controller
             'date_of_birth' => 'nullable|date',
             'language' => 'nullable|in:gu,hi,en',
             'pan_number' => 'nullable|string|size:10',
+            'clear_pan' => 'nullable|boolean',
             'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
-        $updateData = collect($validated)->except(['pan_number', 'profile_photo'])->filter()->toArray();
+        $updateData = collect($validated)->except(['pan_number', 'clear_pan', 'profile_photo'])->filter()->toArray();
 
         if ($request->hasFile('profile_photo')) {
             $path = $request->file('profile_photo')->store('profile-photos', 'r2');
             $updateData['profile_photo_path'] = $path;
         }
 
-        if (! empty($validated['pan_number'])) {
+        // PAN is OPTIONAL — but it must also be REMOVABLE (item 5.4). The
+        // field submits blank whenever the devotee isn't changing it (the
+        // stored value is only ever shown masked), so "blank means clear"
+        // would wipe the PAN on every unrelated profile save. An explicit
+        // checkbox is the only unambiguous signal. Under a strict-80G
+        // regime a WRONG PAN is worse than a missing one, and until now
+        // no path on web or app could clear one.
+        if ($request->boolean('clear_pan')) {
+            $updateData['pan_encrypted'] = null;
+            $updateData['pan_last_four'] = null;
+        } elseif (! empty($validated['pan_number'])) {
             $panService = app(PanValidationService::class);
             if (! $panService->validate($validated['pan_number'])) {
-                return back()->withErrors(['pan_number' => 'અમાન્ય PAN ફોર્મેટ.']);
+                return back()->withErrors(['pan_number' => __('dashboard.pan_invalid')]);
             }
-            $updateData['pan_encrypted'] = Crypt::encryptString($validated['pan_number']);
-            $updateData['pan_last_four'] = substr($validated['pan_number'], -4);
+            $updateData['pan_encrypted'] = Crypt::encryptString(strtoupper($validated['pan_number']));
+            $updateData['pan_last_four'] = substr(strtoupper($validated['pan_number']), -4);
         }
 
         $devotee->update($updateData);
 
-        return back()->with('success', 'પ્રોફાઇલ અપડેટ થઈ.');
+        // Item 5.4 → 3.1: when the donor was sent here by the checkout 80G
+        // prompt, SafeRedirect carries them back to the donation they were
+        // completing (with their amount/type/purpose restored) instead of
+        // stranding them on the profile page. With nothing remembered this
+        // is exactly the old back()-to-profile behaviour.
+        return redirect()
+            ->to(SafeRedirect::intended(route('dashboard.profile')))
+            ->with('success', __('dashboard.profile_updated'));
     }
 
     public function showCompleteProfile(): View|RedirectResponse
     {
         $devotee = Auth::guard('devotee')->user();
 
-        // Already complete — send to dashboard
+        // Already complete — carry on to wherever they were headed
+        // (item 3.1), dashboard when there is no such place.
         if (! empty($devotee->name)) {
-            return redirect()->route('dashboard.index');
+            return redirect()->to(\App\Support\SafeRedirect::intended(route('dashboard.index')));
         }
 
         SEOMeta::setTitle('પ્રોફાઇલ પૂર્ણ કરો');
@@ -281,14 +306,22 @@ class DashboardController extends Controller
         if (! empty($validated['pan_number'])) {
             $panService = app(PanValidationService::class);
             if (! $panService->validate($validated['pan_number'])) {
-                return back()->withErrors(['pan_number' => 'અમાન્ય PAN ફોર્મેટ. (ABCDE1234F)']);
+                return back()->withErrors(['pan_number' => __('dashboard.pan_invalid_example')]);
             }
-            $updateData['pan_encrypted'] = Crypt::encryptString($validated['pan_number']);
-            $updateData['pan_last_four'] = substr($validated['pan_number'], -4);
+            // Store canonicalised: PanValidationService uppercases before
+            // matching, so a lowercase entry validates but would otherwise
+            // be encrypted verbatim and print lowercase on the receipt.
+            $updateData['pan_encrypted'] = Crypt::encryptString(strtoupper($validated['pan_number']));
+            $updateData['pan_last_four'] = substr(strtoupper($validated['pan_number']), -4);
         }
 
         $devotee->update($updateData);
 
-        return redirect()->route('dashboard.index')->with('success', 'પ્રોફાઇલ સફળતાપૂર્વક બનાવવામાં આવી!');
+        // Continue to the page that sent them here — set either by the
+        // guest bounce to /login or by EnsureProfileComplete's
+        // redirect()->guest() (item 3.1). Dashboard when there is none.
+        return redirect()
+            ->to(\App\Support\SafeRedirect::intended(route('dashboard.index')))
+            ->with('success', 'પ્રોફાઇલ સફળતાપૂર્વક બનાવવામાં આવી!');
     }
 }

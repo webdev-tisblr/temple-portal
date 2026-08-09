@@ -9,13 +9,24 @@ use Illuminate\Http\JsonResponse;
 
 abstract class BaseApiController extends Controller
 {
-    protected function success($data = null, string $message = 'Success', int $code = 200): JsonResponse
+    /**
+     * @param  array<string, mixed>|null  $meta  Additive envelope key (pagination
+     *                                           counters, etc.). Omitted entirely when null, so every existing
+     *                                           response stays byte-identical for the shipped app.
+     */
+    protected function success($data = null, string $message = 'Success', int $code = 200, ?array $meta = null): JsonResponse
     {
-        return response()->json([
+        $payload = [
             'success' => true,
             'message' => $message,
             'data' => $data,
-        ], $code);
+        ];
+
+        if ($meta !== null) {
+            $payload['meta'] = $meta;
+        }
+
+        return response()->json($payload, $code);
     }
 
     protected function error(string $message = 'Error', int $code = 400, $errors = null): JsonResponse

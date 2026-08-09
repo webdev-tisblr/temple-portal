@@ -167,3 +167,24 @@ if (! function_exists('private_file_redirect')) {
         return redirect()->away($url);
     }
 }
+
+if (! function_exists('login_url')) {
+    /**
+     * A /login URL that carries the page the devotee is standing on, so
+     * they come back here after the OTP instead of landing on /dashboard
+     * (item 3.1). Use this for EVERY "log in to continue" link — a clicked
+     * link is not a guest bounce, so Laravel never records an intended URL
+     * on its own.
+     *
+     * The destination is validated by App\Support\SafeRedirect (same-host
+     * relative paths only, auth routes rejected) and an unusable one is
+     * dropped rather than rendered, so this can never emit an open
+     * redirect.
+     *
+     * @param  string|null  $next  Destination; defaults to the current URL.
+     */
+    function login_url(?string $next = null): string
+    {
+        return \App\Support\SafeRedirect::loginUrl($next);
+    }
+}

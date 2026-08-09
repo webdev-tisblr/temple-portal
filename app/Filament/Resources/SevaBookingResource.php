@@ -228,6 +228,12 @@ class SevaBookingResource extends Resource
                         ->label('Mark as Completed')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
+                        // G17 (2026-08-09): custom BulkActions are NOT
+                        // auto-authorized by Filament the way DeleteBulkAction
+                        // is — this mutated booking status for anyone holding
+                        // view_any_seva::booking, which includes the
+                        // deliberately read-only `pujari` and `volunteer`.
+                        ->visible(fn (): bool => auth('admin')->user()?->can('update_seva::booking') ?? false)
                         ->action(fn ($records) => $records->each->update(['status' => 'completed']))
                         ->requiresConfirmation()
                         ->deselectRecordsAfterCompletion(),

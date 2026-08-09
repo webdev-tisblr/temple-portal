@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Exceptions\Donation80GNotEligibleException;
 use App\Models\Donation;
 use App\Models\SystemSetting;
 use App\Services\Notifications\NotificationService;
@@ -43,7 +44,27 @@ class Generate80GReceipt implements ShouldQueue
 
     public function handle(ReceiptService $receiptService): void
     {
-        $receipt = $receiptService->generateReceipt($this->donation);
+        // ALLOCATION SITE #1 of 4 (item 5.4). Strict rule: no readable,
+        // format-valid PAN on the donor profile → no Receipt80G row and no
+        // receipt number burned, regardless of amount. generateReceipt()
+        // throws rather than returning null so a future call site cannot
+        // forget the rule; the donation is marked ineligible + Gupt Daan
+        // inside the service before the throw.
+        //
+        // This is NOT an error: a PAN-less donation is a perfectly valid
+        // Gupt Daan. Swallow it, log at info, and send nothing — the
+        // `donation.confirmed` message has already gone out from
+        // PaymentCaptureService.
+        try {
+            $receipt = $receiptService->generateReceipt($this->donation);
+        } catch (Donation80GNotEligibleException $e) {
+            Log::info('80G receipt skipped — donation is not 80G eligible', [
+                'donation_id' => $this->donation->id,
+                'reason' => $e->reason,
+            ]);
+
+            return;
+        }
 
         $this->donation->update([
             'receipt_generated' => true,

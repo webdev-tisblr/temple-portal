@@ -152,7 +152,7 @@
 
                     @guest('devotee')
                         <p class="text-sm text-amber-100/60 mb-5">{{ __('halls.login_to_view_form') }}</p>
-                        <a href="{{ route('login') }}" class="flex items-center justify-center w-full px-8 py-3 btn-divine">
+                        <a href="{{ login_url() }}" class="flex items-center justify-center w-full px-8 py-3 btn-divine">
                             {{ __('seva.login_to_book') }}
                         </a>
                     @else
@@ -184,7 +184,27 @@
                         };
                     @endphp
                     <div class="mb-5">
-                        <label class="block text-sm font-medium text-amber-600 mb-2">{{ __('seva.choose_date') }} <span class="text-red-400">*</span></label>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-sm font-medium text-amber-600">{{ __('seva.choose_date') }} <span class="text-red-400">*</span></label>
+                            {{-- Item 4.4 — one request finds the next open
+                                 window (the app used to scan 12 months). --}}
+                            <button type="button" @click="findNextAvailable()" :disabled="findingNext"
+                                class="inline-flex items-center gap-1 text-xs font-semibold text-amber-500 hover:text-gold disabled:opacity-50 transition">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                <span x-text="findingNext ? @js(__('availability.searching')) : @js(__('availability.next_available'))"></span>
+                            </button>
+                        </div>
+                        <p x-show="nextAvailableNote" x-transition class="text-[11px] text-amber-100/40 mb-2" x-text="nextAvailableNote"></p>
+
+                        {{-- Multi-day hint + clear, only when the admin has
+                             raised this hall's max_booking_days above 1
+                             (item 4.2 — multi-day is opt-in per hall, so the
+                             single-day flow is untouched by default). --}}
+                        <div x-show="maxDays > 1" class="flex items-center justify-between mb-2">
+                            <span class="text-[11px] text-amber-100/40">{{ __('availability.select_end_date') }}</span>
+                            <button type="button" x-show="selectedDate" @click="clearRange()"
+                                class="text-[11px] font-semibold text-amber-500 hover:text-gold">{{ __('availability.clear_range') }}</button>
+                        </div>
 
                         <div class="flex gap-2 mb-3">
                             <select x-model.number="selectedYear" @change="onYearChange()"
@@ -205,7 +225,7 @@
                             {{ __('seva.loading_dates') }}
                         </div>
 
-                        <div x-show="!datesLoading && upcomingDays.length === 0" class="text-sm py-3 px-4 bg-amber-900/10 border border-amber-800/30 rounded-lg text-amber-100/60">
+                        <div x-show="!datesLoading && openDateCount() === 0" class="text-sm py-3 px-4 bg-amber-900/10 border border-amber-800/30 rounded-lg text-amber-100/60">
                             {{ $noDatesThisMonth }}
                         </div>
 
@@ -215,15 +235,19 @@
                             <template x-for="day in upcomingDays" :key="day.date">
                                 <button type="button" @click="!day.disabled && pickDate(day.date)"
                                     :disabled="day.disabled"
+                                    :title="day.reason || ''"
                                     :class="day.disabled
                                         ? 'bg-amber-900/10 text-amber-100/20 border-amber-900/20 cursor-not-allowed'
-                                        : (selectedDate === day.date
+                                        : (inRange(day.date)
                                             ? 'bg-gradient-to-br from-amber-600 to-amber-500 text-stone-900 border-amber-500 shadow-md'
                                             : 'bg-transparent text-amber-100/70 border-amber-800/30 hover:border-amber-600')"
                                     class="flex-shrink-0 w-16 py-2 border rounded-xl text-center transition snap-start">
                                     <span class="block text-[10px] font-medium opacity-80" x-text="day.dayLabel"></span>
                                     <span class="block text-xl font-black leading-none mt-0.5" x-text="day.dayOfMonth"></span>
-                                    <span class="block text-[10px] mt-0.5 opacity-70" x-text="day.monthLabel"></span>
+                                    <span class="block text-[10px] mt-0.5 opacity-70" x-show="!day.disabled" x-text="day.monthLabel"></span>
+                                    {{-- "Not Available" ribbon (item 4.1) — the chip
+                                         used to be opacity-only with no wording. --}}
+                                    <span x-show="day.disabled" class="block text-[8px] leading-tight mt-0.5 font-semibold text-red-400/70">{{ __('availability.not_available') }}</span>
                                 </button>
                             </template>
                         </div>
@@ -244,10 +268,11 @@
                         <div x-show="!checking && available === true" class="flex items-center gap-2 py-2 px-4 bg-emerald-900/20 border border-emerald-800/30 rounded-lg">
                             <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                             <span class="text-emerald-400 text-sm font-semibold">{{ __('halls.available') }}</span>
+                            <span x-show="quoteDays > 1" class="text-emerald-400/70 text-xs" x-text="'· ' + quoteDays + ' × ₹' + pricePerDayValue.toLocaleString('en-IN')"></span>
                         </div>
-                        <div x-show="!checking && available === false" class="flex items-center gap-2 py-2 px-4 bg-red-900/20 border border-red-800/30 rounded-lg">
-                            <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                            <span class="text-red-400 text-sm font-semibold">{{ __('halls.booked') }}</span>
+                        <div x-show="!checking && available === false" class="flex items-start gap-2 py-2 px-4 bg-red-900/20 border border-red-800/30 rounded-lg">
+                            <svg class="w-5 h-5 flex-shrink-0 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            <span class="text-red-400 text-sm font-semibold" x-text="unavailableMessage || @js(__('halls.booked'))"></span>
                         </div>
                     </div>
 
@@ -259,6 +284,10 @@
                         @csrf
                         <input type="hidden" name="hall_id" value="{{ $hall->id }}">
                         <input type="hidden" name="booking_date" :value="selectedDate">
+                        {{-- Item 4.2 — range end. Equals the start for a
+                             single-day booking, so the smooth one-tap flow
+                             is unchanged: no second tap is ever required. --}}
+                        <input type="hidden" name="end_date" :value="effectiveEnd()">
 
                         <div class="space-y-4">
                             {{-- Contact Name --}}
@@ -295,12 +324,16 @@
                             </div>
                         </div>
 
-                        {{-- Price Display --}}
+                        {{-- Price Display — bound to the SERVER quote
+                             (/hall-booking/check returns total_amount), never
+                             computed in the browser. --}}
                         <div class="mt-6 p-4 bg-amber-900/20 border border-amber-800/30 rounded-lg">
                             <div class="flex justify-between items-center">
                                 <span class="text-amber-100/50 text-sm">{{ __('halls.amount_to_pay') }}</span>
                                 <span class="text-2xl font-bold text-gold" x-text="'₹' + calculatedAmount.toLocaleString('en-IN')"></span>
                             </div>
+                            <div x-show="quoteDays > 1" class="mt-1 text-right text-[11px] text-amber-100/40"
+                                 x-text="quoteDays + ' × ₹' + pricePerDayValue.toLocaleString('en-IN')"></div>
                         </div>
 
                         {{-- Submit Button (whole panel is auth-gated above) --}}
@@ -364,11 +397,23 @@ function hallBooking() {
     const localizedMonthName = m => new Date(2000, m - 1, 1).toLocaleDateString(pageLang, { month: 'long' });
 
     return {
+        // selectedDate is the RANGE START; rangeEnd is null until the
+        // devotee taps a second date. A single tap = a one-day booking,
+        // so nothing about the existing flow gets slower (item 4.2).
         selectedDate: '',
+        rangeEnd: '',
+        maxDays: {{ (int) $hall->maxBookingDays() }},
         checking: false,
         available: null,
+        unavailableMessage: '',
         upcomingDays: [],
         datesLoading: false,
+        findingNext: false,
+        nextAvailableNote: '',
+        // Server-quoted, never computed here.
+        quoteTotal: pricePerDay,
+        quoteDays: 1,
+        pricePerDayValue: pricePerDay,
         selectedYear: currentYear,
         selectedMonth: currentMonthNum,
         years: Array.from({ length: 11 }, (_, i) => currentYear + i),
@@ -401,16 +446,20 @@ function hallBooking() {
             this.fetchMonthDates();
         },
 
-        async fetchMonthDates() {
+        async fetchMonthDates(keepSelection) {
             this.datesLoading = true;
             // A month switch invalidates the current selection.
-            this.selectedDate = '';
-            this.available = null;
+            if (!keepSelection) {
+                this.selectedDate = '';
+                this.rangeEnd = '';
+                this.available = null;
+            }
             const month = `${this.selectedYear}-${pad(this.selectedMonth)}`;
             try {
                 const res = await fetch(`/api/v1/halls/${hallId}/available-dates?month=${month}`);
                 const json = await res.json();
                 const entries = json.data?.dates || [];
+                if (json.data?.max_booking_days) this.maxDays = json.data.max_booking_days;
                 this.upcomingDays = entries.map(e => {
                     const [y, m, d] = e.date.split('-').map(Number);
                     const dt = new Date(y, m - 1, d);
@@ -419,8 +468,11 @@ function hallBooking() {
                         dayLabel: dayLabels[dt.getDay()],
                         dayOfMonth: dt.getDate(),
                         monthLabel: monthLabels[dt.getMonth()],
-                        // Full-day only: any booking blocks the whole date.
+                        // Any occupying booking whose range covers the date
+                        // blocks it (item 4.2), as do blackouts and the
+                        // cut-off (4.3). `reason` powers the tooltip.
                         disabled: !e.full_day_available,
+                        reason: e.reason || e.blocked_reason || null,
                     };
                 });
             } catch (e) {
@@ -429,13 +481,71 @@ function hallBooking() {
             this.datesLoading = false;
         },
 
+        openDateCount() {
+            return this.upcomingDays.filter(d => !d.disabled).length;
+        },
+
+        effectiveEnd() {
+            return this.rangeEnd || this.selectedDate;
+        },
+
+        inRange(iso) {
+            if (!this.selectedDate) return false;
+            return iso >= this.selectedDate && iso <= this.effectiveEnd();
+        },
+
+        clearRange() {
+            this.selectedDate = '';
+            this.rangeEnd = '';
+            this.available = null;
+            this.unavailableMessage = '';
+            this.quoteTotal = pricePerDay;
+            this.quoteDays = 1;
+        },
+
         pickDate(iso) {
-            this.selectedDate = iso;
+            if (this.maxDays <= 1) {
+                // Single-day hall: identical to the pre-4.2 behaviour.
+                this.selectedDate = iso;
+                this.rangeEnd = '';
+            } else if (!this.selectedDate || this.rangeEnd || iso < this.selectedDate) {
+                // Start (or restart) a range. One tap alone is a valid
+                // one-day booking — the devotee is never forced to tap twice.
+                this.selectedDate = iso;
+                this.rangeEnd = '';
+            } else {
+                this.rangeEnd = iso;
+            }
             this.checkAvailability();
         },
 
         get calculatedAmount() {
-            return pricePerDay;
+            return this.quoteTotal;
+        },
+
+        // Item 4.4 — server finds the next open window in one request.
+        async findNextAvailable() {
+            if (this.findingNext) return;
+            this.findingNext = true;
+            this.nextAvailableNote = '';
+            try {
+                const res = await fetch(`/hall-booking/next-available?hall_id=${hallId}`);
+                const json = await res.json();
+                if (!json.found || !json.date) {
+                    this.nextAvailableNote = @js(__('availability.next_available_none'));
+                } else {
+                    const [y, m] = json.date.split('-').map(Number);
+                    this.selectedYear = y;
+                    this.selectedMonth = m;
+                    await this.fetchMonthDates(true);
+                    this.selectedDate = json.date;
+                    this.rangeEnd = '';
+                    await this.checkAvailability();
+                }
+            } catch (e) {
+                this.nextAvailableNote = @js(__('availability.next_available_none'));
+            }
+            this.findingNext = false;
         },
 
         async checkAvailability() {
@@ -445,10 +555,17 @@ function hallBooking() {
             }
             this.checking = true;
             this.available = null;
+            this.unavailableMessage = '';
             try {
-                const res = await fetch(`/hall-booking/check?hall_id=${hallId}&date=${this.selectedDate}`);
+                const res = await fetch(`/hall-booking/check?hall_id=${hallId}&date=${this.selectedDate}&end_date=${this.effectiveEnd()}`);
                 const json = await res.json();
                 this.available = json.available ?? false;
+                this.unavailableMessage = json.available ? '' : (json.message || '');
+                // Server-authoritative price for the whole range.
+                if (typeof json.total_amount === 'number') this.quoteTotal = json.total_amount;
+                if (typeof json.days === 'number') this.quoteDays = json.days;
+                if (typeof json.price_per_day === 'number') this.pricePerDayValue = json.price_per_day;
+                if (typeof json.max_booking_days === 'number') this.maxDays = json.max_booking_days;
             } catch (e) {
                 this.available = null;
             }

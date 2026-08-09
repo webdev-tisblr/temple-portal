@@ -11,7 +11,7 @@
         null,
         'ગુજરાતમાં હનુમાનજીનું પ્રસિદ્ધ ધામ. ભક્તિ, સેવા અને સમર્પણ સાથે મંદિરનું વ્યવસ્થાપન ટ્રસ્ટ દ્વારા થાય છે.'
     );
-    $trustAddress = SystemSetting::getLocalized('trust_address', null, 'અંતરજાળ, ગાંધીધામ, કચ્છ — 370110');
+    $trustAddress = SystemSetting::getLocalized('trust_address', null, __('common.address'));
     $trustPhone   = SystemSetting::getValue('trust_phone');
     $trustEmail   = SystemSetting::getValue('trust_email');
     $trustWhatsApp= SystemSetting::getValue('trust_whatsapp');

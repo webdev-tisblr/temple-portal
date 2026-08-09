@@ -36,7 +36,14 @@ final class ShapedText
         return self::$available;
     }
 
-    /** Devanagari (0900–097F) or Gujarati (0A80–0AFF) present? */
+    /**
+     * Devanagari (0900–097F) or Gujarati (0A80–0AFF) present?
+     *
+     * The danda pair (। U+0964, ॥ U+0965) counts, deliberately: it frames
+     * romanised lines too ('॥ Jay Siya Ram ॥') and the bundled Latin face
+     * (Marcellus) has no glyph for it, so such a line must go through pango —
+     * fontconfig fills the danda in and falls back for the Latin run.
+     */
     public static function needsShaping(string $text): bool
     {
         return (bool) preg_match('/[\x{0900}-\x{097F}\x{0A80}-\x{0AFF}]/u', $text);

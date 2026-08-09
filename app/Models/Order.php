@@ -11,10 +11,26 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Order extends Model
 {
-    use HasManagedImages, HasUuid;
+    use HasManagedImages, HasUuid, LogsActivity;
+
+    /**
+     * Money-path audit (item 6.1). Status carries the two stock-restoring
+     * admin actions (`cancel_order`, `update_status`), so an unexplained
+     * stock movement can be traced back to a person.
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['status', 'total_amount', 'subtotal', 'shipping_charge'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->useLogName('money');
+    }
 
     protected $table = 'temple_orders';
 

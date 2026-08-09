@@ -216,6 +216,17 @@ Schedule::command('greeting-cards:clean-generated')
     ->hourlyAt(45)
     ->withoutOverlapping(30);
 
+// Self-healing pass for image renditions. Generation normally happens on
+// the queue the moment an image is uploaded (HasImageDerivatives); this
+// only ever finds rows where that job failed or was dropped, which would
+// otherwise leave the mobile app decoding a full-resolution original
+// forever. The query filters completed rows out in SQL, so on a healthy
+// day this is one cheap COUNT and exits. --limit keeps a bad day from
+// pinning the 2-vCPU box; the next night picks up where it stopped.
+Schedule::command('images:backfill-derivatives --limit=100 --sleep=1')
+    ->dailyAt('04:30')
+    ->withoutOverlapping(60);
+
 // Update campaign raised_amount and donor_count totals hourly.
 //
 // Single grouped query instead of the old per-campaign correlated

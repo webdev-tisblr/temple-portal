@@ -40,6 +40,10 @@ class Receipt80G extends Model
         'donation_id',
         'receipt_number',
         'financial_year',
+        // Snapshots frozen at issue time — see ReceiptService. NOT resolved
+        // live, or renaming a campaign would rewrite issued receipts.
+        'campaign_title',
+        'donation_purpose',
         'devotee_name',
         'devotee_address',
         'devotee_phone',

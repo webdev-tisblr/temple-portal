@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\UnavailableReason;
 use App\Models\Seva;
 use App\Models\SevaBooking;
 use App\Models\SystemSetting;
@@ -156,6 +157,86 @@ class SevaSlotService
     }
 
     /**
+     * Admin-configured booking cut-off in hours (item 4.3, 2026-08-09).
+     *
+     * Lives INSIDE slot_config (not as a column on temple_sevas) so that
+     * sevas sharing a slot pool inherit the pool's cut-off through
+     * configFor() — a column would be silently ignored for pooled sevas,
+     * which is precisely the bug class this avoids.
+     *
+     * Resolution: slot_config['booking_cutoff_hours'] → SystemSetting
+     * 'seva_default_cutoff_hours' → 0 (no cut-off = pre-4.3 behaviour).
+     */
+    public function cutoffHours(array $config): int
+    {
+        $raw = $config['booking_cutoff_hours'] ?? null;
+        if (is_numeric($raw) && (int) $raw > 0) {
+            return (int) $raw;
+        }
+
+        return max(0, (int) SystemSetting::getValue('seva_default_cutoff_hours', '0'));
+    }
+
+    /** Slots starting before this moment are no longer bookable. */
+    public function cutoffMoment(array $config): Carbon
+    {
+        return now()->addHours($this->cutoffHours($config));
+    }
+
+    /**
+     * The moment a candidate booking starts: the slot's own HH:MM, or the
+     * full-day / full-week anchor time when there is no time slot.
+     */
+    public function slotMoment(array $config, string $date, ?string $slotTime): Carbon
+    {
+        if (is_string($slotTime) && preg_match('/^(\d{1,2}):(\d{2})$/', $slotTime, $m)) {
+            return Carbon::parse($date)->setTime((int) $m[1], (int) $m[2], 0);
+        }
+
+        [$h, $min] = $this->fullDayAnchorTime($config);
+
+        return Carbon::parse($date)->setTime($h, $min, 0);
+    }
+
+    /**
+     * Why a candidate is time-blocked, or null when it is still bookable.
+     *
+     *  • `elapsed` — an HH:MM slot whose start time has already passed.
+     *    Applies ONLY to real time slots, exactly as the old
+     *    filterPastSlots() did, so full-day sevas keep being bookable
+     *    later the same day when no cut-off is configured.
+     *  • `cutoff`  — inside the admin's now+N hours window (any mode).
+     *
+     * This is the single place the 4.3 rule is expressed; every read path
+     * AND validateBooking() call it, so the UI can never be the only gate.
+     */
+    public function cutoffReason(array $config, string $date, ?string $slotTime): ?UnavailableReason
+    {
+        $isTimeSlot = is_string($slotTime) && preg_match('/^\d{1,2}:\d{2}$/', $slotTime) === 1;
+        $moment = $this->slotMoment($config, $date, $slotTime);
+        $now = now();
+
+        if ($isTimeSlot && $moment->lessThanOrEqualTo($now)) {
+            return UnavailableReason::Elapsed;
+        }
+
+        $hours = $this->cutoffHours($config);
+        if ($hours > 0 && $moment->lessThan($now->copy()->addHours($hours))) {
+            return UnavailableReason::Cutoff;
+        }
+
+        return null;
+    }
+
+    /** Devotee-facing message for a time-block reason. */
+    private function cutoffMessage(array $config, UnavailableReason $reason): string
+    {
+        return $reason === UnavailableReason::Elapsed
+            ? (string) __('availability.elapsed_blocked')
+            : (string) __('availability.cutoff_blocked', ['hours' => $this->cutoffHours($config)]);
+    }
+
+    /**
      * Mon–Sun date range (Y-m-d) for the ISO week the given date is in.
      *
      * @return array{0:string,1:string}
@@ -217,6 +298,8 @@ class SevaSlotService
             'slot_type' => self::SLOT_TYPE_TIME,
             'slot_duration_minutes' => 60,
             'max_bookings_per_slot' => 1,
+            // Item 4.3 — 0 means "no cut-off", i.e. pre-4.3 behaviour.
+            'booking_cutoff_hours' => 0,
             'acceptance_period' => [
                 'type' => 'perpetual',
                 'start_date' => null,
@@ -321,7 +404,21 @@ class SevaSlotService
 
     /**
      * Get full slot availability for a seva on a date.
-     * Returns: ['available' => [...], 'booked' => [...], 'blackout' => bool, 'blackout_reason' => ?string, 'message' => ?string]
+     *
+     * Returns: ['available' => [...], 'booked' => [...], 'blackout' => bool,
+     *           'blackout_reason' => ?string, 'message' => ?string,
+     *           'slot_details' => [...]]
+     *
+     * `slot_details` is NEW (item 4.1) and additive: one entry per slot the
+     * seva offers that day, each with `available` + `reason_code` +
+     * localized `reason`, so the UI can render a "Not Available" badge
+     * instead of silently hiding the chip.
+     *
+     * `available` / `booked` keep their exact old shape (lists of slot
+     * strings) — App 1.4.8+32 reads them. Slots that are elapsed or inside
+     * the cut-off window used to be DROPPED from both lists; they now land
+     * in `booked`, which is the closest existing "shown but not tappable"
+     * bucket (the web blade already renders `booked` struck through).
      */
     public function getSlotAvailability(Seva $seva, string $date): array
     {
@@ -335,6 +432,7 @@ class SevaSlotService
                 'blackout' => false,
                 'blackout_reason' => null,
                 'message' => 'This seva is not available for booking on this date.',
+                'slot_details' => [],
             ];
         }
 
@@ -347,6 +445,7 @@ class SevaSlotService
                 'blackout' => true,
                 'blackout_reason' => $blackoutReason,
                 'message' => null,
+                'slot_details' => [],
             ];
         }
 
@@ -362,30 +461,29 @@ class SevaSlotService
                     'blackout_reason' => null,
                     'message' => null,
                     'slot_type' => $slotType,
+                    'slot_details' => [],
                 ];
             }
 
             $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
-            $isFull = $this->countFullUnitBookings($seva, $slotType, $date) >= $maxPerSlot;
+            $reason = $this->countFullUnitBookings($seva, $slotType, $date) >= $maxPerSlot
+                ? UnavailableReason::Full
+                : $this->cutoffReason($config, $date, $slotType);
 
             return [
-                'available' => $isFull ? [] : [$slotType],
-                'booked' => $isFull ? [$slotType] : [],
+                'available' => $reason === null ? [$slotType] : [],
+                'booked' => $reason === null ? [] : [$slotType],
                 'blackout' => false,
                 'blackout_reason' => null,
                 'message' => null,
                 'slot_type' => $slotType,
+                'slot_details' => [$this->slotDetail($slotType, $reason)],
             ];
         }
 
-        // Get day's slots
+        // Get day's slots. Elapsed / cut-off slots are NO LONGER dropped
+        // here (item 4.1) — they are flagged below instead.
         $allSlots = $this->getSlotsForDate($seva, $date);
-
-        // For *today*, drop slots whose start time has already passed
-        // (e.g. it is 12:30 PM, slot 10:00 AM should not be shown).
-        if ($this->isToday($date)) {
-            $allSlots = $this->filterPastSlots($allSlots);
-        }
 
         if (empty($allSlots)) {
             return [
@@ -394,6 +492,7 @@ class SevaSlotService
                 'blackout' => false,
                 'blackout_reason' => null,
                 'message' => null,
+                'slot_details' => [],
             ];
         }
 
@@ -413,13 +512,19 @@ class SevaSlotService
 
         $available = [];
         $booked = [];
+        $details = [];
         foreach ($allSlots as $slot) {
             $count = $bookingCounts[$slot] ?? 0;
-            if ($count >= $maxPerSlot) {
-                $booked[] = $slot;
-            } else {
+            $reason = $count >= $maxPerSlot
+                ? UnavailableReason::Full
+                : $this->cutoffReason($config, $date, $slot);
+
+            if ($reason === null) {
                 $available[] = $slot;
+            } else {
+                $booked[] = $slot;
             }
+            $details[] = $this->slotDetail($slot, $reason);
         }
 
         return [
@@ -428,6 +533,22 @@ class SevaSlotService
             'blackout' => false,
             'blackout_reason' => null,
             'message' => null,
+            'slot_details' => $details,
+        ];
+    }
+
+    /**
+     * One `slot_details` entry.
+     *
+     * @return array{time:string, available:bool, reason_code:?string, reason:?string}
+     */
+    private function slotDetail(string $slot, ?UnavailableReason $reason): array
+    {
+        return [
+            'time' => $slot,
+            'available' => $reason === null,
+            'reason_code' => $reason?->value,
+            'reason' => $reason?->label(),
         ];
     }
 
@@ -474,13 +595,64 @@ class SevaSlotService
     }
 
     /**
+     * Per-date availability for one calendar month ('YYYY-MM') — item 4.1.
+     * Same window as getAvailableDatesForMonth() but EVERY date is
+     * returned, unbookable ones flagged with a reason instead of omitted.
+     *
+     * @return list<array{date:string, available:bool, reason_code:?string, reason:?string}>
+     */
+    public function getDateAvailabilityForMonth(Seva $seva, string $month): array
+    {
+        $monthStart = Carbon::createFromFormat('!Y-m', $month)->startOfMonth();
+
+        $start = $monthStart->copy();
+        $today = now()->startOfDay();
+        if ($start->lt($today)) {
+            $start = $today->copy();
+        }
+
+        $end = $monthStart->copy()->endOfMonth()->startOfDay();
+        if ($end->lt($start)) {
+            return [];
+        }
+
+        return $this->getDateAvailabilityInRange($seva, $start, $end);
+    }
+
+    /**
      * Core window expansion shared by the rolling-days and month modes.
      * Applies every seva rule (acceptance period, blackouts, weekday
      * restrictions, slot/unit capacity) across [$start, $end] inclusive.
      *
+     * Thin filter over getDateAvailabilityInRange() so there is exactly
+     * ONE availability algorithm — the flagged list and the legacy
+     * bookable-dates list can never disagree.
+     *
      * @return list<string> Dates in 'Y-m-d' format, ascending.
      */
     private function getAvailableDatesInRange(Seva $seva, Carbon $start, Carbon $end): array
+    {
+        return array_values(array_map(
+            static fn (array $row): string => $row['date'],
+            array_filter(
+                $this->getDateAvailabilityInRange($seva, $start, $end),
+                static fn (array $row): bool => $row['available'] === true,
+            ),
+        ));
+    }
+
+    /**
+     * Every date in [$start, $end] with an availability verdict — the
+     * single source of truth for both the legacy `dates` list and the new
+     * `days_detail` payload (item 4.1).
+     *
+     * One bulk booking-count query powers the whole window, exactly as
+     * before; the `continue`s that used to silently drop a date now emit
+     * a flagged row instead.
+     *
+     * @return list<array{date:string, available:bool, reason_code:?string, reason:?string}>
+     */
+    public function getDateAvailabilityInRange(Seva $seva, Carbon $start, Carbon $end): array
     {
         $config = $this->configFor($seva);
 
@@ -506,15 +678,30 @@ class SevaSlotService
         $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
         $slotType = $this->slotType($config);
         $fullUnitMemo = []; // memoize full_day (per date) / full_week (per week) counts
-        $available = [];
+        $out = [];
+
+        $row = static function (string $date, ?UnavailableReason $reason, ?string $text = null): array {
+            return [
+                'date' => $date,
+                'available' => $reason === null,
+                'reason_code' => $reason?->value,
+                'reason' => $reason === null ? null : ($text ?? $reason->label()),
+            ];
+        };
 
         for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
             $date = $cursor->toDateString();
 
             if (! $this->isDateInAcceptancePeriod($config, $date)) {
+                $out[] = $row($date, UnavailableReason::OutsidePeriod);
+
                 continue;
             }
-            if ($this->getBlackoutReason($config, $date)) {
+            $blackout = $this->getBlackoutReason($config, $date);
+            if ($blackout) {
+                // Surface the admin's own wording, keyed by 'blackout'.
+                $out[] = $row($date, UnavailableReason::Blackout, $blackout);
+
                 continue;
             }
 
@@ -524,6 +711,8 @@ class SevaSlotService
             if ($slotType === self::SLOT_TYPE_FULL_DAY || $slotType === self::SLOT_TYPE_FULL_WEEK) {
                 // full_day may be restricted to specific weekdays.
                 if (! $this->fullDayAllowedOnDate($config, $date)) {
+                    $out[] = $row($date, UnavailableReason::WeekdayClosed);
+
                     continue;
                 }
                 $key = $slotType === self::SLOT_TYPE_FULL_WEEK
@@ -532,77 +721,105 @@ class SevaSlotService
                 if (! array_key_exists($key, $fullUnitMemo)) {
                     $fullUnitMemo[$key] = $this->countFullUnitBookings($seva, $slotType, $date);
                 }
-                if ($fullUnitMemo[$key] < $maxPerSlot) {
-                    $available[] = $date;
-                }
+                $reason = $fullUnitMemo[$key] >= $maxPerSlot
+                    ? UnavailableReason::Full
+                    // Cut-off is time-aware and must run for FUTURE days too
+                    // once the buffer exceeds 24h — not just for today.
+                    : $this->cutoffReason($config, $date, $slotType);
+                $out[] = $row($date, $reason);
 
                 continue;
             }
 
             $slotsForDay = $this->getSlotsForDate($seva, $date);
 
-            // For *today*, drop already-elapsed slots — a 10:00 slot
-            // shouldn't be selectable at 12:30 PM.
-            if ($this->isToday($date)) {
-                $slotsForDay = $this->filterPastSlots($slotsForDay);
-            }
-
             // Sevas that don't require booking still have a "date" — we
             // accept the date as long as it isn't blacked out / outside
             // the acceptance window.
             if (! $seva->requires_booking) {
-                $available[] = $date;
+                $out[] = $row($date, null);
 
                 continue;
             }
 
             if (empty($slotsForDay)) {
+                $out[] = $row($date, UnavailableReason::NoSlots);
+
                 continue;
             }
 
             $dateCounts = $counts[$date] ?? [];
+            $reason = UnavailableReason::Full;
             foreach ($slotsForDay as $slot) {
-                if (($dateCounts[$slot] ?? 0) < $maxPerSlot) {
-                    $available[] = $date;
+                if (($dateCounts[$slot] ?? 0) >= $maxPerSlot) {
+                    continue;
+                }
+                // Slot has capacity — is it still in time? A day whose only
+                // open slots are elapsed / inside the cut-off reports that
+                // reason rather than the misleading "fully booked".
+                $timeBlock = $this->cutoffReason($config, $date, $slot);
+                if ($timeBlock === null) {
+                    $reason = null;
                     break;
                 }
+                $reason = $timeBlock;
             }
+            $out[] = $row($date, $reason);
         }
 
-        return $available;
+        return $out;
     }
 
     /**
-     * True when the supplied 'Y-m-d' string equals today's local date.
-     */
-    private function isToday(string $date): bool
-    {
-        return $date === now()->toDateString();
-    }
-
-    /**
-     * Drop slot strings ('HH:MM') whose start time is already in the past.
-     * Used only when the date is *today*, so future dates aren't affected.
+     * The first bookable date (and slot) from $from forward — item 4.4.
      *
-     * @param  list<string>  $slots  HH:MM
-     * @return list<string>
+     * Replaces the app's client-side 12+N request scan with one request.
+     * Walks the horizon in 62-day chunks so each chunk costs a single bulk
+     * booking-count query, exactly like the month picker.
+     *
+     * @return array{date:string, slot_time:?string, slot_type:string}|null
      */
-    private function filterPastSlots(array $slots): array
+    public function nextAvailable(Seva $seva, ?string $from = null, int $horizonDays = 365): ?array
     {
-        $now = now();
-        $result = [];
-        foreach ($slots as $slot) {
-            if (! is_string($slot) || strlen($slot) < 4) {
-                continue;
-            }
-            [$h, $m] = array_pad(explode(':', $slot, 2), 2, '0');
-            $slotMoment = $now->copy()->setTime((int) $h, (int) $m, 0);
-            if ($slotMoment->greaterThan($now)) {
-                $result[] = $slot;
-            }
+        $today = now()->startOfDay();
+        $start = $from ? Carbon::parse($from)->startOfDay() : $today->copy();
+        if ($start->lt($today)) {
+            $start = $today->copy();
         }
 
-        return $result;
+        $horizonDays = max(1, min($horizonDays, 730));
+        $end = $start->copy()->addDays($horizonDays - 1);
+        $slotType = $this->slotType($this->configFor($seva));
+
+        $chunkStart = $start->copy();
+        while ($chunkStart->lte($end)) {
+            $chunkEnd = $chunkStart->copy()->addDays(61);
+            if ($chunkEnd->gt($end)) {
+                $chunkEnd = $end->copy();
+            }
+
+            foreach ($this->getDateAvailabilityInRange($seva, $chunkStart, $chunkEnd) as $row) {
+                if ($row['available'] !== true) {
+                    continue;
+                }
+
+                if (! $seva->requires_booking) {
+                    return ['date' => $row['date'], 'slot_time' => null, 'slot_type' => $slotType];
+                }
+
+                $availability = $this->getSlotAvailability($seva, $row['date']);
+                $slot = $availability['available'][0] ?? null;
+                if ($slot === null) {
+                    continue; // defensive: the two views disagreed
+                }
+
+                return ['date' => $row['date'], 'slot_time' => $slot, 'slot_type' => $slotType];
+            }
+
+            $chunkStart = $chunkEnd->copy()->addDay();
+        }
+
+        return null;
     }
 
     /**
@@ -635,6 +852,13 @@ class SevaSlotService
                 return 'This seva is not available on this day.';
             }
 
+            // MANDATORY server-side cut-off enforcement (item 4.3). The UI
+            // only hides these; a stale page or a crafted POST must still
+            // be rejected here.
+            if (($timeBlock = $this->cutoffReason($config, $date, $slotType)) !== null) {
+                return $this->cutoffMessage($config, $timeBlock);
+            }
+
             $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
             if ($this->countFullUnitBookings($seva, $slotType, $date) >= $maxPerSlot) {
                 return $slotType === self::SLOT_TYPE_FULL_WEEK
@@ -664,6 +888,14 @@ class SevaSlotService
 
         if (! in_array($slotTime, $configuredSlots, true)) {
             return 'Invalid slot time for this date.';
+        }
+
+        // MANDATORY server-side enforcement (item 4.3). This is also the fix
+        // for the pre-existing bug where validateBooking() never applied the
+        // elapsed-slot filter, so a stale page or a crafted POST could book
+        // a slot that had already started.
+        if (($timeBlock = $this->cutoffReason($config, $date, $slotTime)) !== null) {
+            return $this->cutoffMessage($config, $timeBlock);
         }
 
         $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
@@ -741,6 +973,8 @@ class SevaSlotService
             'slot_type' => self::SLOT_TYPE_TIME,
             'slot_duration_minutes' => 60,
             'max_bookings_per_slot' => 1,
+            // Item 4.3 — 0 means "no cut-off", i.e. pre-4.3 behaviour.
+            'booking_cutoff_hours' => 0,
             'acceptance_period' => ['type' => 'perpetual', 'start_date' => null, 'end_date' => null],
             'weekly_schedule' => ['default' => []],
             'blackout_dates' => [],

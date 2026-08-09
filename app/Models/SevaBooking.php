@@ -11,10 +11,25 @@ use App\Traits\HasUuid;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class SevaBooking extends Model
 {
-    use HasManagedImages, HasUuid;
+    use HasManagedImages, HasUuid, LogsActivity;
+
+    /**
+     * Money-path audit (item 6.1). Status is the interesting column:
+     * `mark_completed`, cancellations and payment capture all move it.
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['status', 'total_amount', 'booking_date', 'slot_time', 'quantity', 'receipt_number'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->useLogName('money');
+    }
 
     protected $table = 'temple_seva_bookings';
 

@@ -4,19 +4,22 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Jobs\NotifyBookingDayDevoteesOfDarshanPhoto;
+use App\Models\Concerns\HasImageDerivatives;
 use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 
 class DailyDarshanPhoto extends Model
 {
-    use HasManagedImages;
+    use HasImageDerivatives, HasManagedImages;
 
     protected $table = 'temple_daily_darshan_photos';
 
     protected static function booted(): void
     {
         // Bust the darshan page's daily photo cache on any admin change.
-        $bust = fn () => \Illuminate\Support\Facades\Cache::forget('darshan_page_daily_photo');
+        $bust = fn () => Cache::forget('darshan_page_daily_photo');
         static::saved($bust);
         static::deleted($bust);
 
@@ -38,18 +41,35 @@ class DailyDarshanPhoto extends Model
                 ->where('id', '!=', $photo->id)
                 ->exists();
             if ($isFirstOfDay) {
-                \App\Jobs\NotifyBookingDayDevoteesOfDarshanPhoto::dispatch($photo->id);
+                NotifyBookingDayDevoteesOfDarshanPhoto::dispatch($photo->id);
             }
         });
     }
 
     protected function managedImages(): array
     {
-        return ['image_path' => 'r2'];
+        return [
+            'image_path' => 'r2',
+            'thumbnail_path' => 'r2',
+            'medium_path' => 'r2',
+        ];
+    }
+
+    /** @see HasImageDerivatives */
+    protected function imageDerivatives(): array
+    {
+        return [
+            'image_path' => [
+                'thumbnail' => 'thumbnail_path',
+                'medium' => 'medium_path',
+            ],
+        ];
     }
 
     protected $fillable = [
         'image_path',
+        'thumbnail_path',
+        'medium_path',
         'caption_gu',
         'caption_hi',
         'caption_en',
@@ -66,6 +86,7 @@ class DailyDarshanPhoto extends Model
     {
         $locale = app()->getLocale();
         $field = "caption_{$locale}";
+
         return $this->$field ?? $this->caption_gu;
     }
 }

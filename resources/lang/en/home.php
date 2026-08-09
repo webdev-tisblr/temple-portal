@@ -3,7 +3,7 @@
 return [
     'donate' => 'Donate Now',
     'book_seva' => 'Book a Seva',
-    'hero_subtitle' => 'Antarjaal, Gandhidham, Kutch — a living seat of Hanumanji\'s grace',
+    'hero_subtitle' => 'Antarjal, Gandhidham, Kutch — a living seat of Hanumanji\'s grace',
     'of' => 'of',
     'support_dham' => 'SUPPORT SHREE PATADIYA DHAM',
     'receive_blessings' => 'Receive his blessings',
@@ -18,7 +18,7 @@ return [
     'check_availability' => 'Book Now',
     'temple_closes' => 'Temple closes',
     'go_to_darshan' => 'Go to Darshan page',
-    'hero_jai' => '|| Jai Shri Ram ||',
+    'hero_jai' => '॥ Jay Siya Ram ॥',
     'hero_line1' => 'Shree Patadiya',
     'hero_line2' => 'Hanumanji Dham',
     'temple_open' => 'Temple is currently open',
@@ -56,4 +56,12 @@ return [
     'prasad_title' => 'Prasad Laddoos',
     'prasad_sub' => 'Receive Shree Patadiya Hanumanji\'s prasad at your doorstep',
     'prasad_view_all' => 'View all prasad',
+    'prasad_cta' => 'Order prasad',
+    'prasad_order' => 'Order',
+    'prasad_step_choose' => 'Choose the prasad you wish to receive',
+    'prasad_step_offered' => 'It is offered at Hanumanji\'s feet at the Dham',
+    'prasad_step_delivered' => 'Packed with care and sent home to you',
+
+    // Sticky action bar (homepage only)
+    'sticky_label' => 'Quick actions',
 ];

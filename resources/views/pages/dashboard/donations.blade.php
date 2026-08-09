@@ -12,67 +12,70 @@
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-temple">
 
-    <div class="card-sacred overflow-hidden">
+    <x-dashboard.nav active="donations" />
+
+    {{-- The controller lists captured payments only. A donation whose
+         Razorpay handoff was abandoned must never appear here as real. --}}
+    <x-dashboard.panel
+        :title="__('dashboard.my_donations')"
+        icon="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z">
 
         @if($donations->isNotEmpty())
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="bg-amber-900/15 border-b border-amber-900/20">
-                        <tr>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600">{{ __('common.date') }}</th>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600">{{ __('common.amount') }}</th>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600">{{ __('donation.type_label') }}</th>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600">{{ __('dashboard.purpose') }}</th>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600">{{ __('dashboard.receipt') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-amber-900/15">
-                        @foreach($donations as $donation)
-                        <tr class="hover:bg-amber-900/10 transition">
-                            <td class="px-5 py-4 text-amber-100/60">
+            <table class="dash-table">
+                <thead class="dash-thead">
+                    <tr>
+                        <th class="dash-th">{{ __('dashboard.col_date') }}</th>
+                        <th class="dash-th">{{ __('dashboard.col_amount') }}</th>
+                        <th class="dash-th">{{ __('dashboard.col_type') }}</th>
+                        <th class="dash-th">{{ __('dashboard.col_purpose') }}</th>
+                        <th class="dash-th">{{ __('dashboard.col_receipt') }}</th>
+                    </tr>
+                </thead>
+                <tbody class="dash-tbody">
+                    @foreach($donations as $donation)
+                        <tr class="dash-tr">
+                            <x-dashboard.cell :label="__('dashboard.col_date')">
                                 {{ $donation->created_at->format('d/m/Y') }}
-                            </td>
-                            <td class="px-5 py-4 font-bold text-gold">₹{{ number_format((float) $donation->amount) }}</td>
-                            <td class="px-5 py-4">
-                                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-900/30 text-amber-400">
-                                    {{ ucfirst($donation->getRawOriginal('donation_type')) }}
-                                </span>
-                            </td>
-                            <td class="px-5 py-4 text-amber-100/50 max-w-xs truncate">
-                                {{ $donation->purpose ?? '—' }}
-                            </td>
-                            <td class="px-5 py-4">
+                            </x-dashboard.cell>
+
+                            <x-dashboard.cell :label="__('dashboard.col_amount')">
+                                <span class="font-semibold" style="color: #C45F12;">₹{{ number_format((float) $donation->amount) }}</span>
+                            </x-dashboard.cell>
+
+                            <x-dashboard.cell :label="__('dashboard.col_type')">
+                                <span class="dash-chip dash-chip-info">{{ ucfirst((string) $donation->getRawOriginal('donation_type')) }}</span>
+                            </x-dashboard.cell>
+
+                            <x-dashboard.cell :label="__('dashboard.col_purpose')">
+                                <span class="block max-w-xs truncate md:max-w-sm">{{ $donation->purpose ?? '—' }}</span>
+                            </x-dashboard.cell>
+
+                            <x-dashboard.cell :label="__('dashboard.col_receipt')">
                                 @if($donation->receipt && $donation->receipt->pdf_path)
-                                    <a href="{{ route('dashboard.receipts.download', $donation->receipt) }}"
-                                       class="inline-flex items-center gap-1 text-xs text-amber-500 font-semibold hover:text-gold transition">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                    <a href="{{ route('dashboard.receipts.download', $donation->receipt) }}" class="dash-link">
+                                        <x-dashboard.icon path="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" class="w-3.5 h-3.5" />
                                         {{ __('dashboard.download') }}
                                     </a>
                                 @else
-                                    <span class="text-amber-100/20 text-xs">—</span>
+                                    <span style="color: #8A7860;">&mdash;</span>
                                 @endif
-                            </td>
+                            </x-dashboard.cell>
                         </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+                    @endforeach
+                </tbody>
+            </table>
 
-            <div class="px-5 py-4 border-t border-amber-900/20">
-                {{ $donations->links() }}
-            </div>
-
+            @if($donations->hasPages())
+                <div class="dash-panel-foot">{{ $donations->links() }}</div>
+            @endif
         @else
-            <div class="text-center py-16">
-                <svg class="w-12 h-12 text-amber-800/30 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <p class="text-amber-100/30 mb-4">{{ __('dashboard.no_donation_records') }}</p>
-                <a href="{{ route('donate') }}" class="inline-flex items-center gap-2 px-5 py-2.5 btn-divine text-sm font-semibold">
-                    {{ __('nav.donate') }}
-                </a>
-            </div>
+            <x-dashboard.empty
+                icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                :message="__('dashboard.no_donation_records')"
+                :ctaHref="route('donate')"
+                :ctaLabel="__('nav.donate')" />
         @endif
-
-    </div>
+    </x-dashboard.panel>
 
 </div>
 

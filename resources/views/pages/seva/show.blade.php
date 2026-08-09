@@ -77,7 +77,7 @@
                         <div class="card-sacred p-6">
                             <h2 class="text-lg font-semibold text-gold mb-4">{{ __('seva.choose_date_time') }}</h2>
                             <p class="text-sm text-amber-100/60 mb-5">{{ __('halls.login_to_view_form') }}</p>
-                            <a href="{{ route('login') }}" class="flex items-center justify-center w-full px-8 py-3 btn-divine">
+                            <a href="{{ login_url() }}" class="flex items-center justify-center w-full px-8 py-3 btn-divine">
                                 {{ __('seva.login_to_book') }}
                             </a>
                         </div>
@@ -85,12 +85,65 @@
                     <div class="card-sacred p-6" x-data="slotPicker({{ $seva->id }})">
                         <h2 class="text-lg font-semibold text-gold mb-4">{{ __('seva.choose_date_time') }}</h2>
 
+                        {{-- Product Selection — deliberately NOT gated on
+                             selectedDate (2026-08-09). A seva that offers a
+                             prasad/product choice must show that choice and
+                             the date choice side by side, upfront: the two
+                             are independent and canBook() validates them
+                             independently. Only the SLOT list stays chained
+                             to the date, because slots genuinely differ per
+                             date. Sevas with no linked products render
+                             nothing here and are unaffected. --}}
+                        @if($linkedProducts->isNotEmpty())
+                            <div class="mb-5">
+                                <span class="eyebrow block text-[11px] text-amber-100/40 mb-1">{{ __('seva.step', ['n' => 1]) }}</span>
+                                <label class="block text-sm font-medium text-amber-600 mb-3">{{ $seva->getProductSelectionLabel() }}</label>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    @foreach($linkedProducts as $lp)
+                                        <button type="button"
+                                            @click="selectedProductId = {{ $lp->id }}; selectedVariant = ''"
+                                            :class="selectedProductId === {{ $lp->id }} ? 'ring-2 ring-amber-500 border-amber-500' : 'border-amber-800/30 hover:border-amber-600'"
+                                            class="group border rounded-xl overflow-hidden transition text-left bg-amber-900/10">
+                                            <div class="aspect-[4/3] bg-amber-900/20 overflow-hidden">
+                                                @if($lp->image_path)
+                                                    <img src="{{ image_url($lp->image_path) }}" alt="{{ $lp->name }}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+                                                @else
+                                                    <div class="w-full h-full flex items-center justify-center">
+                                                        <svg class="w-10 h-10 text-amber-800/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                            <div class="p-2">
+                                                <p class="text-xs text-amber-100/70 font-medium line-clamp-2">{{ $lp->name }}</p>
+                                            </div>
+                                        </button>
+                                    @endforeach
+                                </div>
+
+                                {{-- Variant selection (products with variable options) --}}
+                                <template x-if="needsVariant()">
+                                    <div class="mt-3">
+                                        <label class="block text-xs font-medium text-amber-600 mb-2">{{ __('seva.choose_option') }}</label>
+                                        <div class="flex flex-wrap gap-2">
+                                            <template x-for="v in (currentProduct()?.variants || [])" :key="v.label">
+                                                <button type="button" @click="selectedVariant = v.label" :disabled="!v.in_stock"
+                                                    :class="selectedVariant === v.label ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-900 border-amber-500 font-bold' : (v.in_stock ? 'bg-transparent text-amber-100/60 border-amber-800/30 hover:border-amber-600' : 'opacity-30 cursor-not-allowed border-amber-900/20')"
+                                                    class="px-3 py-2 border rounded-lg text-xs font-medium transition"
+                                                    x-text="v.price > 0 ? (v.label + ' — ₹' + Number(v.price).toLocaleString('en-IN')) : v.label">
+                                                </button>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        @endif
+
                         {{-- Date picker — horizontal chip carousel.
-                             Mirrors the mobile seva detail screen exactly:
-                             only bookable dates appear (returned by
-                             /sevas/{id}/available-dates), each chip shows
-                             day label + day number + month, and the
-                             selected chip is highlighted in saffron. --}}
+                             Since 2026-08-09 (item 4.1) EVERY date of the
+                             month renders: unbookable ones are greyed,
+                             non-clickable and carry a "Not Available"
+                             ribbon (driven by days_detail's reason_code)
+                             instead of being silently hidden. --}}
                         @php
                             $noDatesThisMonth = match (app()->getLocale()) {
                                 'hi' => 'इस महीने कोई तारीख उपलब्ध नहीं है।',
@@ -99,7 +152,21 @@
                             };
                         @endphp
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-amber-600 mb-2">{{ __('seva.choose_date') }}</label>
+                            @if($linkedProducts->isNotEmpty())
+                                <span class="eyebrow block text-[11px] text-amber-100/40 mb-1">{{ __('seva.step', ['n' => 2]) }}</span>
+                            @endif
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-sm font-medium text-amber-600">{{ __('seva.choose_date') }}</label>
+                                {{-- Item 4.4 — one server request finds the next
+                                     open date + slot (the app used to walk up to
+                                     12 months client-side). --}}
+                                <button type="button" @click="findNextAvailable()" :disabled="findingNext"
+                                    class="inline-flex items-center gap-1 text-xs font-semibold text-amber-500 hover:text-gold disabled:opacity-50 transition">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                    <span x-text="findingNext ? @js(__('availability.searching')) : @js(__('availability.next_available'))"></span>
+                                </button>
+                            </div>
+                            <p x-show="nextAvailableNote" x-transition class="text-[11px] text-amber-100/40 mb-2" x-text="nextAvailableNote"></p>
 
                             {{-- Year / Month selectors — booking horizon is
                                  current month through +5 years (matches the
@@ -123,7 +190,7 @@
                                 {{ __('seva.loading_dates') }}
                             </div>
 
-                            <div x-show="!datesLoading && availableDates.length === 0" class="text-sm py-3 px-4 bg-amber-900/10 border border-amber-800/30 rounded-lg text-amber-100/60">
+                            <div x-show="!datesLoading && openDateCount() === 0" class="text-sm py-3 px-4 bg-amber-900/10 border border-amber-800/30 rounded-lg text-amber-100/60">
                                 {{ $noDatesThisMonth }}
                             </div>
 
@@ -131,14 +198,20 @@
                                  class="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x"
                                  style="scrollbar-width: thin;">
                                 <template x-for="day in availableDates" :key="day.date">
-                                    <button type="button" @click="pickDate(day.date)"
-                                        :class="selectedDate === day.date
-                                            ? 'bg-gradient-to-br from-amber-600 to-amber-500 text-stone-900 border-amber-500 shadow-md'
-                                            : 'bg-transparent text-amber-100/70 border-amber-800/30 hover:border-amber-600'"
+                                    <button type="button" @click="day.available && pickDate(day.date)"
+                                        :disabled="!day.available"
+                                        :title="day.reason || ''"
+                                        :class="!day.available
+                                            ? 'bg-amber-900/10 text-amber-100/20 border-amber-900/20 cursor-not-allowed'
+                                            : (selectedDate === day.date
+                                                ? 'bg-gradient-to-br from-amber-600 to-amber-500 text-stone-900 border-amber-500 shadow-md'
+                                                : 'bg-transparent text-amber-100/70 border-amber-800/30 hover:border-amber-600')"
                                         class="flex-shrink-0 w-16 py-2 border rounded-xl text-center transition snap-start">
                                         <span class="block text-[10px] font-medium opacity-80" x-text="day.dayLabel"></span>
                                         <span class="block text-xl font-black leading-none mt-0.5" x-text="day.dayOfMonth"></span>
-                                        <span class="block text-[10px] mt-0.5 opacity-70" x-text="day.monthLabel"></span>
+                                        <span class="block text-[10px] mt-0.5 opacity-70" x-show="day.available" x-text="day.monthLabel"></span>
+                                        {{-- "Not Available" ribbon (item 4.1) — replaces silently hiding the chip. --}}
+                                        <span x-show="!day.available" class="block text-[8px] leading-tight mt-0.5 font-semibold text-red-400/70">{{ __('availability.not_available') }}</span>
                                     </button>
                                 </template>
                             </div>
@@ -183,8 +256,16 @@
                                             x-text="slot">
                                         </button>
                                     </template>
-                                    <template x-for="slot in booked" :key="'b-' + slot">
-                                        <button disabled class="px-4 py-2 border border-amber-900/20 rounded-lg text-sm font-medium bg-amber-900/10 text-amber-100/20 cursor-not-allowed line-through" x-text="slot">
+                                    {{-- Unavailable slots (fully booked, elapsed or
+                                         inside the cut-off) now render with an
+                                         explicit "Not Available" label + reason
+                                         tooltip instead of a bare struck-through
+                                         chip (item 4.1). --}}
+                                    <template x-for="slot in unavailableSlots()" :key="'b-' + slot.time">
+                                        <button disabled :title="slot.reason || ''"
+                                            class="px-4 py-2 border border-amber-900/20 rounded-lg text-sm font-medium bg-amber-900/10 text-amber-100/20 cursor-not-allowed text-center">
+                                            <span class="block line-through" x-text="slot.time"></span>
+                                            <span class="block text-[9px] leading-tight font-semibold text-red-400/70">{{ __('availability.not_available') }}</span>
                                         </button>
                                     </template>
                                 </div>
@@ -207,52 +288,11 @@
                             </div>
                         </div>
 
-                        {{-- Product Selection --}}
-                        @if($linkedProducts->isNotEmpty())
-                            <div class="mt-6 mb-4" x-show="selectedDate">
-                                <label class="block text-sm font-medium text-amber-600 mb-3">{{ $seva->getProductSelectionLabel() }}</label>
-                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                    @foreach($linkedProducts as $lp)
-                                        <button type="button"
-                                            @click="selectedProductId = {{ $lp->id }}; selectedVariant = ''"
-                                            :class="selectedProductId === {{ $lp->id }} ? 'ring-2 ring-amber-500 border-amber-500' : 'border-amber-800/30 hover:border-amber-600'"
-                                            class="border rounded-xl overflow-hidden transition text-left bg-amber-900/10">
-                                            <div class="aspect-[4/3] bg-amber-900/20 overflow-hidden">
-                                                @if($lp->image_path)
-                                                    <img src="{{ image_url($lp->image_path) }}" alt="{{ $lp->name }}" class="w-full h-full object-cover">
-                                                @else
-                                                    <div class="w-full h-full flex items-center justify-center">
-                                                        <svg class="w-10 h-10 text-amber-800/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                                    </div>
-                                                @endif
-                                            </div>
-                                            <div class="p-2">
-                                                <p class="text-xs text-amber-100/70 font-medium line-clamp-2">{{ $lp->name }}</p>
-                                            </div>
-                                        </button>
-                                    @endforeach
-                                </div>
-
-                                {{-- Variant selection (products with variable options) --}}
-                                <template x-if="needsVariant()">
-                                    <div class="mt-3">
-                                        <label class="block text-xs font-medium text-amber-600 mb-2">{{ __('seva.choose_option') }}</label>
-                                        <div class="flex flex-wrap gap-2">
-                                            <template x-for="v in (currentProduct()?.variants || [])" :key="v.label">
-                                                <button type="button" @click="selectedVariant = v.label" :disabled="!v.in_stock"
-                                                    :class="selectedVariant === v.label ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-900 border-amber-500 font-bold' : (v.in_stock ? 'bg-transparent text-amber-100/60 border-amber-800/30 hover:border-amber-600' : 'opacity-30 cursor-not-allowed border-amber-900/20')"
-                                                    class="px-3 py-2 border rounded-lg text-xs font-medium transition"
-                                                    x-text="v.price > 0 ? (v.label + ' — ₹' + Number(v.price).toLocaleString('en-IN')) : v.label">
-                                                </button>
-                                            </template>
-                                        </div>
-                                    </div>
-                                </template>
-                            </div>
-                        @endif
-
-                        {{-- Additional Fields --}}
-                        <div x-show="selectedDate" class="mt-4 space-y-3">
+                        {{-- Additional Fields — appear once EITHER a date or a
+                             product has been chosen. For sevas without linked
+                             products selectedProductId is always null, so this
+                             behaves exactly as before (date-gated). --}}
+                        <div x-show="selectedDate || selectedProductId" class="mt-4 space-y-3">
                             <div>
                                 <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('seva.name_label') }}</label>
                                 <input type="text" x-model="devoteeName" placeholder="{{ __('seva.name_placeholder') }}"
@@ -375,7 +415,14 @@ function slotPicker(sevaId) {
             return '₹' + Number(this.unitPrice()).toLocaleString('en-IN');
         },
         canBook() {
+            // Date and product are validated INDEPENDENTLY — neither gates
+            // the other in the UI, so neither may gate the other here.
             if (!this.selectedDate) return false;
+            if (this.blackout) return false;
+            // Time-slot sevas need an actual slot; full-day/full-week sevas
+            // have their slot_time forced server-side (SevaWebController::book),
+            // so a picked date is enough there.
+            if (this.slotType === 'time_slots' && !this.selectedSlot) return false;
             if (hasProductSelection) {
                 if (!this.selectedProductId) return false;
                 if (this.needsVariant() && !this.selectedVariant) return false;
@@ -384,11 +431,15 @@ function slotPicker(sevaId) {
         },
 
         // Date carousel state — populated from the
-        // /sevas/{id}/available-dates endpoint so blackouts, fully
-        // booked dates and today's-elapsed-slots are hidden.
-        // The Year/Month selects drive which month is fetched.
+        // /sevas/{id}/available-dates endpoint. Since item 4.1 it holds
+        // EVERY date of the month (days_detail), each carrying
+        // available/reason, so unbookable dates render disabled with a
+        // "Not Available" ribbon instead of vanishing.
         availableDates: [],
+        slotDetails: [],
         datesLoading: false,
+        findingNext: false,
+        nextAvailableNote: '',
         selectedYear: currentYear,
         selectedMonth: currentMonthNum,
         years: Array.from({ length: 11 }, (_, i) => currentYear + i),
@@ -421,26 +472,75 @@ function slotPicker(sevaId) {
             this.fetchAvailableDates();
         },
 
-        async fetchAvailableDates() {
+        async fetchAvailableDates(keepSelection) {
             this.datesLoading = true;
             // A month switch invalidates the current selection + slots.
-            this.selectedDate = '';
-            this.selectedSlot = '';
-            this.slots = [];
-            this.booked = [];
+            if (!keepSelection) {
+                this.selectedDate = '';
+                this.selectedSlot = '';
+                this.slots = [];
+                this.booked = [];
+                this.slotDetails = [];
+            }
             const month = `${this.selectedYear}-${String(this.selectedMonth).padStart(2, '0')}`;
             try {
                 const res = await fetch(`/api/v1/sevas/${this.sevaId}/available-dates?month=${month}`);
                 const json = await res.json();
-                const isoList = json.data?.dates || [];
-                this.availableDates = isoList.map(iso => this.decorateDate(iso));
+                const detail = json.data?.days_detail;
+                if (Array.isArray(detail) && detail.length > 0) {
+                    this.availableDates = detail.map(d => this.decorateDate(d.date, d.available !== false, d.reason));
+                } else {
+                    // Older server (or an empty month): fall back to the
+                    // legacy bookable-only list.
+                    const isoList = json.data?.dates || [];
+                    this.availableDates = isoList.map(iso => this.decorateDate(iso, true, null));
+                }
             } catch (e) {
                 this.availableDates = [];
             }
             this.datesLoading = false;
         },
 
-        decorateDate(iso) {
+        openDateCount() {
+            return this.availableDates.filter(d => d.available).length;
+        },
+
+        // Unavailable slot chips. Prefers the new slot_details payload
+        // (carries the reason); falls back to the legacy `booked` list.
+        unavailableSlots() {
+            if (Array.isArray(this.slotDetails) && this.slotDetails.length > 0) {
+                return this.slotDetails.filter(s => !s.available);
+            }
+            return (this.booked || []).map(t => ({ time: t, reason: null }));
+        },
+
+        // Item 4.4 — one request replaces a month-by-month client scan.
+        async findNextAvailable() {
+            if (this.findingNext) return;
+            this.findingNext = true;
+            this.nextAvailableNote = '';
+            try {
+                const res = await fetch(`/api/v1/sevas/${this.sevaId}/next-available`);
+                const json = await res.json();
+                const d = json.data;
+                if (!d || d.found !== true || !d.date) {
+                    this.nextAvailableNote = @js(__('availability.next_available_none'));
+                } else {
+                    const [y, m] = d.date.split('-').map(Number);
+                    this.selectedYear = y;
+                    this.selectedMonth = m;
+                    await this.fetchAvailableDates(true);
+                    this.selectedDate = d.date;
+                    await this.fetchSlots();
+                    if (d.slot_time) this.selectedSlot = d.slot_time;
+                }
+            } catch (e) {
+                this.nextAvailableNote = @js(__('availability.next_available_none'));
+            }
+            this.findingNext = false;
+        },
+
+        decorateDate(iso, available, reason) {
             // iso = 'YYYY-MM-DD'. Construct as local-time midnight so
             // getDay() / getDate() / getMonth() return the temple-local
             // values regardless of the browser's timezone.
@@ -451,6 +551,8 @@ function slotPicker(sevaId) {
                 dayLabel: dayLabels[date.getDay()],
                 dayOfMonth: date.getDate(),
                 monthLabel: monthLabels[date.getMonth()],
+                available: available !== false,
+                reason: reason || null,
             };
         },
 
@@ -480,6 +582,7 @@ function slotPicker(sevaId) {
                 const json = await res.json();
                 this.slots = json.data?.slots || [];
                 this.booked = json.data?.booked || [];
+                this.slotDetails = json.data?.slot_details || [];
                 this.slotType = json.data?.slot_type || this.slotType || 'time_slots';
                 this.blackout = json.data?.blackout || false;
                 this.blackoutReason = json.data?.blackout_reason || '';
@@ -488,6 +591,7 @@ function slotPicker(sevaId) {
             } catch (e) {
                 this.slots = [];
                 this.booked = [];
+                this.slotDetails = [];
             }
             this.loading = false;
         }

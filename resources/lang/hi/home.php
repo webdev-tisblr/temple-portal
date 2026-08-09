@@ -18,7 +18,7 @@ return [
     'check_availability' => 'हॉल बुक करें',
     'temple_closes' => 'मंदिर बंद होता है',
     'go_to_darshan' => 'दर्शन पेज पर जाएं',
-    'hero_jai' => '|| जय श्री राम ||',
+    'hero_jai' => '॥ जय सियाराम ॥',
     'hero_line1' => 'श्री पातालिया',
     'hero_line2' => 'हनुमानजी धाम',
     'temple_open' => 'मंदिर अभी खुला है',
@@ -56,4 +56,12 @@ return [
     'prasad_title' => 'प्रसाद लड्डू',
     'prasad_sub' => 'श्री पातालिया हनुमानजी के प्रसाद का लाभ घर बैठे लें',
     'prasad_view_all' => 'सारा प्रसाद देखें',
+    'prasad_cta' => 'प्रसाद मंगवाएँ',
+    'prasad_order' => 'मंगवाएँ',
+    'prasad_step_choose' => 'आप जो प्रसाद चाहते हैं वह चुनें',
+    'prasad_step_offered' => 'धाम में हनुमानजी के चरणों में अर्पित किया जाता है',
+    'prasad_step_delivered' => 'सावधानी से पैक कर आपके घर भेजा जाता है',
+
+    // Sticky action bar (homepage only)
+    'sticky_label' => 'त्वरित क्रियाएँ',
 ];

@@ -1,15 +1,19 @@
 {{--
-    Shared @font-face declarations for every DomPDF-rendered PDF
-    (80G receipt, store invoice, hall booking invoice, packing slip).
+    Shared @font-face declarations for every generated PDF (80G receipt,
+    seva receipt, store invoice, hall booking invoice, packing slip).
 
-    DomPDF reads the TTF at the `file://` URL on first render and caches
-    metadata into storage/fonts/. The TTFs live in the repo so deploys
-    don't break.
+    HISTORICAL NOTE: these @font-face rules date from the DomPDF era. All
+    five documents now render through App\Support\Pdf\GujaratiPdf (mPDF),
+    which does its own font registration and STRIPS the 'Noto Sans
+    Gujarati' family out of the HTML before parsing (see GujaratiPdf::
+    render) — script runs are switched by autoScriptToLang instead:
+    Gujarati → the bundled OTL-compatible Noto Sans Gujarati, Devanagari
+    (Hindi receipts, since 2026-08-09) → mPDF's FreeSerif, Latin → DejaVu
+    Sans. So this partial is effectively inert under mPDF; it is kept for
+    the file:// TTF paths and in case a document ever renders elsewhere.
 
-    Set body font-family to 'Noto Sans Gujarati' first so Gujarati glyphs
-    render correctly; DomPDF walks the font-family list per character
-    so Latin chars also render fine since Noto Sans Gujarati ships with
-    basic Latin glyphs.
+    Never switch these documents to DomPDF — it has no Indic shaping and
+    garbles matras/conjuncts.
 --}}
 @php
     $fontRegular = base_path('resources/fonts/NotoSansGujarati-Regular.ttf');

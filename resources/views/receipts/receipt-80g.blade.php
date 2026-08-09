@@ -71,6 +71,11 @@
     <div class="container">
         {{-- watermark now drawn natively by mPDF (see ReceiptService: GujaratiPdf watermark option); the old CSS-transform div rendered as a giant in-flow heading under mPDF --}}
 
+        {{-- ENGLISH-ONLY BY DESIGN. Unlike the seva receipt / hall + store
+             invoices (localized 2026-08-09), this is a statutory document that
+             any assessing officer must be able to read — do NOT introduce
+             translation calls here. See ReceiptService's class doc-block. --}}
+
         {{-- Header with Logo --}}
         <div class="header">
             <div class="logo">
@@ -105,6 +110,23 @@
                 </td>
             </tr>
         </table>
+
+        {{-- Campaign the donation was made towards (item 5.2). Read from the
+             SNAPSHOT column frozen at issue time by ReceiptService (falling
+             back to the live relation only for receipts issued before that
+             column existed) — a later campaign rename must never rewrite an
+             already-issued receipt. Absent for general/seva/annadan
+             donations. English title, matching the rest of this document. --}}
+        @if(! empty($campaign_title))
+        <table class="meta-bar">
+            <tr>
+                <td>
+                    <span class="meta-label">Donation Towards</span>
+                    <span class="meta-value">{{ $campaign_title }}</span>
+                </td>
+            </tr>
+        </table>
+        @endif
 
         {{-- Donor & Donation Details --}}
         <table class="two-col">

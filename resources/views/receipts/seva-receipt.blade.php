@@ -35,7 +35,12 @@
 
         /* Amount box */
         .amount-box { border: 1px solid #C87533; margin-bottom: 14px; } .amount-box td { background: #FDF6EE; padding: 10px; text-align: center; }
-        .amount-words { font-size: 10px; color: #666; font-style: italic; }
+        /* NOT italic: mPDF resolves Devanagari to FreeSerif, and
+           FreeSerifItalic carries no Devanagari glyphs — a Hindi label here
+           rendered as tofu boxes (caught 2026-08-09). Only the English
+           amount-in-words value keeps the italic. */
+        .amount-words { font-size: 10px; color: #666; }
+        .amount-words .words-value { font-style: italic; }
         .amount-total { font-size: 16px; font-weight: bold; color: #881337; margin-bottom: 4px; }
 
         /* Footer */
@@ -59,9 +64,9 @@
             </div>
             <div class="trust-name">{{ $trust_name }}</div>
             <div class="trust-address">{{ $trust_address }}</div>
-            <div class="trust-reg" style="font-size: 8px; color: #888; margin-top: 3px;">Trust Reg. No: A/1497 Dated 26-04-1994 &nbsp;|&nbsp; PAN: AAKTS1478C</div>
+            <div class="trust-reg" style="font-size: 8px; color: #888; margin-top: 3px;">{{ __('receipt.label_trust_reg') }}: {{ $trust_reg_no }} &nbsp;|&nbsp; {{ __('receipt.label_trust_pan') }}: {{ $trust_pan }}</div>
             <div style="margin-top: 10px;">
-                <span class="receipt-title">Seva Booking Receipt</span>
+                <span class="receipt-title">{{ __('receipt.title_seva') }}</span>
             </div>
         </div>
 
@@ -69,48 +74,51 @@
         <table class="meta-bar">
             <tr>
                 <td>
-                    <span class="meta-label">Receipt No.</span>
+                    <span class="meta-label">{{ __('receipt.receipt_no') }}</span>
                     <span class="meta-value">{{ $receipt_number }}</span>
                 </td>
                 <td>
-                    <span class="meta-label">Seva Date</span>
+                    <span class="meta-label">{{ __('receipt.seva_date') }}</span>
                     <span class="meta-value">{{ $booking->booking_date->format('d/m/Y') }}</span>
                 </td>
                 <td>
-                    <span class="meta-label">Status</span>
-                    <span class="meta-value">{{ ucfirst($booking->status->value) }}</span>
+                    <span class="meta-label">{{ __('receipt.status') }}</span>
+                    <span class="meta-value">{{ $status_label }}</span>
                 </td>
             </tr>
         </table>
 
         {{-- Seva Details --}}
         <div class="section">
-            <div class="section-title">Seva Details</div>
+            <div class="section-title">{{ __('receipt.section_seva') }}</div>
             <table class="data-table">
                 <tr>
-                    <td class="label">Seva</td>
+                    <td class="label">{{ __('receipt.label_seva') }}</td>
                     <td class="value">
-                        {{ $booking->seva?->name_gu ?? $booking->seva?->name_en ?? '-' }}
-                        @if($booking->seva?->name_gu && $booking->seva?->name_en)
+                        {{-- Seva::getNameAttribute() resolves name_{locale}; the
+                             service has already switched the app locale to the
+                             devotee's language. --}}
+                        {{ $booking->seva?->name ?? '-' }}
+                        @if(app()->getLocale() !== 'en' && $booking->seva?->name_en && $booking->seva->name_en !== $booking->seva->name)
                             ({{ $booking->seva->name_en }})
                         @endif
                     </td>
                 </tr>
                 @if($booking->slot_time_label)
                 <tr>
-                    <td class="label">Slot</td>
+                    <td class="label">{{ __('receipt.label_slot') }}</td>
                     <td class="value">{{ $booking->slot_time_label }}</td>
                 </tr>
                 @endif
                 <tr>
-                    <td class="label">Quantity</td>
+                    <td class="label">{{ __('receipt.label_quantity') }}</td>
                     <td class="value">{{ $booking->quantity }}</td>
                 </tr>
                 @if($booking->selectedProduct)
                 <tr>
-                    <td class="label">Selected Item</td>
+                    <td class="label">{{ __('receipt.label_selected_item') }}</td>
                     <td class="value">
-                        {{ $booking->selectedProduct->name_gu ?? $booking->selectedProduct->name }}
+                        {{ $booking->selectedProduct->name }}
                         @if($booking->selected_variant_label)
                             — {{ $booking->selected_variant_label }}
                         @endif
@@ -122,33 +130,33 @@
 
         {{-- Devotee Details --}}
         <div class="section">
-            <div class="section-title">Devotee Details</div>
+            <div class="section-title">{{ __('receipt.section_devotee') }}</div>
             <table class="data-table">
                 <tr>
-                    <td class="label">Name</td>
-                    <td class="value">{{ $booking->devotee?->name ?: 'Devotee' }}</td>
+                    <td class="label">{{ __('receipt.label_name') }}</td>
+                    <td class="value">{{ $booking->devotee?->name ?: __('receipt.devotee_fallback') }}</td>
                 </tr>
                 @if($booking->devotee?->phone)
                 <tr>
-                    <td class="label">Phone</td>
+                    <td class="label">{{ __('receipt.label_phone') }}</td>
                     <td class="value">{{ $booking->devotee->phone }}</td>
                 </tr>
                 @endif
                 @if($booking->devotee_name_for_seva)
                 <tr>
-                    <td class="label">Seva in the name of</td>
+                    <td class="label">{{ __('receipt.label_seva_in_name_of') }}</td>
                     <td class="value">{{ $booking->devotee_name_for_seva }}</td>
                 </tr>
                 @endif
                 @if($booking->sankalp)
                 <tr>
-                    <td class="label">Sankalp</td>
+                    <td class="label">{{ __('receipt.label_sankalp') }}</td>
                     <td class="value">{{ $booking->sankalp }}</td>
                 </tr>
                 @endif
                 <tr>
-                    <td class="label">Payment Mode</td>
-                    <td class="value">{{ $booking->payment?->method ?? 'Online' }}</td>
+                    <td class="label">{{ __('receipt.payment_mode') }}</td>
+                    <td class="value">{{ $payment_mode_label }}</td>
                 </tr>
             </table>
         </div>
@@ -156,7 +164,9 @@
         {{-- Amount --}}
         <table class="amount-box" width="100%" cellpadding="0" cellspacing="0"><tr><td>
             <div class="amount-total">&#8377; {{ number_format((float) $booking->total_amount, 2) }}</div>
-            <div class="amount-words">{{ $amount_in_words }}</div>
+            {{-- The words themselves stay English in every language (no verified
+                 gu/hi numeral-to-words implementation); only the label translates. --}}
+            <div class="amount-words">{{ __('receipt.label_amount_in_words') }}: <span class="words-value">{{ $amount_in_words }}</span></div>
         </td></tr></table>
 
         {{-- Footer --}}
@@ -171,11 +181,11 @@
                     </td>
                     <td class="signature-block">
                         <div class="signature-line"></div>
-                        <div class="signature-label">Authorised Signatory</div>
+                        <div class="signature-label">{{ __('receipt.authorised_signatory') }}</div>
                     </td>
                 </tr>
             </table>
-            <div class="computer-gen">This is a computer-generated receipt and does not require a physical signature.</div>
+            <div class="computer-gen">{{ __('receipt.computer_generated_receipt') }}</div>
         </div>
     </div>
 </body>

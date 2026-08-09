@@ -57,4 +57,6 @@ return [
     'slot_full_week' => 'Whole week',
     'choose_option' => 'Choose an option',
     'book' => 'Book',
+    // Step eyebrow above the product / date pickers when a seva offers both.
+    'step' => 'Step :n',
 ];

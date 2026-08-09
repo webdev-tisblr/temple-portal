@@ -59,4 +59,67 @@ return [
     'pdf_download' => 'PDF Download',
     'no_receipts' => 'No 80G receipts are available for you right now.',
     'receipts_after_donation' => 'The 80G certificate will be available after you donate.',
+    'pan_disclaimer' => 'PAN is optional. It is required only if you want an 80G tax-exemption receipt — without it your donations are recorded as Gupt Daan.',
+    'clear_pan' => 'Remove the saved PAN',
+    'clear_pan_hint' => 'Removes your PAN from your profile. Future donations will not get an 80G receipt.',
+    'pan_needed_banner' => 'Add your PAN below to receive an 80G receipt, then save — we will take you back to your donation.',
+    'pan_invalid' => 'Invalid PAN format.',
+    'pan_invalid_example' => 'Invalid PAN format. (ABCDE1234F)',
+    'profile_updated' => 'Profile updated.',
+    'profile_created' => 'Profile created successfully!',
+
+    // ── Section nav (item 2.6 redesign) ──────────────────────────────
+    'overview' => 'Overview',
+    'account_menu' => 'My Account',
+    'quick_actions' => 'Quick Actions',
+
+    // ── Table column headers ─────────────────────────────────────────
+    // These were hardcoded transliterations ("Tarikh", "Rakam",
+    // "Daan Tarikh", "Financial Year", "Seva", "Samay (Slot)",
+    // "Receipt No.") sitting in the Blade. Note `col_amount` exists
+    // separately from `common.amount` — the shared key reads "Seva
+    // Donation", which is wrong above a donations or receipts column.
+    'col_seva' => 'Seva',
+    'col_date' => 'Date',
+    'col_time_slot' => 'Time / Slot',
+    'col_amount' => 'Amount',
+    'col_type' => 'Type',
+    'col_purpose' => 'Purpose',
+    'col_receipt' => 'Receipt',
+    'col_receipt_no' => 'Receipt No.',
+    'col_donation_date' => 'Donation Date',
+    'col_financial_year' => 'Financial Year',
+    'col_status' => 'Status',
+    'col_order_no' => 'Order No.',
+    'col_items' => 'Items',
+    'col_total' => 'Total',
+    'col_hall' => 'Hall',
+    'col_dates' => 'Dates',
+    'col_duration' => 'Duration',
+    'col_action' => 'Action',
+
+    // ── Status labels ────────────────────────────────────────────────
+    'status_pending' => 'Pending',
+    'status_confirmed' => 'Confirmed',
+    'status_processing' => 'Processing',
+    'status_shipped' => 'Shipped',
+    'status_delivered' => 'Delivered',
+    'status_cancelled' => 'Cancelled',
+    'status_refunded' => 'Refunded',
+    'status_completed' => 'Completed',
+
+    // ── Hall bookings panel (item 2.6 + 4.2 multi-day ranges) ────────
+    'hall_bookings' => 'Hall Bookings',
+    'hall_bookings_sub' => 'Your hall reservations',
+    'no_hall_bookings' => 'You have no hall bookings yet.',
+    'book_hall' => 'Book a Hall',
+    'seva_bookings_heading' => 'Seva Bookings',
+    'days_count' => '{1} 1 day|[2,*] :count days',
+    'invoice' => 'Invoice',
+    'invoice_download' => 'Download Invoice',
+
+    'my_orders_sub' => 'Your prasad orders from the store',
+    // ── Misc ─────────────────────────────────────────────────────────
+    'book_seva_cta' => 'Book a Seva',
+    'no_orders_hint' => 'Prasad you order from the store will appear here.',
 ];

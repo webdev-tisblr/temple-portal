@@ -6,6 +6,20 @@ use App\Models\AdminUser;
 use App\Models\GalleryImage;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
+/**
+ * Slug reconciled 2026-08-09 (RBAC audit G8).
+ *
+ * This policy used to check the bare `…_gallery` slug while
+ * `shield:generate` derives its slug from the model basename
+ * (GalleryImage → `gallery::image`) and created a PARALLEL, inert set.
+ * The Shield UI at /admin/shield/roles therefore rendered a "Gallery Image"
+ * block whose checkboxes granted nothing, while the working permissions sat
+ * under a different heading — a super admin delegating gallery access would
+ * silently fail.
+ *
+ * `gallery::image` is now the single naming. The old `…_gallery` rows are
+ * dropped by RolePermissionSeeder::pruneObsoletePermissions().
+ */
 class GalleryImagePolicy
 {
     use HandlesAuthorization;
@@ -15,7 +29,7 @@ class GalleryImagePolicy
      */
     public function viewAny(AdminUser $adminUser): bool
     {
-        return $adminUser->can('view_any_gallery');
+        return $adminUser->can('view_any_gallery::image');
     }
 
     /**
@@ -23,7 +37,7 @@ class GalleryImagePolicy
      */
     public function view(AdminUser $adminUser, GalleryImage $galleryImage): bool
     {
-        return $adminUser->can('view_gallery');
+        return $adminUser->can('view_gallery::image');
     }
 
     /**
@@ -31,7 +45,7 @@ class GalleryImagePolicy
      */
     public function create(AdminUser $adminUser): bool
     {
-        return $adminUser->can('create_gallery');
+        return $adminUser->can('create_gallery::image');
     }
 
     /**
@@ -39,7 +53,7 @@ class GalleryImagePolicy
      */
     public function update(AdminUser $adminUser, GalleryImage $galleryImage): bool
     {
-        return $adminUser->can('update_gallery');
+        return $adminUser->can('update_gallery::image');
     }
 
     /**
@@ -47,7 +61,7 @@ class GalleryImagePolicy
      */
     public function delete(AdminUser $adminUser, GalleryImage $galleryImage): bool
     {
-        return $adminUser->can('delete_gallery');
+        return $adminUser->can('delete_gallery::image');
     }
 
     /**
@@ -55,7 +69,7 @@ class GalleryImagePolicy
      */
     public function deleteAny(AdminUser $adminUser): bool
     {
-        return $adminUser->can('delete_any_gallery');
+        return $adminUser->can('delete_any_gallery::image');
     }
 
     /**
@@ -63,7 +77,7 @@ class GalleryImagePolicy
      */
     public function forceDelete(AdminUser $adminUser, GalleryImage $galleryImage): bool
     {
-        return $adminUser->can('force_delete_gallery');
+        return $adminUser->can('force_delete_gallery::image');
     }
 
     /**
@@ -71,7 +85,7 @@ class GalleryImagePolicy
      */
     public function forceDeleteAny(AdminUser $adminUser): bool
     {
-        return $adminUser->can('force_delete_any_gallery');
+        return $adminUser->can('force_delete_any_gallery::image');
     }
 
     /**
@@ -79,7 +93,7 @@ class GalleryImagePolicy
      */
     public function restore(AdminUser $adminUser, GalleryImage $galleryImage): bool
     {
-        return $adminUser->can('restore_gallery');
+        return $adminUser->can('restore_gallery::image');
     }
 
     /**
@@ -87,7 +101,7 @@ class GalleryImagePolicy
      */
     public function restoreAny(AdminUser $adminUser): bool
     {
-        return $adminUser->can('restore_any_gallery');
+        return $adminUser->can('restore_any_gallery::image');
     }
 
     /**
@@ -95,7 +109,7 @@ class GalleryImagePolicy
      */
     public function replicate(AdminUser $adminUser, GalleryImage $galleryImage): bool
     {
-        return $adminUser->can('replicate_gallery');
+        return $adminUser->can('replicate_gallery::image');
     }
 
     /**
@@ -103,6 +117,6 @@ class GalleryImagePolicy
      */
     public function reorder(AdminUser $adminUser): bool
     {
-        return $adminUser->can('reorder_gallery');
+        return $adminUser->can('reorder_gallery::image');
     }
 }

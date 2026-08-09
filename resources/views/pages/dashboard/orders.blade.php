@@ -1,76 +1,97 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-temple">
-    <nav class="text-sm text-amber-100/30 mb-6">
-        <a href="{{ route('dashboard.index') }}" class="hover:text-gold transition">{{ __('nav.dashboard') }}</a>
-        <span class="mx-2">/</span>
-        <span class="text-gold">{{ __('dashboard.my_orders') }}</span>
-    </nav>
 
-    <h1 class="divine-heading text-2xl mb-6">{{ __('dashboard.my_orders') }}</h1>
+{{-- Was the odd one out: a hand-rolled breadcrumb + bare <h1>. Now the same
+     chrome as every other dashboard page. --}}
+<x-page-header
+    :breadcrumb="[
+        ['label' => __('nav.dashboard'), 'url' => route('dashboard.index')],
+        ['label' => __('dashboard.my_orders')],
+    ]"
+    title="{{ __('dashboard.my_orders') }}"
+    subtitle="{{ __('dashboard.my_orders_sub') }}" />
 
-    @if($orders->isNotEmpty())
-        <div class="space-y-4">
-            @foreach($orders as $order)
-                <div class="card-sacred p-5">
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div>
-                            <p class="text-gold font-bold">{{ $order->order_number }}</p>
-                            <p class="text-xs text-amber-100/40 mt-0.5">{{ $order->created_at->format('d/m/Y, h:i A') }}</p>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="px-2.5 py-1 rounded-full text-xs font-semibold
-                                @switch($order->status->value)
-                                    @case('pending') bg-amber-900/30 text-amber-400 @break
-                                    @case('confirmed') bg-blue-900/30 text-blue-400 @break
-                                    @case('processing') bg-indigo-900/30 text-indigo-400 @break
-                                    @case('shipped') bg-emerald-900/30 text-emerald-400 @break
-                                    @case('delivered') bg-green-900/30 text-green-400 @break
-                                    @case('cancelled') bg-red-900/30 text-red-400 @break
-                                    @case('refunded') bg-gray-900/30 text-gray-400 @break
-                                    @default bg-amber-900/30 text-amber-400
-                                @endswitch
-                            ">{{ ucfirst($order->status->value) }}</span>
-                            <span class="text-lg font-bold text-gold">₹{{ number_format((float) $order->total_amount, 2) }}</span>
-                        </div>
-                    </div>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-temple">
 
-                    <div class="mt-3 pt-3 border-t border-amber-900/15">
-                        <div class="flex flex-wrap gap-2 text-xs text-amber-100/50">
-                            @foreach($order->items as $item)
-                                <span class="bg-amber-900/20 px-2 py-1 rounded">{{ $item->product_name }} x{{ $item->quantity }}</span>
-                            @endforeach
-                        </div>
-                    </div>
+    <x-dashboard.nav active="orders" />
 
-                    {{-- Gate on STATUS, not invoice_path: the retention sweep
-                         NULLs invoice_path (file is regenerated on demand), so
-                         a path-based guard made the button vanish for older
-                         orders even though the download endpoint self-heals. --}}
-                    @if(in_array($order->status?->value ?? (string) $order->status, ['confirmed', 'processing', 'shipped', 'delivered'], true))
-                        <div class="mt-3 pt-3 border-t border-amber-900/15">
-                            <a href="{{ route('store.order.invoice', $order) }}" class="text-amber-500 hover:text-gold text-sm font-semibold flex items-center gap-1 transition">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                Invoice Download
-                            </a>
-                        </div>
-                    @endif
-                </div>
-            @endforeach
-        </div>
+    <x-dashboard.panel
+        :title="__('dashboard.my_orders')"
+        icon="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z">
 
-        <div class="mt-6">
-            {{ $orders->links() }}
-        </div>
-    @else
-        <div class="text-center py-20 card-sacred">
-            <svg class="w-12 h-12 text-amber-800/40 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
-            </svg>
-            <p class="text-amber-100/30">{{ __('dashboard.no_orders') }}</p>
-            <a href="{{ route('store.index') }}" class="mt-4 inline-flex items-center px-6 py-2.5 btn-divine">{{ __('dashboard.view_store') }}</a>
-        </div>
-    @endif
+        @if($orders->isNotEmpty())
+            <table class="dash-table">
+                <thead class="dash-thead">
+                    <tr>
+                        <th class="dash-th">{{ __('dashboard.col_order_no') }}</th>
+                        <th class="dash-th">{{ __('dashboard.col_items') }}</th>
+                        <th class="dash-th">{{ __('dashboard.col_total') }}</th>
+                        <th class="dash-th">{{ __('dashboard.col_status') }}</th>
+                        <th class="dash-th">{{ __('dashboard.col_action') }}</th>
+                    </tr>
+                </thead>
+                <tbody class="dash-tbody">
+                    @foreach($orders as $order)
+                        @php
+                            $orderStatus = $order->status instanceof \BackedEnum
+                                ? (string) $order->status->value
+                                : (string) $order->status;
+                        @endphp
+                        <tr class="dash-tr">
+                            <x-dashboard.cell :label="__('dashboard.col_order_no')">
+                                <span class="font-mono text-sm font-semibold" style="color: #2A1810;">{{ $order->order_number }}</span>
+                                <span class="block text-xs" style="color: #8A7860;">{{ $order->created_at->format('d/m/Y, h:i A') }}</span>
+                            </x-dashboard.cell>
+
+                            <x-dashboard.cell :label="__('dashboard.col_items')">
+                                <span class="flex flex-wrap justify-end gap-1.5 md:justify-start">
+                                    @foreach($order->items as $item)
+                                        <span class="dash-chip dash-chip-info">{{ $item->product_name }} &times;{{ $item->quantity }}</span>
+                                    @endforeach
+                                </span>
+                            </x-dashboard.cell>
+
+                            <x-dashboard.cell :label="__('dashboard.col_total')">
+                                <span class="font-semibold" style="color: #C45F12;">₹{{ number_format((float) $order->total_amount, 2) }}</span>
+                            </x-dashboard.cell>
+
+                            <x-dashboard.cell :label="__('dashboard.col_status')">
+                                <x-dashboard.status-chip :status="$orderStatus" />
+                            </x-dashboard.cell>
+
+                            {{-- Gate on STATUS, not invoice_path: the retention sweep
+                                 NULLs invoice_path (file is regenerated on demand), so
+                                 a path-based guard made the button vanish for older
+                                 orders even though the download endpoint self-heals. --}}
+                            <x-dashboard.cell :label="__('dashboard.col_action')">
+                                @if(in_array($orderStatus, ['confirmed', 'processing', 'shipped', 'delivered'], true))
+                                    <a href="{{ route('store.order.invoice', $order) }}" class="dash-link">
+                                        <x-dashboard.icon path="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" class="w-3.5 h-3.5" />
+                                        {{ __('dashboard.invoice') }}
+                                    </a>
+                                @else
+                                    <span style="color: #8A7860;">&mdash;</span>
+                                @endif
+                            </x-dashboard.cell>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+
+            @if($orders->hasPages())
+                <div class="dash-panel-foot">{{ $orders->links() }}</div>
+            @endif
+        @else
+            <x-dashboard.empty
+                icon="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                :message="__('dashboard.no_orders')"
+                :hint="__('dashboard.no_orders_hint')"
+                :ctaHref="route('store.index')"
+                :ctaLabel="__('dashboard.view_store')" />
+        @endif
+    </x-dashboard.panel>
+
 </div>
+
 @endsection

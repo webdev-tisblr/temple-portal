@@ -126,9 +126,16 @@ class FinancialReports extends Page implements HasForms, HasTable
 
         return response()->streamDownload(function () use ($donations) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Date', 'Receipt No.', 'Devotee', 'Phone', 'Amount (₹)', 'Type', 'Purpose', 'FY', 'Status']);
+            // "Mode" + "Collected by" (item 6.1): cash taken at the counter
+            // has to reconcile against the physical cash box, which means
+            // the export must say WHICH admin took it. That is the actual
+            // question the trust asks of this report, and it is why
+            // temple_payments carries created_by_admin_id at all.
+            fputcsv($handle, ['Date', 'Receipt No.', 'Devotee', 'Phone', 'Amount (₹)', 'Type', 'Purpose', 'FY', 'Status', 'Mode', 'Collected by']);
 
             foreach ($donations as $d) {
+                $offline = $d->payment?->isOffline() ?? false;
+
                 fputcsv($handle, [
                     $d->created_at->format('d/m/Y'),
                     $d->receipt?->receipt_number ?? '-',
@@ -139,6 +146,8 @@ class FinancialReports extends Page implements HasForms, HasTable
                     $d->purpose ?? '-',
                     $d->financial_year,
                     $d->payment?->status?->value ?? '-',
+                    $offline ? ($d->payment?->method ?? 'offline') : 'online',
+                    $offline ? ($d->payment?->createdByAdmin?->name ?? 'counter (admin deleted)') : '-',
                 ]);
             }
             fclose($handle);
@@ -168,7 +177,7 @@ class FinancialReports extends Page implements HasForms, HasTable
     private function getFilteredDonations(): \Illuminate\Support\Collection
     {
         return $this->baseQuery()
-            ->with('devotee', 'receipt', 'payment')
+            ->with('devotee', 'receipt', 'payment.createdByAdmin')
             ->orderBy('created_at', 'desc')
             ->get();
     }

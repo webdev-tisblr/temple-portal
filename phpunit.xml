@@ -18,6 +18,14 @@
         </include>
     </source>
     <php>
+        <!--
+            Booting the full Filament admin panel inside Livewire component
+            tests (tests/Feature/AdminAuthorizationTest.php) walks past PHP's
+            stock 128M. Raised here rather than in php.ini so CI, local XAMPP
+            and `php artisan test` (which spawns its own PHP process and does
+            NOT inherit a -d flag) all agree.
+        -->
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

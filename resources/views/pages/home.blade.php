@@ -295,44 +295,11 @@
 @include('partials.home-hall-band')
 
 {{-- =================================================================
-     PRASAD HIGHLIGHT (temple prasad laddoos — between hall band and
-     events, added 2026-08-05 per trust request)
+     ORDER PRASAD (temple prasad laddoos — between hall band and events,
+     added 2026-08-05 per trust request; redesigned as an invitation band
+     and moved into its own partial 2026-08-09)
      ================================================================= --}}
-@if(!empty($prasadProducts))
-    <section class="py-16" style="background:#F4EAD5; border-top:1px solid #e9dfc8; border-bottom:1px solid #e9dfc8;">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-end justify-between mb-9">
-                <div>
-                    <div class="text-[11px] eyebrow" style="color:#C45F12;">{{ __('home.prasad_eyebrow') }}</div>
-                    <h2 class="font-marcellus text-3xl sm:text-4xl mt-2.5" style="color:#7A1E1E;">{{ __('home.prasad_title') }}</h2>
-                    <p class="text-sm mt-2" style="color:#8B7355;">{{ __('home.prasad_sub') }}</p>
-                </div>
-                <a href="{{ route('store.index') }}" class="text-sm font-extrabold whitespace-nowrap" style="color:#C45F12;">{{ __('home.prasad_view_all') }} →</a>
-            </div>
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
-                @foreach($prasadProducts as $p)
-                    @php
-                        // Cached payload is locale-neutral; resolve here.
-                        $pName = $p['names'][app()->getLocale()] ?? null ?: $p['names']['gu'];
-                    @endphp
-                    <a href="{{ route('store.product', $p['slug']) }}" class="block text-center rounded-2xl p-2.5 pb-5 transition hover:shadow-lg"
-                       style="background:#fff; border:1px solid #ecdfc4;">
-                        <div class="w-full aspect-[4/3] rounded-xl overflow-hidden bg-cover bg-no-repeat bg-center"
-                             style="@if($p['image_path'])background-color:#fff;background-image:url('{{ image_url($p['image_path']) }}');@else background:repeating-linear-gradient(45deg,#e8dcc4 0 12px,#f1e8d3 12px 24px);@endif">
-                        </div>
-                        <div class="font-marcellus text-lg sm:text-xl mt-4" style="color:#7A1E1E;">{{ $pName }}</div>
-                        <div class="text-sm font-extrabold mt-1" style="color:#C45F12;">
-                            {{ $p['display_price'] }}
-                            @unless($p['in_stock'])
-                                <span class="text-xs font-semibold" style="color:#8B7355;">· {{ __('store.out_of_stock') }}</span>
-                            @endunless
-                        </div>
-                    </a>
-                @endforeach
-            </div>
-        </div>
-    </section>
-@endif
+@include('partials.home-prasad')
 
 {{-- =================================================================
      UPCOMING EVENTS (compact strip)
@@ -401,6 +368,11 @@
 </section>
 
 @include('partials.home-darshan-widget')
+
+{{-- Sticky Donate / Book Seva bar — homepage only, appears once the hero
+     has scrolled away. Stateless markup on purpose (the homepage is guest
+     cached); see the partial for the z-index order it assumes. --}}
+@include('partials.home-sticky-bar')
 
 @endsection
 

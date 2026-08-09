@@ -47,6 +47,9 @@ class RolePermissionSeeder extends Seeder
      */
     private const RESOURCE_SLUGS = [
         'admin::user',
+        // G1 (2026-08-09): AppStringOverrideResource had no slug AND no
+        // policy, so Filament failed open on live app-wording overrides.
+        'app::string::override',
         'contact::submission',
         'daily::darshan::photo',
         'devotee',
@@ -54,7 +57,11 @@ class RolePermissionSeeder extends Seeder
         'donation::campaign',
         'donation::type',
         'event',
-        'gallery',
+        // G8 (2026-08-09): was the bare `gallery` slug, which diverged from
+        // the `gallery::image` set shield:generate derives from the
+        // GalleryImage model — the Shield UI checkboxes granted nothing.
+        // GalleryImagePolicy now checks `gallery::image` too.
+        'gallery::image',
         'gallery::category',
         'guide',
         'guide::category',
@@ -87,24 +94,89 @@ class RolePermissionSeeder extends Seeder
     ];
 
     private const PAGES = [
+        // Item 6.1 — the "who is allowed to take cash" switch. One page,
+        // one permission, four record types. CounterEntryPage::canAccess()
+        // checks it (fail-closed, like every other page here), and the page
+        // ALSO checks the per-type create_* permission before writing, so
+        // an admin can be allowed to take seva cash without being allowed
+        // to take donations (which touch 80G receipt numbering).
+        'CounterEntryPage',
         'DarshanTimingsPage',
         'HomePageSettingsPage',
         'FinancialReports',
         'SystemSettings',
     ];
 
+    /**
+     * MUST match the class names under app/Filament/Widgets/ exactly.
+     *
+     * Widget canView() is fail-CLOSED (`->can("widget_X")`), so a widget
+     * missing from this list is invisible to every non-super-admin; and a
+     * widget listed here that no longer exists is a dead grant nobody can
+     * ever use. G4 (four widgets missing) and G5 (two deleted widgets still
+     * granted) were both live on 2026-08-09.
+     */
     private const WIDGETS = [
+        'ActiveContentOverview',      // G4 — was missing
         'ComingSoonToggleWidget',
         'DonationChart',
         'DonationStatsOverview',
+        'EngagementOverview',         // G4 — was missing
+        'OperationsTodayOverview',    // G4 — was missing
         'QueueHealthOverview',
-        'RecentDonationsTable',
-        'SevaBookingOverview',
+        'SevaBookingsChart',          // G4 — was missing
+        // G5: 'RecentDonationsTable' and 'SevaBookingOverview' removed —
+        // neither widget class exists any more. See OBSOLETE_PERMISSIONS.
+    ];
+
+    /**
+     * Permissions that must be actively REMOVED from the database, not just
+     * left out of the matrices above.
+     *
+     * syncPermissions() already revokes them from the bundled roles, but the
+     * rows themselves would linger in the Shield UI (and on any role created
+     * at runtime) forever. pruneObsoletePermissions() deletes both the
+     * permission rows and their pivot entries so nothing is orphaned.
+     */
+    private const OBSOLETE_PERMISSIONS = [
+        // G5 — widget classes deleted.
+        'widget_RecentDonationsTable',
+        'widget_SevaBookingOverview',
+
+        // G9 — decorative custom permissions with no feature to gate.
+        // `export_orders`: OrderResource has no export action at all.
+        // `assign_seva_to_pujari`: assignment is the `assignee_id` field on
+        // SevaResource, now gated on update_seva — a second permission for
+        // the same field was never checked and never will be.
+        'export_orders',
+        'assign_seva_to_pujari',
+    ];
+
+    /**
+     * Slug prefixes whose full 12-action permission set is obsolete.
+     *
+     * G6 — `hero::slide`: HeroSlideResource was deleted (replaced by the
+     *      Home Page Settings page). The seeder used to grant it to trustee
+     *      without ever creating it, which printed an "unknown permission"
+     *      warning on EVERY production deploy and trained operators to
+     *      ignore seeder warnings.
+     * G8 — `gallery`: superseded by `gallery::image` (see RESOURCE_SLUGS).
+     */
+    private const OBSOLETE_RESOURCE_SLUGS = [
+        'hero::slide',
+        'gallery',
     ];
 
     /**
      * Cross-cutting permissions that aren't tied to a single Filament resource.
      * Add new action-level permissions here as the app grows.
+     *
+     * ⚠️ EVERY entry below is checked somewhere in app/ — the call site is
+     * named in the comment. G9 (2026-08-09) found 6 of 8 were decorative:
+     * seeded, rendered as checkboxes in the Shield UI, and never consulted.
+     * If you add one here without a `->visible(fn () => …can('x'))` or an
+     * `abort_unless`, you are shipping a lie. Two were deleted outright —
+     * see OBSOLETE_PERMISSIONS.
      */
     private const CUSTOM_PERMISSIONS = [
         // Required by AdminUser::canAccessPanel — without this, even an
@@ -112,17 +184,23 @@ class RolePermissionSeeder extends Seeder
         'panel_user',
 
         // Financial actions surfaced as buttons in Filament resources.
-        'approve_refund',           // Issue a Razorpay refund on an Order/Donation
-        'regenerate_80g_receipt',   // Re-render and re-deliver a tax receipt
-        'export_donations',         // CSV/XLSX export from donation list
-        'export_orders',            // CSV/XLSX export from order list
+        // approve_refund       → ViewOrder::cancel_order + ViewOrder::update_status
+        //                        (both restore product stock).
+        // regenerate_80g_receipt → ViewDonation::generate_receipt (mints an
+        //                        80G receipt number).
+        // export_donations     → ListDonations::export (full donor CSV/PDF).
+        'approve_refund',
+        'regenerate_80g_receipt',
+        'export_donations',
 
         // Communication actions.
-        'resend_notification',      // Retry a failed notification row
-        'send_announcement',        // Push an announcement to all devotees
-
-        // Operational actions.
-        'assign_seva_to_pujari',    // Assign / reassign pujari on a SevaBooking
+        // resend_notification  → NotificationLogResource::resend.
+        // send_announcement    → NotificationResource::send_now,
+        //                        EditNotification::send_now,
+        //                        EditNotificationTemplate::send_test,
+        //                        EditDailyDarshanPhoto::send_booking_day_notifications.
+        'resend_notification',
+        'send_announcement',
     ];
 
     public function run(): void
@@ -135,6 +213,10 @@ class RolePermissionSeeder extends Seeder
             $permissions = $this->ensurePermissions();
             $rolePermissions = $this->buildRolePermissionMatrix($permissions);
             $this->syncRoles($rolePermissions, $permissions);
+            // Runs AFTER syncRoles so the bundled roles have already been
+            // rewritten; this only has to clean up runtime-created roles and
+            // the permission rows themselves.
+            $this->pruneObsoletePermissions();
             $this->ensureDefaultSuperAdmin();
             $this->migrateLegacyDefaultAdmin();
         });
@@ -181,6 +263,59 @@ class RolePermissionSeeder extends Seeder
     }
 
     /**
+     * Delete permission rows this seeder no longer owns, along with every
+     * pivot row that references them, so nothing is left orphaned.
+     *
+     * Idempotent by construction: a DELETE over a name whitelist is a no-op
+     * once the rows are gone. Deliberately narrow — it only ever touches the
+     * exact names listed in OBSOLETE_PERMISSIONS / OBSOLETE_RESOURCE_SLUGS,
+     * never a LIKE prefix (which would have eaten `gallery::image` and
+     * `gallery::category` alongside the obsolete `gallery` set).
+     */
+    private function pruneObsoletePermissions(): void
+    {
+        $names = self::OBSOLETE_PERMISSIONS;
+
+        foreach (self::OBSOLETE_RESOURCE_SLUGS as $slug) {
+            foreach (self::RESOURCE_ACTIONS as $action) {
+                $names[] = "{$action}_{$slug}";
+            }
+        }
+
+        $ids = Permission::whereIn('name', $names)
+            ->where('guard_name', 'admin')
+            ->pluck('id');
+
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        // Pivot cleanup first. The Spatie tables have ON DELETE CASCADE in a
+        // stock install, but this seeder must not depend on the FK having
+        // survived every migration this project has been through, and a
+        // dangling role_has_permissions row is a phantom grant.
+        //
+        // NOTE the `?:` rather than a config() default: this project's
+        // published config/permission.php declares
+        // `column_names.permission_pivot_key => null`, so config() finds the
+        // key and returns null — the second argument to config() never fires
+        // and you get `where '' in (…)` / SQLSTATE[42S22].
+        $pivotKey = config('permission.column_names.permission_pivot_key') ?: 'permission_id';
+
+        DB::table(config('permission.table_names.role_has_permissions') ?: 'role_has_permissions')
+            ->whereIn($pivotKey, $ids)
+            ->delete();
+
+        DB::table(config('permission.table_names.model_has_permissions') ?: 'model_has_permissions')
+            ->whereIn($pivotKey, $ids)
+            ->delete();
+
+        Permission::whereIn('id', $ids)->delete();
+
+        $this->command?->info('RolePermissionSeeder: pruned '.$ids->count().' obsolete permission(s).');
+    }
+
+    /**
      * Map role name → list of permission names it should hold.
      *
      * `super_admin` gets everything (also bypassed via Gate::before, but we
@@ -209,7 +344,7 @@ class RolePermissionSeeder extends Seeder
                 // Content management — create/update across the site
                 $crud('daily::darshan::photo'),
                 $crud('event'),
-                $crud('gallery'),
+                $crud('gallery::image'),
                 $crud('gallery::category'),
                 $crud('guide'),
                 $crud('guide::category'),
@@ -228,9 +363,14 @@ class RolePermissionSeeder extends Seeder
 
                 // Transactional — view + update bookings/orders; donations
                 // stay create+update (delete intentionally omitted).
-                $crud('seva::booking', ['view_any', 'view', 'update', 'delete', 'delete_any']),
-                $crud('hall::booking', ['view_any', 'view', 'update', 'delete', 'delete_any']),
-                $crud('order', ['view_any', 'view', 'update']),
+                //
+                // Item 6.1: the four `create_*` grants below are what let a
+                // trustee take cash for that record type on the Counter
+                // Entry page. They do NOT re-open the Filament resources —
+                // all four still hard-return canCreate() === false.
+                $crud('seva::booking', ['view_any', 'view', 'create', 'update', 'delete', 'delete_any']),
+                $crud('hall::booking', ['view_any', 'view', 'create', 'update', 'delete', 'delete_any']),
+                $crud('order', ['view_any', 'view', 'create', 'update']),
                 $crud('donation', ['view_any', 'view', 'create', 'update']),
 
                 // People
@@ -239,7 +379,9 @@ class RolePermissionSeeder extends Seeder
 
                 // Communication
                 $crud('notification::template'),
-                $crud('hero::slide'),
+                // G6: $crud('hero::slide') removed — HeroSlideResource was
+                // deleted, the slug was never in RESOURCE_SLUGS, and this
+                // line printed 4 "unknown permission" warnings per deploy.
                 $crud('status::template'),
                 $crud('seva::reminder::rule'),
                 $crud('notification', ['view_any', 'view', 'create', 'update', 'delete', 'delete_any']),
@@ -248,16 +390,26 @@ class RolePermissionSeeder extends Seeder
                 $crud('trustee'),
 
                 // Pages, widgets, actions
-                ['page_FinancialReports', 'page_SystemSettings', 'page_DarshanTimingsPage', 'page_HomePageSettingsPage'],
-                array_map(fn ($w) => "widget_{$w}", self::WIDGETS),
+                [
+                    'page_FinancialReports',
+                    'page_SystemSettings',
+                    'page_DarshanTimingsPage',
+                    'page_HomePageSettingsPage',
+                    // Item 6.1 — may take cash at the counter for all four
+                    // record types (create_donation above is what unlocks
+                    // the 80G-bearing one).
+                    'page_CounterEntryPage',
+                ],
+                array_map(fn (string $w) => "widget_{$w}", self::WIDGETS),
+                // G1: app text overrides ship to every installed phone, so
+                // trustee is the ONLY bundled role that gets them.
+                $crud('app::string::override', ['view_any', 'view', 'create', 'update', 'delete', 'delete_any']),
                 [
                     'approve_refund',
                     'regenerate_80g_receipt',
                     'export_donations',
-                    'export_orders',
                     'resend_notification',
                     'send_announcement',
-                    'assign_seva_to_pujari',
                 ],
             ),
 
@@ -277,13 +429,16 @@ class RolePermissionSeeder extends Seeder
                 [
                     'widget_DonationChart',
                     'widget_DonationStatsOverview',
-                    'widget_RecentDonationsTable',
+                    // G5: widget_RecentDonationsTable removed (class gone).
+                    // G4: OperationsTodayOverview is the money-shaped
+                    // replacement and was previously invisible to everyone.
+                    'widget_OperationsTodayOverview',
                 ],
                 [
                     'approve_refund',
                     'regenerate_80g_receipt',
                     'export_donations',
-                    'export_orders',
+                    // G9: export_orders deleted — no order export exists.
                 ],
             ),
 
@@ -293,22 +448,34 @@ class RolePermissionSeeder extends Seeder
                 $crud('devotee'),
                 $crud('seva::booking', ['view_any', 'view', 'create', 'update']),
                 $crud('hall::booking', ['view_any', 'view', 'create', 'update']),
-                $crud('order', ['view_any', 'view', 'update']),
+                // Item 6.1: create_order is what lets the front desk ring
+                // up a counter prasad sale on the Counter Entry page.
+                $crud('order', ['view_any', 'view', 'create', 'update']),
                 $crud('contact::submission'),
                 $readOnly('seva'),
                 $readOnly('hall'),
                 $readOnly('product'),
                 $readOnly('event'),
-                $readOnly('gallery'),
+                $readOnly('gallery::image'),
                 $readOnly('guide'),
                 $readOnly('daily::darshan::photo'),
                 $readOnly('donation'),
                 $readOnly('donation::campaign'),
                 [
                     'widget_ComingSoonToggleWidget',
-                    'widget_SevaBookingOverview',
-                    'widget_RecentDonationsTable',
+                    // G4/G5: the two widgets staff used to be granted no
+                    // longer exist. These two are the front-desk equivalents
+                    // and were unreachable by anyone but super_admin.
+                    'widget_OperationsTodayOverview',
+                    'widget_SevaBookingsChart',
                 ],
+                // Item 6.1 — the front desk IS the counter, so staff take
+                // cash for seva / hall / store. Deliberately NOT
+                // create_donation: staff stay read-only on donations (they
+                // already are), so the 80G-receipt-numbering record type
+                // is not offered to them. The record-type switcher hides
+                // what the permission does not allow.
+                ['page_CounterEntryPage'],
                 ['resend_notification'],
             ),
 
@@ -318,7 +485,7 @@ class RolePermissionSeeder extends Seeder
                 $readOnly('devotee'),
                 $readOnly('seva::booking'),
                 $readOnly('event'),
-                $readOnly('gallery'),
+                $readOnly('gallery::image'),
                 $readOnly('guide'),
                 $readOnly('daily::darshan::photo'),
             ),
@@ -337,7 +504,9 @@ class RolePermissionSeeder extends Seeder
                 // UI if a temple wants pujaris to mark sevas completed.
                 $readOnly('seva::booking'),
                 $readOnly('seva'),
-                ['widget_SevaBookingOverview'],
+                // G5: widget_SevaBookingOverview no longer exists; the chart
+                // is the surviving seva-shaped widget.
+                ['widget_SevaBookingsChart'],
             ),
         ];
     }

@@ -325,7 +325,11 @@ class NotificationResource extends Resource
                     })
                     ->modalSubmitActionLabel('Send now')
                     ->modalCancelActionLabel('Cancel')
-                    ->visible(fn (Model $record) => $record->status !== 'sending')
+                    // G12 (2026-08-09): broadcasts a push to EVERY targeted
+                    // devotee. Permission + state in ONE closure — calling
+                    // ->visible() twice replaces the first condition.
+                    ->visible(fn (Model $record): bool => $record->status !== 'sending'
+                        && (auth('admin')->user()?->can('send_announcement') ?? false))
                     ->action(function (Model $record) {
                         if ($record->status === 'sent') {
                             // Clone so the original audit trail stays intact.

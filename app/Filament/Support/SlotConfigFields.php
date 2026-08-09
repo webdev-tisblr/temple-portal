@@ -59,6 +59,15 @@ final class SlotConfigFields
                     })
                     ->numeric()->minValue(1)->default(1)
                     ->helperText('Capacity for each slot / day / week.'),
+                // Item 4.3 — lives inside slot_config (NOT a column) so
+                // sevas sharing a slot pool inherit the pool's cut-off via
+                // SevaSlotService::configFor(). One edit here covers both
+                // SevaResource and SevaSlotPoolResource.
+                Forms\Components\TextInput::make('slot_config.booking_cutoff_hours')
+                    ->label('Booking Cut-off (hours)')
+                    ->numeric()->minValue(0)->maxValue(8760)->default(0)
+                    ->suffix('hours')
+                    ->helperText('Devotees cannot book a slot starting within the next N hours. Set 0 for no cut-off. For full-day sevas the countdown is measured from the Day Start / Anchor Time below.'),
             ]),
 
             // Available days (full-day mode only) — compact checkbox row.
@@ -89,12 +98,12 @@ final class SlotConfigFields
             // slot_config — a dotted TimePicker path binds fine (only
             // the CheckboxList above needed the flat-field workaround).
             Forms\Components\TimePicker::make('slot_config.reminder_anchor_time')
-                ->label('Reminder Anchor Time')
+                ->label('Day Start / Anchor Time')
                 ->native(false)
                 ->seconds(false)
                 ->format('H:i')
                 ->displayFormat('h:i A')
-                ->helperText('Full-day sevas have no start time, so reminders (e.g. "3 hours before") are counted back from this time on the booking day. Leave blank to use the temple default (9:00 AM).')
+                ->helperText('Full-day sevas have no start time, so this time on the booking day is treated as the start. It anchors BOTH the reminders (e.g. "3 hours before") and the booking cut-off above. Leave blank to use the temple default (9:00 AM).')
                 ->visible(fn (Get $get) => in_array(
                     $get('slot_config.slot_type'),
                     ['full_day', 'full_week'],
@@ -249,6 +258,12 @@ final class SlotConfigFields
         $fullDayDays = $data['full_day_days'] ?? [];
         $data['slot_config']['full_day_days'] = is_array($fullDayDays) ? array_values($fullDayDays) : [];
         unset($data['full_day_days']);
+
+        // Cut-off is stored as a real int so cutoffHours() never has to
+        // guess at "" vs "0" vs null coming out of the JSON column.
+        if (isset($data['slot_config'])) {
+            $data['slot_config']['booking_cutoff_hours'] = max(0, (int) ($data['slot_config']['booking_cutoff_hours'] ?? 0));
+        }
 
         // Stamp version
         if (! empty($data['slot_config'])) {

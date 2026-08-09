@@ -59,24 +59,40 @@ class DonationType extends Model
 
     /**
      * Locale-based name accessor.
+     *
+     * Only `name_gu` is required in the admin (DonationTypeResource), so a
+     * type can legitimately have a blank `name_hi` / `name_en`. Falling back
+     * to Gujarati keeps the /donate dropdown from rendering empty <option>s
+     * for hi/en visitors.
      */
     public function getNameAttribute(): string
     {
-        $locale = app()->getLocale();
-
-        return match ($locale) {
+        $localized = match (app()->getLocale()) {
             'hi' => $this->name_hi,
             'en' => $this->name_en,
-            default => $this->name_gu,
+            default => null,
         };
+
+        return (string) (filled($localized) ? $localized : $this->name_gu);
     }
 
+    /**
+     * Locale-based description accessor, with the same Gujarati fallback
+     * (then the legacy untranslated `description` column).
+     */
     public function getDescriptionAttribute(): ?string
     {
-        $locale = app()->getLocale();
-        $field = "description_{$locale}";
+        $localized = match (app()->getLocale()) {
+            'hi' => $this->description_hi,
+            'en' => $this->description_en,
+            default => null,
+        };
 
-        return $this->$field ?: ($this->description_gu ?: ($this->attributes['description'] ?? null));
+        if (filled($localized)) {
+            return $localized;
+        }
+
+        return $this->description_gu ?: ($this->attributes['description'] ?? null);
     }
 
     /**

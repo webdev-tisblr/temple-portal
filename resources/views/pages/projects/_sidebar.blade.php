@@ -25,9 +25,16 @@
         {{-- Stats Row --}}
         <div class="flex items-center gap-4 mb-4">
             <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-900/40 text-amber-400">{{ $pct }}%</span>
+            {{-- Donor count doubles as a quiet jump-link to the donor list
+                 further down the page (no button, no leaderboard framing). --}}
             <span class="text-sm text-amber-100/50">
                 <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                {{ $project->donor_count ?? 0 }} {{ __('projects.donor_count') }}
+                @if($project->show_donor_list)
+                    <a href="#donors" class="underline decoration-dotted underline-offset-4 hover:text-gold transition"
+                       title="{{ __('projects.view_donors') }}">{{ $project->donor_count ?? 0 }} {{ __('projects.donor_count') }}</a>
+                @else
+                    {{ $project->donor_count ?? 0 }} {{ __('projects.donor_count') }}
+                @endif
             </span>
         </div>
 
@@ -115,7 +122,7 @@
                     </button>
                 </form>
             @else
-                <a href="{{ route('login') }}" class="block w-full text-center py-3 btn-divine text-base font-bold">
+                <a href="{{ login_url() }}" class="block w-full text-center py-3 btn-divine text-base font-bold">
                     {{ __('donation.login_to_donate') }}
                 </a>
             @endauth

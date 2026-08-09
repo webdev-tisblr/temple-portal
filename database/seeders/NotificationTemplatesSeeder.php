@@ -202,6 +202,47 @@ class NotificationTemplatesSeeder extends Seeder
                 ],
             ],
 
+            // ── CAMPAIGN DONATION CONFIRMED — email (OFF by default) ──────
+            // Split off donation.confirmed on 2026-08-09 (item 5.1) so the
+            // trust can write campaign-specific wording. Routing is mutually
+            // exclusive (PaymentCaptureService::donationConfirmationDispatch):
+            // a donation WITH a campaign fires this key, one WITHOUT fires
+            // donation.confirmed — never both.
+            //
+            // Seeded is_enabled = FALSE on purpose. Platform rule: nothing
+            // sends unless an admin created AND enabled the template. The
+            // row exists only so the admin has a ready-made starting point
+            // in /admin/notification-templates; deploying the split changes
+            // zero outbound behaviour until someone switches it on.
+            //
+            // WhatsApp / SMS / push variants are NOT seeded — a WhatsApp row
+            // is useless without a Meta-approved template name synced into
+            // temple_whatsapp_template_cache (WhatsAppTemplateBlueprint reads
+            // its {{n}} slots from the synced Meta template, not from our
+            // registry). Create those rows in admin once the Meta template
+            // is approved and synced.
+            [
+                'key' => 'donation.campaign.confirmed',
+                'channel' => NotificationTemplate::CHANNEL_EMAIL,
+                'label' => 'Campaign donation — confirmation email',
+                'description' => 'Sent the moment a donation TO A CAMPAIGN is captured, in place of the generic donation confirmation. Disabled by default — enable it once the wording is reviewed.',
+                'is_enabled' => false,
+                'subject' => 'Thank you for supporting {{ campaign_title }}',
+                'body' => $this->campaignDonationConfirmedHtml(),
+                'recipient_strategy' => NotificationTemplate::RECIPIENT_DEVOTEE,
+                'recipient_value' => null,
+                'placeholder_map' => [
+                    'donor_name' => 'devotee.name',
+                    'amount' => 'amount_formatted',
+                    'campaign_title' => 'donation.campaign.title_gu',
+                    'campaign_url' => 'campaign_url',
+                    'campaign_raised' => 'campaign_raised',
+                    'campaign_goal' => 'campaign_goal',
+                    'sub_cause' => 'donation.subCause.title_gu',
+                    'trust_name' => 'trust_name',
+                ],
+            ],
+
             // ── AUTH OTP — email fallback (off by default) ────────────────
             [
                 'key' => 'auth.otp',
@@ -303,6 +344,28 @@ class NotificationTemplatesSeeder extends Seeder
             <div style="padding:24px;background:#fff;border:1px solid #eee;border-top:none;border-radius:0 0 8px 8px;">
                 <p style="margin:0 0 14px;">Dear <strong>{{ donor_name }}</strong>,</p>
                 <p style="margin:0 0 14px;color:#555;">Your donation of <strong style="color:#881337;">₹{{ amount }}</strong> has been received successfully. Your 80G receipt will arrive in a separate email shortly.</p>
+                <p style="margin:14px 0 0;color:#881337;font-weight:600;">May Shree Hanumanji bless you and your family.</p>
+            </div>
+        </div>
+        HTML;
+    }
+
+    private function campaignDonationConfirmedHtml(): string
+    {
+        return <<<'HTML'
+        <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
+            <div style="background:#881337;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
+                <h1 style="color:#e8c36a;margin:0;font-size:20px;">Thank You for Supporting This Campaign</h1>
+                <p style="color:#ddd;margin:6px 0 0;font-size:13px;">{{ trust_name }}</p>
+            </div>
+            <div style="padding:24px;background:#fff;border:1px solid #eee;border-top:none;border-radius:0 0 8px 8px;">
+                <p style="margin:0 0 14px;">Dear <strong>{{ donor_name }}</strong>,</p>
+                <p style="margin:0 0 14px;color:#555;">Your contribution of <strong style="color:#881337;">₹{{ amount }}</strong> towards <strong>{{ campaign_title }}</strong> has been received successfully.</p>
+                <table style="width:100%;border-collapse:collapse;margin:8px 0 16px;background:#f9f5ef;border-radius:6px;overflow:hidden;">
+                    <tr><td style="padding:10px 14px;color:#888;font-size:12px;">Campaign</td><td style="padding:10px 14px;font-weight:700;color:#881337;">{{ campaign_title }}</td></tr>
+                    <tr><td style="padding:10px 14px;color:#888;font-size:12px;">Raised so far</td><td style="padding:10px 14px;font-weight:600;">₹{{ campaign_raised }} of ₹{{ campaign_goal }}</td></tr>
+                </table>
+                <p style="margin:0 0 14px;color:#555;font-size:13px;">You can follow this campaign's progress <a href="{{ campaign_url }}" style="color:#881337;font-weight:600;">here</a>. Your 80G receipt will arrive in a separate email shortly.</p>
                 <p style="margin:14px 0 0;color:#881337;font-weight:600;">May Shree Hanumanji bless you and your family.</p>
             </div>
         </div>

@@ -59,4 +59,62 @@ return [
     'pdf_download' => 'PDF डाउनलोड',
     'no_receipts' => 'अभी आपकी कोई 80G रसीद उपलब्ध नहीं है।',
     'receipts_after_donation' => 'दान करने के बाद 80G प्रमाणपत्र उपलब्ध होगा।',
+    'pan_disclaimer' => 'PAN वैकल्पिक है। यह केवल तभी आवश्यक है जब आपको 80G कर-छूट रसीद चाहिए — इसके बिना आपके दान गुप्त दान के रूप में दर्ज होते हैं।',
+    'clear_pan' => 'सहेजा गया PAN हटाएँ',
+    'clear_pan_hint' => 'आपकी प्रोफ़ाइल से PAN हटा देता है। आगे के दान पर 80G रसीद नहीं मिलेगी।',
+    'pan_needed_banner' => '80G रसीद पाने के लिए नीचे अपना PAN जोड़कर सहेजें — हम आपको आपके दान पर वापस ले जाएँगे।',
+    'pan_invalid' => 'अमान्य PAN फ़ॉर्मेट।',
+    'pan_invalid_example' => 'अमान्य PAN फ़ॉर्मेट। (ABCDE1234F)',
+    'profile_updated' => 'प्रोफ़ाइल अपडेट हुई।',
+    'profile_created' => 'प्रोफ़ाइल सफलतापूर्वक बनाई गई!',
+
+    // ── Section nav (item 2.6 redesign) ──────────────────────────────
+    'overview' => 'सारांश',
+    'account_menu' => 'मेरा खाता',
+    'quick_actions' => 'त्वरित क्रियाएँ',
+
+    // ── Table column headers ─────────────────────────────────────────
+    'col_seva' => 'सेवा',
+    'col_date' => 'तिथि',
+    'col_time_slot' => 'समय / स्लॉट',
+    'col_amount' => 'राशि',
+    'col_type' => 'प्रकार',
+    'col_purpose' => 'उद्देश्य',
+    'col_receipt' => 'रसीद',
+    'col_receipt_no' => 'रसीद सं.',
+    'col_donation_date' => 'दान तिथि',
+    'col_financial_year' => 'वित्तीय वर्ष',
+    'col_status' => 'स्थिति',
+    'col_order_no' => 'ऑर्डर सं.',
+    'col_items' => 'वस्तुएँ',
+    'col_total' => 'कुल',
+    'col_hall' => 'हॉल',
+    'col_dates' => 'तिथियाँ',
+    'col_duration' => 'अवधि',
+    'col_action' => 'क्रिया',
+
+    // ── Status labels ────────────────────────────────────────────────
+    'status_pending' => 'लंबित',
+    'status_confirmed' => 'पुष्ट',
+    'status_processing' => 'प्रक्रिया में',
+    'status_shipped' => 'भेजा गया',
+    'status_delivered' => 'पहुँचाया गया',
+    'status_cancelled' => 'रद्द',
+    'status_refunded' => 'वापसी हुई',
+    'status_completed' => 'पूर्ण',
+
+    // ── Hall bookings panel (item 2.6 + 4.2 multi-day ranges) ────────
+    'hall_bookings' => 'हॉल बुकिंग',
+    'hall_bookings_sub' => 'आपकी हॉल बुकिंग',
+    'no_hall_bookings' => 'आपकी अभी तक कोई हॉल बुकिंग नहीं है।',
+    'book_hall' => 'हॉल बुक करें',
+    'seva_bookings_heading' => 'सेवा बुकिंग',
+    'days_count' => '{1} १ दिन|[2,*] :count दिन',
+    'invoice' => 'इनवॉइस',
+    'invoice_download' => 'इनवॉइस डाउनलोड करें',
+
+    'my_orders_sub' => 'स्टोर से आपके प्रसाद ऑर्डर',
+    // ── Misc ─────────────────────────────────────────────────────────
+    'book_seva_cta' => 'सेवा बुक करें',
+    'no_orders_hint' => 'स्टोर से मँगाया गया प्रसाद यहाँ दिखेगा।',
 ];

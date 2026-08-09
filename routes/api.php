@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CampaignController;
 use App\Http\Controllers\Api\V1\ContentController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\DonationController;
@@ -89,6 +90,10 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::get('/content/trustees', [ContentController::class, 'trustees']);
     Route::get('/campaigns', [ContentController::class, 'campaigns']);
     Route::get('/campaigns/{campaign}', [ContentController::class, 'campaignDetail']);
+    // Public donor list — the app mirror of /projects/{slug}/donors. Masking
+    // and the captured-only filter live in \App\Support\CampaignDonors so the
+    // two surfaces cannot drift.
+    Route::get('/campaigns/{campaign}/donors', [CampaignController::class, 'donors']);
 
     // Public: Sevas
     Route::get('/sevas', [SevaController::class, 'index']);
@@ -96,6 +101,8 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::get('/sevas/{seva}', [SevaController::class, 'show']);
     Route::get('/sevas/{seva}/slots', [SevaController::class, 'availableSlots']);
     Route::get('/sevas/{seva}/available-dates', [SevaController::class, 'availableDates']);
+    // Item 4.4 — one request instead of the app's 12+N month scan.
+    Route::get('/sevas/{seva}/next-available', [SevaController::class, 'nextAvailable']);
 
     // Public: Gallery & Events
     Route::get('/gallery', [ContentController::class, 'gallery']);
@@ -115,6 +122,10 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::get('/halls', [HallController::class, 'index']);
     Route::get('/halls/{hall}/availability', [HallController::class, 'availability']);
     Route::get('/halls/{hall}/available-dates', [HallController::class, 'availableDates']);
+    // Item 4.2 — server-authoritative multi-day quote (never trust a
+    // client-computed price). Item 4.4 — next open window.
+    Route::get('/halls/{hall}/range-quote', [HallController::class, 'rangeQuote']);
+    Route::get('/halls/{hall}/next-available', [HallController::class, 'nextAvailable']);
 
     // Legacy stubs — Blog removed 2026-07. Old app builds still call
     // these; drop once app_min_version >= the release without blog UI.
@@ -198,11 +209,27 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
                 'date_of_birth' => 'sometimes|nullable|date',
                 'language' => 'sometimes|in:gu,hi,en',
                 'pan_number' => 'sometimes|nullable|string|size:10',
+                'clear_pan' => 'sometimes|boolean',
             ]);
 
-            $updateData = collect($validated)->except(['pan_number'])->toArray();
+            $updateData = collect($validated)->except(['pan_number', 'clear_pan'])->toArray();
 
-            if (!empty($validated['pan_number'])) {
+            // PAN stays OPTIONAL but is now REMOVABLE (item 5.4). Until this
+            // change every path guarded on `! empty($pan_number)`, so a
+            // devotee who had typed a WRONG PAN could never get rid of it —
+            // and under the strict-80G rule a wrong PAN is worse than none,
+            // because it goes onto a statutory document.
+            //
+            // Two accepted signals: an explicit `clear_pan` flag, or
+            // `pan_number` sent explicitly blank/null. `size:10` above only
+            // fires on a non-empty value, so a blank still validates.
+            $wantsClear = ($validated['clear_pan'] ?? false)
+                || ($request->has('pan_number') && blank($validated['pan_number'] ?? null));
+
+            if ($wantsClear) {
+                $updateData['pan_encrypted'] = null;
+                $updateData['pan_last_four'] = null;
+            } elseif (!empty($validated['pan_number'])) {
                 $panService = app(PanValidationService::class);
                 if (!$panService->validate($validated['pan_number'])) {
                     return response()->json([
@@ -211,8 +238,12 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
                         'errors' => ['pan_number' => ['Invalid PAN format.']],
                     ], 422);
                 }
-                $updateData['pan_encrypted'] = Crypt::encryptString($validated['pan_number']);
-                $updateData['pan_last_four'] = substr($validated['pan_number'], -4);
+                // Canonicalise to uppercase — validate() uppercases before
+                // matching, so a lowercase PAN passes and would otherwise be
+                // stored (and printed on the 80G receipt) as typed.
+                $pan = strtoupper($validated['pan_number']);
+                $updateData['pan_encrypted'] = Crypt::encryptString($pan);
+                $updateData['pan_last_four'] = substr($pan, -4);
             }
 
             $request->user()->update($updateData);

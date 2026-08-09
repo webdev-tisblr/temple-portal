@@ -93,6 +93,114 @@
         box-shadow: 0 6px 24px rgba(122, 30, 30, 0.10);
         transform: translateY(-2px);
     }
+
+    /* ── Devotee dashboard (item 2.6) ────────────────────────────────
+       The /dashboard/* tree used to be dark-theme markup rescued by the
+       `!important` compatibility layer further down this file. It is now
+       built on these classes instead, which state the parchment palette
+       directly and need no `!important` to win. Nothing here uses
+       letter-spacing — every label can be Gujarati or Devanagari. */
+
+    /* A panel is card-sacred without the hover lift: dashboard panels are
+       containers, not clickable cards, and a lifting table reads as a bug. */
+    .dash-panel {
+        @apply rounded-2xl overflow-hidden;
+        background: #FFFCF5;
+        border: 1px solid rgba(122, 30, 30, 0.12);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    }
+    .dash-panel-head {
+        @apply flex items-center justify-between gap-3 px-5 py-4;
+        border-bottom: 1px solid rgba(122, 30, 30, 0.10);
+        background: linear-gradient(180deg, #FBF5EA, #FFFCF5);
+    }
+    .dash-panel-title {
+        @apply text-base font-semibold;
+        font-family: 'Marcellus', 'Noto Serif Gujarati', 'Noto Serif Devanagari', serif;
+        color: #7A1E1E;
+    }
+    .dash-panel-foot {
+        @apply px-5 py-4;
+        border-top: 1px solid rgba(122, 30, 30, 0.10);
+    }
+
+    /* Responsive table → stacked cards below md. The <table> switches to
+       block-level boxes on narrow screens so a row becomes a card instead
+       of a horizontal scroll; each cell carries its own label (.dash-cell-label)
+       which is hidden again from md up. */
+    .dash-table  { @apply block w-full text-sm md:table; }
+    .dash-thead  { @apply hidden md:table-header-group; }
+    .dash-th     {
+        @apply px-5 py-3 text-left text-xs font-semibold;
+        color: #7A1E1E;
+        background: rgba(232, 117, 26, 0.07);
+    }
+    .dash-tbody  { @apply block md:table-row-group; }
+    .dash-tr     { @apply block px-4 py-3 md:table-row md:p-0; }
+    .dash-tbody > .dash-tr + .dash-tr { border-top: 1px solid rgba(122, 30, 30, 0.10); }
+    .dash-td     {
+        @apply flex items-baseline justify-between gap-4 py-1.5 md:table-cell md:px-5 md:py-4;
+        color: #3E3226;
+    }
+    .dash-cell-label {
+        @apply shrink-0 text-xs font-semibold md:hidden;
+        color: #8A7860;
+    }
+    .dash-cell-value { @apply min-w-0 text-right md:text-left; }
+
+    /* Status chips */
+    .dash-chip      { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold; }
+    .dash-chip-dot  { @apply inline-block h-1.5 w-1.5 rounded-full; background: currentColor; }
+    .dash-chip-ok   { background: rgba(63, 122, 63, 0.14);  color: #2D5F2D; }
+    .dash-chip-warn { background: rgba(232, 117, 26, 0.14); color: #C45F12; }
+    .dash-chip-bad  { background: rgba(168, 50, 50, 0.12);  color: #A83232; }
+    .dash-chip-info { background: rgba(122, 30, 30, 0.08);  color: #7A1E1E; }
+
+    /* Section nav pills */
+    .dash-nav-link {
+        @apply inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-colors;
+        color: #5E4F3D;
+        background: #FFFCF5;
+        border: 1px solid rgba(122, 30, 30, 0.12);
+    }
+    .dash-nav-link:hover { color: #7A1E1E; border-color: rgba(122, 30, 30, 0.30); }
+    .dash-nav-link[aria-current="page"] {
+        background: linear-gradient(135deg, #E8751A, #C45F12);
+        border-color: transparent;
+        color: #FFFCF5;
+    }
+
+    /* Inline text link inside a panel */
+    .dash-link {
+        @apply inline-flex items-center gap-1.5 text-xs font-semibold transition-colors;
+        color: #C45F12;
+    }
+    .dash-link:hover { color: #7A1E1E; }
+
+    /* Form controls — stated explicitly rather than borrowed from the
+       global input rule in the compatibility layer. */
+    .dash-label { @apply mb-1.5 block text-sm font-medium; color: #7A1E1E; }
+    .dash-input {
+        @apply w-full rounded-lg px-4 py-2.5 text-sm;
+        background: #FFFCF5;
+        border: 1px solid rgba(122, 30, 30, 0.20);
+        color: #2A1810;
+    }
+    .dash-input::placeholder { color: #8A7860; }
+    .dash-input:focus {
+        border-color: #E8751A;
+        outline: 2px solid rgba(232, 117, 26, 0.20);
+        outline-offset: 0;
+    }
+    .dash-hint  { @apply mt-1.5 text-xs; color: #8A7860; }
+    .dash-error { @apply mt-1 text-xs font-medium; color: #A83232; }
+
+    /* Notices (success / warning / info / error) */
+    .dash-notice      { @apply flex items-start gap-3 rounded-xl px-5 py-4 text-sm; }
+    .dash-notice-ok   { background: rgba(63, 122, 63, 0.10); border: 1px solid rgba(63, 122, 63, 0.35); color: #2D5F2D; }
+    .dash-notice-warn { background: rgba(232, 117, 26, 0.10); border: 1px solid rgba(232, 117, 26, 0.35); color: #7A3B08; }
+    .dash-notice-info { background: rgba(122, 30, 30, 0.05); border: 1px solid rgba(122, 30, 30, 0.18); color: #5A1414; }
+    .dash-notice-bad  { background: rgba(168, 50, 50, 0.08); border: 1px solid rgba(168, 50, 50, 0.30); color: #A83232; }
 }
 
 /* Diya glow animation */
@@ -246,23 +354,31 @@
 ::-webkit-scrollbar-thumb:hover { background: #C89434; }
 
 /* ═════════════════════════════════════════════════════════════
-   Tailwind colour-class compatibility layer
+   Tailwind colour-class compatibility layer  —  SHRINKING, DO NOT GROW
    Many blade files use `text-amber-100/X`, `border-amber-9XX/X`,
    `bg-amber-9XX/X` etc. — these were designed for a dark scaffold.
    Re-map them to the app's stone/maroon/saffron palette so existing
    markup renders correctly on the parchment background.
+
+   2026-08-09 (item 2.6): the whole /dashboard/* tree was rebuilt on real
+   palette classes and no longer depends on a single rule below. Every
+   selector that became unreachable as a result — 55 of them, plus 4 whole
+   rules — was deleted. What is left is still load-bearing for ~40 other
+   views (home, seva, store, halls, events, gallery, donate, campaigns…):
+   `grep -rl 'text-amber-100' resources/views` still returns them, so this
+   block cannot be deleted outright yet.
+
+   Rule for new work: never add a selector here. Rebuild the view on the
+   palette instead and delete whatever that frees, the way 2.6 did.
    ═════════════════════════════════════════════════════════════ */
 
 /* Cream-on-dark `text-amber-100/X` → deep stone ink (primary text) */
 .text-amber-100,
-.text-amber-100\/90,
 .text-amber-100\/80,
 .text-amber-100\/70,
 .text-amber-100\/60,
 .text-amber-100\/50,
 .text-amber-200,
-.text-amber-200\/80,
-.text-amber-200\/70,
 .text-amber-200\/60,
 .text-gray-300,
 .text-gray-400,
@@ -274,7 +390,6 @@
 .text-amber-100\/40,
 .text-amber-100\/30,
 .text-amber-100\/20,
-.text-amber-100\/10,
 .text-stone-500 {
     color: #5E4F3D !important;       /* stone-500 — secondary */
 }
@@ -289,18 +404,13 @@
 
 /* Hover states */
 .hover\:text-amber-100:hover,
-.hover\:text-amber-100\/80:hover,
 .hover\:text-gold:hover { color: #7A1E1E !important; }
 
 /* Placeholders */
-.placeholder\:text-amber-100\/20::placeholder,
-.placeholder\:text-amber-100\/30::placeholder,
-.placeholder\:text-amber-100\/40::placeholder { color: #8A7860 !important; }
+.placeholder\:text-amber-100\/20::placeholder { color: #8A7860 !important; }
 
 /* Borders — amber dark borders → tinted maroon hairlines */
 .border-amber-900,
-.border-amber-900\/40,
-.border-amber-900\/30,
 .border-amber-900\/20,
 .border-amber-900\/15,
 .border-amber-900\/10,
@@ -317,8 +427,7 @@
 /* Borders for accents (focus/hover) → saffron */
 .focus\:border-amber-600:focus,
 .focus\:border-amber-500:focus,
-.focus\:ring-amber-600\/20:focus,
-.focus\:ring-amber-500\/20:focus {
+.focus\:ring-amber-600\/20:focus {
     border-color: #E8751A !important;
 }
 
@@ -330,14 +439,10 @@
 .bg-amber-900\/20,
 .bg-amber-900\/15,
 .bg-amber-900\/10,
-.bg-amber-800,
-.bg-amber-800\/30,
-.bg-amber-800\/20,
-.bg-amber-800\/10 {
+.bg-amber-800 {
     background-color: rgba(232, 117, 26, 0.10) !important;
 }
 .hover\:bg-amber-900\/30:hover,
-.hover\:bg-amber-900\/15:hover,
 .hover\:bg-amber-900\/10:hover {
     background-color: rgba(232, 117, 26, 0.18) !important;
 }
@@ -345,72 +450,43 @@
 /* Solid amber backgrounds (vivid) */
 .bg-amber-600 { background-color: #E8751A !important; color: #FFFCF5 !important; }
 .bg-amber-500 { background-color: #E8751A !important; color: #FFFCF5 !important; }
-.bg-amber-400 { background-color: #ECA557 !important; }
 .bg-amber-700 { background-color: #C45F12 !important; color: #FFFCF5 !important; }
-.bg-amber-500\/90,
-.bg-amber-600\/90,
 .bg-amber-600\/80 { background-color: rgba(232, 117, 26, 0.92) !important; color: #FFFCF5 !important; }
 
 /* `bg-gold` shorthand used in some pages — render as gold-400 accent */
 .bg-gold { background-color: #C89434 !important; color: #2A1810 !important; }
 
-/* amber-950 (extra-dark) → saffron-tinted parchment, like amber-900 */
-.bg-amber-950,
-.bg-amber-950\/50,
-.bg-amber-950\/40,
-.bg-amber-950\/30,
-.bg-amber-950\/20 {
-    background-color: rgba(232, 117, 26, 0.10) !important;
-}
-
 /* `bg-red-950/30` urgent announcement — render as soft red wash */
 .bg-red-950\/30,
-.bg-red-950\/40,
-.bg-red-950\/20 { background-color: rgba(168, 50, 50, 0.10) !important; }
-.border-red-900\/30,
+.bg-red-950\/40 { background-color: rgba(168, 50, 50, 0.10) !important; }
 .border-red-800\/30 { border-color: rgba(168, 50, 50, 0.30) !important; }
-.text-red-300,
-.text-red-200 { color: #B91C1C !important; }
+.text-red-300 { color: #B91C1C !important; }
 
 /* `bg-stone-900` on <option> elements — irrelevant in most browsers but
    normalise to parchment for any non-native rendering. */
-.bg-stone-900,
-.bg-stone-950 { background-color: #FBF5EA !important; }
+.bg-stone-900 { background-color: #FBF5EA !important; }
 
 /* ─── Status chips: emerald (success) ─── */
 .bg-emerald-950,
-.bg-emerald-950\/60,
 .bg-emerald-950\/50,
-.bg-emerald-950\/40,
 .bg-emerald-950\/30,
 .bg-emerald-900,
-.bg-emerald-900\/40,
-.bg-emerald-900\/30,
 .bg-emerald-900\/20 { background-color: rgba(63, 122, 63, 0.14) !important; }
 .border-emerald-800,
 .border-emerald-800\/40,
-.border-emerald-800\/30,
-.border-emerald-700\/40,
-.border-emerald-700\/30 { border-color: rgba(63, 122, 63, 0.40) !important; }
+.border-emerald-800\/30 { border-color: rgba(63, 122, 63, 0.40) !important; }
 .text-emerald-300,
-.text-emerald-400,
-.text-emerald-500 { color: #2D5F2D !important; }
+.text-emerald-400 { color: #2D5F2D !important; }
 
 /* ─── Status chips: red (error / out-of-stock / urgent) ─── */
 .bg-red-950,
-.bg-red-950\/60,
 .bg-red-950\/50,
 .bg-red-950\/40,
 .bg-red-950\/30,
 .bg-red-900,
-.bg-red-900\/40,
-.bg-red-900\/30,
 .bg-red-900\/20 { background-color: rgba(168, 50, 50, 0.10) !important; }
 .border-red-800,
-.border-red-800\/40,
-.border-red-800\/30,
-.border-red-700\/40,
-.border-red-700\/30 { border-color: rgba(168, 50, 50, 0.40) !important; }
+.border-red-800\/30 { border-color: rgba(168, 50, 50, 0.40) !important; }
 .text-red-400,
 .text-red-500 { color: #A83232 !important; }
 
@@ -421,9 +497,7 @@
 .bg-black\/40 { background-color: rgba(42, 24, 16, 0.35) !important; }
 .bg-black\/50 { background-color: rgba(42, 24, 16, 0.40) !important; }
 .bg-black\/60 { background-color: rgba(42, 24, 16, 0.50) !important; }
-.bg-black\/70 { background-color: rgba(42, 24, 16, 0.60) !important; }
 .hover\:bg-black\/60:hover { background-color: rgba(42, 24, 16, 0.55) !important; }
-.hover\:bg-black\/70:hover { background-color: rgba(42, 24, 16, 0.65) !important; }
 /* `bg-black/0 → bg-black/40` gallery hover dim — soft maroon wash on hover */
 .bg-black\/0 { background-color: transparent !important; }
 .group:hover .group-hover\:bg-black\/40 { background-color: rgba(42, 24, 16, 0.30) !important; }
@@ -431,41 +505,24 @@
 /* Gradient utilities — neutralise dark amber gradients */
 .from-amber-900,
 .from-amber-900\/60,
-.from-amber-900\/50,
-.from-amber-900\/40,
-.from-amber-900\/30,
-.from-amber-900\/20 {
+.from-amber-900\/30 {
     --tw-gradient-from: rgba(232, 117, 26, 0.12) !important;
     --tw-gradient-to: rgba(232, 117, 26, 0) !important;
     --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
 }
-.to-amber-900,
-.to-amber-800\/40,
-.to-amber-900\/40,
-.to-amber-900\/30,
-.to-amber-900\/20 {
+.to-amber-800\/40 {
     --tw-gradient-to: rgba(232, 117, 26, 0.08) !important;
 }
-.via-amber-900,
-.via-amber-900\/40,
-.via-amber-900\/30,
-.via-amber-900\/20 {
-    --tw-gradient-stops: var(--tw-gradient-from), rgba(232, 117, 26, 0.10), var(--tw-gradient-to) !important;
-}
 /* Stone-900 gradient terms (used alongside amber dark gradients) */
-.to-stone-900\/60,
-.to-stone-900\/40,
-.from-stone-900\/60,
-.from-stone-900\/40 {
+.to-stone-900\/60 {
     --tw-gradient-to: rgba(122, 30, 30, 0.06) !important;
 }
 
-/* Generic text colors that assume dark bg.
-   NOTE: .text-white is deliberately NOT remapped — every live usage sits
+/* NOTE: .text-white is deliberately NOT remapped — every live usage sits
    on a dark image/overlay (darshan offline card, lightboxes, popup
-   controls, badge chips) and the old remap forced them all dark. */
-.text-stone-200,
-.text-stone-100 { color: #2A1810 !important; }
+   controls, badge chips) and the old remap forced them all dark.
+   The .text-stone-100 / .text-stone-200 remap that used to live here was
+   dropped with the dashboard rewrite: the dashboard was its only caller. */
 
 /* Header / Nav — ensure parchment regardless of any inline dark Tailwind */
 header { color: #2A1810; }

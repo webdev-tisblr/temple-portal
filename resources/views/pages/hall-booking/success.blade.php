@@ -23,7 +23,7 @@
                 </div>
                 <div class="flex justify-between py-2.5 border-b border-amber-900/20">
                     <span class="text-amber-100/40">{{ __('common.date') }}</span>
-                    <span class="font-medium text-amber-100/70">{{ $booking->booking_date->format('d/m/Y') }}</span>
+                    <span class="font-medium text-amber-100/70">{{ $booking->date_range_label }}</span>
                 </div>
                 <div class="flex justify-between py-2.5 border-b border-amber-900/20">
                     <span class="text-amber-100/40">{{ __('halls.type') }}</span>

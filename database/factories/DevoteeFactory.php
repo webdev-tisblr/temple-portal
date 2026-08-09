@@ -25,4 +25,22 @@ class DevoteeFactory extends Factory
             'is_active' => true,
         ];
     }
+
+    /**
+     * A devotee who can actually be issued an 80G receipt (item 5.4).
+     *
+     * The strict rule is "no readable, format-valid PAN → no receipt and
+     * no receipt number", so the default factory devotee — who has no PAN
+     * — is deliberately INELIGIBLE. Any test that expects a Receipt80G row
+     * must opt in here.
+     */
+    public function withPan(string $pan = 'ABCDE1234F'): static
+    {
+        $pan = strtoupper($pan);
+
+        return $this->state(fn (array $attributes) => [
+            'pan_encrypted' => \Illuminate\Support\Facades\Crypt::encryptString($pan),
+            'pan_last_four' => substr($pan, -4),
+        ]);
+    }
 }

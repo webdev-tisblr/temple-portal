@@ -84,7 +84,11 @@ class ContactSubmissionResource extends Resource
                 Tables\Actions\Action::make('markRead')
                     ->label('Mark read')
                     ->icon('heroicon-o-check-circle')
-                    ->visible(fn (ContactSubmission $record) => !$record->is_read)
+                    // G15 (2026-08-09): state + permission in ONE closure.
+                    // `accountant`/`volunteer` never get update on this
+                    // resource, so read-state was mutable by view-only roles.
+                    ->visible(fn (ContactSubmission $record): bool => ! $record->is_read
+                        && (auth('admin')->user()?->can('update_contact::submission') ?? false))
                     ->action(function (ContactSubmission $record) {
                         $record->update(['is_read' => true, 'read_at' => now()]);
                     }),
@@ -96,6 +100,9 @@ class ContactSubmissionResource extends Resource
                     Tables\Actions\BulkAction::make('markAllRead')
                         ->label('Mark as read')
                         ->icon('heroicon-o-check-circle')
+                        // G15 (2026-08-09): custom bulk actions are not
+                        // auto-authorized — see G17 on SevaBookingResource.
+                        ->visible(fn (): bool => auth('admin')->user()?->can('update_contact::submission') ?? false)
                         ->action(function ($records) {
                             foreach ($records as $r) {
                                 if (!$r->is_read) {

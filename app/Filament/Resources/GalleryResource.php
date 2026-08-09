@@ -106,6 +106,11 @@ class GalleryResource extends Resource
                 Tables\Actions\BulkAction::make('setCategory')
                     ->label('Set category')
                     ->icon('heroicon-o-tag')
+                    // G15 (2026-08-09): custom bulk actions are not
+                    // auto-authorized. `gallery::image` is the reconciled
+                    // slug from G8 — the old `update_gallery` string checked
+                    // a permission the Shield UI could not grant.
+                    ->visible(fn (): bool => auth('admin')->user()?->can('update_gallery::image') ?? false)
                     ->form([
                         Forms\Components\Select::make('categories')
                             ->label('Categories')
@@ -134,6 +139,8 @@ class GalleryResource extends Resource
                 Tables\Actions\BulkAction::make('setWallpaper')
                     ->label('Wallpaper on / off')
                     ->icon('heroicon-o-device-phone-mobile')
+                    // G15 (2026-08-09): see setCategory above.
+                    ->visible(fn (): bool => auth('admin')->user()?->can('update_gallery::image') ?? false)
                     ->form([
                         Forms\Components\Toggle::make('is_wallpaper')
                             ->label('Offer as wallpaper')

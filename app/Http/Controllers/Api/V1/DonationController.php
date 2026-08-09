@@ -47,8 +47,23 @@ class DonationController extends BaseApiController
             }
         }
 
+        // Item 5.4 — the strict 80G rule, decided up front so the row is
+        // born truthful. `wants_80g` is what the donor asked for;
+        // `is_80g_eligible` is what the trust can actually issue, and it
+        // is re-affirmed at receipt time by ReceiptService. A donation
+        // with no valid PAN is a Gupt Daan by rule, so it is flagged
+        // anonymous and masked on every public donor list.
+        //
+        // Absent field defaults to TRUE: older app builds send no
+        // `wants_80g`, and the PAN gate — not this default — is what
+        // withholds the receipt.
+        $wants80g = (bool) ($validated['wants_80g'] ?? true);
+        $hasValidPan = app(\App\Services\ReceiptService::class)->devoteeHasValid80GPan($devotee);
+        $is80gEligible = $wants80g && $hasValidPan;
+        $anonymous = (bool) ($validated['anonymous'] ?? false) || ! $hasValidPan;
+
         try {
-            $result = DB::transaction(function () use ($validated, $devotee, $amount, $fy, $extraData) {
+            $result = DB::transaction(function () use ($validated, $devotee, $amount, $fy, $extraData, $wants80g, $is80gEligible, $anonymous) {
                 $paymentId = (string) Str::uuid();
                 $receipt = 'DON-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
 
@@ -79,8 +94,9 @@ class DonationController extends BaseApiController
                     'purpose' => $validated['purpose'] ?? null,
                     'campaign_id' => $validated['campaign_id'] ?? null,
                     'sub_cause_id' => $validated['sub_cause_id'] ?? null,
-                    'is_80g_eligible' => true,
-                    'anonymous' => $validated['anonymous'] ?? false,
+                    'wants_80g' => $wants80g,
+                    'is_80g_eligible' => $is80gEligible,
+                    'anonymous' => $anonymous,
                     'extra_data' => $extraData,
                     'financial_year' => $fy,
                 ]);
@@ -109,6 +125,13 @@ class DonationController extends BaseApiController
                 'devotee_phone' => $devotee->phone,
                 'devotee_email' => $devotee->email,
                 'description' => 'દાન — ' . ucfirst($validated['donation_type']),
+                // Item 5.4 backstop: the app prompts for a PAN before it
+                // gets here (it already knows has_pan from /me), but if it
+                // ever doesn't, the client can still tell the donor their
+                // donation is being recorded as Gupt Daan with no 80G
+                // receipt. Never carries the PAN itself — only the verdict.
+                'is_80g_eligible' => $is80gEligible,
+                'pan_required_for_80g' => $wants80g && ! $hasValidPan,
             ], 'Donation created. Complete payment.');
 
         } catch (\Exception $e) {
@@ -164,6 +187,13 @@ class DonationController extends BaseApiController
             return $this->error('Receipt is generated only after the payment is confirmed.', 404);
         }
 
+        // ALLOCATION SITE #3 of 4 (item 5.4). This endpoint MINTS a receipt
+        // row when none exists — a first-ever tap in the app's receipts
+        // screen would otherwise burn a receipt number for a PAN-less
+        // donation, straight past the strict rule. The gate is checked
+        // here so the app gets a readable sentence instead of a 500 that
+        // FileDownloader.downloadAndShare renders as a crash.
+        //
         // Self-heal: regenerate JUST the PDF when the receipt row/path is
         // missing. No R2 ->exists() probe here — S3 HEADs from Hostinger hang
         // (see AppServiceProvider), and the sweep command NULLs pdf_path in
@@ -180,6 +210,10 @@ class DonationController extends BaseApiController
                 // refresh() reloads attributes; load() forces the receipt
                 // relation to re-query so we see the just-created row.
                 $donation->refresh()->load('receipt');
+            } catch (\App\Exceptions\Donation80GNotEligibleException $e) {
+                // 404, not 500: there is no receipt to fetch and there
+                // never will be for this donation. Nothing was allocated.
+                return $this->error($e->userMessage(), 404);
             } catch (\Throwable $e) {
                 Log::error('On-demand 80G receipt regeneration failed', [
                     'donation_id' => $donation->id,

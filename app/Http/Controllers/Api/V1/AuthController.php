@@ -74,13 +74,17 @@ class AuthController extends BaseApiController
             );
         }
 
-        // Single active login: this fresh login invalidates every other
-        // device's token and every web session before the new token is
-        // minted. (refreshToken() deliberately does NOT do this — it only
-        // rotates its own token.)
-        $devotee->revokeOtherLogins();
+        // Single active login on the APP surface: this fresh login
+        // invalidates every other phone's token before the new one is
+        // minted, and leaves the devotee's website sessions alone
+        // (2026-08-09 — the two surfaces coexist; see
+        // Devotee::revokeOtherLogins). (refreshToken() deliberately does
+        // NOT do this — it only rotates its own token.)
+        $devotee->revokeOtherLogins(Devotee::SCOPE_APP);
 
-        $token = $devotee->createToken('mobile-app')->plainTextToken;
+        // The token NAME is the surface discriminator a web login filters
+        // on — it must stay Devotee::APP_TOKEN_NAME.
+        $token = $devotee->createToken(Devotee::APP_TOKEN_NAME)->plainTextToken;
 
         return $this->success([
             'devotee' => new DevoteeResource($devotee),
@@ -99,7 +103,7 @@ class AuthController extends BaseApiController
     {
         $request->user()->currentAccessToken()->delete();
 
-        $token = $request->user()->createToken('mobile-app')->plainTextToken;
+        $token = $request->user()->createToken(Devotee::APP_TOKEN_NAME)->plainTextToken;
 
         return $this->success([
             'token' => $token,
@@ -121,6 +125,11 @@ class AuthController extends BaseApiController
     {
         $validated = $request->validate([
             'redirect_to' => ['nullable', 'string', 'max:255'],
+            // Where the app should be returned to when the browser
+            // errand finishes (item 3.2). Same vocabulary DeepLinkRouter
+            // uses for FCM pushes; anything unknown falls back to 'home'.
+            'return_intent' => ['nullable', 'string', 'max:48'],
+            'return_intent_params' => ['nullable', 'array'],
         ]);
 
         $redirect = $validated['redirect_to'] ?? '/donate';
@@ -137,6 +146,12 @@ class AuthController extends BaseApiController
             $redirect = '/donate';
         }
 
+        // Allowlisted here rather than at render time so a bad value can
+        // never reach a session, and so the app gets a predictable link.
+        $returnIntent = $validated['return_intent'] ?? null;
+        $returnIntent = \App\Support\AppDeepLink::isValidIntent($returnIntent) ? $returnIntent : null;
+        $returnParams = \App\Support\AppDeepLink::sanitizeParams($validated['return_intent_params'] ?? []);
+
         $devotee = $request->user();
 
         // One live token per devotee — a fresh request supersedes any
@@ -149,6 +164,8 @@ class AuthController extends BaseApiController
             'devotee_id' => $devotee->id,
             'token_hash' => hash('sha256', $plain),
             'redirect_to' => $redirect,
+            'return_intent' => $returnIntent,
+            'return_intent_params' => $returnParams === [] ? null : $returnParams,
             'expires_at' => now()->addMinutes(2),
             'created_at' => now(),
         ]);

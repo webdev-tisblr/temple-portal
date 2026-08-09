@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\DonationResource\Pages;
 
+use App\Exceptions\Donation80GNotEligibleException;
 use App\Filament\Resources\DonationResource;
 use App\Services\ReceiptService;
 use Filament\Actions;
@@ -24,9 +25,36 @@ class ViewDonation extends ViewRecord
                 ->requiresConfirmation()
                 ->modalHeading('Generate 80G Receipt')
                 ->modalDescription('This will generate a digital 80G receipt PDF for this donation.')
-                ->visible(fn () => ! $this->record->receipt_generated)
+                // G10 (2026-08-09): minting an 80G receipt burns a receipt
+                // NUMBER off the statutory sequence — it is not a read.
+                // Previously gated on record state alone, so every role that
+                // could open a donation could mint one. `regenerate_80g_receipt`
+                // already existed in the seeder and was never checked.
+                // Both conditions live in ONE closure on purpose: calling
+                // ->visible() twice replaces the first condition, it does not
+                // AND them together.
+                //
+                // ALLOCATION SITE #2 of 4 (item 5.4): the strict PAN rule is
+                // ANDed in here too, so an operator is not offered a button
+                // that can only fail. The service still enforces it — this
+                // condition is ergonomics, not the gate.
+                ->visible(fn (): bool => ! $this->record->receipt_generated
+                    && (auth('admin')->user()?->can('regenerate_80g_receipt') ?? false)
+                    && app(ReceiptService::class)->isEligibleFor80G($this->record))
                 ->action(function () {
-                    $receipt = app(ReceiptService::class)->generateReceipt($this->record);
+                    try {
+                        $receipt = app(ReceiptService::class)->generateReceipt($this->record);
+                    } catch (Donation80GNotEligibleException $e) {
+                        // Reachable if the donor cleared their PAN between
+                        // the page render and the click.
+                        Notification::make()
+                            ->title('No 80G receipt for this donation')
+                            ->body($e->userMessage())
+                            ->warning()->send();
+
+                        return;
+                    }
+
                     $this->record->update(['receipt_generated' => true]);
 
                     Notification::make()
@@ -45,11 +73,12 @@ class ViewDonation extends ViewRecord
 
                     // Self-heal: the cached PDF is swept nightly (pdf_path
                     // nulled), so regenerate on demand before downloading.
-                    if (! $receipt || ! $receipt->pdf_path) {
+                    // ensurePdf() takes an ISSUED receipt, so this download
+                    // path can never mint a new number — only the explicit
+                    // "Generate" action above allocates.
+                    if ($receipt && ! $receipt->pdf_path) {
                         try {
-                            app(ReceiptService::class)->generateReceipt($donation->fresh());
-                            $donation->refresh();
-                            $receipt = $donation->receipt;
+                            $receipt = app(ReceiptService::class)->ensurePdf($receipt);
                         } catch (\Throwable $e) {
                             Notification::make()
                                 ->title('Could not prepare the receipt. Please try again.')

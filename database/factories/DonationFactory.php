@@ -19,6 +19,10 @@ class DonationFactory extends Factory
             'devotee_id' => DevoteeFactory::new(),
             'amount' => fake()->randomFloat(2, 100, 10000),
             'donation_type' => 'general',
+            // Mirrors the column default: the donor asked for a receipt.
+            // Whether they GET one is decided by the PAN gate — see
+            // DevoteeFactory::withPan() and tests/Feature/Strict80GTest.
+            'wants_80g' => true,
             'is_80g_eligible' => true,
             'receipt_generated' => false,
             'anonymous' => false,

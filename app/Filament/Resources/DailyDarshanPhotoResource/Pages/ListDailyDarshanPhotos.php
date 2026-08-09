@@ -26,6 +26,14 @@ class ListDailyDarshanPhotos extends ListRecords
                 ->label('Live darshan settings')
                 ->icon('heroicon-o-video-camera')
                 ->color('gray')
+                // G11 (2026-08-09): this writes temple_system_settings rows
+                // (youtube_live_url, youtube_channel_id,
+                // live_darshan_placeholder_image) and uploads to R2. `staff`
+                // and `volunteer` hold view_any_daily::darshan::photo, so
+                // content-level permissions were escalating into system
+                // configuration. The keys moved here for editing convenience
+                // but they are still System Settings — gate them as such.
+                ->visible(fn (): bool => auth('admin')->user()?->can('page_SystemSettings') ?? false)
                 ->modalHeading('Live Darshan — YouTube')
                 ->modalDescription('The live stream shown in the app and on the website darshan page. The stream plays only during darshan hours (per the Darshan Timings); outside them visitors see the offline image below with the next-darshan time.')
                 ->fillForm(fn () => [

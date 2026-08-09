@@ -59,7 +59,12 @@
 
         /* Amount box */
         .amount-box { border: 1px solid #C87533; margin-bottom: 14px; } .amount-box td { background: #FDF6EE; padding: 10px; text-align: center; }
-        .amount-words { font-size: 10px; color: #666; font-style: italic; }
+        /* NOT italic: mPDF resolves Devanagari to FreeSerif, and
+           FreeSerifItalic carries no Devanagari glyphs — a Hindi label here
+           rendered as tofu boxes (caught 2026-08-09). Only the English
+           amount-in-words value keeps the italic. */
+        .amount-words { font-size: 10px; color: #666; }
+        .amount-words .words-value { font-style: italic; }
 
         /* Footer */
         .footer { margin-top: 16px; border-top: 1px solid #ddd; padding-top: 10px; }
@@ -82,9 +87,9 @@
             </div>
             <div class="trust-name">{{ $trust_name }}</div>
             <div class="trust-address">{{ $trust_address }}</div>
-            <div class="trust-reg">Trust Reg. No: A/1497 Dated 26-04-1994 &nbsp;|&nbsp; 80G Reg. No: A.A/RG./80G/12/G.R./2011-12/3958 &nbsp;|&nbsp; PAN: AAKTS1478C</div>
+            <div class="trust-reg">{{ __('receipt.label_trust_reg') }}: {{ $trust_reg_no }} &nbsp;|&nbsp; {{ __('receipt.label_80g_reg') }}: {{ $trust_80g_reg_no }} &nbsp;|&nbsp; {{ __('receipt.label_trust_pan') }}: {{ $trust_pan }}</div>
             <div style="margin-top: 10px;">
-                <span class="receipt-title">Tax Invoice</span>
+                <span class="receipt-title">{{ __('receipt.title_store') }}</span>
             </div>
         </div>
 
@@ -92,31 +97,31 @@
         <table class="meta-bar">
             <tr>
                 <td>
-                    <span class="meta-label">Order Number</span>
+                    <span class="meta-label">{{ __('receipt.order_no') }}</span>
                     <span class="meta-value">{{ $order->order_number }}</span>
                 </td>
                 <td>
-                    <span class="meta-label">Date</span>
+                    <span class="meta-label">{{ __('receipt.date') }}</span>
                     <span class="meta-value">{{ $order->created_at->format('d/m/Y') }}</span>
                 </td>
                 <td>
-                    <span class="meta-label">Payment Mode</span>
-                    <span class="meta-value">{{ ucfirst($order->payment->method ?? 'Online') }}</span>
+                    <span class="meta-label">{{ __('receipt.payment_mode') }}</span>
+                    <span class="meta-value">{{ $payment_mode_label }}</span>
                 </td>
             </tr>
         </table>
 
         {{-- Customer Details --}}
         <div class="section">
-            <div class="section-title">Customer Details</div>
+            <div class="section-title">{{ __('receipt.section_customer') }}</div>
             <table class="data-table">
                 <tr>
-                    <td class="label">Name</td>
+                    <td class="label">{{ __('receipt.label_name') }}</td>
                     <td class="value">{{ $order->shipping_name }}</td>
                 </tr>
                 @if($order->shipping_phone)
                 <tr>
-                    <td class="label">Phone</td>
+                    <td class="label">{{ __('receipt.label_phone') }}</td>
                     <td class="value">{{ $order->shipping_phone }}</td>
                 </tr>
                 @endif
@@ -130,7 +135,7 @@
                 @endphp
                 @if($address)
                 <tr>
-                    <td class="label">Address</td>
+                    <td class="label">{{ __('receipt.label_address') }}</td>
                     <td class="value">{{ $address }}</td>
                 </tr>
                 @endif
@@ -139,15 +144,15 @@
 
         {{-- Items Table --}}
         <div class="section">
-            <div class="section-title">Order Items</div>
+            <div class="section-title">{{ __('receipt.section_items') }}</div>
             <table class="items-table">
                 <thead>
                     <tr>
-                        <th style="width: 8%;">S.No.</th>
-                        <th style="width: 44%;">Product</th>
-                        <th class="center" style="width: 12%;">Qty</th>
-                        <th class="right" style="width: 18%;">Unit Price</th>
-                        <th class="right" style="width: 18%;">Subtotal</th>
+                        <th style="width: 8%;">{{ __('receipt.col_sno') }}</th>
+                        <th style="width: 44%;">{{ __('receipt.col_product') }}</th>
+                        <th class="center" style="width: 12%;">{{ __('receipt.col_qty') }}</th>
+                        <th class="right" style="width: 18%;">{{ __('receipt.col_unit_price') }}</th>
+                        <th class="right" style="width: 18%;">{{ __('receipt.col_subtotal') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -167,24 +172,24 @@
         {{-- Totals --}}
         <table class="totals-table">
             <tr>
-                <td class="totals-label">Subtotal</td>
+                <td class="totals-label">{{ __('receipt.label_subtotal') }}</td>
                 <td class="totals-value">&#8377; {{ number_format((float) $order->subtotal, 2) }}</td>
             </tr>
             @if((float) $order->shipping_charge > 0)
             <tr>
-                <td class="totals-label">Shipping</td>
+                <td class="totals-label">{{ __('receipt.label_shipping') }}</td>
                 <td class="totals-value">&#8377; {{ number_format((float) $order->shipping_charge, 2) }}</td>
             </tr>
             @endif
             <tr class="grand-total">
-                <td class="totals-label">Grand Total</td>
+                <td class="totals-label">{{ __('receipt.label_grand_total') }}</td>
                 <td class="totals-value">&#8377; {{ number_format((float) $order->total_amount, 2) }}</td>
             </tr>
         </table>
 
-        {{-- Amount in Words --}}
+        {{-- Amount in Words — words stay English in every language, see the services --}}
         <table class="amount-box" width="100%" cellpadding="0" cellspacing="0"><tr><td>
-            <div class="amount-words">{{ $amount_in_words }}</div>
+            <div class="amount-words">{{ __('receipt.label_amount_in_words') }}: <span class="words-value">{{ $amount_in_words }}</span></div>
         </td></tr></table>
 
         {{-- Footer --}}
@@ -199,11 +204,11 @@
                     </td>
                     <td class="signature-block">
                         <div class="signature-line"></div>
-                        <div class="signature-label">Authorised Signatory</div>
+                        <div class="signature-label">{{ __('receipt.authorised_signatory') }}</div>
                     </td>
                 </tr>
             </table>
-            <div class="computer-gen">This is a computer-generated invoice and does not require a physical signature.</div>
+            <div class="computer-gen">{{ __('receipt.computer_generated_invoice') }}</div>
         </div>
     </div>
 </body>

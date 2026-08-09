@@ -22,6 +22,13 @@ class ListDonations extends ListRecords
             Actions\Action::make('export')
                 ->label('Export')
                 ->icon('heroicon-o-arrow-down-tray')
+                // G10 (2026-08-09): this dumps every donor's NAME, PHONE,
+                // amount and financial year to CSV/PDF. It was gated on
+                // nothing but "can you see the donations list", which the
+                // read-only `accountant` and `staff` roles both can.
+                // `export_donations` already existed in the seeder and was
+                // simply never checked — this is the check.
+                ->visible(fn (): bool => auth('admin')->user()?->can('export_donations') ?? false)
                 ->form([
                     Forms\Components\DatePicker::make('date_from')
                         ->label('From')

@@ -50,9 +50,11 @@ class OperationsTodayOverview extends StatsOverviewWidget
             ->whereDate('booking_date', today())
             ->count();
 
+        // Range-aware (item 4.2): a hall occupied TODAY by a 3-day booking
+        // that started yesterday must still be counted.
         $todayHallBookings = HallBooking::query()
             ->whereHas('payment', fn (Builder $q) => $q->where('status', 'captured'))
-            ->whereDate('booking_date', today())
+            ->overlapping(today()->toDateString(), today()->toDateString())
             ->count();
 
         // Store orders use status enum, not date — show orders captured

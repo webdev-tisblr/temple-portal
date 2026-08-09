@@ -42,6 +42,11 @@ class ContentController extends BaseApiController
             'image_url' => $photo->image_path
                 ? image_url($photo->image_path)
                 : null,
+            // Additive: the shipped app reads `image_url` only, so it is
+            // untouched. New builds should decode `medium_url` for the card
+            // and keep `image_url` for the zoomable full-screen view.
+            'thumbnail_url' => $photo->thumbnail_path ? image_url($photo->thumbnail_path) : null,
+            'medium_url' => $photo->medium_path ? image_url($photo->medium_path) : null,
             'caption' => $photo->caption,
             'caption_gu' => $photo->caption_gu,
             'caption_hi' => $photo->caption_hi,
@@ -128,7 +133,11 @@ class ContentController extends BaseApiController
      */
     private function shareText(DailyDarshanPhoto $photo, ?Devotee $devotee): string
     {
-        $caption = $photo->caption_gu ?: 'જય શ્રી રામ 🙏';
+        // Both halves follow the devotee's language: the photo's own caption
+        // via the model's locale accessor (was pinned to caption_gu), and the
+        // fallback greeting via darshan.default_caption. SetApiLocale has
+        // already applied X-Locale by the time this runs.
+        $caption = $photo->caption ?: __('darshan.default_caption');
         $url = 'https://patadiyahanumanji.com';
         $name = $devotee?->name;
 
@@ -300,9 +309,15 @@ class ContentController extends BaseApiController
             ? null
             : \App\Models\DailyDarshanPhoto::where('is_active', true)
                 ->orderByDesc('captured_on')->orderByDesc('id')->first();
+        // Prefer the medium rendition: this URL backs a 16:9 card, and the
+        // original is a full-resolution phone photo the client decodes at
+        // source size. Same key, same picture, ~4x less decoded memory;
+        // falls back to the original for rows not yet backfilled.
         $placeholderUrl = $customPlaceholder
             ? image_url($customPlaceholder)
-            : ($photo?->image_path ? image_url($photo->image_path) : null);
+            : ($photo?->medium_path
+                ? image_url($photo->medium_path)
+                : ($photo?->image_path ? image_url($photo->image_path) : null));
 
         return $this->success([
             'stream_url' => $streamUrl,
@@ -404,10 +419,29 @@ class ContentController extends BaseApiController
     /**
      * Return gallery images, optionally filtered by category.
      * Cached for 15 minutes per category.
+     *
+     * PAGINATION — opt-in, deliberately.
+     *
+     * The shipped 1.4.8 client (`galleryProvider`, gallery_screen.dart)
+     * sends only `category`, reads `data['data'] as List`, and has no
+     * "load more" affordance anywhere. Defaulting to a page size would
+     * therefore silently hide two thirds of the gallery from every phone
+     * already in the field. So:
+     *
+     *   • no `page` / `per_page` in the query  → identical response to
+     *     before: a flat list, capped at 200, plus the same envelope keys.
+     *   • either param present → that page's slice, STILL a flat list in
+     *     `data`, with an additive top-level `meta` block. Older clients
+     *     never send the params and never see `meta`; a client that does
+     *     send them gets 30 (max 100) rows per request.
      */
     public function gallery(Request $request): JsonResponse
     {
         $category = $request->query('category');
+
+        $paginate = $request->has('page') || $request->has('per_page');
+        $perPage = max(1, min((int) $request->query('per_page') ?: 30, 100));
+        $page = max(1, (int) $request->query('page') ?: 1);
 
         $cacheKey = $category ? "gallery.{$category}" : 'gallery.all';
 
@@ -444,7 +478,20 @@ class ContentController extends BaseApiController
             ]);
         });
 
-        return $this->success($images);
+        if (! $paginate) {
+            return $this->success($images);
+        }
+
+        $total = $images->count();
+        $slice = $images->values()->slice(($page - 1) * $perPage, $perPage)->values();
+
+        return $this->success($slice, meta: [
+            'total' => $total,
+            'per_page' => $perPage,
+            'current_page' => $page,
+            'last_page' => (int) max(1, (int) ceil($total / $perPage)),
+            'has_more' => $page * $perPage < $total,
+        ]);
     }
 
     /**

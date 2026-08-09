@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use App\Models\Donation;
 use App\Models\DonationCampaign;
+use App\Support\CampaignDonors;
 use Artesaos\SEOTools\Facades\SEOMeta;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +14,12 @@ use Illuminate\View\View;
 
 class ProjectController extends Controller
 {
+    /**
+     * Donors shown per page — and the size of the "Top donors" list.
+     * Shared with the app API so both surfaces page identically.
+     */
+    private const DONORS_PER_PAGE = CampaignDonors::PER_PAGE;
+
     public function index(): View
     {
         $projects = DonationCampaign::where('is_active', true)
@@ -40,28 +46,28 @@ class ProjectController extends Controller
         SEOMeta::setTitle("{$project->title} — ધામના સેવાકાર્યો — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ");
         SEOMeta::setDescription($project->description ?? '');
 
-        // First page of donors (paid only). Anonymous donations (Gupt
-        // Daan) are INCLUDED but the donor's name + city are masked —
-        // see the mapping closure below.
-        $donors = Donation::where('campaign_id', $project->id)
-            ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
-            ->with('devotee:id,name,city')
-            ->orderByDesc('created_at')
-            ->paginate(20);
+        // First page of donors (paid only), plus the Top-10-by-amount list the
+        // in-page Recent/Top toggle switches to. Anonymous donations (Gupt
+        // Daan) are INCLUDED in BOTH lists but the donor's name + city are
+        // masked — every list goes through CampaignDonors::payload() so Top
+        // can never leak a name that Recent masks. The app API reads the same
+        // helper.
+        $donors = CampaignDonors::recent($project->id)
+            ->paginate(self::DONORS_PER_PAGE);
 
-        $donorsJs = $donors->getCollection()->map(function ($d) {
-            return [
-                'name' => $d->anonymous ? 'રામ ભરોસે' : ($d->devotee?->name ?? 'ભક્ત'),
-                'city' => $d->anonymous ? '' : ($d->devotee?->city ?? ''),
-                'amount' => (float) $d->amount,
-            ];
-        })->values()->toArray();
+        $donorsJs = CampaignDonors::payload($donors->getCollection());
+
+        $topDonorsJs = CampaignDonors::payload(
+            CampaignDonors::top($project->id)
+                ->limit(self::DONORS_PER_PAGE)
+                ->get()
+        );
 
         $donorsNextUrl = $donors->hasMorePages()
-            ? route('projects.donors', $project->slug) . '?page=2'
+            ? route('projects.donors', $project->slug) . '?sort=recent&page=2'
             : null;
 
-        return view('pages.projects.show', compact('project', 'donors', 'donorsJs', 'donorsNextUrl'));
+        return view('pages.projects.show', compact('project', 'donors', 'donorsJs', 'topDonorsJs', 'donorsNextUrl'));
     }
 
     public function donors(string $slug, Request $request): JsonResponse
@@ -70,19 +76,25 @@ class ProjectController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
-        $donors = Donation::where('campaign_id', $project->id)
-            ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
-            ->with('devotee:id,name,city')
-            ->orderByDesc('created_at')
-            ->paginate(20);
+        // ?sort=top → the 10 largest captured donations, no pagination.
+        if ($request->query('sort') === 'top') {
+            $top = CampaignDonors::top($project->id)
+                ->limit(self::DONORS_PER_PAGE)
+                ->get();
+
+            return response()->json([
+                'data' => CampaignDonors::payload($top),
+                'next_page_url' => null,
+                'total' => $top->count(),
+            ]);
+        }
+
+        $donors = CampaignDonors::recent($project->id)
+            ->paginate(self::DONORS_PER_PAGE)
+            ->appends($request->query());
 
         return response()->json([
-            'data' => $donors->getCollection()->map(fn ($d) => [
-                'name' => $d->anonymous ? 'રામ ભરોસે' : ($d->devotee?->name ?? 'ભક્ત'),
-                'city' => $d->anonymous ? '' : ($d->devotee?->city ?? ''),
-                'amount' => (float) $d->amount,
-                'date' => $d->created_at->format('d/m/Y'),
-            ])->values(),
+            'data' => CampaignDonors::payload($donors->getCollection()),
             'next_page_url' => $donors->nextPageUrl(),
             'total' => $donors->total(),
         ]);

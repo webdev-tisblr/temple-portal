@@ -12,72 +12,72 @@
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-temple">
 
-    {{-- Info Banner --}}
-    <div class="mb-6 flex items-start gap-3 px-5 py-4 bg-blue-950/30 border border-blue-800/30 rounded-xl text-blue-300">
-        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        <p class="text-sm">
+    <x-dashboard.nav active="receipts" />
+
+    <div class="dash-notice dash-notice-info mb-6">
+        <x-dashboard.icon path="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" class="w-5 h-5 shrink-0 mt-0.5" />
+        <p>
             {{ __('dashboard.receipts_note') }}
-            <a href="{{ route('dashboard.profile') }}" class="underline font-semibold hover:text-blue-200 transition">{{ __('dashboard.update_profile_link') }}</a>
+            <a href="{{ route('dashboard.profile') }}" class="font-semibold underline">{{ __('dashboard.update_profile_link') }}</a>
         </p>
     </div>
 
-    <div class="card-sacred overflow-hidden">
+    <x-dashboard.panel
+        :title="__('dashboard.receipts_80g')"
+        icon="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
 
         @if($receipts->isNotEmpty())
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="bg-amber-900/15 border-b border-amber-900/20">
-                        <tr>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">Receipt No.</th>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">Daan Tarikh</th>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">Rakam</th>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600 uppercase tracking-wider">Financial Year</th>
-                            <th class="text-left px-5 py-3.5 text-xs font-semibold text-amber-600">{{ __('dashboard.download') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-amber-900/15">
-                        @foreach($receipts as $receipt)
-                        <tr class="hover:bg-amber-900/10 transition">
-                            <td class="px-5 py-4">
-                                <span class="font-mono text-sm font-semibold text-amber-100/70">{{ $receipt->receipt_number }}</span>
-                            </td>
-                            <td class="px-5 py-4 text-amber-100/60">
+            <table class="dash-table">
+                <thead class="dash-thead">
+                    <tr>
+                        <th class="dash-th">{{ __('dashboard.col_receipt_no') }}</th>
+                        <th class="dash-th">{{ __('dashboard.col_donation_date') }}</th>
+                        <th class="dash-th">{{ __('dashboard.col_amount') }}</th>
+                        <th class="dash-th">{{ __('dashboard.col_financial_year') }}</th>
+                        <th class="dash-th">{{ __('dashboard.download') }}</th>
+                    </tr>
+                </thead>
+                <tbody class="dash-tbody">
+                    @foreach($receipts as $receipt)
+                        <tr class="dash-tr">
+                            <x-dashboard.cell :label="__('dashboard.col_receipt_no')">
+                                <span class="font-mono text-sm font-semibold" style="color: #2A1810;">{{ $receipt->receipt_number }}</span>
+                            </x-dashboard.cell>
+
+                            <x-dashboard.cell :label="__('dashboard.col_donation_date')">
                                 {{ optional($receipt->donation_date)->format('d/m/Y') ?? optional($receipt->created_at)->format('d/m/Y') }}
-                            </td>
-                            <td class="px-5 py-4 font-bold text-gold">
-                                ₹{{ number_format($receipt->amount) }}
-                            </td>
-                            <td class="px-5 py-4">
-                                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-950/40 text-blue-400">
-                                    {{ $receipt->financial_year ?? 'N/A' }}
-                                </span>
-                            </td>
-                            <td class="px-5 py-4">
+                            </x-dashboard.cell>
+
+                            <x-dashboard.cell :label="__('dashboard.col_amount')">
+                                <span class="font-semibold" style="color: #C45F12;">₹{{ number_format((float) $receipt->amount) }}</span>
+                            </x-dashboard.cell>
+
+                            <x-dashboard.cell :label="__('dashboard.col_financial_year')">
+                                <span class="dash-chip dash-chip-info">{{ $receipt->financial_year ?? '—' }}</span>
+                            </x-dashboard.cell>
+
+                            <x-dashboard.cell :label="__('dashboard.download')">
                                 <a href="{{ route('dashboard.receipts.download', $receipt) }}"
-                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 btn-divine text-xs font-semibold rounded-lg">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                   class="btn-divine !px-4 !py-2 !text-xs">
+                                    <x-dashboard.icon path="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" class="w-3.5 h-3.5" />
                                     {{ __('dashboard.pdf_download') }}
                                 </a>
-                            </td>
+                            </x-dashboard.cell>
                         </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+                    @endforeach
+                </tbody>
+            </table>
 
-            <div class="px-5 py-4 border-t border-amber-900/20">
-                {{ $receipts->links() }}
-            </div>
-
+            @if($receipts->hasPages())
+                <div class="dash-panel-foot">{{ $receipts->links() }}</div>
+            @endif
         @else
-            <div class="text-center py-16">
-                <svg class="w-12 h-12 text-amber-800/30 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                <p class="text-amber-100/30 mb-4">{{ __('dashboard.no_receipts') }}</p>
-                <p class="text-xs text-amber-100/20">{{ __('dashboard.receipts_after_donation') }}</p>
-            </div>
+            <x-dashboard.empty
+                icon="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                :message="__('dashboard.no_receipts')"
+                :hint="__('dashboard.receipts_after_donation')" />
         @endif
-
-    </div>
+    </x-dashboard.panel>
 
 </div>
 

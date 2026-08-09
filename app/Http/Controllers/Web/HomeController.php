@@ -212,7 +212,7 @@ class HomeController extends Controller
         });
 
         $visit = [
-            'address' => SystemSetting::getLocalized('trust_address', null, 'અંતરજાળ, ગાંધીધામ, કચ્છ — 370110'),
+            'address' => SystemSetting::getLocalized('trust_address', null, __('common.address')),
             'phone' => SystemSetting::getValue('trust_phone', ''),
             'email' => SystemSetting::getValue('trust_email', ''),
             'map_url' => SystemSetting::getValue('trust_map_url', ''),

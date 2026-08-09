@@ -56,6 +56,11 @@ class CreateDonationRequest extends FormRequest
                     ->where(fn ($q) => $q->where('campaign_id', $this->input('campaign_id'))),
             ],
             'anonymous' => ['nullable', 'boolean'],
+            // Item 5.4 — the donor's REQUEST for a statutory 80G receipt.
+            // Optional and defaulting to true so older app builds (which
+            // send no such field) keep asking for one; whether they GET
+            // one is decided by the PAN gate in ReceiptService, not here.
+            'wants_80g' => ['nullable', 'boolean'],
             'extra_data' => ['nullable', 'array'],
             // extra_data is a mixed bag: DonationType.extra_fields can define
             // text/number/etc. inputs AND file (image) inputs, all keyed

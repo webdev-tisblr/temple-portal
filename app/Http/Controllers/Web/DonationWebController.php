@@ -12,6 +12,7 @@ use App\Models\DonationCampaign;
 use App\Models\DonationType;
 use App\Models\Payment;
 use App\Services\RazorpayService;
+use App\Support\SafeRedirect;
 use Artesaos\SEOTools\Facades\SEOMeta;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,8 +25,11 @@ class DonationWebController extends Controller
 {
     public function index(Request $request): View
     {
+        // Same ordering as /projects so the two listings agree.
         $campaigns = DonationCampaign::where('is_active', true)
             ->where('start_date', '<=', now())
+            ->orderByDesc('is_featured')
+            ->orderByDesc('created_at')
             ->get();
 
         // ?campaign={id} pre-targets the form at one campaign (hidden
@@ -40,6 +44,25 @@ class DonationWebController extends Controller
 
         $donationTypes = DonationType::where('is_active', true)->orderBy('sort_order')->get();
 
+        // Item 5.4 — form state carried back from the PAN interstitial.
+        // When a donor ticks "I want an 80G receipt" without a PAN on file
+        // we bounce them to the profile page; SafeRedirect brings them back
+        // HERE, and these query params restore what they had typed so the
+        // donation can be completed rather than re-entered.
+        $devotee = Auth::guard('devotee')->user();
+        $prefill = [
+            'amount' => $request->filled('amount') ? (int) $request->query('amount') : null,
+            'donation_type_id' => $request->filled('type') ? (string) $request->query('type') : '',
+            'purpose' => (string) $request->query('purpose', ''),
+            'anonymous' => $request->boolean('anonymous'),
+            // Default the 80G request ON — it is what most donors want, and
+            // the PAN gate (not this default) decides what is actually issued.
+            'wants_80g' => $request->has('wants_80g') ? $request->boolean('wants_80g') : true,
+            'sub_cause_id' => $request->filled('sub_cause') ? (string) $request->query('sub_cause') : '',
+        ];
+
+        $hasPan = app(\App\Services\ReceiptService::class)->devoteeHasValid80GPan($devotee);
+
         // Pre-build JS-ready data (avoid arrow functions in Blade @json)
         $donationTypesJs = $donationTypes->map(function ($t) {
             return [
@@ -53,7 +76,14 @@ class DonationWebController extends Controller
         SEOMeta::setTitle('દાન કરો — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
         SEOMeta::setDescription('શ્રી પાતાળિયા હનુમાનજી મંદિર માટે ઓનલાઈન દાન કરો.');
 
-        return view('pages.donation.index', compact('campaigns', 'donationTypes', 'donationTypesJs', 'selectedCampaign'));
+        return view('pages.donation.index', compact(
+            'campaigns',
+            'donationTypes',
+            'donationTypesJs',
+            'selectedCampaign',
+            'prefill',
+            'hasPan',
+        ));
     }
 
     public function create(CreateDonationRequest $request): View|\Illuminate\Http\RedirectResponse
@@ -61,6 +91,36 @@ class DonationWebController extends Controller
         $validated = $request->validated();
         $devotee = Auth::guard('devotee')->user();
         $amount = (float) $validated['amount'];
+
+        // ── Item 5.4: the 80G prompt ────────────────────────────────
+        // MANDATORY on the web, not merely nice: on iOS the donate flow IS
+        // this website (DonateGate + app_ios_native_donations = 0), so a
+        // prompt built only in Flutter would let half the userbase past the
+        // rule. The Alpine panel on the form is the friendly version; this
+        // is the one that actually holds, and it also covers no-JS.
+        //
+        // Reuses the return-destination mechanism built for item 3.1
+        // (SafeRedirect + session('url.intended')) rather than inventing a
+        // second redirect scheme: remember the fully-restored donate URL,
+        // send the donor to their profile, and the profile save bounces
+        // them straight back here with the form repopulated.
+        $wants80g = (bool) ($validated['wants_80g'] ?? true);
+        $hasValidPan = app(\App\Services\ReceiptService::class)->devoteeHasValid80GPan($devotee);
+
+        if ($wants80g && ! $hasValidPan) {
+            SafeRedirect::remember($this->donateReturnUrl($validated));
+
+            return redirect()
+                ->route('dashboard.profile')
+                ->with('pan_required_for_80g', true)
+                ->with('warning', __('donation.pan_required_body'));
+        }
+
+        // A donation with no valid PAN can never carry an 80G receipt, so
+        // by the trust's rule it IS a Gupt Daan — masked on public donor
+        // lists exactly like an explicitly anonymous one.
+        $is80gEligible = $wants80g && $hasValidPan;
+        $anonymous = (bool) ($validated['anonymous'] ?? false) || ! $hasValidPan;
 
         $fy = now()->month >= 4
             ? now()->year . '-' . substr((string) (now()->year + 1), -2)
@@ -81,7 +141,7 @@ class DonationWebController extends Controller
         }
 
         try {
-            $result = DB::transaction(function () use ($validated, $devotee, $amount, $fy, $extraData) {
+            $result = DB::transaction(function () use ($validated, $devotee, $amount, $fy, $extraData, $wants80g, $is80gEligible, $anonymous) {
                 $paymentId = (string) Str::uuid();
                 $receipt = 'DON-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
 
@@ -113,8 +173,9 @@ class DonationWebController extends Controller
                     'campaign_id' => $validated['campaign_id'] ?? null,
                     'sub_cause_id' => $validated['sub_cause_id'] ?? null,
                     'extra_data' => $extraData,
-                    'is_80g_eligible' => true,
-                    'anonymous' => $validated['anonymous'] ?? false,
+                    'wants_80g' => $wants80g,
+                    'is_80g_eligible' => $is80gEligible,
+                    'anonymous' => $anonymous,
                     'financial_year' => $fy,
                 ]);
 
@@ -142,6 +203,31 @@ class DonationWebController extends Controller
             Log::error('Web donation failed', ['error' => $e->getMessage()]);
             return back()->withErrors(['donation' => 'દાન બનાવવામાં નિષ્ફળ. કૃપા કરીને ફરી પ્રયાસ કરો.']);
         }
+    }
+
+    /**
+     * The /donate URL that restores this half-finished donation, used as
+     * the return destination of the PAN interstitial (item 5.4).
+     *
+     * Only scalar form state travels in the query string — never an
+     * uploaded extra_data file, which cannot survive a redirect and is
+     * re-picked by the donor. Absolute (route() output) on purpose:
+     * SafeRedirect::normalize accepts an own-host URL and reduces it to a
+     * path, which is the same shape Redirector::guest() stores.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function donateReturnUrl(array $validated): string
+    {
+        return route('donate', array_filter([
+            'campaign' => $validated['campaign_id'] ?? null,
+            'sub_cause' => $validated['sub_cause_id'] ?? null,
+            'amount' => (int) $validated['amount'],
+            'type' => $validated['donation_type_id'] ?? null,
+            'purpose' => $validated['purpose'] ?? null,
+            'anonymous' => ! empty($validated['anonymous']) ? 1 : null,
+            'wants_80g' => 1,
+        ], fn ($value) => $value !== null && $value !== ''));
     }
 
     public function thankYou(Request $request): View
@@ -176,6 +262,39 @@ class DonationWebController extends Controller
                         ->first();
                 }
             }
+        }
+
+        // Item 3.2C — for a session that arrived through the app handoff,
+        // hand the layout's return-to-app card a deep link that points at
+        // the screen the app came from, enriched with the donation that
+        // just completed. session()->now() keeps it to THIS request only:
+        // it must never survive into a later page view (or a reload after
+        // a fresh, unrelated visit) and it must never be written into a
+        // cacheable guest response — from_app only ever exists on an
+        // authenticated session, which bypasses CacheGuestResponse.
+        if ($request->session()->has('from_app')) {
+            $intent = $request->session()->get('from_app_intent', 'home');
+            $extra = [];
+
+            if ($donation !== null) {
+                $extra['donation'] = (string) $donation->id;
+
+                // No explicit return screen (older app builds post no
+                // return_intent) but we do have a completed donation —
+                // the receipt screen beats the home screen.
+                if (! is_string($intent) || $intent === '' || $intent === 'home') {
+                    $request->session()->put('from_app_intent', 'donate-thanks');
+                }
+
+                // Persist the id too, so if the devotee wanders off the
+                // thank-you page the "browsed away" prompt still returns
+                // them to this exact donation.
+                $request->session()->put('from_app_intent_params', \App\Support\AppDeepLink::sanitizeParams(
+                    array_merge((array) $request->session()->get('from_app_intent_params', []), $extra),
+                ));
+            }
+
+            $request->session()->now('from_app_return_url', \App\Support\AppDeepLink::forSession($extra));
         }
 
         return view('pages.donation.thank-you', compact('verified', 'donation'));

@@ -24,12 +24,18 @@ class WebLoginToken extends Model
         'devotee_id',
         'token_hash',
         'redirect_to',
+        // Where the app wants to be sent back to once the browser
+        // errand is done — an AppDeepLink intent + its params. Stored
+        // here (not in the handoff URL) so it can't be forged.
+        'return_intent',
+        'return_intent_params',
         'expires_at',
         'used_at',
         'created_at',
     ];
 
     protected $casts = [
+        'return_intent_params' => 'array',
         'expires_at' => 'datetime',
         'used_at' => 'datetime',
         'created_at' => 'datetime',

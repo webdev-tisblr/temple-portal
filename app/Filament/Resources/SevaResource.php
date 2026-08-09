@@ -133,6 +133,17 @@ class SevaResource extends Resource
                         ->helperText('When the day\'s first Daily Darshan photo is uploaded, every devotee with a confirmed booking of this seva for that date receives it — via the templates configured on the "Darshan — photo for booking-day devotees" trigger.'),
                     Forms\Components\Repeater::make('reminderRules')
                         ->relationship()
+                        // G7 (2026-08-09): `seva::reminder::rule` had 12
+                        // seeded permissions and a SevaReminderRulePolicy but
+                        // NO resource — nothing ever consulted them, while
+                        // the real edit path (this repeater) rode in on
+                        // update_seva alone. This is the check that makes the
+                        // permission real. visible() rather than disabled():
+                        // Filament skips hidden components entirely when
+                        // dehydrating AND when running saveRelationships, so
+                        // a user without the permission cannot add, edit or
+                        // silently wipe existing rules.
+                        ->visible(fn (): bool => auth('admin')->user()?->can('update_seva::reminder::rule') ?? false)
                         ->hiddenLabel()
                         ->schema(ReminderRuleFields::schema())
                         ->columns(2)

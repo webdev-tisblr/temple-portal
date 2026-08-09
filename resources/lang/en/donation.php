@@ -30,4 +30,13 @@ return [
     'general_cause' => 'Where it is needed most',
     'title' => 'Support Shree Patadiya Dham',
     'amount_label' => 'Seva Donation',
+    'want_80g' => 'I want an 80G tax-exemption receipt',
+    'want_80g_hint' => 'Requires a valid PAN on your profile. Without a PAN your donation is recorded as Gupt Daan and no 80G receipt is issued.',
+    'pan_required_title' => 'PAN needed for an 80G receipt',
+    'pan_required_body' => 'Add your PAN to your profile and we will bring you straight back here to finish this donation.',
+    'add_pan_now' => 'Add PAN now',
+    'continue_gupt_daan' => 'Continue as Gupt Daan (no 80G receipt)',
+    'pan_on_file' => 'PAN on file',
+    'no_receipt_without_pan' => 'This donation was made without a PAN, so it is recorded as Gupt Daan and no 80G receipt is available for it.',
+    'no_receipt_not_requested' => 'No 80G receipt was requested for this donation.',
 ];

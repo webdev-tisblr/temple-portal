@@ -45,7 +45,24 @@
 
             // Never nag inside our own app's WebView, an installed PWA, or
             // when the app explicitly appends ?in_app=1 to embedded links.
-            const inApp = new URLSearchParams(location.search).has('in_app')
+            const params = new URLSearchParams(location.search);
+
+            // A session that arrived through the app handoff sets this
+            // marker (return-to-app-banner) — or the app can append
+            // ?from_app=1 / ?in_app=1 when it opens a page without the
+            // logged-in handoff. Either way: never advertise an install
+            // to someone who is standing in the app. The check is
+            // client-side ON PURPOSE — a server-side session read here
+            // would bake one visitor's state into the guest page cache.
+            let fromApp = false;
+            try { fromApp = sessionStorage.getItem('sph_from_app') === '1'; } catch (e) {}
+            if (params.has('from_app')) {
+                fromApp = true;
+                try { sessionStorage.setItem('sph_from_app', '1'); } catch (e) {}
+            }
+
+            const inApp = params.has('in_app')
+                || fromApp
                 || /wv|PatadiyaHanumanji/i.test(ua)
                 || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
                 || window.navigator.standalone === true;
@@ -55,10 +72,15 @@
                 || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
             const isAndroid = /Android/.test(ua);
 
-            if (isIOS && this.ios) this.target = this.ios;
-            else if (isAndroid && this.android) this.target = this.android;
-            else if (isIOS || isAndroid) this.target = this.ios || this.android;
+            // Strictly per-platform. The old `this.ios || this.android`
+            // fallthrough handed iPhone users a Play Store link whenever
+            // app_ios_store_url was blank — which is exactly the state
+            // production is in until the App Store listing goes live.
+            if (isIOS) this.target = this.ios;
+            else if (isAndroid) this.target = this.android;
             else return; // desktop / unknown device — stay hidden
+
+            if (! this.target) return; // no listing for this platform yet
 
             // Honour a recent dismissal (cooldown configured in admin;
             // 0 days = show every visit).

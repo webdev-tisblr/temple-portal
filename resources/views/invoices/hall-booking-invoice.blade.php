@@ -43,7 +43,12 @@
 
         /* Amount box */
         .amount-box { border: 1px solid #C87533; margin-bottom: 14px; } .amount-box td { background: #FDF6EE; padding: 10px; text-align: center; }
-        .amount-words { font-size: 10px; color: #666; font-style: italic; }
+        /* NOT italic: mPDF resolves Devanagari to FreeSerif, and
+           FreeSerifItalic carries no Devanagari glyphs — a Hindi label here
+           rendered as tofu boxes (caught 2026-08-09). Only the English
+           amount-in-words value keeps the italic. */
+        .amount-words { font-size: 10px; color: #666; }
+        .amount-words .words-value { font-style: italic; }
         .amount-total { font-size: 16px; font-weight: bold; color: #881337; margin-bottom: 4px; }
 
         /* Footer */
@@ -67,9 +72,9 @@
             </div>
             <div class="trust-name">{{ $trust_name }}</div>
             <div class="trust-address">{{ $trust_address }}</div>
-            <div class="trust-reg" style="font-size: 8px; color: #888; margin-top: 3px;">Trust Reg. No: A/1497 Dated 26-04-1994 &nbsp;|&nbsp; 80G Reg. No: A.A/RG./80G/12/G.R./2011-12/3958 &nbsp;|&nbsp; PAN: AAKTS1478C</div>
+            <div class="trust-reg" style="font-size: 8px; color: #888; margin-top: 3px;">{{ __('receipt.label_trust_reg') }}: {{ $trust_reg_no }} &nbsp;|&nbsp; {{ __('receipt.label_80g_reg') }}: {{ $trust_80g_reg_no }} &nbsp;|&nbsp; {{ __('receipt.label_trust_pan') }}: {{ $trust_pan }}</div>
             <div style="margin-top: 10px;">
-                <span class="receipt-title">Hall Booking Receipt</span>
+                <span class="receipt-title">{{ __('receipt.title_hall') }}</span>
             </div>
         </div>
 
@@ -77,61 +82,59 @@
         <table class="meta-bar">
             <tr>
                 <td>
-                    <span class="meta-label">Booking Date</span>
-                    <span class="meta-value">{{ $booking->booking_date->format('d/m/Y') }}</span>
+                    <span class="meta-label">{{ __('receipt.booking_date') }}</span>
+                    {{-- Range-aware (item 4.2): identical output for a
+                         single-day booking, "12/08/2026 – 14/08/2026" for a
+                         multi-day one. --}}
+                    <span class="meta-value">{{ $booking->booking_date->format('d/m/Y') }}@if($booking->is_multi_day) – {{ $booking->rangeEnd()->format('d/m/Y') }} ({{ (int) ($booking->days_count ?: 1) }}){{ '' }}@endif</span>
                 </td>
                 <td>
-                    <span class="meta-label">Booking Type</span>
-                    <span class="meta-value">
-                        @switch($booking->booking_type)
-                            @case('full_day') Full Day @break
-                            @case('half_day_morning') Half Day (AM) @break
-                            @case('half_day_evening') Half Day (PM) @break
-                            @default {{ ucfirst(str_replace('_', ' ', $booking->booking_type)) }}
-                        @endswitch
-                    </span>
+                    <span class="meta-label">{{ __('receipt.booking_type') }}</span>
+                    <span class="meta-value">{{ $booking_type_label }}</span>
                 </td>
                 <td>
-                    <span class="meta-label">Status</span>
-                    <span class="meta-value">{{ ucfirst($booking->status) }}</span>
+                    <span class="meta-label">{{ __('receipt.status') }}</span>
+                    <span class="meta-value">{{ $status_label }}</span>
                 </td>
             </tr>
         </table>
 
         {{-- Hall Details --}}
         <div class="section">
-            <div class="section-title">Hall Details</div>
+            <div class="section-title">{{ __('receipt.section_hall') }}</div>
             <table class="data-table">
                 <tr>
-                    <td class="label">Hall Name</td>
+                    <td class="label">{{ __('receipt.label_hall_name') }}</td>
+                    {{-- Hall::getNameAttribute() resolves name_{locale}; the service
+                         has already switched the app locale to the hirer's language. --}}
                     <td class="value">{{ $booking->hall->name ?? '-' }}</td>
                 </tr>
                 <tr>
-                    <td class="label">Capacity</td>
-                    <td class="value">{{ $booking->hall->capacity ?? '-' }} persons</td>
+                    <td class="label">{{ __('receipt.label_capacity') }}</td>
+                    <td class="value">{{ $booking->hall->capacity ?? '-' }} {{ __('receipt.persons') }}</td>
                 </tr>
             </table>
         </div>
 
         {{-- Booking Details --}}
         <div class="section">
-            <div class="section-title">Booking Details</div>
+            <div class="section-title">{{ __('receipt.section_booking') }}</div>
             <table class="data-table">
                 <tr>
-                    <td class="label">Contact Name</td>
+                    <td class="label">{{ __('receipt.label_contact_name') }}</td>
                     <td class="value">{{ $booking->contact_name }}</td>
                 </tr>
                 <tr>
-                    <td class="label">Phone</td>
+                    <td class="label">{{ __('receipt.label_phone') }}</td>
                     <td class="value">{{ $booking->contact_phone }}</td>
                 </tr>
                 <tr>
-                    <td class="label">Purpose</td>
+                    <td class="label">{{ __('receipt.label_purpose') }}</td>
                     <td class="value">{{ $booking->purpose }}</td>
                 </tr>
                 @if($booking->expected_guests)
                 <tr>
-                    <td class="label">Expected Guests</td>
+                    <td class="label">{{ __('receipt.label_expected_guests') }}</td>
                     <td class="value">{{ $booking->expected_guests }}</td>
                 </tr>
                 @endif
@@ -141,7 +144,8 @@
         {{-- Amount --}}
         <table class="amount-box" width="100%" cellpadding="0" cellspacing="0"><tr><td>
             <div class="amount-total">&#8377; {{ number_format((float) $booking->total_amount, 2) }}</div>
-            <div class="amount-words">{{ $amount_in_words }}</div>
+            {{-- Words stay English in every language — see the services. --}}
+            <div class="amount-words">{{ __('receipt.label_amount_in_words') }}: <span class="words-value">{{ $amount_in_words }}</span></div>
         </td></tr></table>
 
         {{-- Footer --}}
@@ -156,11 +160,11 @@
                     </td>
                     <td class="signature-block">
                         <div class="signature-line"></div>
-                        <div class="signature-label">Authorised Signatory</div>
+                        <div class="signature-label">{{ __('receipt.authorised_signatory') }}</div>
                     </td>
                 </tr>
             </table>
-            <div class="computer-gen">This is a computer-generated receipt and does not require a physical signature.</div>
+            <div class="computer-gen">{{ __('receipt.computer_generated_receipt') }}</div>
         </div>
     </div>
 </body>

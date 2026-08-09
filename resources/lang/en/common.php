@@ -2,10 +2,10 @@
 
 return [
     'temple_name' => 'Shree Patadiya Hanumanji',
-    'trust_subtitle' => 'Seva Trust • Online',
+    'trust_subtitle' => 'Seva Trust • Antarjal',
     'language' => 'Language',
     'trust_full' => 'Shree Patadiya Hanumanji Seva Trust',
-    'address' => 'Antarjaal, Gandhidham, Kutch — 370110',
+    'address' => 'Antarjal, Gandhidham, Kutch — 370205',
     'address_label' => 'Address',
     'date' => 'Date',
     'time' => 'Time',

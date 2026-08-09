@@ -66,25 +66,73 @@ class Devotee extends Authenticatable
         return $this->hasMany(DeviceToken::class, 'devotee_id');
     }
 
+    /** Sanctum token name every mobile-app login mints. The discriminator
+     *  that lets a web login evict web sessions WITHOUT touching the
+     *  phone — see revokeOtherLogins(). Changing this string orphans
+     *  tokens already in the field, so don't. */
+    public const APP_TOKEN_NAME = 'mobile-app';
+
+    /** Revoke only the app surface: Sanctum tokens + FCM registrations. */
+    public const SCOPE_APP = 'app';
+
+    /** Revoke only the web surface: other browser sessions (auth_epoch). */
+    public const SCOPE_WEB = 'web';
+
+    /** Revoke everything, everywhere (admin "sign out of all devices"). */
+    public const SCOPE_ALL = 'all';
+
     /**
-     * Single-active-login: invalidate every OTHER device/browser before a
-     * fresh login is issued. Three coordinated steps:
-     *   1. delete all Sanctum tokens → other apps 401 and auto-logout;
-     *   2. bump auth_epoch → other web sessions fail the
-     *      EnsureSingleDevoteeSession check and are logged out;
-     *   3. detach FCM rows → devotee-targeted pushes stop reaching the
-     *      surrendered devices (they keep receiving 'all' broadcasts);
-     *      the new device re-registers its token right after login.
+     * Single-active-login, scoped PER SURFACE.
+     *
+     * The two surfaces are enforced by two different mechanisms:
+     *   • APP — Sanctum tokens named APP_TOKEN_NAME. Deleting them makes
+     *     the phone 401 on its next call and log itself out. The FCM rows
+     *     are detached at the same time so devotee-targeted pushes stop
+     *     reaching a surrendered handset (the new one re-registers right
+     *     after login); 'all' broadcasts still reach it.
+     *   • WEB — the auth_epoch counter. Every web session stores the epoch
+     *     it was born under; bumping it fails EnsureSingleDevoteeSession
+     *     on every other session. (Session rows can't be deleted per
+     *     devotee — the sessions table user_id is a bigint and the driver
+     *     may be file — so the epoch is the driver-agnostic mechanism.)
+     *
+     * Until 2026-08-09 this did BOTH on every login. Since iOS donations
+     * are forced onto the website (App Store 3.2.2(iv)), a devotee who
+     * donated and re-authenticated in the browser had their phone's token
+     * deleted underneath them — reported as "the app randomly terminates
+     * my session" (spec 07, suspect #2). The surfaces now coexist: a web
+     * login evicts other WEB sessions, an app login evicts other APP
+     * tokens, and neither touches the other. Logging in on a second phone
+     * still evicts the first phone, which is the security intent.
      *
      * Callers issue their own token / session AFTER this. Must NOT be
-     * called from the app→web handoff (appLogin) — that is the same
-     * login lineage, not a new device.
+     * called at all from the app→web handoff (appLogin) — that is the
+     * same login lineage, not a new device.
+     *
+     * @param  string  $scope  self::SCOPE_APP | SCOPE_WEB | SCOPE_ALL
      */
-    public function revokeOtherLogins(): void
+    public function revokeOtherLogins(string $scope = self::SCOPE_ALL): void
     {
-        $this->tokens()->delete();
-        $this->increment('auth_epoch');
-        $this->deviceTokens()->update(['devotee_id' => null]);
+        if ($scope === self::SCOPE_ALL) {
+            // Nothing survives: every token regardless of name.
+            $this->tokens()->delete();
+            $this->deviceTokens()->update(['devotee_id' => null]);
+            $this->increment('auth_epoch');
+
+            return;
+        }
+
+        if ($scope === self::SCOPE_APP) {
+            $this->tokens()->where('name', self::APP_TOKEN_NAME)->delete();
+            $this->deviceTokens()->update(['devotee_id' => null]);
+        }
+
+        if ($scope === self::SCOPE_WEB) {
+            // NOTE: no deviceTokens() detach here. A web login used to
+            // unsubscribe the devotee's phone from targeted pushes — a
+            // silent second bug that came with the global revoke.
+            $this->increment('auth_epoch');
+        }
     }
 
     public function hallBookings(): HasMany

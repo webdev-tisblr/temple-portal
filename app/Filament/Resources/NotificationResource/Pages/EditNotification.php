@@ -22,7 +22,11 @@ class EditNotification extends EditRecord
                 ->icon('heroicon-o-paper-airplane')
                 ->color('success')
                 ->requiresConfirmation()
-                ->visible(fn () => in_array($this->record->status, ['draft', 'scheduled', 'failed'], true))
+                // G12 (2026-08-09): broadcasts a push to EVERY targeted
+                // devotee. Permission + state in one closure — a second
+                // ->visible() call replaces rather than ANDs.
+                ->visible(fn (): bool => (auth('admin')->user()?->can('send_announcement') ?? false)
+                    && in_array($this->record->status, ['draft', 'scheduled', 'failed'], true))
                 ->action(function () {
                     $this->record->update([
                         'status' => 'sending',

@@ -40,7 +40,11 @@ class HallBookingResource extends Resource
                 Forms\Components\TextInput::make('contact_name')->disabled(),
                 Forms\Components\TextInput::make('contact_phone')->disabled(),
                 Forms\Components\TextInput::make('purpose')->disabled(),
-                Forms\Components\DatePicker::make('booking_date')->disabled(),
+                // booking_date is the RANGE START (item 4.2). It keeps its
+                // name; end_date/days_count are read-only companions.
+                Forms\Components\DatePicker::make('booking_date')->label('From')->disabled(),
+                Forms\Components\DatePicker::make('end_date')->label('To')->disabled(),
+                Forms\Components\TextInput::make('days_count')->label('Days')->disabled(),
                 Forms\Components\TextInput::make('booking_type')->disabled(),
                 Forms\Components\TextInput::make('expected_guests')->disabled(),
                 Forms\Components\TextInput::make('total_amount')->prefix('₹')->disabled(),
@@ -83,7 +87,15 @@ class HallBookingResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('hall.name')->label('Hall')->sortable(),
                 Tables\Columns\TextColumn::make('contact_name')->label('Contact')->searchable(),
-                Tables\Columns\TextColumn::make('booking_date')->date('d M Y')->sortable(),
+                // Sorts on booking_date (the range start) so defaultSort()
+                // and the existing index keep working.
+                Tables\Columns\TextColumn::make('booking_date')
+                    ->label('Dates')
+                    ->sortable()
+                    ->getStateUsing(fn (HallBooking $record): string => $record->date_range_label),
+                Tables\Columns\TextColumn::make('days_count')
+                    ->label('Days')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('purpose')->limit(30),
                 Tables\Columns\TextColumn::make('total_amount')->prefix('₹'),
                 Tables\Columns\TextColumn::make('status')->badge()->color(fn ($state) => match ($state) {

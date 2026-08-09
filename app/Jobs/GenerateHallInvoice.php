@@ -86,7 +86,15 @@ class GenerateHallInvoice implements ShouldQueue
             'booking' => array_merge($this->booking->toArray(), [
                 'booking_number' => $bookingNumber,
                 'booking_type_label' => $bookingTypeLabel,
+                // booking_date KEEPS its meaning (the range start, which for
+                // a single-day booking is the booking date) and its 'd M Y'
+                // format — Meta-approved WhatsApp templates bind {{n}}
+                // positionally to this placeholder name. The three range
+                // placeholders below are purely additive.
                 'booking_date' => $this->booking->booking_date?->format('d M Y'),
+                'booking_end_date' => $this->booking->rangeEnd()->format('d M Y'),
+                'booking_date_range' => $this->booking->date_range_label,
+                'days_count' => (int) ($this->booking->days_count ?: 1),
                 'total_amount_formatted' => number_format((float) $this->booking->total_amount, 2),
                 'contact_phone' => $this->booking->contact_phone,
                 'contact_name' => $this->booking->contact_name,

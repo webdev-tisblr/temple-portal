@@ -48,6 +48,45 @@ Route::get('/up/deep', function () {
         ->header('Cache-Control', 'no-store');
 })->name('health.deep');
 
+// Native-app association files (item 3.2). Served from routes rather than
+// static files in public/ so they can stay 404 until the Apple Team ID /
+// Android signing fingerprint are actually known — a published association
+// with a placeholder id gets cached by Apple's CDN and is worse than none.
+// Both must be plain JSON with no redirect: Apple's fetcher follows neither.
+Route::get('/.well-known/apple-app-site-association', function () {
+    $teamId = config('deep_links.apple_team_id');
+    abort_if(blank($teamId), 404);
+
+    return response()->json([
+        'applinks' => [
+            'apps' => [],
+            'details' => [[
+                'appID' => $teamId.'.'.config('deep_links.bundle_id'),
+                'paths' => config('deep_links.paths'),
+            ]],
+        ],
+    ])->header('Content-Type', 'application/json')
+        ->header('Cache-Control', 'public, max-age=3600');
+})->name('wellknown.aasa');
+
+Route::get('/.well-known/assetlinks.json', function () {
+    $fingerprints = array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) config('deep_links.android_sha256')),
+    )));
+    abort_if($fingerprints === [], 404);
+
+    return response()->json([[
+        'relation' => ['delegate_permission/common.handle_all_urls'],
+        'target' => [
+            'namespace' => 'android_app',
+            'package_name' => config('deep_links.bundle_id'),
+            'sha256_cert_fingerprints' => $fingerprints,
+        ],
+    ]])->header('Content-Type', 'application/json')
+        ->header('Cache-Control', 'public, max-age=3600');
+})->name('wellknown.assetlinks');
+
 // Language switch — sets the locale cookie server-side and bounces back to
 // the page the user was on. Using a dedicated route (instead of a ?lang=
 // query param) keeps public URLs clean and immune to full-page caches that
@@ -139,6 +178,8 @@ Route::get('/halls/{hall}', [HallBookingController::class, 'hallShow'])->name('h
 // URLs and existing route('hall.booking') call-sites stay valid).
 Route::get('/hall-booking', fn () => redirect()->route('halls.index'))->name('hall.booking');
 Route::get('/hall-booking/check', [HallBookingController::class, 'checkAvailability'])->name('hall.booking.check');
+// Item 4.4 — "Next available" affordance on the website (parity with the app).
+Route::get('/hall-booking/next-available', [HallBookingController::class, 'nextAvailable'])->name('hall.booking.next');
 
 // Auth
 Route::get('/login', [AuthWebController::class, 'showLogin'])->name('login');
@@ -210,91 +251,18 @@ Route::get('/projects/{slug}/donors', [ProjectController::class, 'donors'])->nam
 // through cdn.patadiyahanumanji.com via the image_url() helper, so the
 // proxy is no longer reachable by any code path. Removed Phase 5.
 
-// Admin-only one-shot storage repair: run from a browser when SSH isn't an
-// option. Hostinger disables exec(), so artisan storage:link fails.
-// We bypass it by calling PHP's symlink() directly.
-Route::get('/admin-tools/storage-repair', function () {
-    if (! auth('admin')->check()) {
-        abort(403, 'Admin login required.');
-    }
-
-    $log = [];
-    $log[] = '<pre style="font-family:monospace;padding:16px;background:#111;color:#0f0;border-radius:8px;white-space:pre-wrap">';
-    $log[] = '=== Storage Repair ===';
-
-    $linkPath = public_path('storage');
-    $target = storage_path('app/public');
-
-    // Ensure storage/app/public exists.
-    if (! is_dir($target)) {
-        @mkdir($target, 0775, true);
-        $log[] = "[ok] created target directory: {$target}";
-    }
-
-    // Pre-create the upload directories so the symlink resolves to real folders.
-    $publicDirs = [
-        'campaigns', 'daily-darshan', 'daily-darshan-photos',
-        'donation-extras', 'events', 'gallery', 'greeting-templates', 'halls',
-        'pages', 'product-categories', 'product-images', 'products',
-        'profile-photos', 'sevas',
-    ];
-    foreach ($publicDirs as $d) {
-        $p = $target . '/' . $d;
-        if (! is_dir($p)) {
-            @mkdir($p, 0775, true);
-        }
-    }
-
-    // Clean up any existing entry at the link path so we can recreate it.
-    if (is_link($linkPath)) {
-        $existing = readlink($linkPath);
-        if ($existing === $target && is_dir($existing)) {
-            $log[] = "[ok] symlink already correct → {$existing}";
-        } else {
-            @unlink($linkPath);
-            $log[] = "[ok] removed stale symlink (was → {$existing})";
-        }
-    } elseif (is_dir($linkPath) && ! is_link($linkPath)) {
-        $log[] = "[!] {$linkPath} is a real directory, not a symlink — leaving it alone";
-        $log[] = "    Move its contents into storage/app/public manually, then delete it.";
-    } elseif (file_exists($linkPath)) {
-        @unlink($linkPath);
-        $log[] = "[ok] removed stray file at {$linkPath}";
-    }
-
-    // Create the symlink directly (no exec, no artisan).
-    if (! is_link($linkPath) && ! is_dir($linkPath)) {
-        try {
-            $ok = @symlink($target, $linkPath);
-            if ($ok) {
-                $log[] = "[ok] symlink({$target}, {$linkPath}) succeeded";
-            } else {
-                $err = error_get_last();
-                $log[] = '[err] symlink() returned false: ' . ($err['message'] ?? 'unknown');
-            }
-        } catch (\Throwable $e) {
-            $log[] = '[err] symlink() threw: ' . $e->getMessage();
-        }
-    }
-
-    // (Removed in Phase 5: the storage:migrate-uploads-to-public call.
-    // Uploads no longer live on the local disk, so the legacy migration
-    // step is a no-op.)
-
-    $log[] = '';
-    $log[] = '=== Quick checks ===';
-    $log[] = 'public/storage is_link:        ' . (is_link($linkPath) ? 'yes → ' . readlink($linkPath) : 'no');
-    $log[] = 'public/storage exists:         ' . (file_exists($linkPath) ? 'yes' : 'no');
-    $log[] = 'storage/app/public/products:   ' . (is_dir(storage_path('app/public/products')) ? 'yes' : 'no');
-    $log[] = 'storage/app/private/products:  ' . (is_dir(storage_path('app/private/products')) ? 'yes' : 'no');
-    $log[] = 'symlink() function disabled:   ' . (function_exists('symlink') ? 'no' : 'YES — link cannot be created');
-    $log[] = '';
-    $log[] = 'After this completes, re-upload any product/seva image once from admin.';
-    $log[] = 'Direct test: <a style="color:#0ff" href="/storage/products/" target="_blank">/storage/products/</a>';
-    $log[] = '</pre>';
-
-    return implode("\n", $log);
-})->name('admin.storage-repair');
+// REMOVED 2026-08-09 (RBAC audit G14): GET /admin-tools/storage-repair.
+// It ran mkdir/unlink/symlink against public/storage and printed absolute
+// server paths behind nothing but `auth('admin')->check()` — no permission,
+// no is_active check, no panel_user check. Living outside the Filament panel
+// it bypassed AdminUser::canAccessPanel() entirely, so a DEACTIVATED admin
+// with a live session cookie (or any volunteer) could execute it. It was
+// also obsolete: the storage:migrate-uploads-to-public step was dropped in
+// Phase 5 and every upload now lives in Cloudflare R2, served via
+// cdn.patadiyahanumanji.com by the image_url() helper — nothing reads
+// public/storage any more. Nothing referenced route('admin.storage-repair')
+// anywhere in the repo, so deletion is safe. If a storage symlink is ever
+// needed again the VPS has SSH: `ssh temple-vps` then `php artisan storage:link`.
 
 // Legal / store-compliance pages (required by App Store + Google Play).
 // Defined before the CMS catch-all so these fixed URLs always resolve.

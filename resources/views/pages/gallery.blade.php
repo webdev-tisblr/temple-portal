@@ -28,6 +28,9 @@
                 'src' => $id
                     ? "https://img.youtube.com/vi/{$id}/hqdefault.jpg"
                     : ($img->image_path ? image_url($img->image_path) : ''),
+                'full' => $id
+                    ? "https://img.youtube.com/vi/{$id}/hqdefault.jpg"
+                    : ($img->image_path ? image_url($img->image_path) : ''),
                 'embed' => $id ? "https://www.youtube-nocookie.com/embed/{$id}" : $img->video_url,
                 'ytid' => $id,
                 'youtube' => (bool) $id,
@@ -38,7 +41,13 @@
             'title' => $img->title,
             'category' => $img->category,
             'categories' => $img->categories->pluck('slug')->values()->all() ?: array_filter([$img->category]),
-            'src' => image_url($img->image_path),
+            // Grid tiles take the small derivative; the lightbox takes the
+            // medium one. Serving the original in either place is what made
+            // this page ruinous — some uploads are ~200 megapixels, i.e.
+            // ~800 MB once decoded (2026-08-09). Both fall back to the
+            // original for rows the derivative backfill hasn't reached.
+            'src' => $img->thumb_url ?: image_url($img->image_path),
+            'full' => image_url($img->medium_path ?: $img->image_path),
             'embed' => null,
             'youtube' => false,
         ];
@@ -81,7 +90,7 @@
         <button @click="activeCategory = 'all'"
                 :class="activeCategory === 'all' ? 'bg-gold text-stone-900 font-bold' : 'bg-transparent text-amber-100/50 border border-amber-800/30 hover:border-amber-600'"
                 class="px-4 py-1.5 rounded-full text-sm font-medium transition">
-            Badhu
+            {{ __('gallery.all') }}
         </button>
         @foreach($categories as $cat)
         <button @click="activeCategory = '{{ $cat }}'"
@@ -195,7 +204,7 @@
                 </div>
             </template>
             <template x-if="filtered[currentIndex]?.type !== 'video'">
-                <img :src="filtered[currentIndex]?.src"
+                <img :src="filtered[currentIndex]?.full || filtered[currentIndex]?.src"
                      :alt="filtered[currentIndex]?.title"
                      class="max-h-[80vh] max-w-full object-contain rounded-lg shadow-2xl">
             </template>

@@ -21,4 +21,8 @@ return [
     'donate' => 'Donate',
     'menu' => 'Menu',
     'cart' => 'Cart',
+    // Header profile icon states (2026-08-09).
+    'namaste_login' => 'Namaste — sign in',
+    'my_profile' => 'My profile',
+    'add_profile_photo' => 'Add your profile photo',
 ];

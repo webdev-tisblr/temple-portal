@@ -302,19 +302,19 @@ class DarshanShareCardService
     {
         return match (app()->getLocale()) {
             'hi' => [
-                'blessing' => 'जय श्री राम',
+                'blessing' => '॥ जय सियाराम ॥',
                 'line1' => 'पातालिया हनुमानजी मंदिर की ओर से',
                 'line2' => 'दैनिक दर्शन आशीर्वाद',
                 'trust' => 'श्री पातालिया हनुमानजी सेवा ट्रस्ट',
             ],
             'en' => [
-                'blessing' => 'Jai Shri Ram',
+                'blessing' => '॥ Jay Siya Ram ॥',
                 'line1' => 'Sending Daily Blessings from',
                 'line2' => 'Patadiya Hanumanji Temple',
                 'trust' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
             ],
             default => [
-                'blessing' => 'જય શ્રી રામ',
+                'blessing' => '॥ જય સિયારામ ॥',
                 'line1' => 'પાતાળિયા હનુમાનજી મંદિર તરફથી',
                 'line2' => 'દૈનિક દર્શન આશીર્વાદ',
                 'trust' => 'શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ',
@@ -331,17 +331,26 @@ class DarshanShareCardService
      */
     private function pickFontForText(string $text, bool $bold): string
     {
-        if (preg_match('/[\x{0A80}-\x{0AFF}]/u', $text)) {
+        $sample = $this->scriptSample($text);
+
+        if (preg_match('/[\x{0A80}-\x{0AFF}]/u', $sample)) {
             return resource_path('fonts/NotoSerifGujarati-SemiBold.ttf');
         }
-        if (preg_match('/[\x{0900}-\x{097F}]/u', $text)) {
+        if (preg_match('/[\x{0900}-\x{097F}]/u', $sample)) {
             return resource_path('fonts/NotoSerifDevanagari-SemiBold.ttf');
         }
 
         return resource_path('fonts/Marcellus-Regular.ttf');
     }
 
-    /** Fontconfig serif family for pango, matched to $text's script. */
+    /**
+     * Fontconfig serif family for pango, matched to $text's script.
+     *
+     * Unlike [pickFontForText] this does NOT discount the danda: a romanised
+     * line wrapped in ॥ still has to reach pango (Marcellus has no danda
+     * glyph), and there Noto Serif Devanagari draws the danda while
+     * fontconfig falls back for the Latin run.
+     */
     private function pangoSerifFamilyFor(string $text): ?string
     {
         if (preg_match('/[\x{0A80}-\x{0AFF}]/u', $text)) {
@@ -351,7 +360,21 @@ class DarshanShareCardService
             return 'Noto Serif Devanagari';
         }
 
-        return null; // Latin never routes through pango
+        return null; // pure Latin never routes through pango
+    }
+
+    /**
+     * Strip script-neutral danda punctuation (। U+0964, ॥ U+0965) before
+     * detecting a run's script. Both live in the Devanagari Unicode block
+     * but frame Gujarati and romanised text alike — '॥ Jay Siya Ram ॥'
+     * would otherwise be typed as Devanagari and, on the pango-less GD
+     * fallback path, drawn with the bundled NotoSerifDevanagari subset,
+     * which carries no Latin glyphs at all (every letter tofu). Losing the
+     * two dandas there is the far smaller failure.
+     */
+    private function scriptSample(string $text): string
+    {
+        return preg_replace('/[\x{0964}\x{0965}]/u', '', $text) ?? $text;
     }
 
     /**
@@ -468,14 +491,14 @@ class DarshanShareCardService
     }
 
     /**
-     * Render the centrepiece blessing ("જય શ્રી રામ") in gold + a small
+     * Render the centrepiece blessing ("॥ જય સિયારામ ॥") in gold + a small
      * gold-dash divider underneath. Kept as its own method so the
      * orchestration in render() reads top-to-bottom.
      */
     /**
      * Renders the three-element blessing cluster:
      *
-     *   જય શ્રી રામ       ← gold, large
+     *   ॥ જય સિયારામ ॥    ← gold, large
      *   ──── ● ────       ← thin gold divider
      *   પ્રાર્થના સહિત   ← cream, small, Gujarati for 'With prayers'
      *
@@ -534,7 +557,7 @@ class DarshanShareCardService
     {
         $cx = intval($width / 2);
 
-        // Blessing line ('જય શ્રી રામ' / 'जय श्री राम' / 'Jai Shri Ram')
+        // Blessing line ('॥ જય સિયારામ ॥' / '॥ जय सियाराम ॥' / '॥ Jay Siya Ram ॥')
         // — dominant centred element, serif per the app's typography.
         $blessSize = $format === self::FORMAT_STORY ? 100 : 72;
         $blessFont = $this->pickFontForText($blessing, bold: true);
@@ -860,8 +883,10 @@ class DarshanShareCardService
         // Locale is part of the identity now — the card's text follows
         // X-Locale, so each language renders its own file.
         // v22: footer date = photo captured_on (was now()) in d/m/Y.
+        // v23: blessing standardised to '॥ જય સિયારામ ॥' / '॥ जय सियाराम ॥' /
+        //      '॥ Jay Siya Ram ॥' (was 'જય શ્રી રામ' etc.).
         $locale = app()->getLocale();
-        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|{$locale}|v22"), 0, 12);
+        $hash = substr(sha1("{$photo->id}|{$photo->updated_at?->timestamp}|{$devoteeSegment}|{$format}|{$locale}|v23"), 0, 12);
 
         return self::STORAGE_PREFIX."/{$date}/{$devoteeSegment}-{$format}-{$locale}-{$hash}.jpg";
     }

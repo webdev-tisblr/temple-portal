@@ -60,7 +60,11 @@ class ListGalleryImages extends ListRecords
                 ->modalHeading('Bulk upload photos')
                 ->modalDescription('Pick several photos at once — each becomes its own gallery item. Large photos are scaled down and compressed automatically, so upload straight from the camera roll.')
                 ->modalSubmitActionLabel('Upload')
-                ->visible(fn (): bool => auth('admin')->user()?->can('create_gallery') ?? false)
+                // G8 (2026-08-09): was `create_gallery`, the slug that
+                // diverged from the Shield-derived `gallery::image` set.
+                // Left unchanged it would now fail CLOSED and hide bulk
+                // upload from everyone but super_admin.
+                ->visible(fn (): bool => auth('admin')->user()?->can('create_gallery::image') ?? false)
                 ->form(function (): array {
                     $max = $this->bulkMaxFiles();
 

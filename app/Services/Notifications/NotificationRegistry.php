@@ -22,7 +22,8 @@ namespace App\Services\Notifications;
  *
  * IMPORTANT: paths must match the SHAPE OF THE ACTUAL DISPATCH
  * CONTEXT. Cross-reference each entry with the dispatch site:
- *   donation.confirmed     → app/Services/PaymentCaptureService.php
+ *   donation.confirmed          → app/Services/PaymentCaptureService.php
+ *   donation.campaign.confirmed → app/Services/PaymentCaptureService.php
  *   donation.receipt_80g   → app/Jobs/Generate80GReceipt.php
  *   donation.greeting_card → app/Jobs/GenerateGreetingCard.php
  *   seva.booking.confirmed → app/Jobs/GenerateSevaReceipt.php
@@ -48,7 +49,7 @@ final class NotificationRegistry
             //   trust_name (string).
             'donation.confirmed' => [
                 'label' => 'Donation — payment confirmed',
-                'description' => 'Fires when a donation payment is captured. The 80G receipt is built AFTER this trigger — for messages that need receipt_number or receipt_pdf_url, use the donation.receipt_80g trigger instead.',
+                'description' => 'Fires when a donation payment is captured. The 80G receipt is built AFTER this trigger — for messages that need receipt_number or receipt_pdf_url, use the donation.receipt_80g trigger instead. NOTE: donations made to a campaign fire donation.campaign.confirmed instead, as soon as at least one template exists for that trigger — the two are mutually exclusive, a donation never fires both.',
                 'placeholders' => [
                     'donor_name' => 'Devotee name (devotee.name)',
                     'amount' => 'Donation amount in INR (donation.amount)',
@@ -56,6 +57,47 @@ final class NotificationRegistry
                     'donation_type_en' => 'Donation type label, English (donation.donationType.name_en)',
                     'purpose' => 'Donation purpose if provided by donor (donation.purpose)',
                     'campaign_title' => 'Campaign title if any (donation.campaign.title_gu)',
+                    'date' => 'Donation date (donation.created_at)',
+                    'trust_name' => 'Trust name from System Settings (trust_name)',
+                ],
+            ],
+
+            // ── Campaign donation confirmation (split off 2026-08-09) ──
+            // Same dispatch site as donation.confirmed (PaymentCaptureService,
+            // inside the capture transaction) but a SEPARATE key so the trust
+            // can write campaign-specific wording. Routing is mutually
+            // exclusive: a donation with a campaign fires ONLY this key, a
+            // donation without one fires ONLY donation.confirmed. A donor can
+            // therefore never receive both messages for one payment.
+            //
+            // Context adds, on top of donation.confirmed's:
+            //   campaign_url, campaign_raised, campaign_goal (computed,
+            //   top-level strings), amount_formatted, and the eager-loaded
+            //   donation.subCause relation.
+            //
+            // Localisation note: campaign_title deliberately pins the _gu
+            // column (like every other trigger) because notification
+            // rendering runs outside a request and has no locale. Use
+            // campaign_title_hi / campaign_title_en for the other languages
+            // — including inside per-language WhatsApp wa_variants.
+            'donation.campaign.confirmed' => [
+                'label' => 'Donation — campaign payment confirmed',
+                'description' => 'Fires when a donation MADE TO A CAMPAIGN is captured, in place of donation.confirmed (never both). Inactive until at least one template exists for this trigger — while none does, campaign donors keep receiving the generic donation.confirmed message. The 80G receipt still follows separately under donation.receipt_80g.',
+                'placeholders' => [
+                    'donor_name' => 'Devotee name (devotee.name)',
+                    'amount' => 'Donation amount in INR (donation.amount)',
+                    'amount_formatted' => 'Amount with thousands separator (amount_formatted)',
+                    'campaign_title' => 'Campaign title, Gujarati (donation.campaign.title_gu)',
+                    'campaign_title_hi' => 'Campaign title, Hindi (donation.campaign.title_hi)',
+                    'campaign_title_en' => 'Campaign title, English (donation.campaign.title_en)',
+                    'sub_cause' => 'Sub-cause title if the donor picked one, Gujarati (donation.subCause.title_gu)',
+                    'sub_cause_en' => 'Sub-cause title if the donor picked one, English (donation.subCause.title_en)',
+                    'campaign_url' => 'Public campaign page link, /projects/{slug} (campaign_url)',
+                    'campaign_raised' => 'Amount raised by the campaign so far, formatted (campaign_raised)',
+                    'campaign_goal' => 'Campaign goal amount, formatted (campaign_goal)',
+                    'donation_type' => 'Donation type label, Gujarati (donation.donationType.name_gu)',
+                    'donation_type_en' => 'Donation type label, English (donation.donationType.name_en)',
+                    'purpose' => 'Donation purpose if provided by donor (donation.purpose)',
                     'date' => 'Donation date (donation.created_at)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
@@ -224,7 +266,10 @@ final class NotificationRegistry
                     'contact_name' => 'Contact name (booking.contact_name)',
                     'contact_phone' => 'Contact phone (booking.contact_phone)',
                     'hall_name' => 'Hall name (booking.hall.name)',
-                    'booking_date' => 'Booking date, pre-formatted (booking.booking_date)',
+                    'booking_date' => 'Booking start date, pre-formatted (booking.booking_date) — unchanged meaning for single-day bookings',
+                    'booking_end_date' => 'Booking end date, pre-formatted — same as the start for a single-day booking (booking.booking_end_date)',
+                    'booking_date_range' => 'Whole range as one string, eg "12 – 14 Aug 2026" (booking.booking_date_range)',
+                    'days_count' => 'Number of days booked, 1 for a single-day booking (booking.days_count)',
                     'booking_type' => 'Booking type label, eg "Full Day" (booking.booking_type_label)',
                     'purpose' => 'Booking purpose (booking.purpose)',
                     'amount' => 'Total amount with thousands separator (booking.total_amount_formatted)',

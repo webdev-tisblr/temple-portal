@@ -210,11 +210,11 @@ class HomePageSettingsPage extends Page implements HasForms
                         ->helperText('This campaign appears first in the app home carousel. Leave empty for the automatic order.'),
                 ])->columns(2),
 
-            Forms\Components\Section::make('Prasad Highlight')
-                ->description('The prasad strip on the home page (after the hall band, before events). Shows up to 4 products.')
+            Forms\Components\Section::make('Order Prasad')
+                ->description('The "Order Prasad" section on the home page (after the hall band, before events). Shows up to 4 products as prasad medallions beside the invitation panel.')
                 ->schema([
                     Forms\Components\Toggle::make('prasad_enabled')
-                        ->label('Show the prasad section')
+                        ->label('Show the Order Prasad section')
                         ->default(true)
                         ->live(),
                     Forms\Components\Select::make('prasad_product_ids')

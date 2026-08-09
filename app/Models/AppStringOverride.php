@@ -29,6 +29,18 @@ class AppStringOverride extends Model
         'is_active' => 'boolean',
     ];
 
+    /**
+     * Bust the payload every phone reads (GET /api/v1/content/app-strings,
+     * 300s cache) whenever a row changes.
+     *
+     * CAVEAT: these are Eloquent MODEL events. Filament's row DeleteAction
+     * and DeleteBulkAction both call $record->delete() on instances, so the
+     * admin screen is covered — but a query-builder mass delete/update
+     * (`AppStringOverride::where(...)->delete()` in tinker, a migration or a
+     * seeder) fires nothing and leaves the cache serving a removed fix for
+     * up to 5 minutes. Follow any such write with
+     * `Cache::forget(AppStringOverride::CACHE_KEY)`.
+     */
     protected static function booted(): void
     {
         $bust = fn () => Cache::forget(self::CACHE_KEY);

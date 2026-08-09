@@ -12,12 +12,14 @@ use App\Jobs\GenerateSevaReceipt;
 use App\Jobs\GenerateStoreInvoice;
 use App\Models\Donation;
 use App\Models\HallBooking;
+use App\Models\NotificationTemplate;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\SevaBooking;
 use App\Models\SystemSetting;
 use App\Services\Notifications\NotificationService;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -30,8 +32,14 @@ use Illuminate\Support\Facades\Log;
  *   • Web success callbacks: DonationWebController::thankYou,
  *     SevaWebController::bookingSuccess, StoreWebController::orderSuccess,
  *     HallBookingController::bookingSuccess
+ *   • Admin counter entry (item 6.1): CounterEntryService drives a
+ *     SYNTHETIC offline Payment (razorpay_order_id 'cash_<ulid>',
+ *     method cash|upi_offline|cheque|bank_transfer) through this exact
+ *     method, so cash taken at the temple produces byte-for-byte the
+ *     same side effects as an online payment. It is the only caller that
+ *     passes $paidAt.
  *
- * All five paths converge here; the service is the only place that
+ * All these paths converge here; the service is the only place that
  * flips Payment.status to 'captured' and reconciles downstream rows.
  *
  * Concurrency model:
@@ -60,11 +68,27 @@ use Illuminate\Support\Facades\Log;
  */
 class PaymentCaptureService
 {
+    /**
+     * @param  \Carbon\CarbonInterface|null  $paidAt  When the money actually
+     *   changed hands. Item 6.1 (manual cash entry): the trust receives cash
+     *   at the counter and may enter it a day or two later, and a receipt
+     *   dated "today" for money taken on Saturday is wrong on a statutory
+     *   document.
+     *
+     *   PURELY ADDITIVE — last parameter, nullable, defaulting to null which
+     *   resolves to now(). Every pre-existing caller (Razorpay webhook,
+     *   POST /api/v1/payments/verify, and the four web success callbacks)
+     *   omits it and therefore stamps now() exactly as before; none of them
+     *   passes arguments positionally past $method, so no call site shifts.
+     *   Asserted directly in ManualCashEntryTest::
+     *   test_omitting_paid_at_still_stamps_now.
+     */
     public function markCaptured(
         Payment $payment,
         ?string $razorpayPaymentId = null,
         ?string $method = null,
         ?array $rawWebhookPayload = null,
+        ?CarbonInterface $paidAt = null,
     ): void {
         // Fast path — no lock, no transaction. Replays (webhook arriving
         // after /payments/verify already captured) exit here.
@@ -82,7 +106,7 @@ class PaymentCaptureService
             'donation' => null,      // Donation
         ];
 
-        DB::transaction(function () use ($payment, $razorpayPaymentId, $method, $rawWebhookPayload, &$captured) {
+        DB::transaction(function () use ($payment, $razorpayPaymentId, $method, $rawWebhookPayload, $paidAt, &$captured) {
             // Re-fetch under FOR UPDATE — the authoritative read that
             // serialises concurrent captures.
             $locked = Payment::whereKey($payment->id)->lockForUpdate()->first();
@@ -102,7 +126,9 @@ class PaymentCaptureService
             $locked->update([
                 'status' => 'captured',
                 'razorpay_payment_id' => $razorpayPaymentId ?? $locked->razorpay_payment_id,
-                'paid_at' => now(),
+                // $paidAt === null is the ONLY behaviour every pre-6.1
+                // caller ever produced, and it still resolves to now().
+                'paid_at' => $paidAt ?? now(),
                 'method' => $method ?? $locked->method,
                 'webhook_payload' => $rawWebhookPayload ?? $locked->webhook_payload,
             ]);
@@ -221,14 +247,19 @@ class PaymentCaptureService
                 // PAN is intentionally NOT snapshotted onto the donation
                 // row — its canonical home is temple_devotees.pan_encrypted
                 // and the receipt-generation path reads from there.
+                $donation->loadMissing('devotee', 'campaign', 'subCause', 'donationType');
+
+                [$key, $context] = $this->donationConfirmationDispatch($donation);
+
                 app(NotificationService::class)->dispatch(
-                    'donation.confirmed',
-                    [
-                        'donation' => $donation->loadMissing('devotee', 'campaign', 'donationType'),
-                        'devotee' => $donation->devotee,
-                        'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
-                    ],
-                    idempotencyKey: "payment:{$payment->id}:donation.confirmed",
+                    $key,
+                    $context,
+                    // Scoped per key so the two trigger variants can never
+                    // alias each other's dedup row. Exactly one of them is
+                    // dispatched per capture, and the fast-path early exit
+                    // above means a replayed capture never reaches here at
+                    // all — belt (early exit) and braces (idempotency key).
+                    idempotencyKey: "payment:{$payment->id}:{$key}",
                 );
 
                 $captured['donation'] = $donation;
@@ -313,6 +344,83 @@ class PaymentCaptureService
                 ]);
             }
         }
+    }
+
+    /**
+     * Decide WHICH confirmation trigger a captured donation fires, and
+     * build its context. Returns [$key, $context].
+     *
+     * Routing rule (2026-08-09 split, item 5.1):
+     *   • donation attached to a campaign → `donation.campaign.confirmed`
+     *   • donation with no campaign       → `donation.confirmed`
+     *
+     * The two are MUTUALLY EXCLUSIVE — exactly one key is ever dispatched
+     * per capture, so a donor whose trust has both templates enabled can
+     * never receive two confirmation messages for one payment. (Same
+     * failure mode the 2026-08-04 seva.receipt merge migration guarded
+     * against; do NOT "helpfully" fire both.)
+     *
+     * Safety valve: the campaign key only takes over once at least one
+     * NotificationTemplate row exists for it. Until an admin creates one,
+     * campaign donors keep getting the existing generic message rather
+     * than silently getting nothing — deploying the split on its own
+     * changes zero outbound behaviour. The seeded campaign template ships
+     * `is_enabled = false`, so the trust still has to switch it on before
+     * anything is actually delivered (platform rule: nothing sends unless
+     * an admin created AND enabled the template for that trigger×channel).
+     *
+     * ⚠️ Once ANY campaign template exists, campaign donations route
+     * wholly to the campaign trigger — including channels the admin has
+     * not configured there. Configure every channel the trust cares about
+     * on the campaign trigger before creating the first row.
+     *
+     * An orphaned campaign_id (campaign row deleted) falls back to the
+     * generic trigger, since a campaign message with a blank campaign
+     * name is worse than the generic one.
+     *
+     * @return array{0: string, 1: array<string, mixed>}
+     */
+    private function donationConfirmationDispatch(Donation $donation): array
+    {
+        $context = [
+            'donation' => $donation,
+            'devotee' => $donation->devotee,
+            'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
+        ];
+
+        $campaign = $donation->campaign;
+        if ($campaign === null) {
+            return ['donation.confirmed', $context];
+        }
+
+        $campaignTemplateExists = NotificationTemplate::query()
+            ->where('key', 'donation.campaign.confirmed')
+            ->exists();
+
+        if (! $campaignTemplateExists) {
+            return ['donation.confirmed', $context];
+        }
+
+        $campaignUrl = '';
+        try {
+            if (filled($campaign->slug)) {
+                $campaignUrl = route('projects.show', $campaign->slug);
+            }
+        } catch (\Throwable $e) {
+            // Route missing / URL generation failed — a blank link is
+            // never a reason to drop a confirmation message.
+            Log::warning('PaymentCapture: campaign URL generation failed', [
+                'campaign_id' => $campaign->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return ['donation.campaign.confirmed', $context + [
+            'amount_formatted' => number_format((float) $donation->amount, 2),
+            'campaign_url' => $campaignUrl,
+            'campaign_raised' => number_format((float) $campaign->raised_amount, 2),
+            'campaign_goal' => number_format((float) $campaign->goal_amount, 2),
+        ]];
     }
 
     /**

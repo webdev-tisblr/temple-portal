@@ -95,12 +95,42 @@
                     {{-- Inline links (not an absolute dropdown): the strip is
                          overflow-hidden for the scroll-collapse, which clips
                          any absolutely-positioned menu — same reason the
-                         language switcher above uses inline links. --}}
+                         language switcher above uses inline links.
+
+                         Profile icon has three states (2026-08-09): photo /
+                         initial + "add photo" nudge / namaste for guests.
+                         Everything user-specific lives in THIS branch only —
+                         CacheGuestResponse never caches a logged-in render,
+                         so the cached copy is always the @else copy. --}}
+                    @php
+                        $hdrDevotee = auth('devotee')->user();
+                        $hdrPhoto = $hdrDevotee?->profile_photo_path;
+                        $hdrInitial = mb_substr(trim((string) $hdrDevotee?->name), 0, 1) ?: '॥';
+                    @endphp
                     <span class="inline-flex items-center gap-2">
-                        <a href="{{ route('dashboard.index') }}" class="inline-flex items-center gap-1.5 hover:text-[#F2B673] transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                            {{ __('nav.dashboard') }}
-                        </a>
+                        @if($hdrPhoto)
+                            <a href="{{ route('dashboard.index') }}"
+                               class="inline-flex items-center gap-1.5 hover:text-[#F2B673] transition-colors"
+                               title="{{ __('nav.my_profile') }}" aria-label="{{ __('nav.my_profile') }}">
+                                <img src="{{ image_url($hdrPhoto) }}" alt=""
+                                     class="w-6 h-6 rounded-full object-cover object-center ring-1 ring-[#F2B673]/60 flex-none">
+                                {{ __('nav.dashboard') }}
+                            </a>
+                        @else
+                            {{-- No photo yet — an invitation, not an error: the
+                                 avatar wears a small saffron "+" badge and links
+                                 straight to the profile page where it's edited. --}}
+                            <a href="{{ route('dashboard.profile') }}"
+                               class="relative inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#F2B673]/20 ring-1 ring-[#F2B673]/50 text-[11px] font-semibold text-[#F2B673] hover:bg-[#F2B673]/30 transition-colors flex-none"
+                               title="{{ __('nav.add_profile_photo') }}" aria-label="{{ __('nav.add_profile_photo') }}">
+                                <span aria-hidden="true">{{ $hdrInitial }}</span>
+                                <span aria-hidden="true"
+                                      class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-[#E8751A] text-white text-[8px] leading-[12px] text-center font-bold ring-1 ring-[#241710]">+</span>
+                            </a>
+                            <a href="{{ route('dashboard.index') }}" class="inline-flex items-center hover:text-[#F2B673] transition-colors">
+                                {{ __('nav.dashboard') }}
+                            </a>
+                        @endif
                         <span class="opacity-30">·</span>
                         <form method="POST" action="{{ route('logout') }}" class="inline-flex">
                             @csrf
@@ -111,8 +141,29 @@
                         </form>
                     </span>
                 @else
-                    <a href="{{ route('login') }}" class="inline-flex items-center gap-1.5 hover:text-[#F2B673] transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                    {{-- Logged out — a "Namaste" (folded hands) glyph rather
+                         than a generic person, drawn inline at the same 1.8
+                         stroke weight as its neighbours. login_url() appends
+                         the CURRENT page as ?next= so the OTP returns the
+                         devotee here (item 3.1); still safe to guest-cache,
+                         because CacheGuestResponse keys on the full path and
+                         the value depends on nothing but that path. --}}
+                    <a href="{{ login_url() }}" class="inline-flex items-center gap-1.5 hover:text-[#F2B673] transition-colors"
+                       title="{{ __('nav.namaste_login') }}" aria-label="{{ __('nav.namaste_login') }}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                            {{-- Namaste: a figure with palms joined at the chest.
+                                 Drawing the hands ALONE doesn't work at header
+                                 size — every variant of two-palms-in-outline
+                                 renders as a leaf with a midrib (checked at
+                                 120px, so it isn't a scaling artefact). The
+                                 head and shoulders are what make the gesture
+                                 legible, and they also keep this reading as an
+                                 account/login affordance. --}}
+                            <circle cx="12" cy="4.7" r="2.4"/>
+                            <path d="M12 8.8 9.9 15.2h4.2z"/>
+                            <path d="M9.9 15.2c-2.1.8-3.6 2.4-4.4 4.9"/>
+                            <path d="M14.1 15.2c2.1.8 3.6 2.4 4.4 4.9"/>
+                        </svg>
                         {{ __('nav.login') }}
                     </a>
                 @endauth
@@ -235,7 +286,26 @@
                         <button type="submit" class="block w-full text-center py-2 text-xs text-stone-400 hover:text-red-500 transition">{{ __('nav.logout') }}</button>
                     </form>
                 @else
-                    <a href="{{ route('login') }}" class="block w-full text-center py-2.5 text-sm text-maroon-500 border border-saffron-400/60 rounded-full hover:bg-[#FBEFE2] transition">{{ __('nav.login') }}</a>
+                    {{-- Same three-state rule as the desktop strip: guests get
+                         the namaste glyph, never a generic person icon. --}}
+                    <a href="{{ login_url() }}" class="flex w-full items-center justify-center gap-2 py-2.5 text-sm text-maroon-500 border border-saffron-400/60 rounded-full hover:bg-[#FBEFE2] transition"
+                       title="{{ __('nav.namaste_login') }}" aria-label="{{ __('nav.namaste_login') }}">
+                        <svg class="w-5 h-5 flex-none" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                            {{-- Namaste: a figure with palms joined at the chest.
+                                 Drawing the hands ALONE doesn't work at header
+                                 size — every variant of two-palms-in-outline
+                                 renders as a leaf with a midrib (checked at
+                                 120px, so it isn't a scaling artefact). The
+                                 head and shoulders are what make the gesture
+                                 legible, and they also keep this reading as an
+                                 account/login affordance. --}}
+                            <circle cx="12" cy="4.7" r="2.4"/>
+                            <path d="M12 8.8 9.9 15.2h4.2z"/>
+                            <path d="M9.9 15.2c-2.1.8-3.6 2.4-4.4 4.9"/>
+                            <path d="M14.1 15.2c2.1.8 3.6 2.4 4.4 4.9"/>
+                        </svg>
+                        {{ __('nav.login') }}
+                    </a>
                 @endauth
                 {{-- Language (mobile) --}}
                 <div class="pt-3 border-t border-[#EAD9C3]">

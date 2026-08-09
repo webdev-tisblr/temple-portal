@@ -101,6 +101,11 @@ class ViewOrder extends ViewRecord
                 ->label('Update Status')
                 ->icon('heroicon-o-arrow-path')
                 ->color('info')
+                // G10 (2026-08-09): this can flip an order to `cancelled`,
+                // which RESTORES product stock — a money-adjacent mutation
+                // that was reachable by anyone holding update_order.
+                // `approve_refund` already existed and was never checked.
+                ->visible(fn (): bool => auth('admin')->user()?->can('approve_refund') ?? false)
                 ->form([
                     Forms\Components\Select::make('status')
                         ->label('New Status')
@@ -143,16 +148,20 @@ class ViewOrder extends ViewRecord
                 ->label('Cancel Order')
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')
-                ->visible(fn () => in_array(
-                    $this->record->status?->value ?? (string) $this->record->status,
-                    [
-                        OrderStatus::PENDING->value,
-                        OrderStatus::CONFIRMED->value,
-                        OrderStatus::PROCESSING->value,
-                        OrderStatus::SHIPPED->value,
-                    ],
-                    true,
-                ))
+                // G10 (2026-08-09): restores stock, same as update_status.
+                // Permission AND state in one closure — a second ->visible()
+                // call would silently replace this one rather than AND it.
+                ->visible(fn (): bool => (auth('admin')->user()?->can('approve_refund') ?? false)
+                    && in_array(
+                        $this->record->status?->value ?? (string) $this->record->status,
+                        [
+                            OrderStatus::PENDING->value,
+                            OrderStatus::CONFIRMED->value,
+                            OrderStatus::PROCESSING->value,
+                            OrderStatus::SHIPPED->value,
+                        ],
+                        true,
+                    ))
                 ->requiresConfirmation()
                 ->modalHeading('Cancel this order?')
                 ->modalDescription(fn () => match ($this->record->status?->value ?? (string) $this->record->status) {

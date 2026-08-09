@@ -40,6 +40,9 @@ class Hall extends Model
         'description_hi',
         'description_en',
         'capacity',
+        'max_booking_days',
+        'booking_cutoff_hours',
+        'day_start_time',
         'price_per_day',
         'price_per_half_day',
         'amenities',
@@ -55,6 +58,8 @@ class Hall extends Model
 
     protected $casts = [
         'capacity' => 'integer',
+        'max_booking_days' => 'integer',
+        'booking_cutoff_hours' => 'integer',
         'price_per_day' => 'decimal:2',
         'price_per_half_day' => 'decimal:2',
         'amenities' => 'array',
@@ -88,6 +93,46 @@ class Hall extends Model
         }
 
         return null;
+    }
+
+    /**
+     * How many consecutive days this hall may be booked in one go.
+     * Defaults to 1 — multi-day is opt-in per hall (item 4.2), so an
+     * un-migrated / untouched hall behaves exactly as it did before.
+     */
+    public function maxBookingDays(): int
+    {
+        return max(1, (int) ($this->max_booking_days ?? 1));
+    }
+
+    /**
+     * Admin-configured cut-off in hours (item 4.3). Falls back to the
+     * temple-wide `hall_default_cutoff_hours` system setting, then 0
+     * (no cut-off = today's behaviour).
+     */
+    public function bookingCutoffHours(): int
+    {
+        $own = $this->booking_cutoff_hours;
+        if ($own !== null && (int) $own > 0) {
+            return (int) $own;
+        }
+
+        return max(0, (int) SystemSetting::getValue('hall_default_cutoff_hours', '0'));
+    }
+
+    /**
+     * The moment a booking on $date is considered to start, used as the
+     * anchor the cut-off counts back from. Halls have no slot times, so
+     * the admin sets a per-hall "day starts at" time (default 09:00).
+     */
+    public function dayStartMoment(string $date): \Illuminate\Support\Carbon
+    {
+        $raw = (string) ($this->day_start_time ?? '09:00');
+        if (! preg_match('/^(\d{1,2}):(\d{2})/', $raw, $m)) {
+            $m = [null, '9', '00'];
+        }
+
+        return \Illuminate\Support\Carbon::parse($date)->setTime((int) $m[1], (int) $m[2], 0);
     }
 
     /**

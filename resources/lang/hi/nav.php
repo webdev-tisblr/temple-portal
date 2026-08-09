@@ -21,4 +21,8 @@ return [
     'donate' => 'दान करें',
     'menu' => 'मेनू',
     'cart' => 'कार्ट',
+    // Header profile icon states (2026-08-09).
+    'namaste_login' => 'नमस्ते — लॉगिन करें',
+    'my_profile' => 'मेरी प्रोफ़ाइल',
+    'add_profile_photo' => 'अपना प्रोफ़ाइल फ़ोटो जोड़ें',
 ];

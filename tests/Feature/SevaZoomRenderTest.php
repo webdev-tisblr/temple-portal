@@ -11,7 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * The hover-zoom panel lives inside the devotee-only booking picker, so a
+ * The press-and-hold overlay lives inside the devotee-only booking picker, so a
  * guest render can never prove it exists. This asserts the wiring for a
  * logged-in devotee looking at a seva that actually has linked products.
  */
@@ -19,7 +19,7 @@ class SevaZoomRenderTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_hover_zoom_markup_renders_for_a_seva_with_products(): void
+    public function test_press_and_hold_markup_renders_for_a_seva_with_products(): void
     {
         // linked_products is a CONFIG blob, not a bare id list, and the
         // product must be active or getLinkedProductsList() filters it out.
@@ -37,10 +37,10 @@ class SevaZoomRenderTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('seva-zoom-panel', $html, 'the zoom panel is missing');
-        $this->assertStringContainsString('zoomMove($event)', $html, 'the cursor tracker is not wired');
-        $this->assertStringContainsString('background-position:${zoomBg}', $html, 'the magnifier is not cursor-driven');
-        $this->assertStringContainsString('pointer-events-none', $html, 'the panel would steal its own hover');
+        $this->assertStringContainsString('zoomHold(', $html, 'press-and-hold is not wired');
+        $this->assertStringContainsString('zoomRelease()', $html, 'the release handler is missing');
+        $this->assertStringContainsString('@touchstart', $html, 'hold must work on touch, not just mouse');
+        $this->assertStringContainsString('x-teleport="body"', $html, 'the overlay would be clipped by an ancestor');
     }
 
     public function test_a_seva_without_products_renders_no_zoom_hooks(): void
@@ -55,6 +55,10 @@ class SevaZoomRenderTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringNotContainsString('zoomMove($event)', $html);
+        // zoomHold() is DEFINED in the Alpine component on every seva page,
+        // so its presence proves nothing. What must be absent is the handler
+        // bound to a tile — that only exists when there are products.
+        $this->assertStringNotContainsString('@touchstart', $html);
+        $this->assertStringNotContainsString('@mousedown', $html);
     }
 }

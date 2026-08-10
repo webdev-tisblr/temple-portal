@@ -242,4 +242,13 @@ class AuthWebController extends Controller
 
         return redirect()->route('home');
     }
+
+    /**
+     * GET /logout — for devotees who type the URL rather than using the
+     * header button. Same outcome as the POST; a guest just goes home.
+     */
+    public function logoutViaLink(Request $request): RedirectResponse
+    {
+        return $this->logout($request);
+    }
 }

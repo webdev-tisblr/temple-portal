@@ -49,4 +49,34 @@ return Application::configure(basePath: dirname(__DIR__))
         // Sentry error tracking — inert until SENTRY_LARAVEL_DSN is set
         // in the environment (production VPS only).
         \Sentry\Laravel\Integration::handles($exceptions);
+
+        // A stale CSRF token normally means the session already died —
+        // which, on the way OUT, is the state the devotee was asking for.
+        // Showing them Laravel's "419 Page Expired" there is a dead end:
+        // they are stuck on an error page, still apparently signed in,
+        // with no way to complete the thing they clicked. So finish the
+        // job: tear the session down and send them home.
+        //
+        // Everywhere else a 419 is genuine (a form sat open too long), so
+        // it bounces back to the form with a message rather than a wall.
+        $exceptions->render(function (
+            \Illuminate\Session\TokenMismatchException $e,
+            \Illuminate\Http\Request $request
+        ) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => __('auth.session_expired')], 419);
+            }
+
+            if ($request->is('logout')) {
+                \Illuminate\Support\Facades\Auth::guard('devotee')->logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return redirect()->route('home');
+            }
+
+            return redirect()->back()
+                ->withInput($request->except(['_token', 'password', 'code', 'pan_number']))
+                ->with('error', __('auth.session_expired'));
+        });
     })->create();

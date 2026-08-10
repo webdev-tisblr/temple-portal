@@ -83,22 +83,30 @@
                         </div>
                     @else
                     <div class="card-sacred p-6 relative" x-data="slotPicker({{ $seva->id }})">
-                        {{-- Hover-zoom panel. Sits OUTSIDE the product grid and
-                             is positioned to the left of this sticky card, over
-                             the content column, so it never reflows the form.
-                             pointer-events-none so it can't steal the hover
-                             that is keeping it open. Desktop + real pointer
-                             only; touch devices never see it. --}}
-                        <div x-show="zoomOpen"
-                             x-cloak
-                             x-transition.opacity.duration.150ms
-                             class="hidden lg:block absolute top-0 right-full mr-6 z-40 pointer-events-none seva-zoom-panel">
-                            <div class="w-[380px] rounded-2xl overflow-hidden border border-amber-800/40 bg-stone-950 shadow-2xl">
-                                <div class="w-[380px] h-[380px] bg-no-repeat"
-                                     :style="`background-image:url('${zoomSrc}'); background-size:230%; background-position:${zoomBg};`"></div>
-                                <p class="px-3 py-2 text-xs text-amber-100/70 font-medium truncate" x-text="zoomLabel"></p>
+                        {{-- Press-and-hold preview (2026-08-10). Replaced a
+                             hover magnifier, which needed a mouse and did
+                             nothing on touch. Holding a product tile lifts the
+                             image into a centred overlay — same gesture and
+                             same result on desktop and phone, matching the
+                             app. Released or scrolled, it closes.
+
+                             Rendered at the end of <body> via a teleport so no
+                             ancestor's overflow/transform can clip it. --}}
+                        <template x-teleport="body">
+                            <div x-show="zoomOpen"
+                                 x-cloak
+                                 x-transition.opacity.duration.120ms
+                                 class="fixed inset-0 z-[95] flex items-center justify-center p-6 pointer-events-none"
+                                 style="background:rgba(20,12,6,.72)">
+                                <div class="max-w-[86vw] max-h-[80vh] rounded-2xl overflow-hidden border border-amber-700/40 bg-stone-950 shadow-2xl"
+                                     x-transition.scale.duration.120ms>
+                                    <img :src="zoomSrc" :alt="zoomLabel"
+                                         class="block max-w-[86vw] max-h-[68vh] object-contain">
+                                    <p class="px-4 py-2.5 text-sm text-amber-100/80 font-medium truncate text-center"
+                                       x-text="zoomLabel"></p>
+                                </div>
                             </div>
-                        </div>
+                        </template>
 
                         <h2 class="text-lg font-semibold text-gold mb-4">{{ __('seva.choose_date_time') }}</h2>
 
@@ -120,14 +128,18 @@
                                         <button type="button"
                                             @click="selectedProductId = {{ $lp->id }}; selectedVariant = ''"
                                             @if($lp->image_path)
-                                                {{-- Marketplace-style zoom (2026-08-10): hovering a tile
-                                                     opens a large panel to the LEFT, over the content
-                                                     column, and the cursor drives which part of the
-                                                     image is magnified. Pointer-only and lg-and-up —
-                                                     a hover panel is meaningless on touch. --}}
-                                                @mouseenter="zoomOpen = true; zoomSrc = '{{ image_url($lp->image_path) }}'; zoomLabel = @js($lp->name)"
-                                                @mousemove="zoomMove($event)"
-                                                @mouseleave="zoomOpen = false"
+                                                {{-- Press and hold to enlarge. mousedown/touchstart
+                                                     arm a short timer so a normal tap still selects
+                                                     the product; only a deliberate hold opens the
+                                                     preview. touchstart is NOT passive here because
+                                                     a hold must be able to cancel the page scroll. --}}
+                                                @mousedown="zoomHold('{{ image_url($lp->image_path) }}', @js($lp->name))"
+                                                @touchstart="zoomHold('{{ image_url($lp->image_path) }}', @js($lp->name))"
+                                                @mouseup="zoomRelease()"
+                                                @mouseleave="zoomRelease()"
+                                                @touchend="zoomRelease()"
+                                                @touchcancel="zoomRelease()"
+                                                @contextmenu.prevent
                                             @endif
                                             :class="selectedProductId === {{ $lp->id }} ? 'ring-2 ring-amber-500 border-amber-500' : 'border-amber-800/30 hover:border-amber-600'"
                                             class="group border rounded-xl overflow-hidden transition text-left bg-amber-900/10">
@@ -427,20 +439,25 @@ function slotPicker(sevaId) {
         devoteeName: '',
         sankalp: '',
 
-        // ── Marketplace-style hover zoom ───────────────────────────────
-        // zoomBg is a background-position string; moving the cursor over a
-        // tile maps to the equivalent point of the enlarged image, which is
-        // what makes it feel like a magnifier rather than a static preview.
+        // ── Press-and-hold product preview ─────────────────────────────
+        // 320ms is long enough that a normal tap still selects the product
+        // and short enough to feel deliberate rather than laggy. The timer
+        // is cleared on release, so a quick tap never opens the overlay.
         zoomOpen: false,
         zoomSrc: '',
         zoomLabel: '',
-        zoomBg: '50% 50%',
-        zoomMove(e) {
-            const r = e.currentTarget.getBoundingClientRect();
-            if (!r.width || !r.height) return;
-            const x = Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100));
-            const y = Math.min(100, Math.max(0, ((e.clientY - r.top) / r.height) * 100));
-            this.zoomBg = x.toFixed(2) + '% ' + y.toFixed(2) + '%';
+        _zoomTimer: null,
+        zoomHold(src, label) {
+            clearTimeout(this._zoomTimer);
+            this._zoomTimer = setTimeout(() => {
+                this.zoomSrc = src;
+                this.zoomLabel = label;
+                this.zoomOpen = true;
+            }, 320);
+        },
+        zoomRelease() {
+            clearTimeout(this._zoomTimer);
+            this.zoomOpen = false;
         },
 
         currentProduct() {

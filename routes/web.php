@@ -186,6 +186,13 @@ Route::get('/login', [AuthWebController::class, 'showLogin'])->name('login');
 Route::post('/login/otp/send', [AuthWebController::class, 'sendOtp'])->name('login.otp.send')->middleware('turnstile');
 Route::post('/login/otp/verify', [AuthWebController::class, 'verifyOtp'])->name('login.otp.verify');
 Route::post('/logout', [AuthWebController::class, 'logout'])->name('logout');
+// Typing /logout in the address bar is a GET, which used to 404 — the
+// devotee asked to sign out and got a dead page instead. POST stays the
+// real logout (it's the CSRF-protected one the header form submits);
+// this just makes the URL do the obvious thing. Signing a guest "out"
+// is a no-op redirect, so an <img src=".../logout"> CSRF only ever
+// costs a session, never data.
+Route::get('/logout', [AuthWebController::class, 'logoutViaLink'])->name('logout.link');
 // App→web session handoff — consumes the single-use token minted by
 // POST /api/v1/auth/web-session-token (iOS donate flow). Throttled: the
 // token space is unguessable, but there's no reason to allow brute probing.

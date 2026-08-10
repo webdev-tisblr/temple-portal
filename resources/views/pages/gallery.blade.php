@@ -22,7 +22,9 @@
             $id = $ytId($img->video_url);
             return [
                 'type' => 'video',
+                // Accessors: resolved for the request locale, Gujarati fallback.
                 'title' => $img->title,
+                'description' => $img->description,
                 'category' => $img->category,
                 'categories' => $img->categories->pluck('slug')->values()->all() ?: array_filter([$img->category]),
                 'src' => $id
@@ -39,6 +41,7 @@
         return [
             'type' => 'photo',
             'title' => $img->title,
+            'description' => $img->description,
             'category' => $img->category,
             'categories' => $img->categories->pluck('slug')->values()->all() ?: array_filter([$img->category]),
             // Grid tiles take the small derivative; the lightbox takes the
@@ -204,11 +207,28 @@
                 </div>
             </template>
             <template x-if="filtered[currentIndex]?.type !== 'video'">
+                {{-- 70vh, not 80vh: the caption block below needs room, and a
+                     photo pushed off-screen by its own description is worse
+                     than one shown slightly smaller. --}}
                 <img :src="filtered[currentIndex]?.full || filtered[currentIndex]?.src"
                      :alt="filtered[currentIndex]?.title"
-                     class="max-h-[80vh] max-w-full object-contain rounded-lg shadow-2xl">
+                     class="max-h-[70vh] max-w-full object-contain rounded-lg shadow-2xl">
             </template>
-            <p class="text-amber-100/70 text-sm" x-text="filtered[currentIndex]?.title"></p>
+
+            {{-- Caption. Title + description come from the controller already
+                 resolved for the request locale (GalleryImage accessors), so
+                 there is nothing language-specific in this markup. The
+                 description scrolls inside its own box rather than growing the
+                 lightbox, so a long story cannot push the photo off-screen. --}}
+            <p x-show="filtered[currentIndex]?.title"
+               class="text-amber-100 text-base font-semibold text-center px-4"
+               x-text="filtered[currentIndex]?.title"></p>
+            <div x-show="filtered[currentIndex]?.description"
+                 @click.stop
+                 class="max-w-2xl w-full max-h-[16vh] overflow-y-auto px-4">
+                <p class="text-amber-100/70 text-sm leading-relaxed text-center whitespace-pre-line"
+                   x-text="filtered[currentIndex]?.description"></p>
+            </div>
             <p class="text-amber-100/30 text-xs" x-text="(currentIndex + 1) + ' / ' + filtered.length"></p>
         </div>
 

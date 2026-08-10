@@ -461,6 +461,16 @@ class ContentController extends BaseApiController
             return $query->limit(200)->get()->map(fn (GalleryImage $image) => [
                 'id' => $image->id,
                 'type' => $image->type ?? 'photo',
+                // Same keys, same (nullable string) shape as before — but the
+                // model accessors now resolve them for the X-Locale language
+                // with a Gujarati fallback. That means the already-shipped
+                // 1.4.8 build gets localized captions with no client change,
+                // and no reader can break on an unexpected type.
+                //
+                // Safe ONLY because this closure runs inside
+                // LocalizedCache::remember, which suffixes the cache key with
+                // the active locale. A plain Cache::remember here would serve
+                // the first requester's language to every other devotee.
                 'title' => $image->title,
                 'description' => $image->description,
                 'image_url' => $image->image_path ? image_url($image->image_path) : null,

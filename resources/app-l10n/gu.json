@@ -601,5 +601,7 @@
   "guides.empty": "હજુ કોઈ માર્ગદર્શિકા ઉપલબ્ધ નથી",
   "guides.no_results": "તમારી શોધ સાથે મળતી માર્ગદર્શિકા નથી",
   "guides.media": "ફોટા અને વિડિયો",
-  "guides.load_error": "માર્ગદર્શિકા લોડ થઈ શકી નહીં"
+  "guides.load_error": "માર્ગદર્શિકા લોડ થઈ શકી નહીં",
+  "gallery.read_more": "વધુ વાંચો",
+  "gallery.read_less": "ઓછું બતાવો"
 }

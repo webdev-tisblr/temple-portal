@@ -601,5 +601,7 @@
   "guides.empty": "No guides available yet",
   "guides.no_results": "No guides match your search",
   "guides.media": "Photos & Videos",
-  "guides.load_error": "Could not load guides"
+  "guides.load_error": "Could not load guides",
+  "gallery.read_more": "Read more",
+  "gallery.read_less": "Show less"
 }

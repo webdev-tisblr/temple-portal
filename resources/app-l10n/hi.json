@@ -601,5 +601,7 @@
   "guides.empty": "अभी कोई गाइड उपलब्ध नहीं है",
   "guides.no_results": "आपकी खोज से मिलती कोई गाइड नहीं",
   "guides.media": "फ़ोटो और वीडियो",
-  "guides.load_error": "गाइड लोड नहीं हो सकी"
+  "guides.load_error": "गाइड लोड नहीं हो सकी",
+  "gallery.read_more": "और पढ़ें",
+  "gallery.read_less": "कम दिखाएँ"
 }

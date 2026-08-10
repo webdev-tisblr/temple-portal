@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\GalleryResource\Pages;
+use App\Filament\Support\TranslatableTabs;
 use App\Models\GalleryCategory;
 use App\Models\GalleryImage;
 use Filament\Forms;
@@ -37,8 +38,19 @@ class GalleryResource extends Resource
                     ->default('photo')
                     ->live()
                     ->required(),
-                Forms\Components\TextInput::make('title')->maxLength(255),
-                Forms\Components\Textarea::make('description')->maxLength(500)->rows(2),
+                // Caption in all three languages. Gujarati is the fallback the
+                // other two resolve to (GalleryImage::getTitleAttribute), and
+                // is mirrored back into the legacy `title` / `description`
+                // columns on save for app builds that predate this.
+                TranslatableTabs::make(fn (string $locale, string $label) => [
+                    Forms\Components\TextInput::make("title_{$locale}")
+                        ->label("Title {$label}")
+                        ->maxLength(255),
+                    Forms\Components\Textarea::make("description_{$locale}")
+                        ->label("Description {$label}")
+                        ->maxLength(500)
+                        ->rows(3),
+                ], id: 'caption'),
                 Forms\Components\FileUpload::make('image_path')->image()->directory('gallery')->maxSize(5120)
                     ->required(fn (Forms\Get $get): bool => $get('type') !== 'video')
                     ->visible(fn (Forms\Get $get): bool => $get('type') !== 'video'),
@@ -70,7 +82,12 @@ class GalleryResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\ImageColumn::make('image_path')->label('Image')->square()->size(60),
-                Tables\Columns\TextColumn::make('title')->searchable()->limit(30),
+                // Displays the accessor (locale-resolved, Gujarati fallback);
+                // search has to name the real columns, since an accessor
+                // cannot appear in a WHERE clause.
+                Tables\Columns\TextColumn::make('title')
+                    ->limit(30)
+                    ->searchable(['title', 'title_gu', 'title_hi', 'title_en']),
                 Tables\Columns\TextColumn::make('categories.slug')
                     ->label('Categories')
                     ->badge()

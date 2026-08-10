@@ -29,6 +29,26 @@ class GalleryImage extends Model
         };
         static::saved($bust);
         static::deleted($bust);
+
+        // Keep the legacy scalar columns in step with the Gujarati ones.
+        //
+        // `title` / `description` are what the SHIPPED app build (1.4.8+32)
+        // and any other old reader still expect, so they are maintained as
+        // the Gujarati mirror rather than dropped. Only touched when the
+        // Gujarati field is actually being written (or already holds a
+        // value) — otherwise an unrelated `update(['is_wallpaper' => …])`
+        // on a pre-migration row would blank its legacy caption.
+        static::saving(function (self $model): void {
+            $attributes = $model->getAttributes();
+
+            foreach (['title', 'description'] as $field) {
+                $guField = "{$field}_gu";
+
+                if ($model->isDirty($guField) || filled($attributes[$guField] ?? null)) {
+                    $model->setAttribute($field, $attributes[$guField] ?? null);
+                }
+            }
+        });
     }
 
     protected function managedImages(): array
@@ -114,8 +134,16 @@ class GalleryImage extends Model
 
     protected $fillable = [
         'type',
+        // Legacy mirrors of the Gujarati caption — still written (see
+        // booted()) so old app builds keep showing a caption.
         'title',
         'description',
+        'title_gu',
+        'title_hi',
+        'title_en',
+        'description_gu',
+        'description_hi',
+        'description_en',
         'image_path',
         'video_url',
         'thumbnail_path',
@@ -130,6 +158,54 @@ class GalleryImage extends Model
         'is_wallpaper' => 'boolean',
         'sort_order' => 'integer',
     ];
+
+    /**
+     * Caption in the active locale, falling back to Gujarati.
+     *
+     * Same shape as DonationCampaign / Seva / GalleryCategory: the bare
+     * attribute name resolves `{field}_{locale}` with a `_gu` fallback, so
+     * every existing `$image->title` read (web blade, API payload, Filament
+     * table) becomes localized without a call-site change.
+     *
+     * NOTE: being an accessor, this cannot be used in a raw `pluck('title')`
+     * — pluck reads the column, which is only ever the Gujarati mirror.
+     */
+    public function getTitleAttribute(): ?string
+    {
+        return $this->localizedCaption('title');
+    }
+
+    public function getDescriptionAttribute(): ?string
+    {
+        return $this->localizedCaption('description');
+    }
+
+    /**
+     * locale → Gujarati → legacy scalar column.
+     *
+     * Reads `$this->attributes` directly: going through `$this->title_gu`
+     * would be fine today but recurses the moment someone adds a `_gu`
+     * accessor. `blank()` rather than `??` so an admin who saved an empty
+     * Hindi tab still gets the Gujarati caption instead of a blank one.
+     */
+    private function localizedCaption(string $field): ?string
+    {
+        $candidates = [
+            "{$field}_".app()->getLocale(),
+            "{$field}_gu",
+            $field,
+        ];
+
+        foreach ($candidates as $key) {
+            $value = $this->attributes[$key] ?? null;
+
+            if (filled($value)) {
+                return (string) $value;
+            }
+        }
+
+        return null;
+    }
 
     /**
      * A displayable thumbnail URL for any gallery item. Photos use their

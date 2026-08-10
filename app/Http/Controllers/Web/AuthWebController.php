@@ -7,13 +7,20 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\SendOtpRequest;
 use App\Http\Requests\Auth\VerifyOtpRequest;
+use App\Models\DailyDarshanPhoto;
 use App\Models\Devotee;
+use App\Models\SystemSetting;
+use App\Models\WebLoginToken;
+use App\Services\Notifications\NotificationService;
 use App\Services\OtpService;
+use App\Support\AppDeepLink;
+use App\Support\QrCode;
 use App\Support\SafeRedirect;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 class AuthWebController extends Controller
 {
@@ -34,7 +41,30 @@ class AuthWebController extends Controller
         // to /login?next=…, which re-enters this method.
         SafeRedirect::remember($request->query('next'));
 
-        return view('auth.login');
+        // Today's darshan photograph anchors the page (same source of truth
+        // as /darshan — see DailyDarshanPhoto::currentCached()). Everything
+        // below degrades to null, and the view falls back to the bundled
+        // temple photograph, so an empty table never renders a broken image.
+        $darshanPhoto = DailyDarshanPhoto::currentCached();
+
+        // Store listings for the app QR codes. Either may legitimately be
+        // blank — a platform whose listing isn't live yet simply has no
+        // setting — in which case that side of the block is not rendered at
+        // all rather than pointing a scanner at nothing.
+        $androidStoreUrl = (string) SystemSetting::getValue('app_android_store_url', '');
+        $iosStoreUrl = (string) SystemSetting::getValue('app_ios_store_url', '');
+
+        return view('auth.login', [
+            'darshanPhoto' => $darshanPhoto,
+            'darshanImageUrl' => $darshanPhoto?->displayUrl(),
+            'androidStoreUrl' => $androidStoreUrl,
+            'iosStoreUrl' => $iosStoreUrl,
+            // Rendered inline (no external request, no image asset) and
+            // cached on a hash of the URL, so editing the setting in admin
+            // simply produces a new code — nothing to invalidate.
+            'androidQr' => $androidStoreUrl !== '' ? QrCode::cachedSvg($androidStoreUrl) : null,
+            'iosQr' => $iosStoreUrl !== '' ? QrCode::cachedSvg($iosStoreUrl) : null,
+        ]);
     }
 
     public function sendOtp(SendOtpRequest $request): RedirectResponse
@@ -43,7 +73,7 @@ class AuthWebController extends Controller
 
         try {
             $code = $this->otpService->generate($phone);
-        } catch (\Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException $e) {
+        } catch (TooManyRequestsHttpException $e) {
             return back()->withErrors(['phone' => $e->getMessage()]);
         }
 
@@ -63,11 +93,11 @@ class AuthWebController extends Controller
 
         try {
             $isValid = $this->otpService->verify($validated['phone'], $validated['code']);
-        } catch (\Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException $e) {
+        } catch (TooManyRequestsHttpException $e) {
             return back()->withErrors(['code' => $e->getMessage()]);
         }
 
-        if (!$isValid) {
+        if (! $isValid) {
             return back()
                 ->with('otp_sent', true)
                 ->with('phone', $validated['phone'])
@@ -80,7 +110,7 @@ class AuthWebController extends Controller
         [$devotee, $wasNew] = Devotee::resolveForLogin($validated['phone']);
 
         if ($wasNew) {
-            app(\App\Services\Notifications\NotificationService::class)->dispatch(
+            app(NotificationService::class)->dispatch(
                 'devotee.registered',
                 ['devotee' => $devotee],
                 idempotencyKey: "devotee:{$devotee->id}:registered",
@@ -143,18 +173,18 @@ class AuthWebController extends Controller
             return redirect()->route('donate');
         }
 
-        $token = \App\Models\WebLoginToken::where('token_hash', hash('sha256', $plain))
+        $token = WebLoginToken::where('token_hash', hash('sha256', $plain))
             ->where('expires_at', '>', now())
             ->whereNull('used_at')
             ->first();
 
         // The guarded update makes consumption atomic — two racing
         // requests with the same link can't both log in.
-        $claimed = $token !== null && \App\Models\WebLoginToken::where('id', $token->id)
+        $claimed = $token !== null && WebLoginToken::where('id', $token->id)
             ->whereNull('used_at')
             ->update(['used_at' => now()]) === 1;
 
-        if (!$claimed) {
+        if (! $claimed) {
             return redirect()->route('donate');
         }
 
@@ -186,11 +216,11 @@ class AuthWebController extends Controller
         // allowlisted at token-mint time.
         $request->session()->put(
             'from_app_intent',
-            \App\Support\AppDeepLink::isValidIntent($token->return_intent) ? $token->return_intent : 'home',
+            AppDeepLink::isValidIntent($token->return_intent) ? $token->return_intent : 'home',
         );
         $request->session()->put(
             'from_app_intent_params',
-            \App\Support\AppDeepLink::sanitizeParams($token->return_intent_params ?? []),
+            AppDeepLink::sanitizeParams($token->return_intent_params ?? []),
         );
 
         // Same language carry-over as the OTP login above.

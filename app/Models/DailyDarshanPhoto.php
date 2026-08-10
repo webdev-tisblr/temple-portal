@@ -82,6 +82,40 @@ class DailyDarshanPhoto extends Model
         'is_active' => 'boolean',
     ];
 
+    /**
+     * The photo to show as "today's darshan": today's most recent upload,
+     * falling back to the newest photo on record so a page that features
+     * darshan is never blank on a day nobody uploaded.
+     *
+     * Shares the `darshan_page_daily_photo` cache key (and therefore the
+     * booted() bust above) with the darshan page itself, so the login page
+     * and /darshan can never disagree about which photo is current.
+     */
+    public static function currentCached(): ?self
+    {
+        return Cache::remember('darshan_page_daily_photo', 600, function () {
+            return static::where('is_active', true)
+                ->whereDate('captured_on', today())
+                ->latest('id')
+                ->first()
+                ?? static::where('is_active', true)
+                    ->orderByDesc('captured_on')
+                    ->orderByDesc('id')
+                    ->first();
+        });
+    }
+
+    /**
+     * Best URL for displaying this photo at page scale: the `medium`
+     * derivative, because some originals are 8–12 MB straight off a phone.
+     * Falls back to the original when the derivative hasn't been generated
+     * (older rows predate HasImageDerivatives).
+     */
+    public function displayUrl(): ?string
+    {
+        return image_url($this->medium_path ?: $this->image_path);
+    }
+
     public function getCaptionAttribute(): ?string
     {
         $locale = app()->getLocale();

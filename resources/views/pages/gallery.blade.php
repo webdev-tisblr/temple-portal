@@ -130,7 +130,7 @@
                     </svg>
                 </div>
                 <div class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition">
-                    <p class="text-amber-100/80 text-xs font-medium line-clamp-1" x-text="img.title"></p>
+                    <p class="text-white text-xs font-medium line-clamp-1" x-text="img.title"></p>
                 </div>
             </div>
         </template>
@@ -221,15 +221,15 @@
                  description scrolls inside its own box rather than growing the
                  lightbox, so a long story cannot push the photo off-screen. --}}
             <p x-show="filtered[currentIndex]?.title"
-               class="text-amber-100 text-base font-semibold text-center px-4"
+               class="text-white text-base font-semibold text-center px-4"
                x-text="filtered[currentIndex]?.title"></p>
             <div x-show="filtered[currentIndex]?.description"
                  @click.stop
                  class="max-w-2xl w-full max-h-[16vh] overflow-y-auto px-4">
-                <p class="text-amber-100/70 text-sm leading-relaxed text-center whitespace-pre-line"
+                <p class="text-white/85 text-sm leading-relaxed text-center whitespace-pre-line"
                    x-text="filtered[currentIndex]?.description"></p>
             </div>
-            <p class="text-amber-100/30 text-xs" x-text="(currentIndex + 1) + ' / ' + filtered.length"></p>
+            <p class="text-white/40 text-xs" x-text="(currentIndex + 1) + ' / ' + filtered.length"></p>
         </div>
 
     </div>

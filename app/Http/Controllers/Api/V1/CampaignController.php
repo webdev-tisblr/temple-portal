@@ -28,9 +28,15 @@ class CampaignController extends BaseApiController
      * same captured-only filter as /projects/{slug}/donors — see
      * \App\Support\CampaignDonors.
      *
-     * `sort=top` returns the 10 largest offerings as a single unpaginated
-     * page. It is an ordering, not a leaderboard: no rank, no badge, and a
-     * Gupt Daan donation is masked there exactly as it is in `recent`.
+     * `sort=recent` is individual offerings, newest first, Gupt Daan included
+     * but masked. `sort=top` is a different KIND of row: one per donor, with
+     * their offerings to this campaign summed into `amount` and counted in
+     * `donation_count`, as a single unpaginated page of 10. Gupt Daan is left
+     * out of `top` altogether — see App\Support\CampaignDonors::top(). Still
+     * not a leaderboard: no rank, no badge, no position.
+     *
+     * `total` in the meta means "rows in this response" for `top` (i.e. how
+     * many donors are listed), as it always did.
      */
     public function donors(DonationCampaign $campaign, Request $request): JsonResponse
     {

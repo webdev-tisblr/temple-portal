@@ -131,6 +131,8 @@
   "donors.empty_sub": "Be the first to offer seva to this campaign",
   "donors.load_error": "Could not load the donor list",
   "donors.note": "Every offering, seen or unseen, carries the same devotion. Gupt Daan is shown as \"Ram Bharose\".",
+  "donors.times": "offerings",
+  "donors.note_top": "Totals of all offerings made to this project. Gupt Daan offerings are counted in the project total but are not listed here.",
   "campaigns.title": "Campaigns",
   "campaigns.donate": "Donate",
   "campaigns.goal": "Goal",

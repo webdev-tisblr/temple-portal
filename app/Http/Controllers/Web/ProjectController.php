@@ -46,12 +46,13 @@ class ProjectController extends Controller
         SEOMeta::setTitle("{$project->title} — ધામના સેવાકાર્યો — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ");
         SEOMeta::setDescription($project->description ?? '');
 
-        // First page of donors (paid only), plus the Top-10-by-amount list the
-        // in-page Recent/Top toggle switches to. Anonymous donations (Gupt
-        // Daan) are INCLUDED in BOTH lists but the donor's name + city are
-        // masked — every list goes through CampaignDonors::payload() so Top
-        // can never leak a name that Recent masks. The app API reads the same
-        // helper.
+        // First page of donors (paid only), plus the Top-10 list the in-page
+        // Recent/Top toggle switches to. Recent is individual offerings,
+        // newest first, with Gupt Daan INCLUDED but masked. Top is one row
+        // per donor with their offerings to this campaign SUMMED, and Gupt
+        // Daan left out of it entirely — see App\Support\CampaignDonors::top()
+        // for why a masked total is not anonymous enough. Both go through
+        // CampaignDonors::payload(); the app API reads the same helper.
         $donors = CampaignDonors::recent($project->id)
             ->paginate(self::DONORS_PER_PAGE);
 
@@ -83,7 +84,8 @@ class ProjectController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
-        // ?sort=top → the 10 largest captured donations, no pagination.
+        // ?sort=top → the 10 donors with the largest captured TOTAL, one row
+        // each, no pagination.
         if ($request->query('sort') === 'top') {
             $top = CampaignDonors::top($project->id)
                 ->limit(self::DONORS_PER_PAGE)

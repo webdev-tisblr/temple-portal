@@ -156,9 +156,10 @@
 
             {{-- ---- Donor List ----
                  Two quiet text links, not a leaderboard: "Recent" is the
-                 default; "Top donors" swaps in the 10 largest offerings.
-                 Both lists come from ProjectController::donorPayload(), so
-                 Gupt Daan stays masked in either view. --}}
+                 default (individual offerings, newest first); "Top donors"
+                 swaps in the 10 donors whose offerings to this project add up
+                 to the most. Both lists come from App\Support\CampaignDonors,
+                 which masks Gupt Daan in Recent and keeps it out of Top. --}}
             @if($project->show_donor_list)
                 <div id="donors" class="card-sacred p-6 sm:p-8 scroll-mt-24" x-data="donorList()">
                     <div class="flex flex-wrap items-baseline gap-x-4 gap-y-2 mb-5">
@@ -194,13 +195,26 @@
                                                 <span class="text-amber-100/70 text-sm font-medium" x-text="donor.name"></span>
                                                 <span x-show="donor.city" class="text-amber-100/30 text-xs ml-1" x-text="'(' + donor.city + ')'"></span>
                                             </td>
-                                            <td class="py-3 px-2 text-right">
+                                            <td class="py-3 px-2 text-right whitespace-nowrap">
                                                 <span class="text-gold text-sm font-semibold" x-text="'₹' + Number(donor.amount).toLocaleString('en-IN')"></span>
+                                                {{-- Top rows are a donor's offerings summed; say so quietly
+                                                     when there was more than one, so the figure is not read
+                                                     as a single very large gift. --}}
+                                                <span x-show="mode === 'top' && donor.donation_count > 1"
+                                                      class="text-amber-100/30 text-xs ml-1"
+                                                      x-text="'· ' + donor.donation_count + ' ' + offeringTimes"></span>
                                             </td>
                                         </tr>
                                     </template>
                                 </tbody>
                             </table>
+
+                            {{-- Only in Top: explains what the totals include, and that a
+                                 Gupt Daan offering still counts for the project even though
+                                 it is not listed here. --}}
+                            <p x-show="mode === 'top'" class="mt-4 text-amber-100/30 text-xs leading-relaxed">
+                                {{ __('projects.top_note') }}
+                            </p>
 
                             {{-- Load More (Recent only — Top is a fixed 10) --}}
                             <div x-show="canLoadMore" class="mt-4 text-center">
@@ -247,11 +261,14 @@
 <script>
 function donorList() {
     return {
-        // 'recent' (paginated, newest first) | 'top' (fixed 10 by amount)
+        // 'recent' (paginated individual offerings, newest first)
+        // | 'top' (fixed 10 donors, their offerings to this project summed)
         mode: 'recent',
         recentDonors: @json($donorsJs),
         topDonors: @json($topDonorsJs),
         nextPageUrl: @json($donorsNextUrl),
+        // Suffix only, appended to a number ("5 offerings" / "5 વખત").
+        offeringTimes: @json(__('projects.offering_times')),
         loading: false,
 
         get allDonors() {

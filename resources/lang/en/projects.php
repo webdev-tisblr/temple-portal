@@ -15,6 +15,10 @@ return [
     'devotee_fallback' => 'Devotee',
     'donors_recent' => 'Recent',
     'donors_top' => 'Top donors',
+    // Shown only in the Top list: "₹5,000 · 5 offerings". Suffix form
+    // so no plural rules are needed — it appears only when count > 1.
+    'offering_times' => 'offerings',
+    'top_note' => 'Totals of all offerings made to this project. Gupt Daan offerings are counted in the project total but are not listed here.',
     'view_donors' => 'View donors',
     'name_city' => 'Name & City',
     'view_more' => 'View more',

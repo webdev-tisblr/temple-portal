@@ -833,7 +833,14 @@ class SystemSettings extends Page implements HasForms
         // SMS can never promise a window the server will not honour.
         $variables = $sms->otpVariables($code);
 
-        $result = $sms->sendTemplate($recipient, $templateId, $variables);
+        // Through the OTP service, not Flow — the trust's template lives
+        // in MSG91's OTP section and its id is meaningless to /flow/.
+        // The code travels as MSG91's own `otp` param, so only the
+        // remaining variables (validity) go along as template variables.
+        $extra = $variables;
+        unset($extra[$sms->otpVariableName()]);
+
+        $result = $sms->sendOtp($recipient, $code, $extra);
 
         // Deliberately NOT "Test OTP sent". MSG91 answers 200 success to
         // submissions it later rejects — claiming delivery here is exactly

@@ -214,6 +214,133 @@ class SmsService
     }
 
     /**
+     * Send an OTP through MSG91's **OTP service** — a different product
+     * from Flow, with its own endpoint, its own template library and its
+     * own template ids.
+     *
+     * This distinction is the whole bug (2026-08-10). A template created
+     * under MSG91's OTP section has an id that is meaningless to
+     * `/api/v5/flow/`, so posting it there is rejected as "Template ID
+     * Missing or Invalid Template" — which reads as though the id were
+     * wrong, when in fact it was correct and merely aimed at the wrong
+     * API. The trust's account uses the OTP service, so OTP sends must
+     * come here; Flow remains right for every other transactional
+     * message (booking confirmations, receipts, and so on).
+     *
+     * We pass our own `otp` rather than letting MSG91 generate one:
+     * OtpService already issued and stored the code that
+     * `/login/otp/verify` will check, so MSG91 must deliver THAT code
+     * and nothing else. `otp_expiry` is sent in minutes so MSG91's own
+     * expiry cannot outlive the one the server enforces.
+     *
+     * @param  array<string, string> $variables Extra template variables
+     *         beyond the OTP itself (e.g. the validity minutes).
+     * @return array{ok: bool, message: string, response?: array}
+     */
+    public function sendOtp(string $phone, string $code, array $variables = [], ?string $templateId = null): array
+    {
+        if (! $this->isConfigured()) {
+            return ['ok' => false, 'message' => 'SMS provider not configured. Add MSG91 auth key + sender id in admin → System Settings → SMS.'];
+        }
+
+        // A per-row override on the NotificationTemplate wins, exactly as
+        // it does for Flow; the system-wide id is the fallback so the
+        // shipped auth.otp seed works without the admin pasting it twice.
+        $templateId = ($templateId !== null && $templateId !== '') ? $templateId : $this->otpTemplateId;
+        if ($templateId === '') {
+            return ['ok' => false, 'message' => 'Set the MSG91 OTP template id in System Settings → SMS.'];
+        }
+
+        $digits = preg_replace('/\D/', '', $phone) ?? '';
+        $isIndian = \App\Support\PhoneNumber::isIndian($digits)
+            || (strlen($digits) === 12 && preg_match('/^91[6-9]\d{9}$/', $digits));
+        if (! $isIndian) {
+            return ['ok' => false, 'message' => 'SMS not sent: MSG91 delivers to Indian numbers only.'];
+        }
+
+        // The OTP endpoint takes its parameters as a query string; extra
+        // template variables ride alongside as named params, exactly as
+        // the ##…## placeholders are named in the template.
+        $query = array_merge([
+            'template_id' => $templateId,
+            'mobile' => $this->formatPhone($phone),
+            'otp' => $code,
+            'otp_expiry' => (string) \App\Services\OtpService::expiryMinutes(),
+        ], $variables);
+
+        if ($this->senderId !== '') {
+            $query['sender'] = $this->senderId;
+        }
+
+        try {
+            $response = Http::withHeaders([
+                    'authkey' => $this->authKey,
+                    'accept' => 'application/json',
+                ])
+                ->timeout(20)
+                ->post($this->otpEndpoint().'?'.http_build_query($query));
+
+            // Same trap as Flow: HTTP 200 does not mean accepted.
+            if ($response->successful() && $response->json('type') !== 'error') {
+                $this->lastMessageId = is_string($response->json('request_id'))
+                    ? $response->json('request_id')
+                    : (is_string($response->json('message')) ? $response->json('message') : null);
+
+                Log::info('OTP sent via MSG91 OTP API', [
+                    'phone' => $this->maskPhone($phone),
+                    'template_id' => $templateId,
+                    'message_id' => $this->lastMessageId,
+                ]);
+
+                return ['ok' => true, 'message' => 'Submitted.', 'response' => $response->json() ?? []];
+            }
+
+            $err = $response->json('message') ?? $response->json('error') ?? "MSG91 returned HTTP {$response->status()}";
+            if (is_string($err) && $err !== '') {
+                $err = "MSG91: {$err} (OTP template {$templateId})";
+            }
+
+            Log::error('MSG91 OTP send failed', [
+                'phone' => $this->maskPhone($phone),
+                'template_id' => $templateId,
+                'endpoint' => $this->otpEndpoint(),
+                'variables' => array_keys($variables),
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+
+            return [
+                'ok' => false,
+                'message' => is_string($err) ? $err : "MSG91 returned HTTP {$response->status()}",
+                'response' => $response->json() ?? [],
+            ];
+        } catch (\Throwable $e) {
+            Log::error('MSG91 OTP send exception', [
+                'phone' => $this->maskPhone($phone),
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['ok' => false, 'message' => 'Could not reach MSG91: '.$e->getMessage()];
+        }
+    }
+
+    /**
+     * MSG91's OTP endpoint — sibling of the Flow endpoint, derived from
+     * the same base so a self-hosted or regional host stays honoured.
+     */
+    public function otpEndpoint(): string
+    {
+        $base = rtrim(trim($this->apiUrl), '/');
+        $base = preg_replace('#/(flow|otp)$#i', '', $base) ?? $base;
+
+        if ($base === '' || ! preg_match('#^https?://#i', $base)) {
+            $base = 'https://control.msg91.com/api/v5';
+        }
+
+        return $base.'/otp';
+    }
+
+    /**
      * MSG91 variable names are bare identifiers (the text between the
      * ##…## markers). Strip anything that could not appear there —
      * including the ## the admin will inevitably paste along with the

@@ -135,11 +135,42 @@ final class SmsNotificationDriver implements NotificationDriver
 
         $variables = $this->applyOtpVariableNames($template, $variables);
 
-        $result = $this->sms->sendTemplate(
-            $recipient['value'],
-            $templateId,
-            $variables,
-        );
+        // auth.otp goes through MSG91's OTP service, not Flow. They are
+        // separate products with separate template libraries, and an OTP
+        // template id is rejected by /flow/ as "Template ID Missing or
+        // Invalid Template" — which is what stopped every login OTP
+        // (2026-08-10). Everything else is ordinary transactional SMS and
+        // belongs on Flow.
+        if ($template->key === 'auth.otp') {
+            // The code comes from the CONTEXT, not from guessing which
+            // variable name holds it. OtpService dispatches the code it
+            // stored and will verify, so that is the authoritative value;
+            // an admin free to name their template variable anything
+            // (PASSCODE, code, …) must not be able to break the send by
+            // choosing a name the settings do not know about.
+            $code = NotificationContext::formatForDisplay($context->get('otp'));
+
+            if ($code === '') {
+                Log::warning('Notification: OTP code missing from dispatch context', [
+                    'template_key' => $template->key,
+                    'resolved_variables' => array_keys($variables),
+                ]);
+
+                return false;
+            }
+
+            // Every mapped variable still rides along by name. MSG91 fills
+            // ##OTP## from its own `otp` param and any other placeholder
+            // from the matching variable, so both naming styles work and
+            // neither needs detecting.
+            $result = $this->sms->sendOtp($recipient['value'], $code, $variables, $templateId);
+        } else {
+            $result = $this->sms->sendTemplate(
+                $recipient['value'],
+                $templateId,
+                $variables,
+            );
+        }
 
         if (! $result['ok']) {
             Log::error('Notification: SMS send failed', [

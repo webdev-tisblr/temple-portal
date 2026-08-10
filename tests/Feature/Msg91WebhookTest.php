@@ -344,7 +344,7 @@ class Msg91WebhookTest extends TestCase
         $sms->sendTemplate('9876543210', 'tpl', $sms->otpVariables('123456'));
 
         Http::assertSent(function ($request): bool {
-            $recipient = $request->data()['recipients'][0];
+            $recipient = $this->otpParams($request);
 
             return array_key_exists('OTP', $recipient)
                 && $recipient['OTP'] === '123456'
@@ -365,7 +365,7 @@ class Msg91WebhookTest extends TestCase
         $sms->sendTemplate('9876543210', 'tpl', $sms->otpVariables('123456'));
 
         Http::assertSent(function ($request): bool {
-            $recipient = $request->data()['recipients'][0];
+            $recipient = $this->otpParams($request);
 
             return array_key_exists('code', $recipient)
                 && array_key_exists('validity', $recipient)
@@ -420,7 +420,7 @@ class Msg91WebhookTest extends TestCase
         ]));
 
         Http::assertSent(function ($request): bool {
-            $recipient = $request->data()['recipients'][0];
+            $recipient = $this->otpParams($request);
 
             return ($recipient['OTP'] ?? null) === '654321'
                 && ($recipient['mins'] ?? null) === '10'
@@ -452,7 +452,7 @@ class Msg91WebhookTest extends TestCase
         ]));
 
         Http::assertSent(function ($request): bool {
-            $recipient = $request->data()['recipients'][0];
+            $recipient = $this->otpParams($request);
 
             return ($recipient['PASSCODE'] ?? null) === '111222'
                 && array_key_exists('window', $recipient);
@@ -585,4 +585,36 @@ class Msg91WebhookTest extends TestCase
 
         return NotificationLog::query()->where('channel', 'sms')->latest('id')->firstOrFail();
     }
+
+    /**
+     * auth.otp goes through MSG91's OTP service, whose parameters ride in
+     * the query string rather than a JSON recipients[] array. Normalise
+     * so the assertions read the same either way.
+     *
+     * @return array<string, string>
+     */
+    private function otpParams($request): array
+    {
+        // Flow posts a JSON recipients[] array; the OTP service puts its
+        // params in the query string. Read whichever this request used so
+        // the assertions do not care which product handled the send.
+        $data = $request->data();
+        if (isset($data['recipients'][0]) && is_array($data['recipients'][0])) {
+            return $data['recipients'][0];
+        }
+
+        parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $q);
+
+        // MSG91 carries the code itself as `otp`; surface it under the
+        // configured variable name so tests assert on one shape.
+        if (isset($q['otp'])) {
+            $q[app(\App\Services\SmsService::class)->otpVariableName()] = $q['otp'];
+        }
+        if (isset($q['mobile'])) {
+            $q['mobiles'] = $q['mobile'];
+        }
+
+        return $q;
+    }
+
 }

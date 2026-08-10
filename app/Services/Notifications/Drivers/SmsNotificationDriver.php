@@ -163,6 +163,19 @@ final class SmsNotificationDriver implements NotificationDriver
             // ##OTP## from its own `otp` param and any other placeholder
             // from the matching variable, so both naming styles work and
             // neither needs detecting.
+            //
+            // The validity placeholder is GUARANTEED, though. The live
+            // row mapped it as `expires_in_minutes` while the DLT template
+            // asks for ##mins##, so the SMS went out reading "valid for
+            //  minutes" with a hole where the number belongs (2026-08-10).
+            // A missing number in a security message is worth defending
+            // against centrally rather than relying on every admin to name
+            // the variable exactly right.
+            $validityName = $this->sms->otpValidityVariableName();
+            if (($variables[$validityName] ?? '') === '') {
+                $variables[$validityName] = (string) OtpService::expiryMinutes();
+            }
+
             $result = $this->sms->sendOtp($recipient['value'], $code, $variables, $templateId);
         } else {
             $result = $this->sms->sendTemplate(

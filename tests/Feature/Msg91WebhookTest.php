@@ -459,6 +459,49 @@ class Msg91WebhookTest extends TestCase
         });
     }
 
+    /**
+     * The live regression: the enabled auth.otp row mapped the validity as
+     * `expires_in_minutes` while the DLT template asks for ##mins##, so the
+     * OTP arrived but the message read "valid for  minutes".
+     */
+    public function test_the_validity_variable_is_sent_even_when_the_row_names_it_differently(): void
+    {
+        Http::fake(['*' => Http::response(['type' => 'success', 'request_id' => 'r'], 200)]);
+
+        $template = NotificationTemplate::create([
+            'key' => 'auth.otp',
+            'channel' => NotificationTemplate::CHANNEL_SMS,
+            'label' => 'Auth OTP — SMS (live mapping)',
+            'is_enabled' => true,
+            'sms_template_id' => 'tpl-live',
+            'recipient_strategy' => NotificationTemplate::RECIPIENT_CONTEXT_PATH,
+            'recipient_value' => 'phone',
+            // Exactly what production carried.
+            'placeholder_map' => [
+                'otp' => 'otp',
+                'expires_in_minutes' => 'expires_in_minutes',
+                'phone' => 'phone',
+                'name' => 'name',
+            ],
+        ]);
+
+        $driver = new SmsNotificationDriver(app(RecipientResolver::class), new SmsService);
+        $driver->send($template, new NotificationContext([
+            'phone' => '9876543210',
+            'otp' => '445566',
+            'expires_in_minutes' => 10,
+            'name' => 'Ramesh',
+        ]));
+
+        Http::assertSent(function ($request): bool {
+            $params = $this->otpParams($request);
+
+            // ##mins## must have a number to fill it, whatever the row called it.
+            return ($params['mins'] ?? '') === '10'
+                && ($params['otp'] ?? null) === '445566';
+        });
+    }
+
     // ─── Admin surface ────────────────────────────────────────────────
 
     /**

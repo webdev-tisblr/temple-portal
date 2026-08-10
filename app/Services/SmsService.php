@@ -185,30 +185,45 @@ class SmsService
         }
 
         try {
-            // balance.php lives at the API ROOT, not under /v5 and
-            // certainly not under /v5/flow. Appending it to the
-            // admin-entered URL produced .../api/v5/flow/getbalance.php,
-            // which is the HTTP 404 the admin was told to blame on the
-            // auth key (2026-08-10).
-            $response = Http::timeout(10)->get($this->balanceEndpoint(), [
-                'authkey' => $this->authKey,
-                'type' => '4',
-            ]);
+            // What this CAN prove: the endpoint is reachable and correctly
+            // formed. What it CANNOT prove: that the auth key, sender id or
+            // template are valid.
+            //
+            // Measured against the live account on 2026-08-10: MSG91's Flow
+            // API answers {"type":"success"} to a POST carrying a
+            // deliberately wrong auth key, and the legacy balance.php
+            // returns "0" for a wrong key just as readily as a right one.
+            // Neither validates anything synchronously — rejections surface
+            // afterwards in the MSG91 dashboard. Claiming "Connected, key
+            // OK" from either would be a guess dressed as a check, which is
+            // how the previous version came to report a wallet balance it
+            // had not actually read.
+            //
+            // Empty recipients: nothing can be delivered by this probe.
+            $response = Http::withHeaders([
+                    'authkey' => $this->authKey,
+                    'content-type' => 'application/json',
+                    'accept' => 'application/json',
+                ])
+                ->timeout(10)
+                ->post($this->flowEndpoint(), [
+                    'template_id' => $this->otpTemplateId !== '' ? $this->otpTemplateId : 'connectivity-probe',
+                    'recipients' => [],
+                ]);
 
-            $body = trim($response->body());
-
-            if ($response->successful() && $body !== '' && ! str_contains(strtolower($body), 'error')) {
+            if (! $response->successful()) {
                 return [
-                    'ok' => true,
-                    'message' => "Connected. Wallet balance: ₹{$body}",
+                    'ok' => false,
+                    'message' => "MSG91 returned HTTP {$response->status()} for {$this->flowEndpoint()}.",
                 ];
             }
 
             return [
-                'ok' => false,
-                'message' => $body !== ''
-                    ? "MSG91 said: {$body}"
-                    : "MSG91 returned HTTP {$response->status()} for {$this->balanceEndpoint()}.",
+                'ok' => true,
+                'message' => 'Endpoint reachable ('.$this->flowEndpoint().'). '
+                    .'Note: MSG91 accepts requests before validating the auth key, sender id or template — '
+                    .'those failures appear in the MSG91 dashboard, not here. '
+                    .'Use "Send test OTP" to a real number and check delivery.',
             ];
         } catch (\Throwable $e) {
             return ['ok' => false, 'message' => 'Could not reach MSG91: ' . $e->getMessage()];

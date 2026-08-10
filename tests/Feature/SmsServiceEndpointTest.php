@@ -46,6 +46,32 @@ class SmsServiceEndpointTest extends TestCase
         );
     }
 
+    /**
+     * The connection test must not claim more than it verified. MSG91
+     * accepts a POST carrying a wrong auth key with {"type":"success"},
+     * so a green result means "reachable", never "credentials valid".
+     */
+    public function test_the_connection_test_does_not_claim_the_key_is_valid(): void
+    {
+        Http::fake(['*' => Http::response(['type' => 'success'], 200)]);
+
+        $result = $this->configure('https://control.msg91.com/api/v5/flow')->testConnection();
+
+        $this->assertTrue($result['ok']);
+        $this->assertStringContainsString('dashboard', $result['message']);
+        $this->assertStringNotContainsString('balance', strtolower($result['message']));
+    }
+
+    /** The probe must never be able to deliver a message. */
+    public function test_the_connection_probe_sends_to_nobody(): void
+    {
+        Http::fake(['*' => Http::response(['type' => 'success'], 200)]);
+
+        $this->configure('https://control.msg91.com/api/v5/flow')->testConnection();
+
+        Http::assertSent(fn ($request) => $request->data()['recipients'] === []);
+    }
+
     /** MSG91 answers 200 for logical errors; that must not read as sent. */
     public function test_a_template_error_returned_with_http_200_is_a_failure(): void
     {

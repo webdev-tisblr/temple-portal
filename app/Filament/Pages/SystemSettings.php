@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Models\Msg91WebhookEvent;
 use App\Models\SystemSetting;
 use App\Services\SmsService;
 use App\Services\WhatsAppService;
@@ -15,6 +16,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Actions\Action;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\HtmlString;
 
 class SystemSettings extends Page implements HasForms
 {
@@ -33,12 +35,133 @@ class SystemSettings extends Page implements HasForms
         return auth('admin')->user()?->can('page_SystemSettings') ?? false;
     }
 
+    /**
+     * Form keys that are DISPLAY ONLY — derived at render time and never
+     * written back to temple_system_settings.
+     *
+     * sms_msg91_webhook_url is built from the token plus APP_URL. Saving a
+     * copy of it would create a second, silently stale source of truth the
+     * moment the token is regenerated or the domain changes — and the
+     * whole point of the field is that the admin can trust what it shows.
+     */
+    private const DISPLAY_ONLY_KEYS = [
+        'sms_msg91_webhook_url',
+    ];
+
+    /**
+     * Permission gate for the delivery-report webhook block. The page as a
+     * whole is already gated by page_SystemSettings; the webhook URL is a
+     * credential in its own right, so it carries its own permission.
+     */
+    public static function canManageSmsWebhook(): bool
+    {
+        return auth('admin')->user()?->can('manage_sms_webhook') ?? false;
+    }
+
     public ?array $data = [];
 
     public function mount(): void
     {
         $settings = SystemSetting::all()->pluck('value', 'key')->toArray();
+
+        // Derived, never stored. Generated on first read so the field is
+        // never blank — see SmsService::webhookToken().
+        if (static::canManageSmsWebhook()) {
+            $settings['sms_msg91_webhook_url'] = SmsService::webhookUrl();
+        }
+
         $this->form->fill($settings);
+    }
+
+    /**
+     * Mint a fresh webhook token and refresh the displayed URL.
+     *
+     * Destructive by design: reports stop arriving until the new URL is
+     * pasted into MSG91, which is why the action is confirmation-gated and
+     * the flash message repeats the consequence rather than just saying
+     * "done".
+     */
+    public function regenerateMsg91WebhookToken(): void
+    {
+        abort_unless(static::canManageSmsWebhook(), 403);
+
+        SmsService::regenerateWebhookToken();
+        $this->data['sms_msg91_webhook_url'] = SmsService::webhookUrl();
+
+        Notification::make()
+            ->title('New webhook URL generated')
+            ->body('The previous URL no longer works. Paste the new one into MSG91 now — until you do, no SMS delivery reports will arrive and every SMS will show as unconfirmed.')
+            ->warning()
+            ->persistent()
+            ->send();
+    }
+
+    /**
+     * Last 10 delivery reports: when, masked phone, status, MSG91's reason.
+     *
+     * This small table is what turns "no SMS arrived" into a diagnosis —
+     * MSG91's own sentence ("Template ID Missing or Invalid Template",
+     * "DND number") is the thing an admin would otherwise have to log into
+     * MSG91 to read. Rendered as plain HTML because a Placeholder cannot
+     * host a table builder, and everything interpolated is escaped.
+     */
+    public function renderRecentMsg91Events(): HtmlString
+    {
+        if (! static::canManageSmsWebhook()) {
+            return new HtmlString('');
+        }
+
+        try {
+            $events = Msg91WebhookEvent::query()
+                ->latest('received_at')
+                ->limit(10)
+                ->get();
+        } catch (\Throwable $e) {
+            return new HtmlString('<p class="text-sm text-danger-600">Could not read delivery reports: ' . e($e->getMessage()) . '</p>');
+        }
+
+        if ($events->isEmpty()) {
+            // NOT an error state. Before the URL is pasted into MSG91 this
+            // is the expected view, and it must read as "not set up yet"
+            // rather than as a fault.
+            return new HtmlString(
+                '<div class="text-sm rounded-lg border border-warning-300 bg-warning-50 p-3 text-warning-800 '
+                . 'dark:border-warning-600 dark:bg-warning-900/20 dark:text-warning-300">'
+                . '<strong>No delivery reports received yet.</strong> This is normal until the webhook URL above is '
+                . 'saved in MSG91. Until then every SMS stays "unconfirmed" in the notification log — the platform '
+                . 'genuinely does not know whether those messages arrived.'
+                . '</div>'
+            );
+        }
+
+        $rows = '';
+        foreach ($events as $event) {
+            $status = $event->delivery_status ?? 'unknown';
+            $colour = match ($status) {
+                'delivered' => 'text-success-600',
+                'failed' => 'text-danger-600',
+                default => 'text-gray-600 dark:text-gray-400',
+            };
+
+            $rows .= '<tr class="border-t border-gray-200 dark:border-gray-700">'
+                . '<td class="py-1.5 pr-3 whitespace-nowrap">' . e(optional($event->received_at)->format('d M H:i') ?? '—') . '</td>'
+                // Masked at write time; masked again here would be a no-op.
+                . '<td class="py-1.5 pr-3 whitespace-nowrap">' . e($event->recipient_masked ?? '—') . '</td>'
+                . '<td class="py-1.5 pr-3 whitespace-nowrap ' . $colour . '">' . e(ucfirst($status)) . '</td>'
+                // MSG91's wording, verbatim — the whole reason this panel exists.
+                . '<td class="py-1.5">' . e($event->description ?? '—') . '</td>'
+                . '</tr>';
+        }
+
+        return new HtmlString(
+            '<div class="overflow-x-auto"><table class="w-full text-sm">'
+            . '<thead><tr class="text-left text-gray-500 dark:text-gray-400">'
+            . '<th class="pb-1 pr-3 font-medium">When</th>'
+            . '<th class="pb-1 pr-3 font-medium">To</th>'
+            . '<th class="pb-1 pr-3 font-medium">Status</th>'
+            . '<th class="pb-1 font-medium">MSG91 reason</th>'
+            . '</tr></thead><tbody>' . $rows . '</tbody></table></div>'
+        );
     }
 
     public function form(Form $form): Form
@@ -345,6 +468,26 @@ class SystemSettings extends Page implements HasForms
                                     ->label('Default OTP Template ID')
                                     ->placeholder('65a1b2c3d4...')
                                     ->helperText('MSG91 template id for the OTP DLT template. Auth.otp SMS row falls back to this.'),
+
+                                // ── DLT variable names ────────────────────
+                                // MSG91 Flow fills placeholders BY NAME, not
+                                // by position. Sending var1/var2 to a template
+                                // whose markers are ##OTP## / ##mins## fills
+                                // nothing and MSG91 rejects the submission —
+                                // silently, behind an HTTP 200. That was the
+                                // live cause of "no OTP SMS ever arrives".
+                                // Exposed as fields so the next DLT template
+                                // the trust registers cannot re-spring it.
+                                Forms\Components\TextInput::make('sms_msg91_otp_var_name')
+                                    ->label('OTP variable name')
+                                    ->placeholder('OTP')
+                                    ->maxLength(32)
+                                    ->helperText('Must match the placeholder in your approved DLT template exactly. For "…is ##OTP##…" enter OTP (no ## marks). Leave blank for OTP.'),
+                                Forms\Components\TextInput::make('sms_msg91_otp_validity_var_name')
+                                    ->label('Validity variable name')
+                                    ->placeholder('mins')
+                                    ->maxLength(32)
+                                    ->helperText('The placeholder holding the validity window. For "…valid for ##mins## minutes…" enter mins. Leave blank for mins.'),
                                 Forms\Components\TextInput::make('sms_msg91_dlt_te_id')
                                     ->label('DLT Template Entity ID')
                                     ->placeholder('1701xxxxxxxxxxxxxxx')
@@ -372,6 +515,75 @@ class SystemSettings extends Page implements HasForms
                                             $this->sendTestSms($get('sms_test_recipient'));
                                         }),
                                 ])->columnSpanFull(),
+
+                                // ── Delivery reports ──────────────────────
+                                // The only way this platform can learn what
+                                // actually happened to an SMS. Everything
+                                // above it can tell you at most that MSG91
+                                // accepted the request.
+                                Forms\Components\Fieldset::make('Delivery reports (webhook)')
+                                    ->columnSpanFull()
+                                    ->visible(fn (): bool => static::canManageSmsWebhook())
+                                    ->schema([
+                                        Forms\Components\Placeholder::make('sms_webhook_intro')
+                                            ->hiddenLabel()
+                                            ->columnSpanFull()
+                                            ->content(new HtmlString(
+                                                '<p class="text-sm text-gray-600 dark:text-gray-400">MSG91 accepts every submission with '
+                                                . '<code>{"type":"success"}</code> — including submissions with a wrong auth key or an invalid '
+                                                . 'template. Nothing is checked when we send. Paste the URL below into the MSG91 dashboard '
+                                                . '(<strong>Settings → Webhooks / Delivery Report URL</strong>) and MSG91 will report each message\'s real '
+                                                . 'outcome back here, with its own reason for any failure.</p>'
+                                            )),
+
+                                        Forms\Components\TextInput::make('sms_msg91_webhook_url')
+                                            ->label('Webhook URL — paste this into MSG91')
+                                            ->readOnly()
+                                            ->columnSpanFull()
+                                            ->helperText('Treat this URL like a password: the token in it is the only thing protecting the endpoint.')
+                                            ->suffixAction(
+                                                Forms\Components\Actions\Action::make('copy_msg91_webhook_url')
+                                                    ->label('Copy')
+                                                    ->icon('heroicon-m-clipboard-document')
+                                                    ->action(function ($state, $livewire): void {
+                                                        // Clipboard write has to happen in the
+                                                        // browser; json_encode keeps the value
+                                                        // safely quoted inside the JS string.
+                                                        $livewire->js('window.navigator.clipboard.writeText(' . json_encode((string) $state) . ');');
+                                                        Notification::make()->title('Webhook URL copied')->success()->send();
+                                                    })
+                                            ),
+
+                                        Forms\Components\Placeholder::make('sms_webhook_protection')
+                                            ->label('What protects this endpoint')
+                                            ->columnSpanFull()
+                                            ->content(new HtmlString(
+                                                '<p class="text-sm text-gray-600 dark:text-gray-400">MSG91 offers no signing secret and no custom header on '
+                                                . 'delivery reports, so the random token in the URL is the credential. It is unguessable and can be '
+                                                . 'rotated, but anyone holding the URL can post to it. The worst a forged report can do is change the '
+                                                . 'delivery status shown against a message that was already sent — it cannot send anything, read '
+                                                . 'devotee data, or touch payments.</p>'
+                                            )),
+
+                                        Forms\Components\Actions::make([
+                                            Forms\Components\Actions\Action::make('regenerate_msg91_webhook_token')
+                                                ->label('Regenerate token')
+                                                ->icon('heroicon-o-arrow-path')
+                                                ->color('danger')
+                                                ->requiresConfirmation()
+                                                ->modalHeading('Regenerate the webhook token?')
+                                                ->modalDescription('This immediately invalidates the URL already pasted into MSG91. '
+                                                    . 'Delivery reports STOP arriving — and every SMS will show as unconfirmed — until you paste '
+                                                    . 'the new URL into the MSG91 dashboard. Only do this if the current URL has leaked.')
+                                                ->modalSubmitActionLabel('Yes, regenerate')
+                                                ->action(fn () => $this->regenerateMsg91WebhookToken()),
+                                        ])->columnSpanFull(),
+
+                                        Forms\Components\Placeholder::make('sms_webhook_recent_events')
+                                            ->label('Recent delivery reports')
+                                            ->columnSpanFull()
+                                            ->content(fn (): HtmlString => $this->renderRecentMsg91Events()),
+                                    ]),
                             ])->columns(2)->collapsible(),
 
                     ]),
@@ -396,6 +608,12 @@ class SystemSettings extends Page implements HasForms
         ];
 
         foreach ($data as $key => $value) {
+            // Derived display fields are rendered from other state; storing
+            // them would let a stale copy outlive the value it was built from.
+            if (in_array($key, self::DISPLAY_ONLY_KEYS, true)) {
+                continue;
+            }
+
             $group = 'general';
             foreach ($groups as $prefix => $g) {
                 if (str_starts_with($key, $prefix)) {
@@ -549,6 +767,7 @@ class SystemSettings extends Page implements HasForms
         $data = $this->form->getState();
         foreach ($data as $key => $value) {
             if (! str_starts_with($key, $prefix)) continue;
+            if (in_array($key, self::DISPLAY_ONLY_KEYS, true)) continue;
             SystemSetting::updateOrCreate(
                 ['key' => $key],
                 ['value' => $value ?? '', 'group' => $group, 'updated_at' => now()]
@@ -604,15 +823,29 @@ class SystemSettings extends Page implements HasForms
         }
 
         $code = (string) random_int(100000, 999999);
-        // var1 = code, var2 = validity minutes — matches the trust's
-        // two-variable DLT OTP template ("...is {#var#}. This OTP is
-        // valid for {#var#} minutes...").
-        $result = $sms->sendTemplate($recipient, $templateId, ['var1' => $code, 'var2' => '10']);
 
+        // Variable names come from the DLT template, via settings — NOT
+        // var1/var2. MSG91 Flow fills by name; the old positional pair
+        // matched nothing in the trust's approved template, so every OTP
+        // was rejected while this dialog reported success.
+        //
+        // The validity is whatever OtpService actually enforces, so the
+        // SMS can never promise a window the server will not honour.
+        $variables = $sms->otpVariables($code);
+
+        $result = $sms->sendTemplate($recipient, $templateId, $variables);
+
+        // Deliberately NOT "Test OTP sent". MSG91 answers 200 success to
+        // submissions it later rejects — claiming delivery here is exactly
+        // the false reassurance that hid the broken template for weeks.
         Notification::make()
-            ->title($result['ok'] ? "Test OTP sent (code: {$code})" : 'Test SMS failed')
-            ->body($result['message'])
-            ->color($result['ok'] ? 'success' : 'danger')
+            ->title($result['ok'] ? "Test OTP submitted to MSG91 (code: {$code})" : 'Test SMS failed')
+            ->body($result['ok']
+                ? 'Sent variables: ' . implode(', ', array_keys($variables))
+                    . '. MSG91 accepted the request — that is NOT confirmation of delivery. '
+                    . 'Check "Recent delivery reports" below (or the handset) to see what actually happened.'
+                : $result['message'])
+            ->color($result['ok'] ? 'info' : 'danger')
             ->persistent(! $result['ok'])
             ->send();
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\NotificationLogResource\Pages;
+use App\Models\Msg91WebhookEvent;
 use App\Models\NotificationLog;
 use App\Models\NotificationTemplate;
 use App\Services\Notifications\NotificationService;
@@ -45,6 +46,20 @@ class NotificationLogResource extends Resource
         return false;
     }
 
+    /**
+     * Channels where the provider reports delivery back to us, so
+     * "accepted by the API" and "the devotee received it" are separate
+     * facts that the UI must not conflate.
+     *
+     * Email and push are excluded: nothing reports back for them today,
+     * so their `status` column is the only signal there is and relabelling
+     * it would remove information rather than add it.
+     */
+    public static function reportsDelivery(?string $channel): bool
+    {
+        return in_array($channel, ['sms', 'whatsapp'], true);
+    }
+
     public static function form(Form $form): Form
     {
         return $form->schema([
@@ -75,12 +90,17 @@ class NotificationLogResource extends Resource
             // deliver the message — exactly the scenario we built the
             // webhook integration to surface.
             Forms\Components\Section::make('Delivery (via provider webhook)')
-                ->description('Populated by WhatsAppWebhookController when Meta reports back. Empty here means we have not yet received a delivery status event for this message — either the message has not progressed beyond "accepted by upstream API" yet, or no webhook was wired at the time the send happened.')
+                ->description('Populated when the provider reports back — Meta for WhatsApp, MSG91 for SMS. '
+                    . 'A delivery status of "sent" means only that the provider ACCEPTED the submission; it is not '
+                    . 'a delivery. MSG91 in particular accepts submissions carrying a wrong auth key or an invalid '
+                    . 'template and rejects them afterwards, so an SMS row stays at "sent" until a delivery report '
+                    . 'moves it to delivered or failed. Empty means no report has arrived at all — commonly because '
+                    . 'the webhook URL (System Settings → SMS) has not been pasted into the provider yet.')
                 ->schema([
-                    Forms\Components\TextInput::make('provider_message_id')->disabled()->label('Provider message ID (Meta wamid)')->columnSpan(2),
+                    Forms\Components\TextInput::make('provider_message_id')->disabled()->label('Provider message ID (Meta wamid / MSG91 request id)')->columnSpan(2),
                     Forms\Components\TextInput::make('delivery_status')->disabled()->label('Delivery status'),
                     Forms\Components\DateTimePicker::make('delivery_status_at')->disabled()->label('Status updated at'),
-                    Forms\Components\Textarea::make('failure_reason')->disabled()->rows(3)->label('Failure reason (Meta error)')->columnSpanFull(),
+                    Forms\Components\Textarea::make('failure_reason')->disabled()->rows(3)->label("Failure reason (provider's own wording)")->columnSpanFull(),
                 ])->columns(3),
             Forms\Components\Section::make('Context snapshot')->schema([
                 Forms\Components\KeyValue::make('context_snapshot')
@@ -127,19 +147,38 @@ class NotificationLogResource extends Resource
                     ->toggleable()
                     ->placeholder('—'),
 
+                // "Send" is the SUBMISSION outcome — did the provider's API
+                // accept our request. For channels that report delivery
+                // back (SMS, WhatsApp) that is emphatically not the same
+                // as "the devotee got it", so those rows read "Submitted"
+                // in neutral blue rather than a green ticked "Sent". The
+                // green tick used to appear on SMS that MSG91 had already
+                // rejected — the trust reasonably read it as delivery.
                 Tables\Columns\TextColumn::make('status')
                     ->label('Send')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        NotificationLog::STATUS_SENT => 'success',
-                        NotificationLog::STATUS_FAILED => 'danger',
-                        NotificationLog::STATUS_SKIPPED => 'warning',
+                    ->formatStateUsing(fn (string $state, NotificationLog $record): string =>
+                        $state === NotificationLog::STATUS_SENT && self::reportsDelivery($record->channel)
+                            ? 'Submitted'
+                            : ucfirst($state)
+                    )
+                    ->tooltip(fn (string $state, NotificationLog $record): ?string =>
+                        $state === NotificationLog::STATUS_SENT && self::reportsDelivery($record->channel)
+                            ? 'Accepted by the provider. Whether it reached the handset is in the Delivery column.'
+                            : null
+                    )
+                    ->color(fn (string $state, NotificationLog $record): string => match (true) {
+                        $state === NotificationLog::STATUS_SENT && self::reportsDelivery($record->channel) => 'info',
+                        $state === NotificationLog::STATUS_SENT => 'success',
+                        $state === NotificationLog::STATUS_FAILED => 'danger',
+                        $state === NotificationLog::STATUS_SKIPPED => 'warning',
                         default => 'gray',
                     })
-                    ->icon(fn (string $state): string => match ($state) {
-                        NotificationLog::STATUS_SENT => 'heroicon-m-check-circle',
-                        NotificationLog::STATUS_FAILED => 'heroicon-m-x-circle',
-                        NotificationLog::STATUS_SKIPPED => 'heroicon-m-no-symbol',
+                    ->icon(fn (string $state, NotificationLog $record): string => match (true) {
+                        $state === NotificationLog::STATUS_SENT && self::reportsDelivery($record->channel) => 'heroicon-m-paper-airplane',
+                        $state === NotificationLog::STATUS_SENT => 'heroicon-m-check-circle',
+                        $state === NotificationLog::STATUS_FAILED => 'heroicon-m-x-circle',
+                        $state === NotificationLog::STATUS_SKIPPED => 'heroicon-m-no-symbol',
                         default => 'heroicon-m-clock',
                     }),
 
@@ -151,6 +190,38 @@ class NotificationLogResource extends Resource
                     ->label('Delivery')
                     ->badge()
                     ->placeholder('—')
+                    // Spell out the unconfirmed state instead of showing a
+                    // bare "sent" that reads as success. Two different
+                    // unconfirmed cases, and the difference matters:
+                    //   • reporting IS configured → we are waiting on the
+                    //     provider, the message may still land;
+                    //   • reporting is NOT configured → no report will ever
+                    //     arrive, so this row will sit here forever. That
+                    //     is a setup gap, not a fault, and it says so.
+                    ->formatStateUsing(function (?string $state, NotificationLog $record): ?string {
+                        if ($state !== NotificationLog::DELIVERY_SENT || ! self::reportsDelivery($record->channel)) {
+                            return $state === null ? null : ucfirst($state);
+                        }
+
+                        if ($record->channel === 'sms' && ! Msg91WebhookEvent::reportingConfigured()) {
+                            return 'No delivery reports';
+                        }
+
+                        return 'Awaiting report';
+                    })
+                    ->tooltip(function (?string $state, NotificationLog $record): ?string {
+                        if ($state !== NotificationLog::DELIVERY_SENT || ! self::reportsDelivery($record->channel)) {
+                            return null;
+                        }
+
+                        if ($record->channel === 'sms' && ! Msg91WebhookEvent::reportingConfigured()) {
+                            return 'MSG91 has never sent a delivery report to this site. Paste the webhook URL from '
+                                . 'System Settings → SMS into the MSG91 dashboard to start receiving them. Until then '
+                                . 'no SMS can be confirmed as delivered.';
+                        }
+
+                        return 'Handed to the provider; no delivery confirmation has come back yet.';
+                    })
                     ->color(fn (?string $state): string => match ($state) {
                         NotificationLog::DELIVERY_READ => 'success',
                         NotificationLog::DELIVERY_DELIVERED => 'info',
@@ -243,6 +314,19 @@ class NotificationLogResource extends Resource
                                     $q2->where('channel', 'whatsapp')
                                         ->where('status', NotificationLog::STATUS_SENT)
                                         ->whereNull('delivery_status')
+                                        ->where('sent_at', '<', now()->subMinutes(5));
+                                })
+                                // SMS records the intermediate 'sent'
+                                // (= MSG91 accepted it) at submission, so
+                                // "stuck" here is delivery_status still
+                                // sitting at 'sent' rather than null.
+                                ->orWhere(function (\Illuminate\Database\Eloquent\Builder $q3) {
+                                    $q3->where('channel', 'sms')
+                                        ->where('status', NotificationLog::STATUS_SENT)
+                                        ->where(function (\Illuminate\Database\Eloquent\Builder $q4) {
+                                            $q4->whereNull('delivery_status')
+                                                ->orWhere('delivery_status', NotificationLog::DELIVERY_SENT);
+                                        })
                                         ->where('sent_at', '<', now()->subMinutes(5));
                                 });
                         })),

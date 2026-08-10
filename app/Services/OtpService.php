@@ -38,6 +38,23 @@ class OtpService
     private const SEND_LIMIT_PER_MINUTE = 1;
     private const SEND_LIMIT_PER_HOUR = 5;
 
+    /**
+     * How long a generated code stays valid, in minutes.
+     *
+     * The ONE place this number is decided. It sets expires_at on the
+     * temple_otp_codes row (what verify() enforces) AND is dispatched as
+     * `expires_in_minutes` into the notification context, so whatever the
+     * SMS/WhatsApp/email says is by construction what the server will
+     * accept. Clamped to 1..60 so a typo in .env can't mint a code that
+     * lives for a day or expires before the SMS lands.
+     */
+    public static function expiryMinutes(): int
+    {
+        $minutes = (int) config('otp.expiry_minutes', 10);
+
+        return max(1, min(60, $minutes === 0 ? 10 : $minutes));
+    }
+
     public function generate(string $phone, string $purpose = 'login'): string
     {
         // Store-review bypass: the configured test number never sends a
@@ -78,7 +95,7 @@ class OtpService
             'code' => $code,
             'purpose' => $purpose,
             'attempts' => 0,
-            'expires_at' => now()->addMinutes(10),
+            'expires_at' => now()->addMinutes(self::expiryMinutes()),
             'created_at' => now(),
         ]);
 
@@ -117,7 +134,7 @@ class OtpService
             [
                 'phone' => $phone,
                 'otp' => $code,
-                'expires_in_minutes' => 10,
+                'expires_in_minutes' => self::expiryMinutes(),
                 'devotee' => $devotee,
                 'email' => $devotee?->email,
                 'name' => $devotee?->name,

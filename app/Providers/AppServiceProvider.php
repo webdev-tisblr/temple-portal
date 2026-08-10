@@ -15,7 +15,10 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Actions\DeleteAction as TableDeleteAction;
 use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Tables\Columns\ImageColumn;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -35,6 +38,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Rate limit for the MSG91 delivery-report webhook.
+        //
+        // Sized for the real traffic shape rather than for safety theatre:
+        // delivery reports arrive in a burst right after a batch send, so
+        // the API group's 60/min would 429 legitimate reports — and MSG91
+        // responds to a non-2xx by retrying, which makes the burst worse.
+        // 300/min per IP still caps an abusive caller (the endpoint only
+        // ever writes an audit row and a delivery status), while leaving
+        // ample headroom for the trust's largest send.
+        RateLimiter::for('msg91-webhook', fn (Request $request) => Limit::perMinute(300)->by($request->ip()));
+
         Seva::observe(SevaObserver::class);
         // Materialises / cancels seva reminder schedule rows as bookings
         // change state, on every confirm path. See SevaReminderScheduler.

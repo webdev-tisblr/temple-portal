@@ -39,6 +39,24 @@ class SmsService
     private string $dltTeId;
     private string $countryCode;
 
+    /**
+     * MSG91's submission id from the most recent successful send.
+     *
+     * NotificationService::deliver() reads this through the driver's
+     * lastMessageId() and persists it onto
+     * temple_notification_logs.provider_message_id — which is the ONLY
+     * key the inbound delivery report can be matched back on. Without it
+     * a delivery report is an orphan: we would know some message failed
+     * but not which devotee, trigger or template it belonged to.
+     */
+    private ?string $lastMessageId = null;
+
+    /**
+     * SystemSetting key holding the random token embedded in the webhook
+     * URL. See webhookToken() for what this does and does not protect.
+     */
+    public const WEBHOOK_TOKEN_KEY = 'sms_msg91_webhook_token';
+
     public function __construct()
     {
         $this->apiUrl = SystemSetting::getValue('sms_msg91_api_url', (string) config('sms.msg91.api_url'));
@@ -60,6 +78,155 @@ class SmsService
     }
 
     /**
+     * MSG91's request id for the last successful send, or null.
+     *
+     * Mirrors WhatsAppService::lastMessageId() so
+     * NotificationService::deliver()'s method_exists() probe picks it up
+     * with no change to the driver contract.
+     */
+    public function lastMessageId(): ?string
+    {
+        return $this->lastMessageId;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Delivery-report webhook: token + URL
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * The random token embedded in the delivery-report webhook URL.
+     *
+     * WHAT THIS IS: MSG91's delivery-report ("DLR" / callback) setting is
+     * a bare URL field. It does not offer a signing secret, an HMAC, or a
+     * custom request header — MSG91 POSTs the report and nothing else. A
+     * capability URL is therefore the only mechanism available: the secret
+     * IS the URL.
+     *
+     * WHAT THIS IS NOT: this is not authentication of MSG91. Anyone
+     * holding the URL can POST to it. What the token buys is (a) the
+     * endpoint is not discoverable by scanning /api/webhooks/*, and (b) it
+     * can be rotated the instant it leaks. The blast radius if it ever
+     * does leak is bounded: a forged report can only alter the delivery
+     * status shown on an already-sent message. It cannot send anything,
+     * read anything, or touch money.
+     *
+     * Generated on first read so a fresh install never has an empty token
+     * (an empty token is rejected outright by the controller rather than
+     * matching an empty URL segment).
+     */
+    public static function webhookToken(): string
+    {
+        $token = (string) SystemSetting::getValue(self::WEBHOOK_TOKEN_KEY, '');
+
+        if (strlen($token) < 32) {
+            $token = self::regenerateWebhookToken();
+        }
+
+        return $token;
+    }
+
+    /**
+     * Mint a new token. INVALIDATES the URL already pasted into MSG91 —
+     * delivery reports stop arriving until the new URL is pasted in.
+     */
+    public static function regenerateWebhookToken(): string
+    {
+        // 48 hex chars from a CSPRNG. Long enough that guessing is not a
+        // consideration, short enough to stay on one line in the MSG91
+        // dashboard's URL field.
+        $token = bin2hex(random_bytes(24));
+
+        SystemSetting::updateOrCreate(
+            ['key' => self::WEBHOOK_TOKEN_KEY],
+            ['value' => $token, 'group' => 'sms', 'updated_at' => now()]
+        );
+
+        return $token;
+    }
+
+    /** Full, paste-ready delivery-report URL including the token. */
+    public static function webhookUrl(?string $token = null): string
+    {
+        return rtrim((string) config('app.url'), '/')
+            . '/api/webhooks/msg91/'
+            . ($token ?? self::webhookToken());
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  OTP template variable names
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * MSG91 Flow matches recipient keys to the variable NAMES in the DLT
+     * template — it is not positional.
+     *
+     * This is the bug that stopped every real OTP SMS from arriving. The
+     * trust's approved DLT template reads:
+     *
+     *   "Your OTP for logging in to SPHST App/Web Portal is ##OTP##. This
+     *    OTP is valid for ##mins## minutes. Do not share this OTP with
+     *    anyone. - Shree Patadiya Hanuman Seva Trust"
+     *
+     * so its variables are named `OTP` and `mins`. The code was sending
+     * `var1` / `var2` — MSG91's DLT-positional convention, which this
+     * template does not use — so neither placeholder was ever filled and
+     * MSG91 rejected the submission ("Template ID Missing or Invalid
+     * Template"). That rejection is invisible at send time because the
+     * Flow API answers HTTP 200 {"type":"success"} regardless.
+     *
+     * The names are settings rather than constants because the next DLT
+     * template the trust registers will use different ones, and a
+     * hardcoded pair would spring exactly the same trap a second time
+     * with no clue in the UI as to why.
+     */
+    public function otpVariableName(): string
+    {
+        return self::sanitiseVariableName(
+            SystemSetting::getValue('sms_msg91_otp_var_name', ''),
+            'OTP',
+        );
+    }
+
+    public function otpValidityVariableName(): string
+    {
+        return self::sanitiseVariableName(
+            SystemSetting::getValue('sms_msg91_otp_validity_var_name', ''),
+            'mins',
+        );
+    }
+
+    /**
+     * Build the MSG91 recipient variable map for an OTP send.
+     *
+     * @param  string    $code    The 6-digit OTP.
+     * @param  int|null  $minutes Validity window; defaults to the value
+     *                            OtpService actually enforces, so the
+     *                            message can never promise a different
+     *                            window from the one the server honours.
+     * @return array<string, string>
+     */
+    public function otpVariables(string $code, ?int $minutes = null): array
+    {
+        return [
+            $this->otpVariableName() => $code,
+            $this->otpValidityVariableName() => (string) ($minutes ?? \App\Services\OtpService::expiryMinutes()),
+        ];
+    }
+
+    /**
+     * MSG91 variable names are bare identifiers (the text between the
+     * ##…## markers). Strip anything that could not appear there —
+     * including the ## the admin will inevitably paste along with the
+     * name — and fall back to the default when nothing usable is left.
+     */
+    public static function sanitiseVariableName(?string $name, string $fallback): string
+    {
+        $clean = preg_replace('/[^A-Za-z0-9_]/', '', (string) $name) ?? '';
+
+        return $clean !== '' ? $clean : $fallback;
+    }
+
+    /**
      * Send a DLT-approved template SMS through MSG91's Flow API.
      *
      * @param  string $phone Indian mobile (10 digits or with 91 prefix).
@@ -69,6 +236,11 @@ class SmsService
      */
     public function sendTemplate(string $phone, string $templateId, array $variables = []): array
     {
+        // Clear first: a failed send must never leave the PREVIOUS send's
+        // request id hanging around for NotificationService to staple onto
+        // the wrong log row.
+        $this->lastMessageId = null;
+
         if (! $this->isConfigured()) {
             return ['ok' => false, 'message' => 'SMS provider not configured. Add MSG91 auth key + sender id in admin → System Settings → SMS.'];
         }
@@ -80,7 +252,7 @@ class SmsService
             || (strlen($digits) === 12 && preg_match('/^91[6-9]\d{9}$/', $digits));
         if (! $isIndian) {
             Log::warning('SMS skipped: non-Indian number (MSG91 is India-only)', [
-                'phone' => $this->maskPhone($phone),
+                'phone' => self::maskPhone($phone),
                 'template_id' => $templateId,
             ]);
             return ['ok' => false, 'message' => 'SMS not sent: MSG91 delivers to Indian numbers only.'];
@@ -125,14 +297,36 @@ class SmsService
             // every rejected message. That is why the admin saw "Test OTP
             // sent" while MSG91's dashboard logged an invalid template.
             if ($response->successful() && $response->json('type') !== 'error') {
-                Log::info('SMS sent via MSG91', [
-                    'phone' => $this->maskPhone($phone),
+                // MSG91's submission id. This is the ONLY handle we will
+                // ever have on this message: the delivery report echoes it
+                // back as `requestId`, and matching it against
+                // temple_notification_logs.provider_message_id is what
+                // turns an anonymous "message 3 failed" into "the OTP we
+                // sent this devotee at 14:02 was rejected because …".
+                //
+                // Key spelling varies by MSG91 account/route, hence the
+                // ladder. `message` is the legacy field where older Flow
+                // responses put the same id.
+                $this->lastMessageId = self::firstScalar([
+                    $response->json('request_id'),
+                    $response->json('requestId'),
+                    $response->json('data.request_id'),
+                    $response->json('message'),
+                ]);
+
+                Log::info('SMS submitted to MSG91', [
+                    'phone' => self::maskPhone($phone),
                     'template_id' => $templateId,
-                    'message_id' => $response->json('request_id') ?? $response->json('message'),
+                    'message_id' => $this->lastMessageId,
+                    // Deliberate wording: MSG91 has ACCEPTED the request,
+                    // which it does even for a wrong auth key. Nothing here
+                    // means the devotee received anything.
+                    'note' => 'accepted by MSG91; delivery unconfirmed until a delivery report arrives',
                 ]);
                 return [
                     'ok' => true,
-                    'message' => 'Sent.',
+                    'message' => 'Submitted to MSG91. Delivery is confirmed only by the delivery report — MSG91 accepts before it validates.',
+                    'request_id' => $this->lastMessageId,
                     'response' => $response->json() ?? [],
                 ];
             }
@@ -148,7 +342,7 @@ class SmsService
             }
 
             Log::error('MSG91 send failed', [
-                'phone' => $this->maskPhone($phone),
+                'phone' => self::maskPhone($phone),
                 'template_id' => $templateId,
                 'endpoint' => $this->flowEndpoint(),
                 'sender' => $this->senderId,
@@ -163,7 +357,7 @@ class SmsService
             ];
         } catch (\Throwable $e) {
             Log::error('MSG91 send exception', [
-                'phone' => $this->maskPhone($phone),
+                'phone' => self::maskPhone($phone),
                 'error' => $e->getMessage(),
             ]);
             return ['ok' => false, 'message' => 'Could not reach MSG91: ' . $e->getMessage()];
@@ -277,12 +471,41 @@ class SmsService
         return $this->countryCode . $phone;
     }
 
-    private function maskPhone(string $phone): string
+    /**
+     * The platform's one masking rule for mobile numbers: 91••••3210.
+     *
+     * Static + public because the delivery-report webhook and the admin
+     * "recent events" panel must mask exactly the same way this service
+     * already does — a second, subtly different implementation is how a
+     * full number eventually reaches a screen or a log line.
+     */
+    public static function maskPhone(string $phone): string
     {
         $phone = preg_replace('/\D/', '', $phone) ?? '';
         if (strlen($phone) >= 4) {
             return substr($phone, 0, 2) . '••••' . substr($phone, -4);
         }
         return '••••';
+    }
+
+    /**
+     * First non-empty scalar in a list, as a string. Used to walk the
+     * ladder of key spellings MSG91 uses for the same field across
+     * accounts and routes.
+     *
+     * @param  array<int, mixed>  $candidates
+     */
+    private static function firstScalar(array $candidates): ?string
+    {
+        foreach ($candidates as $candidate) {
+            if (is_string($candidate) && trim($candidate) !== '') {
+                return trim($candidate);
+            }
+            if (is_int($candidate)) {
+                return (string) $candidate;
+            }
+        }
+
+        return null;
     }
 }

@@ -8,6 +8,7 @@ use App\Models\NotificationTemplate;
 use App\Services\Notifications\Contracts\NotificationDriver;
 use App\Services\Notifications\NotificationContext;
 use App\Services\Notifications\RecipientResolver;
+use App\Services\OtpService;
 use App\Services\SmsService;
 use Illuminate\Support\Facades\Log;
 
@@ -15,17 +16,34 @@ use Illuminate\Support\Facades\Log;
  * SMS channel — DLT-approved template messages via MSG91 Flow API.
  *
  * Convention for the admin-managed placeholder_map on SMS rows:
- *   • Keys MUST be named var1, var2, var3 … (matching MSG91's variable
- *     names, which in turn map to DLT's positional {#var#} markers).
+ *   • Keys are the VARIABLE NAMES from the DLT-approved template — the
+ *     text between the ##…## markers. MSG91 Flow matches by name, not by
+ *     position.
  *   • Values are dot-paths into the dispatch context as usual.
  *
- *   Example for auth.otp:
+ *   Example, for the trust's approved template
+ *   ("… is ##OTP##. This OTP is valid for ##mins## minutes …"):
  *     sms_template_id  → "6512abc..."   (paste from MSG91 dashboard)
- *     placeholder_map  → { "var1": "otp" }
+ *     placeholder_map  → { "OTP": "otp", "mins": "expires_in_minutes" }
  *
  *   When OtpService::generate dispatches with `['otp' => '128765', ...]`,
- *   the driver sends MSG91 the recipient `{ mobiles: ..., var1: '128765' }`
- *   and MSG91 fills the {#var#} in the approved template.
+ *   the driver sends MSG91 the recipient
+ *   `{ mobiles: ..., OTP: '128765', mins: '10' }`.
+ *
+ * LEGACY var1/var2 KEYS
+ * ---------------------
+ * Older rows (including the shipped auth.otp seed) use `var1`, `var2` …
+ * That is MSG91's *positional* convention and it only works for templates
+ * whose markers are literally named var1/var2. The trust's template is
+ * not one of those, which is why no OTP SMS ever arrived: MSG91 filled
+ * nothing and rejected the submission with "Template ID Missing or
+ * Invalid Template" — behind an HTTP 200 {"type":"success"}, so the send
+ * path saw a success.
+ *
+ * For `auth.otp` specifically, positional keys are therefore translated
+ * at send time into the names configured in System Settings → SMS
+ * (defaulting to OTP / mins). Any row that uses real names is passed
+ * through untouched — naming a variable wins over the compatibility path.
  */
 final class SmsNotificationDriver implements NotificationDriver
 {
@@ -38,6 +56,18 @@ final class SmsNotificationDriver implements NotificationDriver
     public function channel(): string
     {
         return NotificationTemplate::CHANNEL_SMS;
+    }
+
+    /**
+     * MSG91's request id for the last submission.
+     *
+     * NotificationService::deliver() probes for this with method_exists()
+     * and stores it on temple_notification_logs.provider_message_id — the
+     * join key the inbound delivery report matches on.
+     */
+    public function lastMessageId(): ?string
+    {
+        return $this->sms->lastMessageId();
     }
 
     public function send(NotificationTemplate $template, NotificationContext $context): bool
@@ -67,15 +97,20 @@ final class SmsNotificationDriver implements NotificationDriver
             return false;
         }
 
-        // Build the var1/var2/... map by resolving each placeholder_map
-        // value as a dot-path against the context. Sorted by key so
-        // var1 is always sent before var2 even if the admin entered
-        // them out of order in the KeyValue editor.
+        // Build the variable map by resolving each placeholder_map value
+        // as a dot-path against the context. Keys are passed through as
+        // the MSG91 variable names verbatim (sorted only so the outgoing
+        // JSON is stable and diffable).
         $rawMap = (array) ($template->placeholder_map ?? []);
         ksort($rawMap);
         $variables = [];
         foreach ($rawMap as $key => $path) {
-            if (! is_string($key) || ! str_starts_with($key, 'var')) continue;
+            // Any valid MSG91 variable name is accepted. The old filter
+            // here was `str_starts_with($key, 'var')`, which silently
+            // DROPPED every correctly-named variable — an admin who typed
+            // the real name from their DLT template got an empty SMS body
+            // and no warning anywhere.
+            if (! is_string($key) || ! preg_match('/^[A-Za-z0-9_]+$/', $key)) continue;
             // MSG91 expects scalar values. Route through the shared
             // display coercion so dates, enums and TIME columns come
             // out formatted the same as every other channel — a raw
@@ -98,6 +133,8 @@ final class SmsNotificationDriver implements NotificationDriver
             $variables[$key] = $value;
         }
 
+        $variables = $this->applyOtpVariableNames($template, $variables);
+
         $result = $this->sms->sendTemplate(
             $recipient['value'],
             $templateId,
@@ -112,5 +149,60 @@ final class SmsNotificationDriver implements NotificationDriver
             return false;
         }
         return true;
+    }
+
+    /**
+     * Compatibility path for auth.otp rows still carrying MSG91's
+     * positional var1/var2 keys.
+     *
+     * The trust's DLT template names its markers ##OTP## and ##mins##, so
+     * a payload of {var1, var2} fills nothing and the submission is
+     * rejected. Rather than hardcode OTP/mins here — which would spring
+     * the identical trap on the next template the trust registers — the
+     * names come from System Settings → SMS, defaulting to the two the
+     * current template uses so the trust has to configure nothing.
+     *
+     * Untouched when the admin has authored real variable names: an
+     * explicit name always beats this fallback. Also untouched for any
+     * trigger other than auth.otp, where there is no well-known meaning
+     * for "first variable".
+     *
+     * @param  array<string, string>  $variables
+     * @return array<string, string>
+     */
+    private function applyOtpVariableNames(NotificationTemplate $template, array $variables): array
+    {
+        if ($template->key !== 'auth.otp') {
+            return $variables;
+        }
+
+        // A key that is not varN means the admin named their variables —
+        // respect that completely and do nothing here.
+        foreach (array_keys($variables) as $key) {
+            if (! preg_match('/^var\d+$/i', (string) $key)) {
+                return $variables;
+            }
+        }
+
+        $otpName = $this->sms->otpVariableName();
+        $validityName = $this->sms->otpValidityVariableName();
+
+        // var1 = the code, var2 = the validity window; that is the order
+        // the shipped seed and the DLT template both use. Fall back to
+        // the enforced expiry when the row never mapped a second
+        // variable, so the SMS cannot promise a window the server does
+        // not honour.
+        $renamed = [
+            $otpName => $variables['var1'] ?? '',
+            $validityName => $variables['var2'] ?? (string) OtpService::expiryMinutes(),
+        ];
+
+        Log::info('Notification: SMS OTP variables renamed from positional keys', [
+            'template_key' => $template->key,
+            'from' => array_keys($variables),
+            'to' => array_keys($renamed),
+        ]);
+
+        return $renamed;
     }
 }

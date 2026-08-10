@@ -280,7 +280,7 @@ final class NotificationService
             'sent_at' => $ok ? now() : null,
             'error_message' => $ok ? null : ($errorMessage ?? 'driver returned false'),
             'provider_message_id' => $ok ? ($providerMessageId ?? $log->provider_message_id) : $log->provider_message_id,
-        ])->save();
+        ] + self::submissionDeliveryState($template->channel, $ok, $log))->save();
 
         return $ok;
     }
@@ -581,7 +581,7 @@ final class NotificationService
 
         if ($log !== null) {
             // Pull the provider message_id off the driver if it exposes
-            // one (WhatsApp does; email/sms/push don't yet). This is the
+            // one (WhatsApp and SMS do; email/push don't yet). This is the
             // join key for inbound delivery webhook events.
             $providerMessageId = method_exists($driver, 'lastMessageId')
                 ? $driver->lastMessageId()
@@ -593,10 +593,52 @@ final class NotificationService
                 'sent_at' => $ok ? now() : null,
                 'error_message' => $ok ? null : ($errorMessage ?? 'driver returned false'),
                 'provider_message_id' => $ok ? $providerMessageId : null,
-            ])->save();
+            ] + self::submissionDeliveryState($template->channel, $ok, $log))->save();
         }
 
         return $ok;
+    }
+
+    /**
+     * The delivery state to record at SUBMISSION time.
+     *
+     * A driver returning true means the provider's API accepted the
+     * request. For SMS that is a remarkably weak statement: MSG91's Flow
+     * API answers HTTP 200 {"type":"success"} to a submission carrying a
+     * deliberately WRONG auth key, and to one naming a template it will
+     * go on to reject. Writing that into the log as an unqualified
+     * success is what produced the trust's complaint — rows reading
+     * "sent" for messages that never reached anyone.
+     *
+     * So SMS records the INTERMEDIATE state from the existing
+     * delivery_status vocabulary: 'sent', documented on the column since
+     * the WhatsApp integration as "accepted by upstream API" — explicitly
+     * not "delivered". Only Msg91WebhookController may move it on to
+     * delivered or failed.
+     *
+     * WhatsApp is deliberately left alone: it leaves delivery_status NULL
+     * until Meta reports, and the "Undelivered today" filter keys off that
+     * NULL. Changing it here would break that filter for no gain.
+     *
+     * @return array<string, mixed>
+     */
+    private static function submissionDeliveryState(string $channel, bool $ok, NotificationLog $log): array
+    {
+        if (! $ok || $channel !== NotificationTemplate::CHANNEL_SMS) {
+            return [];
+        }
+
+        // Never downgrade: a delivery report can legitimately beat this
+        // write in a race (MSG91 is fast, and the outbox relay can be
+        // slow), and the report is the more authoritative fact.
+        if ($log->delivery_status !== null) {
+            return [];
+        }
+
+        return [
+            'delivery_status' => NotificationLog::DELIVERY_SENT,
+            'delivery_status_at' => now(),
+        ];
     }
 
     /**

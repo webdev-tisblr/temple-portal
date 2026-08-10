@@ -22,6 +22,20 @@ declare(strict_types=1);
  * don't mind being publicly known (it goes in the App Store review note).
  */
 return [
+    /*
+     * How long a generated OTP stays valid, in minutes.
+     *
+     * SINGLE SOURCE OF TRUTH. This value both (a) sets expires_at on the
+     * temple_otp_codes row that verification actually enforces, and (b) is
+     * the number the OTP message promises the devotee. They used to be two
+     * separate literal 10s — one in OtpService::generate(), one hardcoded
+     * as '10' in the admin's "Send test OTP" action — which is exactly the
+     * kind of drift that has a devotee reading "valid for 10 minutes" on a
+     * code that expired five minutes ago. Read it through
+     * OtpService::expiryMinutes(), never inline.
+     */
+    'expiry_minutes' => (int) env('OTP_EXPIRY_MINUTES', 10),
+
     'review_bypass' => [
         // Must be a valid 10-digit Indian mobile (regex ^[6-9]\d{9}$) and
         // a 6-digit code, to satisfy the auth request validation rules.

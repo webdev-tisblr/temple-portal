@@ -201,6 +201,16 @@ class RolePermissionSeeder extends Seeder
         //                        EditDailyDarshanPhoto::send_booking_day_notifications.
         'resend_notification',
         'send_announcement',
+
+        // manage_sms_webhook → SystemSettings::canManageSmsWebhook(), which
+        //   gates the "Delivery reports (webhook)" fieldset on the SMS tab
+        //   and is re-checked with abort_unless inside
+        //   SystemSettings::regenerateMsg91WebhookToken().
+        // Separate from page_SystemSettings because what it guards is a live
+        // credential: the token in the webhook URL is the only thing
+        // protecting that endpoint, and regenerating it silently stops all
+        // SMS delivery reporting until someone re-pastes the URL into MSG91.
+        'manage_sms_webhook',
     ];
 
     public function run(): void
@@ -410,6 +420,10 @@ class RolePermissionSeeder extends Seeder
                     'export_donations',
                     'resend_notification',
                     'send_announcement',
+                    // Trustee already holds page_SystemSettings, so they are
+                    // the role that would be pasting the webhook URL into
+                    // MSG91 when SMS delivery reporting is set up.
+                    'manage_sms_webhook',
                 ],
             ),
 

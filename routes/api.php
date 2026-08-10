@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\ContentController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\DonationController;
 use App\Http\Controllers\Api\V1\HallController;
+use App\Http\Controllers\Api\V1\Msg91WebhookController;
 use App\Http\Controllers\Api\V1\PaymentVerificationController;
 use App\Http\Controllers\Api\V1\PaymentWebhookController;
 use App\Http\Controllers\Api\V1\SevaController;
@@ -154,6 +155,16 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     // handshake if/when the BSP forwards it during setup.
     Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'handle']);
     Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify']);
+
+    // MSG91 SMS delivery reports. Registered here for symmetry with the
+    // other two; the canonical URL handed to the trust is the shorter
+    // /api/webhooks/msg91/{token} declared below, outside the v1 prefix,
+    // because it has to be retyped/pasted into MSG91's dashboard by hand.
+    // Both paths reach the same controller, so a URL pasted from either
+    // place keeps working.
+    Route::match(['post', 'get'], '/webhooks/msg91/{token}', [Msg91WebhookController::class, 'handle'])
+        ->withoutMiddleware('throttle:60,1')
+        ->middleware('throttle:msg91-webhook');
 
     // Public auth routes — tighter throttle on the OTP surface. OtpService
     // also enforces a per-phone send cap; this is the per-IP layer.
@@ -304,3 +315,32 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         Route::get('/hall-bookings/{booking}/invoice', [HallController::class, 'downloadInvoice']);
     });
 });
+
+/*
+|--------------------------------------------------------------------------
+| MSG91 SMS delivery reports (canonical URL)
+|--------------------------------------------------------------------------
+|
+| Deliberately OUTSIDE the /v1 prefix. This URL is not consumed by our own
+| app — a human copies it out of the admin panel and pastes it into the
+| MSG91 dashboard's delivery-report field, by hand, once. Every character
+| that is not carrying meaning is a character they can mistype, and the
+| path already carries a 48-character token.
+|
+| PROTECTION: the {token} segment IS the credential — MSG91 offers no
+| signing secret, no HMAC and no custom header on its DLR callback, so a
+| capability URL is the only option available. It is compared with
+| hash_equals and is rotatable from System Settings → SMS. It is NOT
+| authentication of MSG91: whoever holds the URL can POST to it. A forged
+| report can only alter the delivery status displayed against a message
+| that was already sent — it cannot trigger a send, read devotee data, or
+| touch money. See Msg91WebhookController's class docblock.
+|
+| Throttled via the named `msg91-webhook` limiter (see AppServiceProvider)
+| rather than the API group's 60/min: delivery reports arrive in bursts
+| after a batch send, and a 429 would make MSG91 retry a report that was
+| never the problem.
+*/
+Route::match(['post', 'get'], '/webhooks/msg91/{token}', [Msg91WebhookController::class, 'handle'])
+    ->middleware('throttle:msg91-webhook')
+    ->name('webhooks.msg91');

@@ -22,14 +22,20 @@ namespace App\Enums;
  * There are two completely different reasons a date/slot is unbookable
  * and they must NOT be rendered the same way:
  *
- *  1. STRUCTURALLY NOT OFFERED — the seva only runs on Tuesdays, the
+ *  1. NOT A BOOKING OPPORTUNITY — the seva only runs on Tuesdays, the
  *     date is outside the acceptance window, the admin blacked it out,
- *     the pool has no slots that weekday. These were never bookable;
- *     showing them as "Not Available" is pure noise. → DISPLAY_HIDE.
- *  2. OFFERED BUT TAKEN — a genuinely bookable date/slot that someone
- *     already booked, or that the cut-off buffer has just closed. The
- *     devotee needs to see it, struck through, so the calendar reads as
- *     a real calendar. → DISPLAY_BADGE.
+ *     the pool has no slots that weekday, the time has passed, or the
+ *     cut-off window has closed it. Nobody can book these, now or by
+ *     waiting; listing them is noise that invites a dead tap.
+ *     → DISPLAY_HIDE.
+ *  2. SOMEONE ELSE TOOK IT — a slot or date that IS on offer right now
+ *     and would be bookable, except another devotee got there first.
+ *     That is real information, so show it struck through.
+ *     → DISPLAY_BADGE.
+ *
+ * The dividing line is NOT "structural vs temporary" — it is "could a
+ * devotee book this if they acted now?". Time-based closure fails that
+ * test just as surely as a blackout does (corrected 2026-08-10).
  *
  * Web, app and the API all resolve the question through this enum, so
  * they can never disagree. The API additionally FILTERS hide-class
@@ -98,7 +104,7 @@ enum UnavailableReason: string
     public function display(): string
     {
         return match ($this) {
-            // ── Structurally not offered → hide the entry entirely ──
+            // ── No longer a booking opportunity → hide the entry ──
             // The seva/hall does not run on this weekday at all.
             self::WeekdayClosed,
             // Admin closed the temple / hall for this specific date.
@@ -107,19 +113,28 @@ enum UnavailableReason: string
             self::OutsidePeriod,
             // No slots are configured for this weekday.
             self::NoSlots,
-            // Already in the past — it is not a booking opportunity.
-            self::PastDate => self::DISPLAY_HIDE,
+            // Already in the past.
+            self::PastDate,
+            // The slot's start time has passed today.
+            self::Elapsed,
+            // Inside the admin's now+N hours cut-off window. Hidden, NOT
+            // badged (corrected 2026-08-10): with a 12h cut-off the 08:00
+            // slot is simply not on offer any more, so listing it struck
+            // through just invites the devotee to try something they
+            // cannot have. The badge is reserved for "someone beat you to
+            // it", which is information; "time has passed" is not.
+            self::Cutoff => self::DISPLAY_HIDE,
 
-            // ── Offered, but not bookable right now → show + badge ──
+            // ── Offered, but someone else took it → show + badge ──
             // Capacity taken by other devotees.
             self::Full,
             // A hall booking (possibly multi-day) covers the date.
-            self::HallBooked,
-            // The slot's start time has passed today.
-            self::Elapsed,
-            // Inside the admin's now+N hours cut-off window.
-            self::Cutoff,
-            // Request-level verdict, surfaced as an error message.
+            self::HallBooked => self::DISPLAY_BADGE,
+
+            // Not an availability fact about the date itself — it depends
+            // on the range the devotee is currently building, so it stays
+            // visible with an explanation. Hiding dates mid-selection
+            // would make the calendar shift under them.
             self::RangeTooLong => self::DISPLAY_BADGE,
         };
     }

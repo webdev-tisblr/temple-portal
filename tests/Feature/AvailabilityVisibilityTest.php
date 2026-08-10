@@ -93,12 +93,18 @@ class AvailabilityVisibilityTest extends TestCase
             UnavailableReason::OutsidePeriod,
             UnavailableReason::NoSlots,
             UnavailableReason::PastDate,
-        ];
-        $badged = [
-            UnavailableReason::Full,
-            UnavailableReason::HallBooked,
+            // Time-based closure hides too (corrected 2026-08-10): a slot
+            // the cut-off has closed cannot be booked by anyone, now or
+            // later, so listing it struck through only invites a dead tap.
             UnavailableReason::Elapsed,
             UnavailableReason::Cutoff,
+        ];
+        $badged = [
+            // Reserved for "someone else got there first" — which is real
+            // information the devotee benefits from seeing.
+            UnavailableReason::Full,
+            UnavailableReason::HallBooked,
+            // Depends on the range being built, not on the date itself.
             UnavailableReason::RangeTooLong,
         ];
 
@@ -375,20 +381,78 @@ class AvailabilityVisibilityTest extends TestCase
         $this->assertSame(UnavailableReason::DISPLAY_BADGE, $row['display']);
     }
 
-    public function test_hall_cutoff_dates_are_badged_not_hidden(): void
+    /**
+     * The reported case: a seva with 08:00 / 11:00 / 16:00 slots and a 12h
+     * cut-off, viewed at 08:57. The 08:00 slot was rendering struck through
+     * with "booking closed for this time" — it should simply not be there,
+     * while a slot someone else booked still shows with its badge.
+     */
+    public function test_a_cutoff_slot_disappears_while_a_taken_slot_stays_badged(): void
+    {
+        Carbon::setTestNow(Carbon::today()->setTime(8, 57, 0));
+
+        $seva = SevaFactory::new()->create([
+            'requires_booking' => true,
+            'slot_config' => [
+                'version' => 2,
+                'slot_type' => 'time_slots',
+                'max_bookings_per_slot' => 1,
+                'booking_cutoff_hours' => 12,
+                'acceptance_period' => ['type' => 'perpetual', 'start_date' => null, 'end_date' => null],
+                'weekly_schedule' => ['default' => ['08:00', '11:00', '16:00']],
+            ],
+        ]);
+
+        // Far enough out that the 12h cut-off cannot reach it.
+        $date = Carbon::today()->addDays(3)->toDateString();
+
+        SevaBookingFactory::new()->forSeva($seva)->create([
+            'booking_date' => $date,
+            'slot_time' => '11:00',
+            'status' => 'confirmed',
+        ]);
+
+        $details = collect(
+            $this->getJson("/api/v1/sevas/{$seva->id}/slots?date={$date}")
+                ->assertOk()->json('data.slot_details')
+        )->keyBy('time');
+
+        // 11:00 was taken by another devotee — that is worth showing.
+        $this->assertArrayHasKey('11:00', $details->all());
+        $this->assertSame(UnavailableReason::DISPLAY_BADGE, $details['11:00']['display']);
+        $this->assertSame(UnavailableReason::Full->value, $details['11:00']['reason_code']);
+
+        // Now today, where the cut-off has closed the morning slots.
+        $today = Carbon::today()->toDateString();
+        $todayDetails = collect(
+            $this->getJson("/api/v1/sevas/{$seva->id}/slots?date={$today}")
+                ->assertOk()->json('data.slot_details')
+        )->keyBy('time');
+
+        $this->assertArrayNotHasKey('08:00', $todayDetails->all(), 'a cut-off slot must not be listed');
+        $this->assertArrayNotHasKey('11:00', $todayDetails->all(), 'inside the 12h window too');
+        $this->assertArrayNotHasKey('16:00', $todayDetails->all(), 'inside the 12h window too');
+    }
+
+    public function test_hall_cutoff_dates_are_hidden_not_badged(): void
     {
         // 48h cut-off, clock pinned to 08:00 → tomorrow's 09:00 start is
-        // inside the window, so tomorrow is offered-but-closed.
+        // inside the window. Nobody can book it, so it should not be in
+        // the picker at all (corrected 2026-08-10).
         Carbon::setTestNow(Carbon::today()->setTime(8, 0, 0));
         $hall = HallFactory::new()->withCutoff(48)->create();
         $tomorrow = now()->addDay()->toDateString();
 
-        $row = $this->hallDays($hall, now()->format('Y-m'))[$tomorrow] ?? null;
+        $days = $this->hallDays($hall, now()->format('Y-m'));
 
-        $this->assertNotNull($row, 'a cut-off date is a real date the hall offers');
-        $this->assertFalse($row['full_day_available']);
-        $this->assertSame(UnavailableReason::Cutoff->value, $row['reason_code']);
-        $this->assertSame(UnavailableReason::DISPLAY_BADGE, $row['display']);
+        $this->assertArrayNotHasKey(
+            $tomorrow,
+            $days,
+            'a date closed by the cut-off must not be offered at all'
+        );
+
+        // ...but a date beyond the cut-off window still is.
+        $this->assertArrayHasKey(now()->addDays(4)->toDateString(), $days);
     }
 
     // ─────────────────────────────────────────────────────────────────

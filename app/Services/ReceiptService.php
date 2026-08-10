@@ -38,9 +38,14 @@ class ReceiptService
      *
      * The rule is strict and amount-independent: a donation whose donor
      * has no readable, format-valid PAN on their profile NEVER gets an
-     * 80G receipt and NEVER burns a receipt number — it is a Gupt Daan.
-     * The ₹2,000 threshold in PanValidationService::isPanRequired() is
-     * dead code and is deliberately not revived.
+     * 80G receipt and NEVER burns a receipt number. The ₹2,000 threshold
+     * in PanValidationService::isPanRequired() is dead code and is
+     * deliberately not revived.
+     *
+     * It has NOTHING to do with anonymity (corrected 2026-08-10). The
+     * donation is still a named, ordinary donation on every public list;
+     * it just carries no tax document. Equally, `anonymous` is never read
+     * here — a Gupt Daan donor with a valid PAN gets their 80G receipt.
      *
      * Returns the reason code (a Donation80GNotEligibleException::REASON_*)
      * when the donation fails, or null when it passes.
@@ -285,13 +290,21 @@ class ReceiptService
     }
 
     /**
-     * Persist the verdict for a donation that will never get a receipt:
-     * the system says not eligible, and a donation without a valid PAN is
-     * by the trust's rule a Gupt Daan, so it is flagged anonymous and
-     * masked on every public donor list.
+     * Persist the verdict for a donation that will never get a receipt.
      *
-     * `anonymous` is only ever set TO true here — a donor who ticked Gupt
-     * Daan and later added a PAN keeps their choice.
+     * ⚠ This touches `is_80g_eligible` and NOTHING ELSE (corrected
+     * 2026-08-10 after live testing). It used to also flip `anonymous` to
+     * true whenever the PAN was missing, which silently turned ordinary
+     * named donors into Gupt Daan donors and erased them from the public
+     * donor lists. The two concerns are independent:
+     *
+     *   no valid PAN  → no receipt, no number burnt. Donor stays NAMED.
+     *   Gupt Daan tick → name masked on public lists. Receipt unaffected —
+     *                    a Gupt Daan donor with a PAN still gets their 80G.
+     *
+     * `anonymous` is owned solely by the donor's checkbox at checkout (and
+     * by AccountController's deletion path). Nothing in the receipt
+     * pipeline may write it.
      */
     private function recordIneligible(Donation $donation, string $reason): void
     {
@@ -299,12 +312,6 @@ class ReceiptService
 
         if ($donation->is_80g_eligible) {
             $updates['is_80g_eligible'] = false;
-        }
-
-        $missingPan = $reason !== Donation80GNotEligibleException::REASON_NOT_REQUESTED;
-
-        if ($missingPan && ! $donation->anonymous) {
-            $updates['anonymous'] = true;
         }
 
         if ($updates !== []) {

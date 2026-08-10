@@ -97,13 +97,49 @@
                 </div>
             </div>
 
-            {{-- Anonymous --}}
+            {{-- Gupt Daan (anonymity) — independent of the 80G box below.
+                 Ticking this masks the name on the public donor lists and
+                 nothing else; it never withholds an 80G receipt, and a
+                 missing PAN never sets it. --}}
             <div class="mb-5">
-                <label class="flex items-center gap-2">
-                    <input type="checkbox" x-model="anonymous" class="rounded border-amber-800/40 bg-transparent text-amber-500 focus:ring-amber-600/20">
-                    <span class="text-sm text-amber-100/60">{{ __('donation.gupt_daan') }}</span>
+                <label class="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" x-model="anonymous" class="mt-1 rounded border-amber-800/40 bg-transparent text-amber-500 focus:ring-amber-600/20">
+                    <span>
+                        <span class="text-sm text-amber-100/60">{{ __('donation.gupt_daan') }}</span>
+                        <span class="block text-xs text-amber-100/30 mt-0.5">{{ __('donation.gupt_daan_hint') }}</span>
+                    </span>
                 </label>
             </div>
+
+            {{-- 80G request — mirrors /donate. The server-side guard in
+                 DonationWebController::create is what actually holds; this
+                 is the friendly half, and the reason a PAN-less donor is
+                 no longer trapped in a bounce to their profile. --}}
+            @auth('devotee')
+            <div class="mb-5">
+                <label class="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" x-model="wants80g" class="mt-1 rounded border-amber-800/40 bg-transparent text-amber-500 focus:ring-amber-600/20">
+                    <span>
+                        <span class="text-sm text-amber-100/60">{{ __('donation.want_80g') }}</span>
+                        @if($hasPan ?? false)
+                            <span class="ml-2 text-xs text-emerald-400">✓ {{ __('donation.pan_on_file') }}</span>
+                        @endif
+                        <span class="block text-xs text-amber-100/30 mt-0.5">{{ __('donation.want_80g_hint') }}</span>
+                    </span>
+                </label>
+
+                @unless($hasPan ?? false)
+                    <div x-show="wants80g" x-cloak class="mt-3 rounded-lg border border-amber-700/40 bg-amber-900/20 px-3 py-2">
+                        <p class="text-xs font-semibold text-amber-300">{{ __('donation.pan_required_title') }}</p>
+                        <p class="text-xs text-amber-100/50 mt-1">{{ __('donation.pan_required_body') }}</p>
+                        <button type="button" @click="wants80g = false"
+                            class="mt-2 inline-flex items-center px-3 py-1.5 rounded-lg text-xs border border-amber-800/40 text-amber-100/60 hover:border-amber-600 transition">
+                            {{ __('donation.continue_without_80g') }}
+                        </button>
+                    </div>
+                @endunless
+            </div>
+            @endauth
 
             {{-- Submit --}}
             @auth('devotee')
@@ -114,6 +150,7 @@
                     <input type="hidden" name="campaign_id" value="{{ $project->id }}">
                     <input type="hidden" name="sub_cause_id" :value="selectedSubCause">
                     <input type="hidden" name="anonymous" :value="anonymous ? 1 : 0">
+                    <input type="hidden" name="wants_80g" :value="wants80g ? 1 : 0">
 
                     <button type="submit"
                         :disabled="!amount || amount < 1"
@@ -204,6 +241,10 @@ function campaignDonation() {
         amount: 1100,
         customAmount: '1100',
         anonymous: false,
+        // Independent of `anonymous`: the 80G request, defaulted ON the
+        // same way /donate does. The PAN gate — not this flag — decides
+        // what is actually issued.
+        wants80g: true,
         selectedSubCause: '',
         copied: false,
 

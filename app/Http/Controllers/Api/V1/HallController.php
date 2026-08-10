@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\UnavailableReason;
 use App\Exceptions\SlotUnavailableException;
 use App\Models\Hall;
 use App\Models\HallBooking;
@@ -105,6 +106,11 @@ class HallController extends BaseApiController
             'blocked_reason' => $blackoutReason,
             'reason_code' => $verdict['reason_code'],
             'reason' => $verdict['reason'],
+            // NOTE: no `display` here on purpose. This is a verdict about a
+            // date the CALLER named, so its `reason` is always rendered as
+            // a message. `display` answers a different question — "should
+            // this entry exist in a list at all" — and only ever appears on
+            // the per-date / per-slot list rows below.
             'conflicting_dates' => $verdict['conflicting_dates'],
         ]);
     }
@@ -129,6 +135,16 @@ class HallController extends BaseApiController
             return $this->error('Month out of the bookable range.', 422);
         }
 
+        // UnavailableReason::visible() drops the dates the hall never
+        // offered — admin blackout dates and recurring weekday closures.
+        // Those are structurally not on offer, so the picker must not show
+        // them at all (a greyed "Not Available" chip for a day the hall is
+        // simply shut is noise). Dates the hall DOES offer but that are
+        // taken by another booking, or closed by the cut-off, stay in the
+        // list flagged, so the chip renders with the badge.
+        //
+        // Filtering here rather than in the client also fixes the shipped
+        // app build 1.4.8+32, which knows nothing about `display`.
         $dates = array_map(static fn (array $row): array => [
             'date' => $row['date'],
             'full_day_available' => $row['available'],
@@ -140,7 +156,8 @@ class HallController extends BaseApiController
             // booked" vs "Booking closed", instead of a bare grey chip.
             'reason_code' => $row['reason_code'],
             'reason' => $row['reason'],
-        ], $this->availability->monthAvailability($hall, (string) $month));
+            'display' => $row['display'],
+        ], UnavailableReason::visible($this->availability->monthAvailability($hall, (string) $month)));
 
         return $this->success([
             'month' => $month,
@@ -177,8 +194,8 @@ class HallController extends BaseApiController
             'reason' => $verdict['reason'],
             'conflicts' => array_map(static fn (string $d): array => [
                 'date' => $d,
-                'reason_code' => \App\Enums\UnavailableReason::HallBooked->value,
-                'reason' => \App\Enums\UnavailableReason::HallBooked->label(),
+                'reason_code' => UnavailableReason::HallBooked->value,
+                'reason' => UnavailableReason::HallBooked->label(),
             ], $verdict['conflicting_dates']),
             'price_per_day' => $price['price_per_day'],
             'total_amount' => $price['total'],
@@ -255,7 +272,7 @@ class HallController extends BaseApiController
         // re-check inside it is what actually closes the race.
         $verdict = $this->availability->checkRange($hall, $start, $end);
         if (! $verdict['ok']) {
-            $status = $verdict['reason_code'] === \App\Enums\UnavailableReason::RangeTooLong->value ? 422 : 409;
+            $status = $verdict['reason_code'] === UnavailableReason::RangeTooLong->value ? 422 : 409;
 
             return $this->error(
                 $verdict['reason'] ?? 'આ તારીખ પર હોલ પહેલેથી બુક છે.',

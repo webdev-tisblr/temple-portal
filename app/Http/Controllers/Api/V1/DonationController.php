@@ -50,17 +50,22 @@ class DonationController extends BaseApiController
         // Item 5.4 — the strict 80G rule, decided up front so the row is
         // born truthful. `wants_80g` is what the donor asked for;
         // `is_80g_eligible` is what the trust can actually issue, and it
-        // is re-affirmed at receipt time by ReceiptService. A donation
-        // with no valid PAN is a Gupt Daan by rule, so it is flagged
-        // anonymous and masked on every public donor list.
+        // is re-affirmed at receipt time by ReceiptService.
         //
         // Absent field defaults to TRUE: older app builds send no
         // `wants_80g`, and the PAN gate — not this default — is what
         // withholds the receipt.
+        //
+        // ⚠ `anonymous` and the PAN are INDEPENDENT (corrected 2026-08-10
+        // after live testing). Gupt Daan is a choice the donor makes by
+        // ticking the Gupt Daan box — nothing else may set it. A donation
+        // with no PAN is simply a donation without an 80G receipt; the
+        // donor stays a named, ordinary donor on every public list.
+        // Do NOT reintroduce `|| ! $hasValidPan` here.
         $wants80g = (bool) ($validated['wants_80g'] ?? true);
         $hasValidPan = app(\App\Services\ReceiptService::class)->devoteeHasValid80GPan($devotee);
         $is80gEligible = $wants80g && $hasValidPan;
-        $anonymous = (bool) ($validated['anonymous'] ?? false) || ! $hasValidPan;
+        $anonymous = (bool) ($validated['anonymous'] ?? false);
 
         try {
             $result = DB::transaction(function () use ($validated, $devotee, $amount, $fy, $extraData, $wants80g, $is80gEligible, $anonymous) {
@@ -127,9 +132,10 @@ class DonationController extends BaseApiController
                 'description' => 'દાન — ' . ucfirst($validated['donation_type']),
                 // Item 5.4 backstop: the app prompts for a PAN before it
                 // gets here (it already knows has_pan from /me), but if it
-                // ever doesn't, the client can still tell the donor their
-                // donation is being recorded as Gupt Daan with no 80G
-                // receipt. Never carries the PAN itself — only the verdict.
+                // ever doesn't, the client can still tell the donor no 80G
+                // receipt will be issued for this donation. It says nothing
+                // about anonymity — that is the donor's separate Gupt Daan
+                // choice. Never carries the PAN itself — only the verdict.
                 'is_80g_eligible' => $is80gEligible,
                 'pan_required_for_80g' => $wants80g && ! $hasValidPan,
             ], 'Donation created. Complete payment.');

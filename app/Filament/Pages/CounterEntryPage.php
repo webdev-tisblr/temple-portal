@@ -287,10 +287,11 @@ class CounterEntryPage extends Page implements HasForms
                 Forms\Components\Toggle::make('wants_80g')
                     ->label('Donor wants an 80G receipt')
                     ->default(true)
-                    ->helperText('Strict rule (item 5.4): with no valid PAN on the donor profile, NO 80G receipt is issued, no receipt number is burnt, and the donation is recorded as Gupt Daan.'),
+                    ->helperText('Strict rule (item 5.4): with no valid PAN on the donor profile, NO 80G receipt is issued and no receipt number is burnt. The donation is still recorded in the donor\'s name — it does NOT become Gupt Daan.'),
 
                 Forms\Components\Toggle::make('anonymous')
-                    ->label('Gupt Daan (hide from public donor lists)'),
+                    ->label('Gupt Daan (hide from public donor lists)')
+                    ->helperText('Only tick this if the devotee asked to stay anonymous. It masks the name on the public donor lists and nothing else — full details stay in admin, and it does not affect the 80G receipt.'),
             ])
             ->columns(2);
     }

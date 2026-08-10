@@ -510,9 +510,12 @@ class CounterEntryService
         $hasValidPan = $this->receipts->devoteeHasValid80GPan($devotee);
         $is80gEligible = $wants80g && $hasValidPan;
 
-        // No valid PAN → no receipt and no receipt number → by the trust's
-        // rule it IS a Gupt Daan, masked on every public donor list.
-        $anonymous = (bool) ($data['anonymous'] ?? false) || ! $hasValidPan;
+        // Gupt Daan is INDEPENDENT of the PAN (corrected 2026-08-10). It is
+        // the walk-in devotee's own choice, recorded by the counter clerk's
+        // Gupt Daan toggle. A cash donor without a PAN gets no 80G receipt
+        // but stays a named donor on public lists. Do NOT reintroduce
+        // `|| ! $hasValidPan` here.
+        $anonymous = (bool) ($data['anonymous'] ?? false);
 
         return $this->createStamped(Donation::class, [
             'devotee_id' => $devotee->id,

@@ -48,13 +48,15 @@ class Generate80GReceipt implements ShouldQueue
         // format-valid PAN on the donor profile → no Receipt80G row and no
         // receipt number burned, regardless of amount. generateReceipt()
         // throws rather than returning null so a future call site cannot
-        // forget the rule; the donation is marked ineligible + Gupt Daan
-        // inside the service before the throw.
+        // forget the rule; the donation is marked `is_80g_eligible = false`
+        // inside the service before the throw. It does NOT touch
+        // `anonymous` — no PAN means no receipt, not anonymity (corrected
+        // 2026-08-10). Gupt Daan is the donor's own checkbox.
         //
         // This is NOT an error: a PAN-less donation is a perfectly valid
-        // Gupt Daan. Swallow it, log at info, and send nothing — the
-        // `donation.confirmed` message has already gone out from
-        // PaymentCaptureService.
+        // donation that simply carries no tax receipt. Swallow it, log at
+        // info, and send nothing — the `donation.confirmed` message has
+        // already gone out from PaymentCaptureService.
         try {
             $receipt = $receiptService->generateReceipt($this->donation);
         } catch (Donation80GNotEligibleException $e) {

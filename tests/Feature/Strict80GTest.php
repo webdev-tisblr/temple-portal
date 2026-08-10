@@ -22,7 +22,17 @@ use Tests\TestCase;
  *
  * The rule under test, in one line: a donation whose donor has no readable,
  * format-valid PAN NEVER gets an 80G receipt and NEVER burns a receipt
- * number, whatever the amount. It is recorded as Gupt Daan instead.
+ * number, whatever the amount.
+ *
+ * ⚠ CORRECTED 2026-08-10 after live testing. The first cut of 5.4 also
+ * treated "no PAN" as "Gupt Daan", which quietly stripped ordinary donors
+ * off the public donor lists. The two concerns are INDEPENDENT:
+ *
+ *   80G receipt   ← does the donor hold a valid PAN
+ *   Gupt Daan     ← did the donor tick the Gupt Daan checkbox, and nothing else
+ *
+ * The full {PAN, no PAN} × {ticked, not ticked} matrix is asserted by
+ * test_the_four_pan_and_gupt_daan_combinations().
  *
  * This has legal consequences — the trust had been issuing sequentially
  * numbered statutory receipts printing "PAN: N/A" — so the coverage here is
@@ -112,25 +122,56 @@ class Strict80GTest extends TestCase
         $this->assertFalse($this->service()->isEligibleFor80G($donation));
     }
 
-    public function test_donation_without_pan_is_flagged_gupt_daan(): void
+    /**
+     * ★ THE CORRECTION (2026-08-10, from live testing).
+     *
+     * The shipped 5.4 conflated two independent facts and this test is the
+     * guard against it coming back: a missing PAN withholds the RECEIPT, it
+     * does not make the donation anonymous. Only the donor ticking the Gupt
+     * Daan checkbox does that.
+     */
+    public function test_a_missing_pan_never_makes_a_donation_anonymous(): void
     {
         $donation = $this->donationWithoutPan(['anonymous' => false, 'is_80g_eligible' => true]);
 
         try {
             $this->service()->generateReceipt($donation);
         } catch (Donation80GNotEligibleException) {
-            // expected
+            // expected — no receipt
         }
 
         $fresh = $donation->fresh();
-        $this->assertTrue($fresh->anonymous, 'a donation with no PAN is a Gupt Daan by rule');
+        $this->assertFalse(
+            (bool) $fresh->anonymous,
+            'no PAN means no 80G receipt — it must NOT flip the donor to Gupt Daan',
+        );
         $this->assertFalse($fresh->is_80g_eligible, 'is_80g_eligible must state the real verdict');
+    }
+
+    /**
+     * The other half of the correction: anonymity is about public display,
+     * not about tax documents. A donor who chose Gupt Daan AND holds a
+     * valid PAN still gets their statutory 80G receipt.
+     */
+    public function test_a_gupt_daan_donor_with_a_pan_still_gets_their_80g_receipt(): void
+    {
+        $donation = $this->donationWithPan(['anonymous' => true]);
+
+        $receipt = $this->service()->generateReceipt($donation);
+
+        $this->assertSame($donation->id, $receipt->donation_id);
+        $this->assertSame('ABCDE1234F', $receipt->pan_number);
+        $this->assertSame(1, $this->sequenceFor($donation->financial_year), 'a number IS burned');
+        // …and the choice is untouched by the receipt pipeline.
+        $this->assertTrue((bool) $donation->fresh()->anonymous);
     }
 
     public function test_gupt_daan_still_keeps_every_donor_detail(): void
     {
         // Anonymity is a PUBLIC-DISPLAY choice, never a data-collection one:
-        // the trust must still be able to see who donated.
+        // the trust must still be able to see who donated. `anonymous` is
+        // set here explicitly, because that is the ONLY way it is ever set —
+        // the donor ticked the box.
         $devotee = DevoteeFactory::new()->create([
             'name' => 'Kishor Bhai',
             'email' => 'kishor@example.test',
@@ -139,6 +180,7 @@ class Strict80GTest extends TestCase
         $donation = DonationFactory::new()->create([
             'devotee_id' => $devotee->id,
             'payment_id' => PaymentFactory::new()->create()->id,
+            'anonymous' => true,
         ]);
 
         try {
@@ -153,6 +195,96 @@ class Strict80GTest extends TestCase
         $this->assertSame('Kishor Bhai', $fresh->devotee->name);
         $this->assertSame('kishor@example.test', $fresh->devotee->email);
         $this->assertSame('Gandhidham', $fresh->devotee->city);
+    }
+
+    /**
+     * ★ The full truth table, end to end, in one place.
+     *
+     *   {valid PAN, no PAN} × {Gupt Daan ticked, not ticked}
+     *
+     * asserting for each combination: is a receipt issued, is a statutory
+     * number burned, and is the donor masked on the PUBLIC donor list
+     * (which is what CampaignDonors::payload drives on web AND app).
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('panAndAnonymityCombinations')]
+    public function test_the_four_pan_and_gupt_daan_combinations(
+        bool $hasPan,
+        bool $guptDaan,
+        bool $expectReceipt,
+        bool $expectMasked,
+    ): void {
+        $campaign = DonationCampaign::create([
+            'title_gu' => 'સંયોજન પરીક્ષણ',
+            'title_en' => 'Combination Test',
+            'slug' => 'combo-'.uniqid(),
+            'goal_amount' => 100000,
+            'start_date' => now()->subDay()->toDateString(),
+            'end_date' => now()->addMonth()->toDateString(),
+            'is_active' => true,
+        ]);
+
+        $devoteeFactory = DevoteeFactory::new();
+        if ($hasPan) {
+            $devoteeFactory = $devoteeFactory->withPan();
+        }
+        $devotee = $devoteeFactory->create(['name' => 'Ramesh Patel', 'city' => 'Bhuj']);
+
+        $donation = DonationFactory::new()->create([
+            'devotee_id' => $devotee->id,
+            'payment_id' => PaymentFactory::new()->captured()->create()->id,
+            'donation_type' => 'campaign',
+            'campaign_id' => $campaign->id,
+            'anonymous' => $guptDaan,
+            'wants_80g' => true,
+        ]);
+
+        // Drive it through the REAL automatic path, not the service alone.
+        (new \App\Jobs\Generate80GReceipt($donation))->handle($this->service());
+
+        if ($expectReceipt) {
+            $this->assertSame(1, Receipt80G::where('donation_id', $donation->id)->count(),
+                'a receipt was expected for this combination');
+            $this->assertSame(1, $this->sequenceFor($donation->financial_year),
+                'a statutory number must be burned when a receipt is issued');
+            $this->assertTrue((bool) $donation->fresh()->receipt_generated);
+        } else {
+            $this->assertSame(0, Receipt80G::count(), 'no receipt may exist for this combination');
+            $this->assertDatabaseMissing('temple_receipt_sequences', [
+                'financial_year' => $donation->financial_year,
+            ]);
+            $this->assertFalse((bool) $donation->fresh()->receipt_generated);
+        }
+
+        // Anonymity is never a side effect — it is exactly what was chosen.
+        $this->assertSame($guptDaan, (bool) $donation->fresh()->anonymous);
+
+        // …and the public donor list agrees.
+        $row = \App\Support\CampaignDonors::payload(
+            \App\Support\CampaignDonors::recent($campaign->id)->get()
+        )[0];
+
+        if ($expectMasked) {
+            $this->assertSame(__('projects.gupt_daan_name'), $row['name']);
+            $this->assertSame('', $row['city']);
+        } else {
+            $this->assertSame('Ramesh Patel', $row['name'],
+                'a donor who did not choose Gupt Daan must appear by name');
+            $this->assertSame('Bhuj', $row['city']);
+        }
+    }
+
+    /**
+     * @return array<string, array{bool, bool, bool, bool}>
+     */
+    public static function panAndAnonymityCombinations(): array
+    {
+        //                                    hasPan  guptDaan  receipt  masked
+        return [
+            'PAN + not ticked'          => [true,   false,    true,    false],
+            'PAN + Gupt Daan ticked'    => [true,   true,     true,    true],
+            'no PAN + not ticked'       => [false,  false,    false,   false],
+            'no PAN + Gupt Daan ticked' => [false,  true,     false,   true],
+        ];
     }
 
     public function test_donation_with_a_valid_pan_gets_a_receipt_and_takes_a_number(): void
@@ -338,7 +470,7 @@ class Strict80GTest extends TestCase
 
     // ── Creation sites set the verdict honestly ──────────────────────
 
-    public function test_api_create_records_the_verdict_and_flags_gupt_daan(): void
+    public function test_creation_sites_record_the_80g_verdict_rather_than_hardcoding_it(): void
     {
         $source = file_get_contents(app_path('Http/Controllers/Api/V1/DonationController.php'));
         $this->assertStringNotContainsString("'is_80g_eligible' => true", $source,
@@ -346,6 +478,54 @@ class Strict80GTest extends TestCase
 
         $web = file_get_contents(app_path('Http/Controllers/Web/DonationWebController.php'));
         $this->assertStringNotContainsString("'is_80g_eligible' => true", $web);
+    }
+
+    /**
+     * ★ Structural guard for the 2026-08-10 correction. Every site that
+     * writes `anonymous` must read it from the donor's checkbox ALONE.
+     * The shipped code derived it from the PAN with `|| ! $hasValidPan`,
+     * which silently un-named ordinary donors on the public lists.
+     */
+    public function test_no_creation_site_derives_anonymity_from_the_pan(): void
+    {
+        $files = [
+            app_path('Http/Controllers/Api/V1/DonationController.php'),
+            app_path('Http/Controllers/Web/DonationWebController.php'),
+            app_path('Services/CounterEntryService.php'),
+            app_path('Services/ReceiptService.php'),
+        ];
+
+        foreach ($files as $file) {
+            $source = file_get_contents($file);
+
+            // Strip comments: the files deliberately DISCUSS the old
+            // expression so it is never reintroduced by accident.
+            $code = implode('', array_map(
+                function (array|string $token): string {
+                    if (! is_array($token)) {
+                        return $token;
+                    }
+
+                    return in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true) ? '' : $token[1];
+                },
+                token_get_all($source),
+            ));
+
+            // The `$anonymous = …;` assignment must mention the donor's
+            // own field and nothing about the PAN. (`! $hasValidPan` is
+            // still legitimate elsewhere — it is what triggers the web
+            // PAN interstitial.)
+            preg_match_all('/\$anonymous\s*=\s*([^;]+);/', $code, $matches);
+            foreach ($matches[1] as $expression) {
+                $this->assertStringNotContainsString('hasValidPan', $expression,
+                    basename($file).' must not derive anonymity from the PAN');
+                $this->assertStringContainsString("'anonymous'", $expression,
+                    basename($file).' must read anonymity from the donor’s own checkbox');
+            }
+
+            $this->assertStringNotContainsString("\$updates['anonymous']", $code,
+                basename($file).' must not write anonymous outside the donor’s own choice');
+        }
     }
 
     // ── Defect A — the receipt-number allocator ──────────────────────
@@ -656,7 +836,15 @@ class Strict80GTest extends TestCase
         $this->assertStringContainsString(__('donation.want_80g'), $html);
         $this->assertStringContainsString(__('donation.pan_required_title'), $html);
         $this->assertStringContainsString(__('donation.add_pan_now'), $html);
-        $this->assertStringContainsString(__('donation.continue_gupt_daan'), $html);
+        $this->assertStringContainsString(__('donation.continue_without_80g'), $html);
+
+        // The Gupt Daan checkbox is a SEPARATE control with its own
+        // explanation — the correction from live testing was that donors
+        // could not tell what it did or that it was independent of 80G.
+        $this->assertStringContainsString(__('donation.gupt_daan'), $html);
+        $this->assertStringContainsString(__('donation.gupt_daan_hint'), $html);
+        $this->assertStringContainsString('name="anonymous"', $html);
+        $this->assertStringContainsString('name="wants_80g"', $html);
 
         // A devotee who already has a PAN sees the checkbox but not the prompt.
         $withPan = DevoteeFactory::new()->withPan()->create(['name' => 'Bhavna']);
@@ -664,5 +852,39 @@ class Strict80GTest extends TestCase
 
         $this->assertStringContainsString(__('donation.want_80g'), $html);
         $this->assertStringNotContainsString(__('donation.pan_required_title'), $html);
+    }
+
+    /**
+     * The campaign page sidebar is a SECOND donate surface posting to the
+     * same controller. Before this it carried only the Gupt Daan box and no
+     * 80G checkbox, so a PAN-less donor was bounced to their profile with
+     * no way to say "I don't need the receipt".
+     */
+    public function test_the_campaign_page_carries_both_checkboxes_independently(): void
+    {
+        $campaign = DonationCampaign::create([
+            'title_gu' => 'મંદિર જીર્ણોદ્ધાર',
+            'title_en' => 'Temple Restoration',
+            'slug' => 'restoration-'.uniqid(),
+            'goal_amount' => 500000,
+            'start_date' => now()->subDay()->toDateString(),
+            'end_date' => now()->addMonth()->toDateString(),
+            'is_active' => true,
+        ]);
+
+        $devotee = DevoteeFactory::new()->create(['name' => 'Jayesh']);
+
+        $html = $this->actingAs($devotee, 'devotee')
+            ->get("/projects/{$campaign->slug}")
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString(__('donation.gupt_daan'), $html);
+        $this->assertStringContainsString(__('donation.gupt_daan_hint'), $html);
+        $this->assertStringContainsString(__('donation.want_80g'), $html);
+        $this->assertStringContainsString('name="anonymous"', $html);
+        $this->assertStringContainsString('name="wants_80g"', $html);
+        // The escape hatch, so no donor is trapped in the PAN bounce.
+        $this->assertStringContainsString(__('donation.continue_without_80g'), $html);
     }
 }

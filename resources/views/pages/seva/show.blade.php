@@ -139,11 +139,15 @@
                         @endif
 
                         {{-- Date picker — horizontal chip carousel.
-                             Since 2026-08-09 (item 4.1) EVERY date of the
-                             month renders: unbookable ones are greyed,
-                             non-clickable and carry a "Not Available"
-                             ribbon (driven by days_detail's reason_code)
-                             instead of being silently hidden. --}}
+                             Two kinds of unbookable date, treated
+                             differently (App\Enums\UnavailableReason):
+                               • never offered (wrong weekday, blackout,
+                                 outside the acceptance window, no slots)
+                                 — the server omits them from days_detail
+                                 and no chip is drawn at all;
+                               • offered but taken / past the cut-off —
+                                 the chip IS drawn, greyed, non-clickable,
+                                 with a "Not Available" ribbon. --}}
                         @php
                             $noDatesThisMonth = match (app()->getLocale()) {
                                 'hi' => 'इस महीने कोई तारीख उपलब्ध नहीं है।',
@@ -190,7 +194,11 @@
                                 {{ __('seva.loading_dates') }}
                             </div>
 
-                            <div x-show="!datesLoading && openDateCount() === 0" class="text-sm py-3 px-4 bg-amber-900/10 border border-amber-800/30 rounded-lg text-amber-100/60">
+                            {{-- Only when there is genuinely nothing to show.
+                                 A month whose dates are all BOOKED still
+                                 renders its chips (badged), so this message
+                                 must not fire then. --}}
+                            <div x-show="!datesLoading && availableDates.length === 0" class="text-sm py-3 px-4 bg-amber-900/10 border border-amber-800/30 rounded-lg text-amber-100/60">
                                 {{ $noDatesThisMonth }}
                             </div>
 
@@ -488,7 +496,14 @@ function slotPicker(sevaId) {
                 const json = await res.json();
                 const detail = json.data?.days_detail;
                 if (Array.isArray(detail) && detail.length > 0) {
-                    this.availableDates = detail.map(d => this.decorateDate(d.date, d.available !== false, d.reason));
+                    // The server already dropped the dates this seva never
+                    // offers (wrong weekday, blackout, outside the
+                    // acceptance window, no slots). The `display !== 'hide'`
+                    // guard is belt-and-braces for a stale cached response —
+                    // it never re-derives the rule, it only obeys it.
+                    this.availableDates = detail
+                        .filter(d => d.display !== 'hide')
+                        .map(d => this.decorateDate(d.date, d.available !== false, d.reason));
                 } else {
                     // Older server (or an empty month): fall back to the
                     // legacy bookable-only list.
@@ -501,15 +516,13 @@ function slotPicker(sevaId) {
             this.datesLoading = false;
         },
 
-        openDateCount() {
-            return this.availableDates.filter(d => d.available).length;
-        },
-
-        // Unavailable slot chips. Prefers the new slot_details payload
-        // (carries the reason); falls back to the legacy `booked` list.
+        // Unavailable slot chips — slots the seva DOES offer today but that
+        // are full, elapsed or inside the cut-off. Prefers the new
+        // slot_details payload (carries reason + display); falls back to
+        // the legacy `booked` list.
         unavailableSlots() {
             if (Array.isArray(this.slotDetails) && this.slotDetails.length > 0) {
-                return this.slotDetails.filter(s => !s.available);
+                return this.slotDetails.filter(s => !s.available && s.display !== 'hide');
             }
             return (this.booked || []).map(t => ({ time: t, reason: null }));
         },

@@ -61,7 +61,4 @@ return [
     'prasad_step_choose' => 'Choose the prasad you wish to receive',
     'prasad_step_offered' => 'It is offered at Hanumanji\'s feet at the Dham',
     'prasad_step_delivered' => 'Packed with care and sent home to you',
-
-    // Sticky action bar (homepage only)
-    'sticky_label' => 'Quick actions',
 ];

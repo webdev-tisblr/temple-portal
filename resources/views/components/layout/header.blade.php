@@ -151,18 +151,12 @@
                     <a href="{{ login_url() }}" class="inline-flex items-center gap-1.5 hover:text-[#F2B673] transition-colors"
                        title="{{ __('nav.namaste_login') }}" aria-label="{{ __('nav.namaste_login') }}">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                            {{-- Namaste: a figure with palms joined at the chest.
-                                 Drawing the hands ALONE doesn't work at header
-                                 size — every variant of two-palms-in-outline
-                                 renders as a leaf with a midrib (checked at
-                                 120px, so it isn't a scaling artefact). The
-                                 head and shoulders are what make the gesture
-                                 legible, and they also keep this reading as an
-                                 account/login affordance. --}}
-                            <circle cx="12" cy="4.7" r="2.4"/>
-                            <path d="M12 8.8 9.9 15.2h4.2z"/>
-                            <path d="M9.9 15.2c-2.1.8-3.6 2.4-4.4 4.9"/>
-                            <path d="M14.1 15.2c2.1.8 3.6 2.4 4.4 4.9"/>
+                            {{-- Plain user glyph. A namaste figure was tried here and
+                                 rejected (2026-08-10): on the web this slot
+                                 reads as "your account", so the conventional
+                                 icon is the clearer one. --}}
+                            <circle cx="12" cy="8" r="3.4"/>
+                            <path d="M4.8 20.2c.9-3.6 3.7-5.6 7.2-5.6s6.3 2 7.2 5.6"/>
                         </svg>
                         {{ __('nav.login') }}
                     </a>
@@ -291,18 +285,12 @@
                     <a href="{{ login_url() }}" class="flex w-full items-center justify-center gap-2 py-2.5 text-sm text-maroon-500 border border-saffron-400/60 rounded-full hover:bg-[#FBEFE2] transition"
                        title="{{ __('nav.namaste_login') }}" aria-label="{{ __('nav.namaste_login') }}">
                         <svg class="w-5 h-5 flex-none" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                            {{-- Namaste: a figure with palms joined at the chest.
-                                 Drawing the hands ALONE doesn't work at header
-                                 size — every variant of two-palms-in-outline
-                                 renders as a leaf with a midrib (checked at
-                                 120px, so it isn't a scaling artefact). The
-                                 head and shoulders are what make the gesture
-                                 legible, and they also keep this reading as an
-                                 account/login affordance. --}}
-                            <circle cx="12" cy="4.7" r="2.4"/>
-                            <path d="M12 8.8 9.9 15.2h4.2z"/>
-                            <path d="M9.9 15.2c-2.1.8-3.6 2.4-4.4 4.9"/>
-                            <path d="M14.1 15.2c2.1.8 3.6 2.4 4.4 4.9"/>
+                            {{-- Plain user glyph. A namaste figure was tried here and
+                                 rejected (2026-08-10): on the web this slot
+                                 reads as "your account", so the conventional
+                                 icon is the clearer one. --}}
+                            <circle cx="12" cy="8" r="3.4"/>
+                            <path d="M4.8 20.2c.9-3.6 3.7-5.6 7.2-5.6s6.3 2 7.2 5.6"/>
                         </svg>
                         {{ __('nav.login') }}
                     </a>

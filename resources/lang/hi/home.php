@@ -61,7 +61,4 @@ return [
     'prasad_step_choose' => 'आप जो प्रसाद चाहते हैं वह चुनें',
     'prasad_step_offered' => 'धाम में हनुमानजी के चरणों में अर्पित किया जाता है',
     'prasad_step_delivered' => 'सावधानी से पैक कर आपके घर भेजा जाता है',
-
-    // Sticky action bar (homepage only)
-    'sticky_label' => 'त्वरित क्रियाएँ',
 ];

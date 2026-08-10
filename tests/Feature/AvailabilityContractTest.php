@@ -182,8 +182,13 @@ class AvailabilityContractTest extends TestCase
         $this->assertSame('hall_booked', $dates[$target]['reason_code']);
     }
 
-    public function test_hall_blackout_date_still_reports_blocked_with_the_admin_reason(): void
+    public function test_hall_blackout_date_is_omitted_from_the_month_list(): void
     {
+        // An admin blackout means the hall is NOT on offer that day, so the
+        // date carousel must not render a chip for it at all (see
+        // App\Enums\UnavailableReason::display). The keys are unchanged —
+        // the list is simply shorter, which is exactly what the shipped
+        // app build needs in order to stop showing greyed-out noise.
         $target = now()->addDays(6)->toDateString();
         $hall = HallFactory::new()->create([
             'blackout_dates' => [['date' => $target, 'reason' => 'Trust event']],
@@ -192,9 +197,31 @@ class AvailabilityContractTest extends TestCase
         $dates = collect($this->getJson("/api/v1/halls/{$hall->id}/available-dates?month=".now()->format('Y-m'))->json('data.dates'))
             ->keyBy('date');
 
-        $this->assertFalse($dates[$target]['full_day_available']);
-        $this->assertTrue($dates[$target]['blocked']);
-        $this->assertSame('Trust event', $dates[$target]['blocked_reason']);
+        $this->assertArrayNotHasKey($target, $dates->all());
+        // Neighbouring dates are untouched.
+        $this->assertTrue($dates[now()->addDays(7)->toDateString()]['full_day_available']);
+    }
+
+    public function test_hall_single_date_availability_still_reports_blocked_with_the_admin_reason(): void
+    {
+        // The single-date endpoint answers about a date the CALLER named,
+        // so it always responds and `blocked` / `blocked_reason` keep their
+        // exact old meaning. It carries no `display` — that key means
+        // "should this entry exist in a list" and belongs to list rows.
+        $target = now()->addDays(6)->toDateString();
+        $hall = HallFactory::new()->create([
+            'blackout_dates' => [['date' => $target, 'reason' => 'Trust event']],
+        ]);
+
+        $data = $this->getJson("/api/v1/halls/{$hall->id}/availability?date={$target}")
+            ->assertOk()
+            ->json('data');
+
+        $this->assertFalse($data['full_day_available']);
+        $this->assertTrue($data['blocked']);
+        $this->assertSame('Trust event', $data['blocked_reason']);
+        $this->assertSame('blackout', $data['reason_code']);
+        $this->assertArrayNotHasKey('display', $data);
     }
 
     // ── GET /api/v1/halls/{hall}/availability ────────────────────────

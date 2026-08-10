@@ -232,15 +232,45 @@ class ManualCashEntryTest extends TestCase
         ]);
         $this->assertFalse((bool) $donation->receipt_generated);
         $this->assertFalse((bool) $donation->is_80g_eligible, 'the verdict column must be honest');
-        $this->assertTrue((bool) $donation->anonymous, 'no valid PAN → Gupt Daan by the trust rule');
+        // Corrected 2026-08-10: no PAN withholds the RECEIPT, nothing else.
+        // The walk-in devotee did not ask for anonymity, so they stay a
+        // named donor on the public lists.
+        $this->assertFalse(
+            (bool) $donation->anonymous,
+            'a missing PAN must not turn a counter donor into Gupt Daan',
+        );
 
-        // Gupt Daan hides the donor from PUBLIC lists; it never discards
-        // data — the trust must still see who paid at the counter.
+        // Details are always retained — the trust must still see who paid
+        // at the counter, Gupt Daan or not.
         $this->assertNotNull($donation->devotee_id);
         $this->assertSame('9876500002', $donation->fresh()->devotee->phone);
 
         // The money itself still captured normally.
         $this->assertSame('captured', $result['payment']->status->value);
+    }
+
+    public function test_a_gupt_daan_cash_donor_with_a_pan_still_gets_an_80g_receipt(): void
+    {
+        // Anonymity is a public-display choice, not a tax one — the two
+        // are independent (corrected 2026-08-10).
+        DevoteeFactory::new()->withPan()->create(['phone' => '9876500003']);
+
+        $result = $this->service()->record($this->entry([
+            'record_type' => CounterEntryService::TYPE_DONATION,
+            'phone' => '9876500003',
+            'amount' => 2100,
+            'wants_80g' => true,
+            'anonymous' => true,
+        ]), $this->superAdmin());
+
+        $donation = Donation::where('payment_id', $result['payment']->id)->firstOrFail();
+
+        $this->assertTrue((bool) $donation->anonymous, 'the clerk recorded the devotee’s choice');
+        $this->assertTrue((bool) $donation->is_80g_eligible);
+        $this->assertNotNull(
+            Receipt80G::where('donation_id', $donation->id)->first(),
+            'Gupt Daan must not withhold a statutory receipt',
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════

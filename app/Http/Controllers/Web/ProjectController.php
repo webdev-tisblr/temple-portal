@@ -67,7 +67,14 @@ class ProjectController extends Controller
             ? route('projects.donors', $project->slug) . '?sort=recent&page=2'
             : null;
 
-        return view('pages.projects.show', compact('project', 'donors', 'donorsJs', 'topDonorsJs', 'donorsNextUrl'));
+        // Item 5.4 — the campaign sidebar is a full second donate surface
+        // posting to donate.create, so it needs the same 80G request
+        // checkbox as /donate. Without it a PAN-less donor was bounced to
+        // their profile with no way to say "I don't need the receipt".
+        $hasPan = app(\App\Services\ReceiptService::class)
+            ->devoteeHasValid80GPan(\Illuminate\Support\Facades\Auth::guard('devotee')->user());
+
+        return view('pages.projects.show', compact('project', 'donors', 'donorsJs', 'topDonorsJs', 'donorsNextUrl', 'hasPan'));
     }
 
     public function donors(string $slug, Request $request): JsonResponse

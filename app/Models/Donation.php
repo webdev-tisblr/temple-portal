@@ -94,10 +94,12 @@ class Donation extends Model
     }
 
     /**
-     * Money-path audit (item 6.1). `is_80g_eligible` / `anonymous` are the
-     * two columns the strict-80G rule (item 5.4) rewrites behind the
-     * donor's back, so both are logged — a "why did this become Gupt
-     * Daan?" question has to be answerable months later.
+     * Money-path audit (item 6.1). `is_80g_eligible` is rewritten behind
+     * the donor's back by the strict-80G rule (item 5.4), and `anonymous`
+     * is rewritten by the account-deletion path — so both are logged, and
+     * a "why is there no receipt / why is this masked?" question has to be
+     * answerable months later. Nothing in the receipt pipeline may write
+     * `anonymous`; it is the donor's own Gupt Daan checkbox.
      */
     public function getActivitylogOptions(): LogOptions
     {

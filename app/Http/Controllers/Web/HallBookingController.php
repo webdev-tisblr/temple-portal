@@ -88,6 +88,9 @@ class HallBookingController extends Controller
                 ? 'હૉલ ઉપલબ્ધ છે.'
                 : ($verdict['reason'] ?? 'આ તારીખ માટે હૉલ પહેલેથી બુક છે.'),
             'reason_code' => $verdict['reason_code'],
+            // No `display` — this is a verdict on the range the devotee
+            // selected, so `message` is always shown. `display` belongs to
+            // list rows only (see App\Enums\UnavailableReason::visible).
             'conflicting_dates' => $verdict['conflicting_dates'],
             'days' => $price['days'],
             'price_per_day' => $price['price_per_day'],

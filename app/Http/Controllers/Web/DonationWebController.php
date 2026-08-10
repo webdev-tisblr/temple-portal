@@ -116,11 +116,19 @@ class DonationWebController extends Controller
                 ->with('warning', __('donation.pan_required_body'));
         }
 
-        // A donation with no valid PAN can never carry an 80G receipt, so
-        // by the trust's rule it IS a Gupt Daan — masked on public donor
-        // lists exactly like an explicitly anonymous one.
+        // Two INDEPENDENT flags (corrected 2026-08-10 after live testing):
+        //
+        //   is_80g_eligible — does a receipt get issued. Driven by the PAN.
+        //   anonymous       — is the name hidden on public donor lists.
+        //                     Driven ONLY by the donor ticking Gupt Daan.
+        //
+        // A donation with no PAN is simply a donation without an 80G
+        // receipt: the donor is named and appears normally on the public
+        // list. Conversely a Gupt Daan donor WITH a PAN still gets their
+        // 80G receipt — anonymity is about public display, not tax
+        // documents. Do NOT reintroduce `|| ! $hasValidPan` below.
         $is80gEligible = $wants80g && $hasValidPan;
-        $anonymous = (bool) ($validated['anonymous'] ?? false) || ! $hasValidPan;
+        $anonymous = (bool) ($validated['anonymous'] ?? false);
 
         $fy = now()->month >= 4
             ? now()->year . '-' . substr((string) (now()->year + 1), -2)

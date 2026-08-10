@@ -650,6 +650,14 @@ class SevaSlotService
      * before; the `continue`s that used to silently drop a date now emit
      * a flagged row instead.
      *
+     * NOTE: this returns EVERY date with its verdict, including the ones
+     * that must never be shown to a devotee (wrong weekday, blackout,
+     * outside the acceptance window, no slots configured). Deciding which
+     * of those reach the UI is NOT this method's job — it belongs to
+     * UnavailableReason::display(), applied by the controllers via
+     * UnavailableReason::visible(). Keeping the full verdict here is what
+     * lets nextAvailable() and the tests reason about every date.
+     *
      * @return list<array{date:string, available:bool, reason_code:?string, reason:?string}>
      */
     public function getDateAvailabilityInRange(Seva $seva, Carbon $start, Carbon $end): array
@@ -672,7 +680,12 @@ class SevaSlotService
 
         $counts = [];   // counts[date][slot] = n
         foreach ($rows as $row) {
-            $counts[$row->bdate][$row->slot] = (int) $row->cnt;
+            // Legacy rows can still carry a NULL slot_time; using null as
+            // an array key is deprecated in PHP 8.4 and was emitting a
+            // notice on every availability request. Such rows never match
+            // a configured HH:MM slot, so bucketing them under '' is both
+            // silent and correct.
+            $counts[$row->bdate][(string) $row->slot] = (int) $row->cnt;
         }
 
         $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;

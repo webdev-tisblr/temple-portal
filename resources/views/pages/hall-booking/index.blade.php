@@ -225,7 +225,10 @@
                             {{ __('seva.loading_dates') }}
                         </div>
 
-                        <div x-show="!datesLoading && openDateCount() === 0" class="text-sm py-3 px-4 bg-amber-900/10 border border-amber-800/30 rounded-lg text-amber-100/60">
+                        {{-- Only when there is genuinely nothing to render.
+                             A fully-booked month still shows its chips
+                             (badged), so this must not fire then. --}}
+                        <div x-show="!datesLoading && upcomingDays.length === 0" class="text-sm py-3 px-4 bg-amber-900/10 border border-amber-800/30 rounded-lg text-amber-100/60">
                             {{ $noDatesThisMonth }}
                         </div>
 
@@ -458,7 +461,12 @@ function hallBooking() {
             try {
                 const res = await fetch(`/api/v1/halls/${hallId}/available-dates?month=${month}`);
                 const json = await res.json();
-                const entries = json.data?.dates || [];
+                // The server has already dropped the dates this hall never
+                // offers (admin blackout dates + recurring weekday
+                // closures). The display guard is belt-and-braces against a
+                // stale cached response — it obeys the rule, never
+                // re-derives it. See App\Enums\UnavailableReason.
+                const entries = (json.data?.dates || []).filter(e => e.display !== 'hide');
                 if (json.data?.max_booking_days) this.maxDays = json.data.max_booking_days;
                 this.upcomingDays = entries.map(e => {
                     const [y, m, d] = e.date.split('-').map(Number);
@@ -479,10 +487,6 @@ function hallBooking() {
                 this.upcomingDays = [];
             }
             this.datesLoading = false;
-        },
-
-        openDateCount() {
-            return this.upcomingDays.filter(d => !d.disabled).length;
         },
 
         effectiveEnd() {

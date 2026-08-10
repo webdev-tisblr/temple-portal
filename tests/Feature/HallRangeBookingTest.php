@@ -105,6 +105,91 @@ class HallRangeBookingTest extends TestCase
         $this->assertSame(15000.0, (float) $booking->total_amount);
     }
 
+    /**
+     * The EXACT request body the Flutter hall booking screen now sends —
+     * `booking_date` + `end_date` + `booking_type` + the contact fields,
+     * with `expected_guests` omitted when the field is left blank.
+     *
+     * The app-side of item 4.2 was missing entirely (build 1.4.8+32 sent
+     * only `booking_date`), so this pins the shape the fixed screen
+     * produces and proves the server turns it into a real 3-day booking
+     * at the server-computed price.
+     */
+    public function test_the_apps_multi_day_request_shape_produces_a_correct_booking(): void
+    {
+        $this->fakeRazorpay();
+        $hall = HallFactory::new()->multiDay(7)->create(['price_per_day' => 5000]);
+        $devotee = DevoteeFactory::new()->create();
+        Sanctum::actingAs($devotee);
+
+        $response = $this->postJson("/api/v1/halls/{$hall->id}/book", [
+            'booking_date' => '2030-09-10',
+            'end_date' => '2030-09-12',
+            'booking_type' => 'full_day',
+            'purpose' => 'Wedding',
+            'contact_name' => 'Test Devotee',
+            'contact_phone' => '9876543210',
+        ]);
+
+        $response->assertOk();
+
+        // Everything the screen reads back off the response.
+        $this->assertSame(3, $response->json('data.days'));
+        $this->assertSame('10 Sep 2030', $response->json('data.booking_date'));
+        $this->assertSame('12 Sep 2030', $response->json('data.end_date'));
+        $this->assertNotEmpty($response->json('data.date_range_label'));
+        $this->assertSame(15000.0, (float) $response->json('data.amount'));
+        // amount_paise is what the app hands Razorpay — it must be the
+        // RANGE total, not one day's rate.
+        $this->assertSame(1500000, $response->json('data.amount_paise'));
+
+        $booking = HallBooking::first();
+        $this->assertSame('2030-09-10', $booking->booking_date->toDateString());
+        $this->assertSame('2030-09-12', $booking->end_date->toDateString());
+        $this->assertSame(3, $booking->days_count);
+        $this->assertSame(15000.0, (float) $booking->total_amount);
+    }
+
+    /**
+     * The app quotes the price from the server before booking; the quote
+     * and the booking must never disagree.
+     */
+    public function test_the_range_quote_the_app_shows_matches_what_booking_charges(): void
+    {
+        $this->fakeRazorpay();
+        $hall = HallFactory::new()->multiDay(7)->create(['price_per_day' => 5000]);
+        $devotee = DevoteeFactory::new()->create();
+        Sanctum::actingAs($devotee);
+
+        $quote = $this->getJson("/api/v1/halls/{$hall->id}/range-quote?start=2030-09-10&end=2030-09-12")
+            ->assertOk()
+            ->json('data');
+
+        $this->assertTrue($quote['available']);
+        $this->assertSame(3, $quote['days']);
+        $this->assertSame(7, $quote['max_booking_days']);
+
+        $booked = $this->postJson("/api/v1/halls/{$hall->id}/book", [
+            'booking_date' => '2030-09-10',
+            'end_date' => '2030-09-12',
+            'booking_type' => 'full_day',
+            'purpose' => 'Wedding',
+            'contact_name' => 'Test Devotee',
+            'contact_phone' => '9876543210',
+        ])->assertOk()->json('data');
+
+        $this->assertSame($quote['amount_paise'], $booked['amount_paise']);
+
+        // Re-quoting the same window now reports it taken, so the app's
+        // verdict card flips to "Not available" without a reload.
+        $after = $this->getJson("/api/v1/halls/{$hall->id}/range-quote?start=2030-09-10&end=2030-09-12")
+            ->assertOk()
+            ->json('data');
+        $this->assertFalse($after['available']);
+        $this->assertSame('hall_booked', $after['reason_code']);
+        $this->assertNotEmpty($after['reason']);
+    }
+
     /** The shipped app (1.4.8+32) never sends end_date. */
     public function test_legacy_single_date_post_without_end_date_still_works(): void
     {

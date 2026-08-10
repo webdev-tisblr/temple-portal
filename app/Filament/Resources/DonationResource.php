@@ -70,9 +70,9 @@ class DonationResource extends Resource
                 // staff could not tell why the public donor list showed
                 // "રામ ભરોસે".
                 Infolists\Components\IconEntry::make('anonymous')
-                    ->label('Gupt Daan (anonymous)')
+                    ->label('Gupt Daan (donor chose to stay anonymous)')
                     ->boolean()
-                    ->helperText('Donor details above are always retained. This flag only masks the name on public donor lists.'),
+                    ->helperText('Set ONLY by the donor ticking Gupt Daan at checkout (or by account deletion). It is not a consequence of a missing PAN — a donation with no PAN is simply a donation with no 80G receipt, and its donor is listed by name. Donor details above are always retained; this flag only masks the name on public donor lists.'),
                 // The system's 80G verdict under the strict PAN rule. False
                 // means no receipt number was ever burned for this donation.
                 Infolists\Components\IconEntry::make('is_80g_eligible')
@@ -127,8 +127,11 @@ class DonationResource extends Resource
                     )),
                 // Item 5.4 — make Gupt Daan visible in the list. The donor
                 // name column to the left still shows WHO donated (details
-                // are always retained); this only says the donation was
-                // made anonymously and is masked on public donor lists.
+                // are always retained); this only says the donor CHOSE
+                // anonymity at checkout and is masked on public donor
+                // lists. It is independent of the 80G column beside it: a
+                // PAN-less donor is named, and a Gupt Daan donor with a PAN
+                // still gets their receipt.
                 Tables\Columns\IconColumn::make('anonymous')
                     ->label('Gupt Daan')
                     ->boolean()

@@ -369,11 +369,6 @@
 
 @include('partials.home-darshan-widget')
 
-{{-- Sticky Donate / Book Seva bar — homepage only, appears once the hero
-     has scrolled away. Stateless markup on purpose (the homepage is guest
-     cached); see the partial for the z-index order it assumes. --}}
-@include('partials.home-sticky-bar')
-
 @endsection
 
 @push('scripts')

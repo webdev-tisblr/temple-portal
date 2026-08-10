@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\UnavailableReason;
 use App\Exceptions\SlotUnavailableException;
 use App\Http\Requests\BookSevaRequest;
 use App\Http\Resources\SevaCollection;
@@ -128,10 +129,15 @@ class SevaController extends BaseApiController
                     static fn (array $r): string => $r['date'],
                     array_filter($detail, static fn (array $r): bool => $r['available'] === true),
                 )),
-                // ADDITIVE (item 4.1): every date of the window with a
-                // verdict, so the UI shows a "Not Available" badge instead
-                // of hiding the chip.
-                'days_detail' => $detail,
+                // ADDITIVE (item 4.1): the dates the picker should RENDER,
+                // each with a verdict. Structurally-not-offered dates (wrong
+                // weekday, blackout, outside the acceptance window, no slots)
+                // are NOT here — they were never bookable and showing them
+                // greyed out is noise. Dates that are genuinely on offer but
+                // taken/closed ARE here, flagged, so the chip renders with a
+                // "Not Available" badge. UnavailableReason::display() owns
+                // that split for every surface.
+                'days_detail' => UnavailableReason::visible($detail),
             ]);
         }
 
@@ -146,7 +152,7 @@ class SevaController extends BaseApiController
                 static fn (array $r): string => $r['date'],
                 array_filter($detail, static fn (array $r): bool => $r['available'] === true),
             )),
-            'days_detail' => $detail,
+            'days_detail' => UnavailableReason::visible($detail),
         ]);
     }
 
@@ -217,8 +223,12 @@ class SevaController extends BaseApiController
             // disabled for free, and old app builds keep ignoring them.
             'slots' => $availability['available'],
             'booked' => $availability['booked'],
-            // ADDITIVE: per-slot verdict with reason_code for the badge.
-            'slot_details' => $availability['slot_details'] ?? [],
+            // ADDITIVE: per-slot verdict with reason_code + `display` for
+            // the badge. Slot-level reasons (full / elapsed / cutoff) are
+            // all badge-class; a structurally-closed day returns no slots
+            // at all, so nothing to hide here — the filter runs anyway so
+            // the rule lives in exactly one place.
+            'slot_details' => UnavailableReason::visible($availability['slot_details'] ?? []),
             'slot_type' => $seva->getResolvedSlotConfig()['slot_type'] ?? 'time_slots',
             'slot_duration_minutes' => $seva->getSlotDurationMinutes(),
             'max_bookings_per_slot' => $seva->getMaxBookingsPerSlot(),

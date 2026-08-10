@@ -61,7 +61,4 @@ return [
     'prasad_step_choose' => 'આપને જોઈતો પ્રસાદ પસંદ કરો',
     'prasad_step_offered' => 'ધામમાં હનુમાનજીના ચરણોમાં ધરાવવામાં આવે છે',
     'prasad_step_delivered' => 'કાળજીપૂર્વક પેક કરીને આપના ઘરે મોકલવામાં આવે છે',
-
-    // Sticky action bar (homepage only)
-    'sticky_label' => 'ઝડપી ક્રિયાઓ',
 ];

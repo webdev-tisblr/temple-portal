@@ -118,11 +118,22 @@
                 class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
         </div>
 
-        {{-- Anonymous --}}
+        {{-- Gupt Daan (anonymity).
+             Corrected 2026-08-10: this is the ONLY thing that makes a
+             donation anonymous. It is entirely independent of the 80G
+             checkbox below — a Gupt Daan donor with a PAN still receives
+             their 80G receipt, and a donor with no PAN is still a named,
+             ordinary donor on the public lists. The hint spells out what
+             ticking it actually does, because "ગુપ્ત દાન" alone read to
+             live testers as a donation category rather than a display
+             choice. --}}
         <div class="mb-6">
-            <label class="flex items-center gap-2">
-                <input type="checkbox" x-model="anonymous" class="rounded border-amber-800/40 bg-transparent text-amber-500 focus:ring-amber-600/20">
-                <span class="text-sm text-amber-100/60">{{ __('donation.gupt_daan') }}</span>
+            <label class="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" x-model="anonymous" class="mt-1 rounded border-amber-800/40 bg-transparent text-amber-500 focus:ring-amber-600/20">
+                <span>
+                    <span class="text-sm text-amber-100/60">{{ __('donation.gupt_daan') }}</span>
+                    <span class="block text-xs text-amber-100/30 mt-0.5">{{ __('donation.gupt_daan_hint') }}</span>
+                </span>
             </label>
         </div>
 
@@ -131,6 +142,10 @@
              80G receipt and no receipt number, whatever the amount. This
              checkbox is the donor's REQUEST; the server decides what can
              actually be issued.
+
+             It says NOTHING about anonymity — declining an 80G receipt does
+             not make the donation a Gupt Daan, and Gupt Daan does not
+             withhold a receipt. The two boxes are independent.
 
              This lives on the WEB form on purpose — on iOS the donate flow
              IS this page (DonateGate forces the website for App Store
@@ -171,9 +186,12 @@
                             class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold bg-amber-600 text-stone-900 hover:bg-amber-500 transition">
                             {{ __('donation.add_pan_now') }}
                         </button>
+                        {{-- Only clears the 80G request. It deliberately
+                             does NOT tick Gupt Daan: skipping the tax
+                             receipt is not a request for anonymity. --}}
                         <button type="button" @click="wants80g = false"
                             class="inline-flex items-center px-4 py-2 rounded-lg text-sm border border-amber-800/40 text-amber-100/60 hover:border-amber-600 transition">
-                            {{ __('donation.continue_gupt_daan') }}
+                            {{ __('donation.continue_without_80g') }}
                         </button>
                     </div>
                 </div>

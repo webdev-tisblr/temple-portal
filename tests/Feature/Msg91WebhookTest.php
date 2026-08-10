@@ -502,6 +502,36 @@ class Msg91WebhookTest extends TestCase
         });
     }
 
+    /**
+     * MSG91's OTP endpoint splits the request: control params in the query
+     * string, template variables in the JSON body. Sending the variables
+     * as query params is silently ignored — the OTP still arrives (it is a
+     * control param) while ##mins## stays unfilled. Pin the split.
+     */
+    public function test_otp_control_params_go_in_the_query_and_variables_in_the_body(): void
+    {
+        Http::fake(['*' => Http::response(['type' => 'success', 'request_id' => 'r'], 200)]);
+
+        (new SmsService)->sendOtp('9876543210', '778899', ['mins' => '10'], 'tpl-split');
+
+        Http::assertSent(function ($request): bool {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+            $body = $request->data();
+
+            return
+                // Control params — query string.
+                ($query['template_id'] ?? null) === 'tpl-split'
+                && ($query['otp'] ?? null) === '778899'
+                && ($query['mobile'] ?? null) === '919876543210'
+                && ($query['otp_expiry'] ?? null) === '10'
+                // Template variables — JSON body.
+                && ($body['mins'] ?? null) === '10'
+                // ...and the code is NOT repeated in the body, or MSG91
+                // would fill ##OTP## from two places.
+                && ! array_key_exists('otp', $body);
+        });
+    }
+
     // ─── Admin surface ────────────────────────────────────────────────
 
     /**
@@ -646,7 +676,11 @@ class Msg91WebhookTest extends TestCase
             return $data['recipients'][0];
         }
 
+        // OTP endpoint: control params in the query string, template
+        // variables in the JSON body. Merge both — the body wins, since
+        // that is where the ##…## placeholders are actually filled from.
         parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $q);
+        $q = array_merge($q, is_array($data) ? $data : []);
 
         // MSG91 carries the code itself as `otp`; surface it under the
         // configured variable name so tests assert on one shape.

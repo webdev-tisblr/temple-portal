@@ -261,12 +261,25 @@ class SmsService
         // The OTP endpoint takes its parameters as a query string; extra
         // template variables ride alongside as named params, exactly as
         // the ##…## placeholders are named in the template.
-        $query = array_merge([
+        // MSG91's OTP endpoint splits the request in two, and getting this
+        // wrong is silent: the CONTROL parameters go in the query string,
+        // and the TEMPLATE VARIABLES go in the JSON body. Sending the
+        // variables as query params (as this first did) means MSG91
+        // ignores them — the OTP still arrived, because `otp` is a control
+        // param it does understand, but ##mins## was left unfilled and the
+        // message read "valid for  minutes" (2026-08-10).
+        $query = [
             'template_id' => $templateId,
             'mobile' => $this->formatPhone($phone),
             'otp' => $code,
             'otp_expiry' => (string) \App\Services\OtpService::expiryMinutes(),
-        ], $variables);
+        ];
+
+        // Anything the template names beyond the OTP itself. `otp` is
+        // dropped from the body: it is already a control param above, and
+        // repeating it here would have MSG91 fill ##OTP## twice.
+        $body = $variables;
+        unset($body['otp']);
 
         if ($this->senderId !== '') {
             $query['sender'] = $this->senderId;
@@ -278,7 +291,8 @@ class SmsService
                     'accept' => 'application/json',
                 ])
                 ->timeout(20)
-                ->post($this->otpEndpoint().'?'.http_build_query($query));
+                ->asJson()
+                ->post($this->otpEndpoint().'?'.http_build_query($query), $body);
 
             // Same trap as Flow: HTTP 200 does not mean accepted.
             if ($response->successful() && $response->json('type') !== 'error') {
@@ -304,7 +318,7 @@ class SmsService
                 'phone' => $this->maskPhone($phone),
                 'template_id' => $templateId,
                 'endpoint' => $this->otpEndpoint(),
-                'variables' => array_keys($variables),
+                'body_variables' => array_keys($body),
                 'status' => $response->status(),
                 'response' => $response->json(),
             ]);

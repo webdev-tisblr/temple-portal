@@ -114,9 +114,17 @@ class SmsService
                     'accept' => 'application/json',
                 ])
                 ->timeout(20)
-                ->post(rtrim($this->apiUrl, '/') . '/flow/', $payload);
+                ->post($this->flowEndpoint(), $payload);
 
-            if ($response->successful() && ($response->json('type') === 'success' || $response->successful())) {
+            // MSG91 answers HTTP 200 for LOGICAL failures too, with
+            // {"type":"error","message":"Template ID Missing or Invalid
+            // Template"} in the body. The old condition was
+            // `successful() && (type === 'success' || successful())`, whose
+            // right-hand side is always true when the left is — so it
+            // collapsed to a bare status check and reported "Sent." for
+            // every rejected message. That is why the admin saw "Test OTP
+            // sent" while MSG91's dashboard logged an invalid template.
+            if ($response->successful() && $response->json('type') !== 'error') {
                 Log::info('SMS sent via MSG91', [
                     'phone' => $this->maskPhone($phone),
                     'template_id' => $templateId,
@@ -130,9 +138,21 @@ class SmsService
             }
 
             $err = $response->json('message') ?? $response->json('error') ?? "MSG91 returned HTTP {$response->status()}";
+
+            // MSG91's own wording is far more useful than ours ("Template ID
+            // Missing or Invalid Template" tells the admin exactly what to
+            // fix), so pass it through verbatim and say which template and
+            // endpoint produced it.
+            if (is_string($err) && $err !== '') {
+                $err = "MSG91: {$err} (template {$templateId})";
+            }
+
             Log::error('MSG91 send failed', [
                 'phone' => $this->maskPhone($phone),
                 'template_id' => $templateId,
+                'endpoint' => $this->flowEndpoint(),
+                'sender' => $this->senderId,
+                'variables' => array_keys($variables),
                 'status' => $response->status(),
                 'response' => $response->json(),
             ]);
@@ -165,27 +185,62 @@ class SmsService
         }
 
         try {
-            // The balance endpoint differs slightly between MSG91 v5 and the
-            // legacy v2. Try v5 first (newer accounts), then v2 as a fallback.
-            $response = Http::withHeaders(['authkey' => $this->authKey])
-                ->timeout(10)
-                ->get(rtrim($this->apiUrl, '/') . '/getbalance.php', ['type' => '4']);
+            // balance.php lives at the API ROOT, not under /v5 and
+            // certainly not under /v5/flow. Appending it to the
+            // admin-entered URL produced .../api/v5/flow/getbalance.php,
+            // which is the HTTP 404 the admin was told to blame on the
+            // auth key (2026-08-10).
+            $response = Http::timeout(10)->get($this->balanceEndpoint(), [
+                'authkey' => $this->authKey,
+                'type' => '4',
+            ]);
 
-            if ($response->successful()) {
-                $balance = trim($response->body());
+            $body = trim($response->body());
+
+            if ($response->successful() && $body !== '' && ! str_contains(strtolower($body), 'error')) {
                 return [
                     'ok' => true,
-                    'message' => "Connected. Wallet balance: ₹{$balance}",
+                    'message' => "Connected. Wallet balance: ₹{$body}",
                 ];
             }
 
             return [
                 'ok' => false,
-                'message' => "MSG91 returned HTTP {$response->status()}. Check the auth key.",
+                'message' => $body !== ''
+                    ? "MSG91 said: {$body}"
+                    : "MSG91 returned HTTP {$response->status()} for {$this->balanceEndpoint()}.",
             ];
         } catch (\Throwable $e) {
             return ['ok' => false, 'message' => 'Could not reach MSG91: ' . $e->getMessage()];
         }
+    }
+
+    /**
+     * The Flow send endpoint, however the admin typed the base URL.
+     *
+     * The setting has been seen as the bare host, as `.../api/v5`, and as
+     * `.../api/v5/flow` — the last of which used to produce
+     * `.../api/v5/flow/flow/`. Normalise instead of trusting the input:
+     * strip any trailing `flow` segment, then add exactly one back.
+     */
+    public function flowEndpoint(): string
+    {
+        $base = rtrim(trim($this->apiUrl), '/');
+        $base = preg_replace('#/flow$#i', '', $base) ?? $base;
+
+        if ($base === '' || ! preg_match('#^https?://#i', $base)) {
+            $base = 'https://control.msg91.com/api/v5';
+        }
+
+        return $base . '/flow/';
+    }
+
+    /** Legacy balance endpoint — always at the API root of the same host. */
+    public function balanceEndpoint(): string
+    {
+        $host = parse_url($this->flowEndpoint(), PHP_URL_HOST) ?: 'control.msg91.com';
+
+        return 'https://' . $host . '/api/balance.php';
     }
 
     /**

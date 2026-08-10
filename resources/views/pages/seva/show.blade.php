@@ -82,7 +82,24 @@
                             </a>
                         </div>
                     @else
-                    <div class="card-sacred p-6" x-data="slotPicker({{ $seva->id }})">
+                    <div class="card-sacred p-6 relative" x-data="slotPicker({{ $seva->id }})">
+                        {{-- Hover-zoom panel. Sits OUTSIDE the product grid and
+                             is positioned to the left of this sticky card, over
+                             the content column, so it never reflows the form.
+                             pointer-events-none so it can't steal the hover
+                             that is keeping it open. Desktop + real pointer
+                             only; touch devices never see it. --}}
+                        <div x-show="zoomOpen"
+                             x-cloak
+                             x-transition.opacity.duration.150ms
+                             class="hidden lg:block absolute top-0 right-full mr-6 z-40 pointer-events-none seva-zoom-panel">
+                            <div class="w-[380px] rounded-2xl overflow-hidden border border-amber-800/40 bg-stone-950 shadow-2xl">
+                                <div class="w-[380px] h-[380px] bg-no-repeat"
+                                     :style="`background-image:url('${zoomSrc}'); background-size:230%; background-position:${zoomBg};`"></div>
+                                <p class="px-3 py-2 text-xs text-amber-100/70 font-medium truncate" x-text="zoomLabel"></p>
+                            </div>
+                        </div>
+
                         <h2 class="text-lg font-semibold text-gold mb-4">{{ __('seva.choose_date_time') }}</h2>
 
                         {{-- Product Selection — deliberately NOT gated on
@@ -102,6 +119,16 @@
                                     @foreach($linkedProducts as $lp)
                                         <button type="button"
                                             @click="selectedProductId = {{ $lp->id }}; selectedVariant = ''"
+                                            @if($lp->image_path)
+                                                {{-- Marketplace-style zoom (2026-08-10): hovering a tile
+                                                     opens a large panel to the LEFT, over the content
+                                                     column, and the cursor drives which part of the
+                                                     image is magnified. Pointer-only and lg-and-up —
+                                                     a hover panel is meaningless on touch. --}}
+                                                @mouseenter="zoomOpen = true; zoomSrc = '{{ image_url($lp->image_path) }}'; zoomLabel = @js($lp->name)"
+                                                @mousemove="zoomMove($event)"
+                                                @mouseleave="zoomOpen = false"
+                                            @endif
                                             :class="selectedProductId === {{ $lp->id }} ? 'ring-2 ring-amber-500 border-amber-500' : 'border-amber-800/30 hover:border-amber-600'"
                                             class="group border rounded-xl overflow-hidden transition text-left bg-amber-900/10">
                                             <div class="aspect-[4/3] bg-amber-900/20 overflow-hidden">
@@ -399,6 +426,22 @@ function slotPicker(sevaId) {
         selectedVariant: '',
         devoteeName: '',
         sankalp: '',
+
+        // ── Marketplace-style hover zoom ───────────────────────────────
+        // zoomBg is a background-position string; moving the cursor over a
+        // tile maps to the equivalent point of the enlarged image, which is
+        // what makes it feel like a magnifier rather than a static preview.
+        zoomOpen: false,
+        zoomSrc: '',
+        zoomLabel: '',
+        zoomBg: '50% 50%',
+        zoomMove(e) {
+            const r = e.currentTarget.getBoundingClientRect();
+            if (!r.width || !r.height) return;
+            const x = Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100));
+            const y = Math.min(100, Math.max(0, ((e.clientY - r.top) / r.height) * 100));
+            this.zoomBg = x.toFixed(2) + '% ' + y.toFixed(2) + '%';
+        },
 
         currentProduct() {
             return this.selectedProductId ? (products[this.selectedProductId] || null) : null;

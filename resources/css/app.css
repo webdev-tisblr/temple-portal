@@ -577,3 +577,11 @@ input[type="radio"]:focus {
     --tw-prose-bold: #2A1810;
     --tw-prose-quotes: #5E4F3D;
 }
+
+/* Marketplace hover-zoom on the seva product tiles (2026-08-10).
+   Suppressed on coarse pointers: a magnifier that follows a cursor is
+   meaningless on touch, and the panel would just sit there stuck open
+   after a tap. The Blade already limits it to lg and up. */
+@media (hover: none), (pointer: coarse) {
+    .seva-zoom-panel { display: none !important; }
+}

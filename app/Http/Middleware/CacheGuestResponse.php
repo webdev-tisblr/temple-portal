@@ -51,9 +51,11 @@ class CacheGuestResponse
 
         $cached = Cache::get($key);
         if (is_string($cached)) {
-            return response($cached)
-                ->header('Content-Type', 'text/html; charset=UTF-8')
-                ->header('X-Page-Cache', 'hit');
+            return $this->noBrowserCache(
+                response($cached)
+                    ->header('Content-Type', 'text/html; charset=UTF-8')
+                    ->header('X-Page-Cache', 'hit')
+            );
         }
 
         $response = $next($request);
@@ -68,6 +70,29 @@ class CacheGuestResponse
             Cache::put($key, $response->getContent(), self::TTL_SECONDS);
             $response->headers->set('X-Page-Cache', 'miss');
         }
+
+        return $this->noBrowserCache($response);
+    }
+
+    /**
+     * Stop the BROWSER holding on to these pages.
+     *
+     * The language is a cookie, not part of the URL, so a browser that has
+     * cached / under a long max-age happily replays the old language after
+     * a switch — which is exactly the "changed the language, nothing
+     * happened until I refreshed" report (2026-08-10). Cloudflare's Browser
+     * Cache TTL was stamping `max-age=14400` (4 hours) on these responses.
+     *
+     * An explicit no-cache from the origin fixes it wherever Cloudflare is
+     * set to respect origin headers. `Vary: Cookie` states the real
+     * dependency for any cache that honours it. This costs nothing at
+     * scale: the Redis page cache above still absorbs the load, and these
+     * responses are `private` so the edge was not serving them anyway.
+     */
+    private function noBrowserCache(Response $response): Response
+    {
+        $response->headers->set('Cache-Control', 'private, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Vary', 'Cookie, Accept-Encoding');
 
         return $response;
     }

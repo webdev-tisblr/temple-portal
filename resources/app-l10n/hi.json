@@ -30,6 +30,7 @@
   "login.subtitle": "भक्त अनुभव के लिए लॉग इन करें",
   "otp.title": "OTP सत्यापित करें",
   "otp.sent_to": "OTP भेजा गया:",
+  "otp.sent_to_number": "{} पर भेजा गया",
   "otp.verify": "सत्यापित करें",
   "otp.resend": "OTP फिर से भेजें",
   "otp.resend_in": "फिर से भेजें",

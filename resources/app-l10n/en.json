@@ -30,6 +30,7 @@
   "login.subtitle": "Log in for the full devotee experience",
   "otp.title": "Verify OTP",
   "otp.sent_to": "OTP sent to:",
+  "otp.sent_to_number": "Sent to {}",
   "otp.verify": "Verify",
   "otp.resend": "Resend OTP",
   "otp.resend_in": "Resend in",

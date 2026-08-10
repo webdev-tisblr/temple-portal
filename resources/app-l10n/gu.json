@@ -30,6 +30,7 @@
   "login.subtitle": "ભક્ત અનુભવ માટે લૉગ ઇન કરો",
   "otp.title": "OTP ચકાસો",
   "otp.sent_to": "OTP મોકલ્યો:",
+  "otp.sent_to_number": "{} પર મોકલ્યો",
   "otp.verify": "ચકાસો",
   "otp.resend": "OTP ફરી મોકલો",
   "otp.resend_in": "ફરી મોકલો",

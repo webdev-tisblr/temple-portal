@@ -147,6 +147,19 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     // can exceed the general cap. Exempt it from the group throttle.
     Route::post('/webhooks/razorpay', [PaymentWebhookController::class, 'handle'])
         ->withoutMiddleware('throttle:60,1');
+
+    // Live donor display board feed. Polled every ~2s by the hall screen.
+    //
+    // Exempt from the group's throttle:60,1 for the same reason as the webhook
+    // but a different mechanism: that bucket is keyed by IP, and the screen
+    // shares the temple's public IP with every devotee in the hall using the
+    // app. The replacement limiter is keyed by the board token instead (see
+    // AppServiceProvider). Lives under /api/v1 so ComingSoonMode's blanket
+    // 'api/*' bypass keeps the screen alive while the public site is hidden.
+    Route::get('/board/feed', [\App\Http\Controllers\Web\DisplayBoardController::class, 'feed'])
+        ->withoutMiddleware('throttle:60,1')
+        ->middleware('throttle:display-board')
+        ->name('board.feed');
     // WhatsApp delivery webhook. POST is the live event stream from
     // Meta Cloud API (relayed by "The Internet Store" BSP) — sent /
     // delivered / read / failed status events match against

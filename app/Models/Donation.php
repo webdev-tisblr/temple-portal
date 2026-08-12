@@ -88,6 +88,16 @@ class Donation extends Model
         return $this->hasOne(Receipt80G::class, 'donation_id');
     }
 
+    /**
+     * The live display board announcement for this gift, if it reached the
+     * hall screen. Nullable by design: donations captured while the board was
+     * off, or made before the board existed, simply have none.
+     */
+    public function boardEntry(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(DonationBoardEntry::class, 'donation_id');
+    }
+
     public function donationType(): BelongsTo
     {
         return $this->belongsTo(DonationTypeModel::class, 'donation_type_id');

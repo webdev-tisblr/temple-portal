@@ -323,6 +323,24 @@ class PaymentCaptureService
         }
 
         if ($captured['donation'] !== null) {
+            // Live display board FIRST — before the two dispatchSync PDF jobs
+            // below, which each render a document and upload it to R2 and
+            // realistically cost seconds. The donor is standing in front of
+            // the screen at this exact moment; a single indexed INSERT should
+            // not queue behind a receipt render.
+            //
+            // Its own try/catch, like every sibling block: a decorative screen
+            // must never be able to fail a payment capture. The service
+            // swallows its own errors too — this is belt and braces.
+            try {
+                app(DisplayBoardService::class)->announce($captured['donation']);
+            } catch (\Throwable $e) {
+                Log::error('PaymentCapture: display board announce failed', [
+                    'donation_id' => $captured['donation']->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             try {
                 Generate80GReceipt::dispatchSync($captured['donation']);
             } catch (\Throwable $e) {

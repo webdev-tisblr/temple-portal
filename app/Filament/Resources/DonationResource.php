@@ -179,6 +179,44 @@ class DonationResource extends Resource
                         ? route('filament.admin.resources.donations.view', $record)
                         : null)
                     ->visible(fn (Donation $record) => $record->receipt_generated),
+
+                // Retroactive takedown for the hall display board. The screen
+                // polls `suppressed_ids` every couple of seconds, so this also
+                // pulls an entry that is on air RIGHT NOW — worst-case exposure
+                // is one poll cycle, which is the best achievable without a
+                // push channel. Only shown for donations that actually reached
+                // the board, so it isn't noise on every row.
+                Tables\Actions\Action::make('toggle_board')
+                    ->label(fn (Donation $record) => $record->boardEntry?->isSuppressed()
+                        ? 'Show on board'
+                        : 'Hide from board')
+                    ->icon(fn (Donation $record) => $record->boardEntry?->isSuppressed()
+                        ? 'heroicon-o-eye'
+                        : 'heroicon-o-eye-slash')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (Donation $record) => $record->boardEntry?->isSuppressed()
+                        ? 'Show this donation on the display board?'
+                        : 'Hide this donation from the display board?')
+                    ->modalDescription('The hall screen updates within a couple of seconds. This does not change the donation, the receipt, or anything the donor sees.')
+                    ->visible(fn (Donation $record) => $record->boardEntry !== null)
+                    ->action(function (Donation $record): void {
+                        $entry = $record->boardEntry;
+                        if ($entry === null) {
+                            return;
+                        }
+
+                        $hiding = ! $entry->isSuppressed();
+                        $entry->update([
+                            'suppressed_at' => $hiding ? now() : null,
+                            'suppressed_by' => $hiding ? auth('admin')->id() : null,
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title($hiding ? 'Hidden from the display board' : 'Restored to the display board')
+                            ->success()
+                            ->send();
+                    }),
             ]);
     }
 

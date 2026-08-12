@@ -28,6 +28,17 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 // here always sees the origin's real state — never an edge-cached copy
 // (Cloudflare's stale-on-error masked the 2026-07-28 DB outage from
 // UptimeRobot for 5 hours).
+// Live donor display board (2026-08-13) — the kiosk screen in the temple hall.
+//
+// Deliberately a top-level path: CacheGuestResponse caches only '', darshan,
+// gallery, projects, trustees and pages/*, and the Cloudflare rule mirrors
+// those six shapes, so '/board' is excluded from both by simply not being one
+// of them. Do NOT move this under pages/* or it will serve a 120s-stale board.
+// 'board' is also in ComingSoonMode::BYPASS_PATHS so the hall screen survives
+// the site being hidden.
+Route::get('/board', [\App\Http\Controllers\Web\DisplayBoardController::class, 'show'])
+    ->name('board.show');
+
 Route::get('/up/deep', function () {
     $checks = [];
     try {

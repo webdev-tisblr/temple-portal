@@ -49,6 +49,17 @@ class AppServiceProvider extends ServiceProvider
         // ample headroom for the trust's largest send.
         RateLimiter::for('msg91-webhook', fn (Request $request) => Limit::perMinute(300)->by($request->ip()));
 
+        // Live donor display board feed. Keyed by the BOARD TOKEN, not the IP,
+        // and that distinction is the whole point: the hall screen sits on the
+        // temple's wifi behind the same public IP as every devotee using the
+        // app, so an IP-keyed bucket would be drained by the crowd at exactly
+        // the busiest moment of the year and the screen would freeze on a 429.
+        // Token-keying isolates the board from the hall's traffic while still
+        // capping anyone who copies the token off the screen's address bar.
+        RateLimiter::for('display-board', fn (Request $request) => Limit::perMinute(120)->by(
+            (string) ($request->header('X-Board-Token') ?: $request->query('token', $request->ip()))
+        ));
+
         Seva::observe(SevaObserver::class);
         // Materialises / cancels seva reminder schedule rows as bookings
         // change state, on every confirm path. See SevaReminderScheduler.

@@ -100,8 +100,36 @@ class DisplayBoardTest extends TestCase
             ->json();
 
         $this->assertSame([], $data['entries'], 'Gupt Daan must never take over the screen');
-        $this->assertCount(1, $data['recent'], 'but it still belongs on the honour roll');
-        $this->assertSame(__('projects.gupt_daan_name'), $data['recent'][0]['name']);
+
+        // The recent COLUMN is ordered newest-first, which makes it a
+        // timeline: a masked row at position one, moments after someone left
+        // the counter, identifies them as surely as their name would. So
+        // anonymous gifts are kept out of it entirely...
+        $this->assertSame([], $data['recent'], 'the ordered column must be named gifts only');
+
+        // ...and honoured in the shuffled, order-free roll instead.
+        $this->assertCount(1, $data['anonymous_recent']);
+        $this->assertSame(__('projects.gupt_daan_name'), $data['anonymous_recent'][0]['name']);
+        $this->assertArrayNotHasKey(
+            'seq',
+            $data['anonymous_recent'][0],
+            'no sequence number, or the ordering leaks back out',
+        );
+    }
+
+    /** A named gift DOES belong in the ordered column, newest first. */
+    public function test_named_gifts_appear_in_the_ordered_recent_column(): void
+    {
+        $this->capture([], ['name' => 'First Donor']);
+        $this->capture([], ['name' => 'Second Donor']);
+        $this->travel(10)->seconds();
+
+        $data = $this->getJson('/api/v1/board/feed?since=0&token='.$this->token())
+            ->assertOk()->json();
+
+        $this->assertCount(2, $data['recent']);
+        $this->assertSame('Second Donor', $data['recent'][0]['name'], 'newest first');
+        $this->assertSame([], $data['anonymous_recent']);
     }
 
     /** 3. Donor free text must never reach a screen in front of the congregation. */

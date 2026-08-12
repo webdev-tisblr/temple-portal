@@ -29,8 +29,14 @@ class DemoAnnounceBoard extends Command
 
     protected $description = 'Put a demo offering on the live donor display board (creates no donation)';
 
-    /** Marker so demo rows can always be told apart from real gifts. */
-    private const DEMO_MARKER = '__demo__';
+    /**
+     * Plausible types for rehearsal rows.
+     *
+     * Demo rows are identified by `donation_id IS NULL`, never by a marker
+     * string — an earlier version put '__demo__' in the donation_type field
+     * and it rendered on screen as the offering's category.
+     */
+    private const DEMO_TYPES = ['સામાન્ય દાન', 'અન્નદાન સેવા', 'ધ્વજા સેવા', 'વસ્ત્ર સેવા'];
 
     public function handle(DisplayBoardService $board): int
     {
@@ -68,8 +74,10 @@ class DemoAnnounceBoard extends Command
                         ? $this->option('amount')
                         : $amounts[$i % count($amounts)]),
                     'anonymous' => false,
-                    'campaign_title' => null,
-                    'donation_type' => self::DEMO_MARKER,
+                    // Every third row shows a campaign instead of a type, so
+                    // the rehearsal exercises both row shapes.
+                    'campaign_title' => $i % 3 === 2 ? 'શ્રી રામ વાટિકા' : null,
+                    'donation_type' => self::DEMO_TYPES[$i % count(self::DEMO_TYPES)],
                 ],
                 'announced_at' => $now,
                 'visible_from' => $now->copy()->addSeconds($board->delaySeconds()),

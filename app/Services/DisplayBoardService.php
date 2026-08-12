@@ -39,7 +39,7 @@ class DisplayBoardService
     private const SUPPRESSED_WINDOW_MINUTES = 30;
 
     /** Size of the attract-loop honour roll returned on every poll. */
-    private const RECENT_LIMIT = 12;
+    private const RECENT_LIMIT = 15;
 
     /**
      * Record a captured donation for the board.
@@ -157,7 +157,8 @@ class DisplayBoardService
             'entries' => $entries,
             // Always sent, so the attract loop can run entirely from client
             // memory during a network outage.
-            'recent' => $enabled ? $this->honourRoll() : [],
+            'recent' => $enabled ? $this->recentNamed() : [],
+            'anonymous_recent' => $enabled ? $this->anonymousRoll() : [],
             // Lets the screen pull an entry that is already on air.
             'suppressed_ids' => $enabled ? $this->recentlySuppressedIds() : [],
             'server_time' => now()->toIso8601String(),
@@ -172,15 +173,39 @@ class DisplayBoardService
     }
 
     /**
-     * The attract-loop roll. Anonymous gifts ARE included (masked) and the
-     * order is deliberately shuffled with no timestamps, so a Gupt Daan row
-     * cannot be correlated with whoever was last at the counter.
+     * The standing "recent offerings" column, newest first.
+     *
+     * NAMED gifts only, and that exclusion is the whole reason this is a
+     * separate method from anonymousRoll(). An ORDERED list is a timeline: a
+     * masked row sitting at position one, moments after someone walked away
+     * from the counter, identifies that person just as surely as printing
+     * their name would. Masking protects the name; only removing the ordering
+     * protects the timing.
      *
      * @return array<int, array<string, mixed>>
      */
-    private function honourRoll(): array
+    private function recentNamed(): array
     {
         return DonationBoardEntry::showable()
+            ->where('anonymous', false)
+            ->orderByDesc('id')
+            ->limit(self::RECENT_LIMIT)
+            ->get()
+            ->map(fn (DonationBoardEntry $e): array => $this->row($e))
+            ->all();
+    }
+
+    /**
+     * Gupt Daan gifts for the rotating honour card — masked, shuffled, and
+     * carrying no sequence number, so nothing about the order or the timing
+     * survives to the screen. They are honoured; they are not traceable.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function anonymousRoll(): array
+    {
+        return DonationBoardEntry::showable()
+            ->where('anonymous', true)
             ->orderByDesc('id')
             ->limit(self::RECENT_LIMIT)
             ->get()
@@ -231,39 +256,73 @@ class DisplayBoardService
     // so these are free to call per poll and the kill switch lands within one
     // poll cycle without any cache of our own.
 
+    /**
+     * Board defaults, in ONE place.
+     *
+     * Also consumed by the settings page so a never-saved key and a saved key
+     * agree. 2026-08-12: the settings form relied on Filament ->default(),
+     * which does not apply to a form filled from the database — so the first
+     * save wrote board_show_amounts=0 and board_announce_seconds='' and the
+     * screen showed no amounts and flashed each donor for two seconds.
+     */
+    public const DEFAULTS = [
+        'board_enabled' => '0',
+        'board_announce_anonymous' => '0',
+        'board_show_amounts' => '1',
+        'board_show_city' => '1',
+        'board_delay_seconds' => '5',
+        'board_announce_seconds' => '8',
+        'board_locale' => 'gu',
+    ];
+
+    /**
+     * A setting, treating an EMPTY string as absent.
+     *
+     * SystemSetting::getValue()'s $default only covers a missing row; a row
+     * saved as '' comes back as '' and then (int)'' is 0. For a duration that
+     * silently becomes "as fast as possible", which is exactly how the board
+     * ended up flashing donors for two seconds.
+     */
+    private function setting(string $key): string
+    {
+        $value = SystemSetting::getValue($key, self::DEFAULTS[$key] ?? '');
+
+        return $value === '' ? (self::DEFAULTS[$key] ?? '') : $value;
+    }
+
     public function enabled(): bool
     {
-        return SystemSetting::getValue('board_enabled', '0') === '1';
+        return $this->setting('board_enabled') === '1';
     }
 
     public function announceAnonymous(): bool
     {
-        return SystemSetting::getValue('board_announce_anonymous', '0') === '1';
+        return $this->setting('board_announce_anonymous') === '1';
     }
 
     private function showAmounts(): bool
     {
-        return SystemSetting::getValue('board_show_amounts', '1') === '1';
+        return $this->setting('board_show_amounts') === '1';
     }
 
     private function showCity(): bool
     {
-        return SystemSetting::getValue('board_show_city', '1') === '1';
+        return $this->setting('board_show_city') === '1';
     }
 
     public function delaySeconds(): int
     {
-        return max(0, (int) SystemSetting::getValue('board_delay_seconds', '5'));
+        return max(0, (int) $this->setting('board_delay_seconds'));
     }
 
     private function announceSeconds(): int
     {
-        return max(2, (int) SystemSetting::getValue('board_announce_seconds', '8'));
+        return max(3, (int) $this->setting('board_announce_seconds'));
     }
 
     public function locale(): string
     {
-        $locale = SystemSetting::getValue('board_locale', 'gu');
+        $locale = $this->setting('board_locale');
 
         return in_array($locale, DevoteeLocale::SUPPORTED, true) ? $locale : 'gu';
     }

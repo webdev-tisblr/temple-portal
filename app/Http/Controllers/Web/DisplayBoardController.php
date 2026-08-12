@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\SystemSetting;
 use App\Services\DisplayBoardService;
+use App\Support\QrCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -37,11 +39,27 @@ class DisplayBoardController extends Controller
         // donor board exists here at all.
         abort_unless($this->board->tokenMatches($token), 404);
 
+        // App-download QR for the info column. Same source of truth as the
+        // login page: the universal (platform-routing) link when the trust has
+        // set one, else whichever single store URL exists. Rendered inline by
+        // App\Support\QrCode so it regenerates whenever the setting changes —
+        // with the exported PNG as the fallback, exactly as on /login.
+        $storeUrl = (string) (SystemSetting::getValue('app_universal_store_url', '')
+            ?: SystemSetting::getValue('app_android_store_url', '')
+            ?: SystemSetting::getValue('app_ios_store_url', ''));
+
         return $this->noStore(response()->view('pages.board', [
             'token' => $token,
             'demo' => $request->boolean('demo'),
             'locale' => $this->board->locale(),
             'pollMs' => 2000,
+            'universalStoreUrl' => $storeUrl,
+            'androidStoreUrl' => (string) SystemSetting::getValue('app_android_store_url', ''),
+            'iosStoreUrl' => (string) SystemSetting::getValue('app_ios_store_url', ''),
+            'appQr' => $storeUrl !== '' ? QrCode::cachedSvg($storeUrl) : null,
+            'appQrImage' => file_exists(public_path('images/app-qr.png'))
+                ? asset('images/app-qr.png')
+                : null,
         ]));
     }
 

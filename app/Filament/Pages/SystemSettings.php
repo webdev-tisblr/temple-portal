@@ -77,6 +77,25 @@ class SystemSettings extends Page implements HasForms
 
         $settings['board_kiosk_url'] = $this->boardKioskUrl();
 
+        // Seed any board key that has never been saved.
+        //
+        // Filament's ->default() does NOT apply to a form filled from the
+        // database, so without this the first save wrote every unseen board
+        // key as '' or false: amounts vanished from the screen and each donor
+        // flashed for two seconds instead of eight (2026-08-12). Defaults live
+        // in DisplayBoardService::DEFAULTS so the form and the reader can
+        // never disagree about what "unset" means.
+        foreach (\App\Services\DisplayBoardService::DEFAULTS as $key => $default) {
+            if (! array_key_exists($key, $settings) || $settings[$key] === '' || $settings[$key] === null) {
+                $settings[$key] = $default;
+            }
+        }
+
+        // Toggles need real booleans, not the '1'/'0' strings the table holds.
+        foreach (['board_enabled', 'board_show_amounts', 'board_show_city', 'board_announce_anonymous'] as $key) {
+            $settings[$key] = ($settings[$key] ?? '0') === '1';
+        }
+
         $this->form->fill($settings);
     }
 

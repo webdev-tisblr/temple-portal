@@ -887,4 +887,29 @@ class Strict80GTest extends TestCase
         // The escape hatch, so no donor is trapped in the PAN bounce.
         $this->assertStringContainsString(__('donation.continue_without_80g'), $html);
     }
+
+    /**
+     * The 80G receipt must carry the donor's FULL PAN.
+     *
+     * It is a statutory document the donor files with their return, and a
+     * masked "******211R" is useless to an assessing officer. Receipts issued
+     * before 2026-08-09 stored a masked value; this locks the current
+     * behaviour so it cannot regress back.
+     */
+    public function test_the_receipt_stores_the_full_pan_not_a_masked_one(): void
+    {
+        $devotee = DevoteeFactory::new()->withPan('ABCDE1234F')->create();
+        $payment = PaymentFactory::new()->create(['status' => 'captured']);
+        $donation = DonationFactory::new()->create([
+            'devotee_id' => $devotee->id,
+            'payment_id' => $payment->id,
+            'amount' => 5000,
+            'wants_80g' => true,
+        ]);
+
+        $receipt = app(\App\Services\ReceiptService::class)->generateReceipt($donation);
+
+        $this->assertSame('ABCDE1234F', $receipt->pan_number);
+        $this->assertStringNotContainsString('*', $receipt->pan_number);
+    }
 }

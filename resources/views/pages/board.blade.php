@@ -216,6 +216,11 @@
                     animation: pulse 2s ease-in-out infinite; }
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
 
+        .price-pill {
+            display: inline-block; margin-top: 1vh; font-size: 2.1vh; font-weight: 700;
+            color: var(--ink); background: var(--gold); border-radius: 3vh; padding: .6vh 1.4vw;
+        }
+
         .anon-name {
             font-family: 'Noto Serif Gujarati',serif; font-size: 3.6vh;
             font-weight: 700; color: var(--gold); margin: .6vh 0;
@@ -336,31 +341,30 @@
         {{-- LEFT — rotating information --}}
         <section class="panel info" id="info">
             <div class="info-rotator">
-                <div class="card is-on" data-card>
-                    <div class="card-eyebrow" data-s="seva_eyebrow"></div>
-                    <div class="card-title" data-s="seva_title"></div>
-                    <div class="seva-grid">
-                        <div class="seva"><b>◈</b><span data-s="seva_dhwaja"></span></div>
-                        <div class="seva"><b>◈</b><span data-s="seva_vastra"></span></div>
-                        <div class="seva"><b>◈</b><span data-s="seva_annadaan"></span></div>
-                        <div class="seva"><b>◈</b><span data-s="seva_shringar"></span></div>
-                    </div>
-                    <div class="card-body" style="margin-top:1.6vh" data-s="seva_body"></div>
-                </div>
-
-                <div class="card" data-card>
-                    <div class="photo-card">
-                        <img src="{{ asset('images/hanumanji-hero.jpg') }}" alt="">
-                        <div class="photo-veil"></div>
-                        <div class="photo-top">
-                            <span class="card-eyebrow" data-s="vatika_eyebrow"></span>
+                @foreach($sevaCards as $i => $seva)
+                    <div class="card {{ $i === 0 ? 'is-on' : '' }}" data-card>
+                        <div class="photo-card">
+                            <img src="{{ $seva['image'] }}" alt="">
+                            <div class="photo-veil"></div>
+                            <div class="photo-top">
+                                <span class="card-eyebrow" data-s="seva_eyebrow"></span>
+                            </div>
+                            <div class="photo-bot">
+                                <div class="photo-title">{{ $seva['title'] }}</div>
+                                {{-- Tiered sevas (annadaan has three menu levels)
+                                     are priced FROM the cheapest, so the card
+                                     invites rather than deters. --}}
+                                <div class="price-pill">
+                                    @if($seva['tiered'])
+                                        {{ __('board.starts_from', ['amount' => number_format($seva['price'])]) }}
+                                    @else
+                                        ₹{{ number_format($seva['price']) }}
+                                    @endif
+                                </div>
+                            </div>
                         </div>
-                        <div class="photo-bot">
-                            <div class="photo-title" data-s="vatika_title"></div>
-                            <div class="card-body" style="max-width:none;text-align:left" data-s="vatika_body"></div>
-                        </div>
                     </div>
-                </div>
+                @endforeach
 
                 <div class="card" data-card>
                     @if($darshanUrl)
@@ -460,7 +464,7 @@
             app_eyebrow:'મંદિરની એપ', app_title:'એપ ડાઉનલોડ કરો', app_scan:'સ્કૅન કરો — iPhone અને Android',
             seva_eyebrow:'સેવા', seva_title:'સેવા બુકિંગ',
             seva_dhwaja:'ધ્વજા સેવા', seva_vastra:'વસ્ત્ર સેવા', seva_annadaan:'અન્નદાન સેવા', seva_shringar:'શૃંગાર સેવા',
-            trust_line:'સેવા ટ્રસ્ટ • અંતરજાળ', darshan_live:'દાદાનાં જીવંત દર્શન',
+            trust_line:'સેવા ટ્રસ્ટ • અંતરજાળ', darshan_live:'દાદાનાં LIVE દર્શન',
             seva_body:'એપ કે વેબસાઇટ પરથી સેવા બુક કરો',
             darshan_eyebrow:'દર્શન', darshan_title:'રોજ દર્શન', darshan_body:'દરરોજનાં દર્શન એપમાં જુઓ',
             vatika_eyebrow:'નિર્માણ', vatika_title:'શ્રી રામ વાટિકા', vatika_body:'શ્રી રામ વાટિકા નિર્માણમાં સહયોગ આપો',
@@ -473,7 +477,7 @@
             app_eyebrow:'मंदिर ऐप', app_title:'ऐप डाउनलोड करें', app_scan:'स्कैन करें — iPhone और Android',
             seva_eyebrow:'सेवा', seva_title:'सेवा बुकिंग',
             seva_dhwaja:'ध्वजा सेवा', seva_vastra:'वस्त्र सेवा', seva_annadaan:'अन्नदान सेवा', seva_shringar:'शृंगार सेवा',
-            trust_line:'सेवा ट्रस्ट • अंतरजाल', darshan_live:'दादा के जीवंत दर्शन',
+            trust_line:'सेवा ट्रस्ट • अंतरजाल', darshan_live:'दादा के LIVE दर्शन',
             seva_body:'ऐप या वेबसाइट से सेवा बुक करें',
             darshan_eyebrow:'दर्शन', darshan_title:'रोज़ दर्शन', darshan_body:'प्रतिदिन के दर्शन ऐप में देखें',
             vatika_eyebrow:'निर्माण', vatika_title:'श्री राम वाटिका', vatika_body:'श्री राम वाटिका निर्माण में सहयोग दें',

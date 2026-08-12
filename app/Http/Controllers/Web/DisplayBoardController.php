@@ -6,8 +6,11 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\DailyDarshanPhoto;
+use App\Models\DonationCampaign;
+use App\Models\Seva;
 use App\Models\SystemSetting;
 use App\Services\DisplayBoardService;
+use App\Support\DevoteeLocale;
 use App\Support\QrCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -54,10 +57,50 @@ class DisplayBoardController extends Controller
         // photograph is both the point of the feature and what fills the space.
         $darshan = DailyDarshanPhoto::currentCached();
 
+        // One card per seva, each with its own photograph, rather than a
+        // single card listing four names — a picture of the seva is what
+        // makes someone in the hall want it.
+        $sevaCards = DevoteeLocale::withLocale($this->board->locale(), function (): array {
+            return Seva::where('is_active', true)
+                ->whereNotNull('image_path')
+                ->orderBy('sort_order')
+                ->get()
+                ->groupBy('category')
+                ->map(function ($group) {
+                    // Annadaan ships as three menu tiers. Show ONE card: the
+                    // richest tier's photograph (the most appealing plate),
+                    // priced from the cheapest so nobody is put off by the
+                    // top of the range.
+                    $display = $group->sortByDesc('price')->first();
+                    $cheapest = (float) $group->min('price');
+                    $tiered = $group->count() > 1;
+
+                    return [
+                        'title' => $tiered
+                            ? __('board.seva_'.$display->category)
+                            : $display->name,
+                        'image' => image_url($display->image_path),
+                        'price' => $cheapest,
+                        'tiered' => $tiered,
+                    ];
+                })
+                ->values()
+                ->all();
+        });
+
+        // The campaign card carries the campaign's own featured image.
+        $campaign = DonationCampaign::where('is_active', true)
+            ->whereNotNull('image_path')
+            ->orderByDesc('is_featured')
+            ->first();
+
         return $this->noStore(response()->view('pages.board', [
             'token' => $token,
             'demo' => $request->boolean('demo'),
             'darshanUrl' => $darshan?->displayUrl(),
+            'sevaCards' => $sevaCards,
+            'campaignTitle' => $campaign?->title,
+            'campaignImage' => $campaign?->image_path ? image_url($campaign->image_path) : null,
             'darshanCaption' => $darshan?->caption,
             'locale' => $this->board->locale(),
             'pollMs' => 2000,

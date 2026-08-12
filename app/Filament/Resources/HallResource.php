@@ -67,8 +67,16 @@ class HallResource extends Resource
                     ->numeric()
                     ->prefix('₹')
                     ->required()
-                    ->helperText('Hall bookings are full-day only — one price per date.'),
-            ]),
+                    ->helperText('Hall bookings are full-day only — one price per date. GST, when enabled, is added ON TOP of this at checkout.'),
+                Forms\Components\TextInput::make('gst_rate')
+                    ->label('GST rate override (%)')
+                    ->numeric()
+                    ->minValue(0)
+                    ->maxValue(28)
+                    ->step(0.01)
+                    ->suffix('%')
+                    ->helperText('Leave blank to use the trust-wide default from System Settings → Hall GST. Set a value only when THIS hall is taxed differently. Has no effect while hall GST is switched off.'),
+            ])->columns(2),
 
             Forms\Components\Section::make('Image')->schema([
                 Forms\Components\FileUpload::make('image_path')

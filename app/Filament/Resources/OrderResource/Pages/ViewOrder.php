@@ -39,7 +39,9 @@ class ViewOrder extends ViewRecord
                     // Regenerate-on-miss: the stored PDF is a short-lived
                     // cache on R2 (swept after 7 days), so rebuild it when
                     // absent — same self-heal as the web + API endpoints.
-                    if (empty($this->record->invoice_path)) {
+                    // ...or when the cached PDF is in a language the customer
+                    // no longer uses (the invoice follows THEIR language).
+                    if (app(\App\Services\InvoiceService::class)->needsRegeneration($this->record)) {
                         try {
                             app(\App\Services\InvoiceService::class)->generateInvoice($this->record);
                             $this->record->refresh();

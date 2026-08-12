@@ -60,6 +60,9 @@ return [
     'label_grand_total' => 'कुल राशि',
 
     'label_amount_in_words' => 'राशि शब्दों में',
+    'label_taxable_value' => 'कर योग्य राशि',
+    'label_cgst' => 'CGST',
+    'label_sgst' => 'SGST',
 
     'status_pending' => 'लंबित',
     'status_confirmed' => 'कन्फर्म',

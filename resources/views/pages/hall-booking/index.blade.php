@@ -337,6 +337,23 @@
                             </div>
                             <div x-show="quoteDays > 1" class="mt-1 text-right text-[11px] text-amber-100/40"
                                  x-text="quoteDays + ' × ₹' + pricePerDayValue.toLocaleString('en-IN')"></div>
+
+                            {{-- Tax breakdown, shown only when the SERVER
+                                 quoted a GST rate. The devotee must see the
+                                 tax before paying, not first meet it on the
+                                 invoice. Still never computed here. --}}
+                            <template x-if="quoteGstRate !== null">
+                                <div class="mt-3 pt-3 border-t border-amber-800/30 space-y-1">
+                                    <div class="flex justify-between text-[12px] text-amber-100/50">
+                                        <span>{{ __('halls.taxable_value') }}</span>
+                                        <span x-text="'₹' + quoteSubtotal.toLocaleString('en-IN')"></span>
+                                    </div>
+                                    <div class="flex justify-between text-[12px] text-amber-100/50">
+                                        <span x-text="@js(__('halls.gst')) + ' ' + quoteGstRate + '%'"></span>
+                                        <span x-text="'₹' + quoteGstAmount.toLocaleString('en-IN')"></span>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
 
                         {{-- Submit Button (whole panel is auth-gated above) --}}
@@ -417,6 +434,11 @@ function hallBooking() {
         quoteTotal: pricePerDay,
         quoteDays: 1,
         pricePerDayValue: pricePerDay,
+        // GST, quoted by the server alongside the total. null = this booking
+        // carries no tax, and the breakdown rows stay hidden entirely.
+        quoteGstRate: null,
+        quoteGstAmount: 0,
+        quoteSubtotal: pricePerDay,
         selectedYear: currentYear,
         selectedMonth: currentMonthNum,
         years: Array.from({ length: 11 }, (_, i) => currentYear + i),
@@ -569,6 +591,9 @@ function hallBooking() {
                 if (typeof json.total_amount === 'number') this.quoteTotal = json.total_amount;
                 if (typeof json.days === 'number') this.quoteDays = json.days;
                 if (typeof json.price_per_day === 'number') this.pricePerDayValue = json.price_per_day;
+                this.quoteGstRate = typeof json.gst_rate === 'number' ? json.gst_rate : null;
+                this.quoteGstAmount = typeof json.gst_amount === 'number' ? json.gst_amount : 0;
+                if (typeof json.subtotal_amount === 'number') this.quoteSubtotal = json.subtotal_amount;
                 if (typeof json.max_booking_days === 'number') this.maxDays = json.max_booking_days;
             } catch (e) {
                 this.available = null;

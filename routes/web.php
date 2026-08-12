@@ -231,6 +231,10 @@ Route::middleware('auth:devotee')->group(function () {
         Route::post('/store/checkout', [StoreWebController::class, 'checkout'])->name('store.checkout');
         Route::get('/store/order/{order}/invoice', [StoreWebController::class, 'downloadInvoice'])->name('store.order.invoice');
         Route::get('/hall-booking/{booking}/invoice', [HallBookingController::class, 'downloadInvoice'])->name('hall.booking.invoice');
+    // Devotee-initiated cancellation REQUEST — the trust decides.
+    Route::post('/hall-booking/{booking}/cancel-request', [HallBookingController::class, 'requestCancellation'])
+        ->middleware('throttle:6,1')
+        ->name('hall.booking.cancel-request');
 
         // Dashboard
         Route::prefix('dashboard')->name('dashboard.')->group(function () {

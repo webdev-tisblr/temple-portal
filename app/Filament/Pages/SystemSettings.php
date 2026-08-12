@@ -229,6 +229,29 @@ class SystemSettings extends Page implements HasForms
                                     ->helperText('Shown in the footer and the app temple-info screen.'),
                             ])->columns(2),
 
+                        Forms\Components\Section::make('Hall GST')
+                            ->icon('heroicon-o-receipt-percent')
+                            ->description('GST on hall bookings, added ON TOP of the hall\'s day rate — the advertised rate stays the rate and tax appears as its own line on the invoice. Turning this ON changes what devotees are charged at checkout, so switch it on only once the trust actually holds a GSTIN.')
+                            ->schema([
+                                Forms\Components\Toggle::make('hall_gst_enabled')
+                                    ->label('Charge GST on hall bookings')
+                                    ->helperText('Off by default. Applies to NEW bookings only — bookings already taken keep the amounts they were invoiced at.'),
+                                Forms\Components\TextInput::make('trust_gstin')
+                                    ->label('Trust GSTIN')
+                                    ->placeholder('24XXXXXXXXXXXZX')
+                                    ->maxLength(15)
+                                    ->helperText('Printed on hall invoices whenever GST is charged.'),
+                                Forms\Components\TextInput::make('hall_gst_rate')
+                                    ->label('Default GST rate (%)')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(28)
+                                    ->step(0.01)
+                                    ->default('18.00')
+                                    ->suffix('%')
+                                    ->helperText('Split evenly into CGST + SGST on the invoice. An individual hall can override this on its own edit page.'),
+                            ])->columns(2),
+
                         Forms\Components\Section::make('80G Details')->schema([
                             Forms\Components\TextInput::make('trust_80g_reg_no')->label('80G Registration No.'),
                             Forms\Components\TextInput::make('trust_80g_validity')->label('80G Validity Period'),
@@ -258,6 +281,12 @@ class SystemSettings extends Page implements HasForms
                                     ->url()
                                     ->placeholder('https://play.google.com/store/apps/details?id=com.patadiyahanumanji.app')
                                     ->helperText('Google Play Store listing link.'),
+                                Forms\Components\TextInput::make('app_universal_store_url')
+                                    ->label('Universal app link (one QR)')
+                                    ->url()
+                                    ->placeholder('https://xxxxx.onelink.me/xxxx/xxxxxx')
+                                    ->helperText('A single smart link that sends iPhones to the App Store and Android phones to Play (OneLink, Branch, Firebase Dynamic Link, or your own redirect). When set, the login page shows ONE QR code instead of two — set this and visitors no longer have to work out which code is theirs. Leave blank to keep the separate per-store codes.')
+                                    ->columnSpanFull(),
                                 Forms\Components\TextInput::make('app_whatsapp_group_url')
                                     ->label('WhatsApp group invite link')
                                     ->url()

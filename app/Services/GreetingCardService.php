@@ -87,7 +87,7 @@ class GreetingCardService
             return null;
         }
 
-        $outputPath = 'greeting-cards/'.$donation->id.'.png';
+        $outputPath = $this->pathForDonation($donation, $locale);
         Storage::disk('r2_private')->put($outputPath, $pngBytes);
         $donation->update(['greeting_card_path' => $outputPath]);
 
@@ -122,11 +122,62 @@ class GreetingCardService
             return null;
         }
 
-        $outputPath = 'greeting-cards/seva/'.$booking->id.'.png';
+        $outputPath = $this->pathForSevaBooking($booking, $locale);
         Storage::disk('r2_private')->put($outputPath, $pngBytes);
         $booking->update(['greeting_card_path' => $outputPath]);
 
         return $outputPath;
+    }
+
+    /**
+     * Storage keys for greeting cards, locale-suffixed.
+     *
+     * The `-{locale}` suffix is load-bearing for the same reason it is on
+     * seva receipts and hall/store invoices: r2_private is a regenerable
+     * cache, and the download endpoints self-heal by comparing the STORED
+     * path against the one these methods produce for the devotee's CURRENT
+     * language. Before 2026-08-12 the card was keyed on the id alone, so a
+     * devotee who switched language kept being served the card rendered in
+     * the old one until the sweep cleared it — and there was no locale in
+     * the path to even detect the mismatch from.
+     *
+     * Both templates and overlay text differ per language
+     * (greeting_card_template_hi/_en), so these really are distinct images.
+     */
+    public function pathForDonation(Donation $donation, string $locale): string
+    {
+        return 'greeting-cards/'.$donation->id.'-'.$locale.'.png';
+    }
+
+    public function pathForSevaBooking(SevaBooking $booking, string $locale): string
+    {
+        return 'greeting-cards/seva/'.$booking->id.'-'.$locale.'.png';
+    }
+
+    /** Missing card, or one rendered in a language the devotee no longer uses. */
+    public function needsRegeneration(Donation $donation): bool
+    {
+        if (! $donation->greeting_card_path) {
+            return true;
+        }
+
+        return $donation->greeting_card_path !== $this->pathForDonation(
+            $donation,
+            $this->localeForDevotee($donation->loadMissing('devotee')->devotee),
+        );
+    }
+
+    /** Seva twin of needsRegeneration(). */
+    public function sevaCardNeedsRegeneration(SevaBooking $booking): bool
+    {
+        if (! $booking->greeting_card_path) {
+            return true;
+        }
+
+        return $booking->greeting_card_path !== $this->pathForSevaBooking(
+            $booking,
+            $this->localeForDevotee($booking->loadMissing('devotee')->devotee),
+        );
     }
 
     /**

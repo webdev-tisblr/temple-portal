@@ -172,6 +172,29 @@
                                 @else
                                     <span style="color: #8A7860;">&mdash;</span>
                                 @endif
+
+                                {{-- Cancellation. The devotee may only ASK;
+                                     the trust decides, so while a request is
+                                     open the booking still reads as confirmed
+                                     and only a waiting note is shown.
+                                     Eligibility comes from the same service
+                                     the POST enforces with. --}}
+                                @php $cancelSvc = app(\App\Services\HallCancellationService::class); @endphp
+                                @if($hallBooking->cancel_requested_at && ! $hallBooking->cancel_responded_at)
+                                    <span class="block mt-1.5 text-xs font-semibold" style="color: #B45309;">
+                                        {{ __('halls.cancel_pending') }}
+                                    </span>
+                                @elseif($cancelSvc->canRequest($hallBooking))
+                                    <form method="POST" action="{{ route('hall.booking.cancel-request', $hallBooking) }}"
+                                          class="mt-1.5"
+                                          onsubmit="return confirm(@js(__('halls.cancel_confirm_body')));">
+                                        @csrf
+                                        <button type="submit" class="text-xs font-semibold underline underline-offset-2 transition hover:opacity-70"
+                                                style="color: #9A3412;">
+                                            {{ __('halls.request_cancellation') }}
+                                        </button>
+                                    </form>
+                                @endif
                             </x-dashboard.cell>
                         </tr>
                     @endforeach

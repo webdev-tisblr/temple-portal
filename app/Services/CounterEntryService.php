@@ -398,7 +398,7 @@ class CounterEntryService
     {
         $hall = filled($data['hall_id'] ?? null) ? Hall::find($data['hall_id']) : null;
         if ($hall === null || empty($data['hall_booking_date'])) {
-            return ['total' => 0.0, 'label' => 'Hall booking', 'detail' => null];
+            return ['total' => 0.0, 'label' => 'Hall booking', 'detail' => null, 'subtotal' => 0.0, 'gst_rate' => null, 'gst_amount' => 0.0];
         }
 
         [$start, $end] = $this->hallRange($data);
@@ -407,10 +407,22 @@ class CounterEntryService
         // same service the website and the app use. Never re-derived here.
         $price = $this->halls->priceFor($hall, $start, $end);
 
+        $detail = $price['days'].' day(s) × ₹'.number_format($price['price_per_day'], 2);
+        if ($price['gst_rate'] !== null) {
+            $detail .= '  +  GST '.rtrim(rtrim(number_format($price['gst_rate'], 2), '0'), '.')
+                .'% ₹'.number_format($price['gst_amount'], 2);
+        }
+
         return [
             'total' => (float) $price['total'],
             'label' => 'Hall booking — '.$hall->name,
-            'detail' => $price['days'].' day(s) × ₹'.number_format($price['price_per_day'], 2),
+            'detail' => $detail,
+            // Carried so createHallBooking() can snapshot the same numbers
+            // the counter operator was shown, rather than recomputing after
+            // an admin has since edited the rate.
+            'subtotal' => $price['subtotal'],
+            'gst_rate' => $price['gst_rate'],
+            'gst_amount' => $price['gst_amount'],
         ];
     }
 
@@ -615,6 +627,9 @@ class CounterEntryService
             'contact_name' => ($data['contact_name'] ?? null) ?: $devotee->name,
             'contact_phone' => substr((string) (($data['contact_phone'] ?? null) ?: $devotee->phone), 0, 15),
             'total_amount' => $quote['total'],
+            'subtotal_amount' => $quote['subtotal'] ?? $quote['total'],
+            'gst_rate' => $quote['gst_rate'] ?? null,
+            'gst_amount' => $quote['gst_amount'] ?? 0.0,
             'status' => 'pending',
             'payment_id' => $payment->id,
             'admin_notes' => $data['notes'] ?? null,

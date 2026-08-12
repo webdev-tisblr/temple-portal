@@ -49,6 +49,12 @@ class HallInvoiceService
                 'amount_in_words' => NumberToWords::convert((float) $booking->total_amount),
                 'status_label' => $this->statusLabel($booking),
                 'booking_type_label' => $this->bookingTypeLabel($booking),
+                // GST, read from the booking's own snapshot rather than the
+                // live setting — an invoice reprinted after the trust changes
+                // its rate must still show what was actually charged. NULL
+                // gst_rate means the booking predates GST (or tax is off),
+                // and the blade then prints a plain total exactly as before.
+                'trust_gstin' => SystemSetting::getValue('trust_gstin', ''),
             ], ['format' => 'A4', 'watermark' => 'HALL BOOKING']);
         });
 

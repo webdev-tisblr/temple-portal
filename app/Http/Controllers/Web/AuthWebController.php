@@ -54,14 +54,36 @@ class AuthWebController extends Controller
         $androidStoreUrl = (string) SystemSetting::getValue('app_android_store_url', '');
         $iosStoreUrl = (string) SystemSetting::getValue('app_ios_store_url', '');
 
+        // ONE code that routes by platform, so a devotee standing in front of
+        // it doesn't have to work out which of two codes is theirs.
+        //
+        // Two ways to supply it, in precedence order:
+        //   1. `app_universal_store_url` — we render the QR ourselves. Best,
+        //      because editing the setting reissues the code automatically.
+        //   2. public/images/app-qr.png — the OneLink code exported from
+        //      AppsFlyer and dropped in as an image (added 2026-08-12).
+        //      Works with no setting at all, but it is a FROZEN artifact:
+        //      change where the OneLink points and this file keeps showing
+        //      the old code with nothing here to indicate it went stale.
+        //      Re-export it whenever the link changes.
+        //
+        // With neither, the page falls back to the per-store QR pair.
+        $universalStoreUrl = (string) SystemSetting::getValue('app_universal_store_url', '');
+        $universalQrImage = file_exists(public_path('images/app-qr.png'))
+            ? asset('images/app-qr.png')
+            : null;
+
         return view('auth.login', [
             'darshanPhoto' => $darshanPhoto,
             'darshanImageUrl' => $darshanPhoto?->displayUrl(),
             'androidStoreUrl' => $androidStoreUrl,
             'iosStoreUrl' => $iosStoreUrl,
+            'universalStoreUrl' => $universalStoreUrl,
+            'universalQrImage' => $universalQrImage,
             // Rendered inline (no external request, no image asset) and
             // cached on a hash of the URL, so editing the setting in admin
             // simply produces a new code — nothing to invalidate.
+            'universalQr' => $universalStoreUrl !== '' ? QrCode::cachedSvg($universalStoreUrl) : null,
             'androidQr' => $androidStoreUrl !== '' ? QrCode::cachedSvg($androidStoreUrl) : null,
             'iosQr' => $iosStoreUrl !== '' ? QrCode::cachedSvg($iosStoreUrl) : null,
         ]);

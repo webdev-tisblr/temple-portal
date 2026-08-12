@@ -220,7 +220,7 @@
                         <p class="text-xs text-amber-500 font-medium">{{ __('donation.extra_info') }}</p>
                         <template x-for="(field, index) in currentExtraFields" :key="field.key">
                             <div>
-                                <label class="block text-sm font-medium text-amber-600 mb-1" x-text="field.label_gu || field.label_en"></label>
+                                <label class="block text-sm font-medium text-amber-600 mb-1" x-text="field.label || field.label_gu || field.label_en"></label>
                                 <input x-show="field.type === 'text'" type="text"
                                     :name="field.type === 'text' ? 'extra_data[' + field.key + ']' : ''"
                                     :required="field.type === 'text' && field.required"

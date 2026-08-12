@@ -306,7 +306,8 @@ class SevaController extends BaseApiController
         // No R2 ->exists() probe — S3 HEADs hang, and the sweep NULLs
         // receipt_path when it deletes the object. Regenerate via the
         // service (not the job) so the devotee isn't re-notified.
-        if (! $booking->receipt_path) {
+        // needsRegeneration() also covers a stale-locale path.
+        if (app(SevaReceiptService::class)->needsRegeneration($booking)) {
             try {
                 app(SevaReceiptService::class)->generateReceipt($booking);
                 $booking->refresh();

@@ -76,6 +76,9 @@ return [
     // The words line itself stays English in every language — see the note
     // in NumberToWords / the services. Only this label is translated.
     'label_amount_in_words' => 'Amount in words',
+    'label_taxable_value' => 'Taxable value',
+    'label_cgst' => 'CGST',
+    'label_sgst' => 'SGST',
 
     // Statuses & booking types
     'status_pending' => 'Pending',

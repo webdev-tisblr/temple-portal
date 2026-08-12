@@ -313,6 +313,10 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         Route::post('/halls/{hall}/book', [HallController::class, 'book']);
         Route::get('/hall-bookings', [HallController::class, 'myBookings']);
         Route::get('/hall-bookings/{booking}/invoice', [HallController::class, 'downloadInvoice']);
+        // A cancellation REQUEST — the trust approves it, nothing is
+        // cancelled by this call. Throttled: it fires a notification.
+        Route::post('/hall-bookings/{booking}/cancel-request', [HallController::class, 'requestCancellation'])
+            ->middleware('throttle:6,1');
     });
 });
 

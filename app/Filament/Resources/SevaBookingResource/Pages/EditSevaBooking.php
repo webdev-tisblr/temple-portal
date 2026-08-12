@@ -35,7 +35,11 @@ class EditSevaBooking extends EditRecord
                     true,
                 ))
                 ->action(function () {
-                    if (! $this->record->receipt_path) {
+                    // Regenerates when absent OR when the cached PDF is in a
+                    // language the devotee no longer uses. The receipt is
+                    // always rendered in the DEVOTEE's language, not the
+                    // admin's — it is their document.
+                    if (app(SevaReceiptService::class)->needsRegeneration($this->record)) {
                         app(SevaReceiptService::class)
                             ->generateReceipt($this->record);
                         $this->record->refresh();

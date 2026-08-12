@@ -347,12 +347,15 @@ class SevaWebController extends Controller
     {
         $booking = SevaBooking::findOrFail($bookingId);
 
-        if (empty($booking->greeting_card_path)) {
+        // Also regenerates when the cached card is in a language the devotee
+        // no longer uses (paths carry a `-{locale}` suffix).
+        if (app(\App\Services\GreetingCardService::class)->sevaCardNeedsRegeneration($booking)) {
             $regeneratedPath = app(\App\Services\GreetingCardService::class)->generateForSevaBooking($booking);
             $booking->refresh();
             // null return = the seva has no card template configured at
-            // all — no card was ever supposed to exist. 404 is correct.
-            if (! $regeneratedPath || empty($booking->greeting_card_path)) {
+            // all — no card was ever supposed to exist. 404 is correct,
+            // unless an older card already exists to fall back on.
+            if (! $regeneratedPath && empty($booking->greeting_card_path)) {
                 abort(404);
             }
         }

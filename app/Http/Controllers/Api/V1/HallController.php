@@ -198,6 +198,12 @@ class HallController extends BaseApiController
                 'reason' => UnavailableReason::HallBooked->label(),
             ], $verdict['conflicting_dates']),
             'price_per_day' => $price['price_per_day'],
+            // Additive (2026-08-12). `total_amount` keeps its meaning — the
+            // gross payable — so an older app build that ignores these three
+            // still charges and displays the correct amount.
+            'subtotal_amount' => $price['subtotal'],
+            'gst_rate' => $price['gst_rate'],
+            'gst_amount' => $price['gst_amount'],
             'total_amount' => $price['total'],
             'amount_paise' => (int) round($price['total'] * 100),
             'max_booking_days' => $hall->maxBookingDays(),
@@ -288,7 +294,7 @@ class HallController extends BaseApiController
         $devotee = $request->user();
 
         try {
-            $result = DB::transaction(function () use ($hall, $validated, $devotee, $amount, $start, $end, $days) {
+            $result = DB::transaction(function () use ($hall, $validated, $devotee, $amount, $start, $end, $days, $price) {
                 // Race-safe re-check under a row lock. Before this, the hall
                 // conflict check ran OUTSIDE the transaction with no lock, so
                 // two devotees could both create a pending booking for the
@@ -328,6 +334,12 @@ class HallController extends BaseApiController
                     'contact_name' => $validated['contact_name'],
                     'contact_phone' => $validated['contact_phone'],
                     'total_amount' => $amount,
+                    // GST snapshot alongside the gross total, so the invoice
+                    // can print Taxable Value / CGST / SGST without recomputing
+                    // from a setting that may have changed since.
+                    'subtotal_amount' => $price['subtotal'],
+                    'gst_rate' => $price['gst_rate'],
+                    'gst_amount' => $price['gst_amount'],
                     'status' => 'pending',
                     'payment_id' => $payment->id,
                 ]);
@@ -375,7 +387,7 @@ class HallController extends BaseApiController
         }
     }
 
-    public function myBookings(Request $request): JsonResponse
+    public function myBookings(Request $request, \App\Services\HallCancellationService $cancellations): JsonResponse
     {
         $bookings = HallBooking::with('hall')
             ->where('devotee_id', $request->user()->id)
@@ -395,8 +407,19 @@ class HallController extends BaseApiController
                 'booking_type' => $b->booking_type,
                 'purpose' => $b->purpose,
                 'total_amount' => (float) $b->total_amount,
+                // Additive GST breakdown; null rate = untaxed booking.
+                'subtotal_amount' => $b->subtotal_amount !== null ? (float) $b->subtotal_amount : null,
+                'gst_rate' => $b->gst_rate !== null ? (float) $b->gst_rate : null,
+                'gst_amount' => $b->gst_amount !== null ? (float) $b->gst_amount : null,
                 'status' => $b->status,
                 'contact_name' => $b->contact_name,
+                // Cancellation-request state. `can_request_cancellation` is
+                // computed by the SAME service the endpoint enforces with, so
+                // the app never offers a button the server will reject.
+                'cancel_requested_at' => $b->cancel_requested_at?->toISOString(),
+                'cancel_reason' => $b->cancel_reason,
+                'cancel_responded_at' => $b->cancel_responded_at?->toISOString(),
+                'can_request_cancellation' => $cancellations->canRequest($b),
                 'created_at' => $b->created_at?->toISOString(),
             ])
             ->values()
@@ -426,7 +449,8 @@ class HallController extends BaseApiController
 
         // No R2 ->exists() probe — S3 HEADs from Hostinger hang, and the
         // sweep NULLs invoice_path when it deletes the object.
-        if (! $booking->invoice_path) {
+        // needsRegeneration() also covers a stale-locale path.
+        if (app(\App\Services\HallInvoiceService::class)->needsRegeneration($booking)) {
             // Service, not the GenerateHallInvoice job — self-heal regen
             // must not re-notify the customer on every redownload.
             try {
@@ -447,5 +471,44 @@ class HallController extends BaseApiController
         $filename = "Hall_Booking_{$booking->id}.pdf";
 
         return private_file_redirect($booking->invoice_path, $filename);
+    }
+
+    /**
+     * Devotee asks the trust to cancel a confirmed booking (2026-08-12).
+     *
+     * A REQUEST, never a cancellation: the booking stays confirmed and the
+     * date stays blocked until an admin decides. Ownership is checked before
+     * eligibility so a probe cannot distinguish "not yours" from "not
+     * cancellable" and enumerate other devotees' bookings.
+     */
+    public function requestCancellation(Request $request, HallBooking $booking, \App\Services\HallCancellationService $cancellations): JsonResponse
+    {
+        if ($booking->devotee_id !== $request->user()->id) {
+            return $this->error('Booking not found.', 404);
+        }
+
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $reasonCode = $cancellations->ineligibilityReason($booking);
+        if ($reasonCode !== null) {
+            return $this->error((string) __('halls.cancel_blocked_'.$reasonCode), 422);
+        }
+
+        if (! $cancellations->request($booking, $validated['reason'] ?? null)) {
+            // Lost the race against a concurrent identical request — the
+            // outcome the caller wanted is already true, so this is not an
+            // error state worth surfacing as one.
+            return $this->error((string) __('halls.cancel_blocked_already_requested'), 422);
+        }
+
+        return $this->success([
+            'id' => $booking->id,
+            'status' => $booking->status,
+            'cancel_requested_at' => $booking->cancel_requested_at?->toISOString(),
+            'cancel_reason' => $booking->cancel_reason,
+            'can_request_cancellation' => false,
+        ], (string) __('halls.cancel_requested_ok'));
     }
 }

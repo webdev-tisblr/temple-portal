@@ -47,6 +47,10 @@
            FreeSerifItalic carries no Devanagari glyphs — a Hindi label here
            rendered as tofu boxes (caught 2026-08-09). Only the English
            amount-in-words value keeps the italic. */
+        .totals-table { border-collapse: collapse; margin-bottom: 8px; }
+        .totals-table td { padding: 5px 10px; font-size: 11px; border-bottom: 1px solid #EFE2CC; }
+        .totals-table .t-label { color: #666; text-align: right; }
+        .totals-table .t-value { color: #333; text-align: right; width: 130px; font-weight: bold; }
         .amount-words { font-size: 10px; color: #666; }
         .amount-words .words-value { font-style: italic; }
         .amount-total { font-size: 16px; font-weight: bold; color: #881337; margin-bottom: 4px; }
@@ -141,11 +145,51 @@
             </table>
         </div>
 
-        {{-- Amount --}}
+        {{-- Amount.
+
+             When the booking carries a GST snapshot (gst_rate not null) the
+             total is broken out into Taxable Value → CGST → SGST → Total, as
+             a tax invoice must be. Both halves are the trust's own supply
+             within Gujarat, so the rate splits evenly into CGST + SGST; an
+             inter-state IGST case does not arise for a physical hall.
+
+             CGST is derived and SGST is the REMAINDER, never a second
+             independent round — otherwise an odd-paise rate (e.g. 5% of
+             ₹1,001.50) makes the two halves sum to a rupee either side of
+             gst_amount and the invoice fails to add up. --}}
+        @php
+            $gstRate = $booking->gst_rate !== null ? (float) $booking->gst_rate : null;
+            $gstAmount = (float) ($booking->gst_amount ?? 0);
+            $subtotal = (float) ($booking->subtotal_amount ?? $booking->total_amount);
+            $cgst = round($gstAmount / 2, 2);
+            $sgst = round($gstAmount - $cgst, 2);
+            $halfRate = $gstRate !== null ? rtrim(rtrim(number_format($gstRate / 2, 2), '0'), '.') : null;
+        @endphp
+
+        @if($gstRate !== null && $gstAmount > 0)
+            <table class="totals-table" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td class="t-label">{{ __('receipt.label_taxable_value') }}</td>
+                    <td class="t-value">&#8377; {{ number_format($subtotal, 2) }}</td>
+                </tr>
+                <tr>
+                    <td class="t-label">{{ __('receipt.label_cgst') }} @ {{ $halfRate }}%</td>
+                    <td class="t-value">&#8377; {{ number_format($cgst, 2) }}</td>
+                </tr>
+                <tr>
+                    <td class="t-label">{{ __('receipt.label_sgst') }} @ {{ $halfRate }}%</td>
+                    <td class="t-value">&#8377; {{ number_format($sgst, 2) }}</td>
+                </tr>
+            </table>
+        @endif
+
         <table class="amount-box" width="100%" cellpadding="0" cellspacing="0"><tr><td>
             <div class="amount-total">&#8377; {{ number_format((float) $booking->total_amount, 2) }}</div>
             {{-- Words stay English in every language — see the services. --}}
             <div class="amount-words">{{ __('receipt.label_amount_in_words') }}: <span class="words-value">{{ $amount_in_words }}</span></div>
+            @if($gstRate !== null && $gstAmount > 0 && ($trust_gstin ?? '') !== '')
+                <div class="amount-words" style="margin-top: 4px;">GSTIN: <span class="words-value">{{ $trust_gstin }}</span></div>
+            @endif
         </td></tr></table>
 
         {{-- Footer --}}

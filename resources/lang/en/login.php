@@ -22,5 +22,7 @@ return [
     'app_scan_hint' => 'Scan with your phone camera to install',
     'app_android' => 'Android — Play Store',
     'app_ios' => 'iPhone — App Store',
+    'app_scan_any' => 'iPhone & Android',
+    'app_get' => 'Get the app',
     'app_or' => 'or',
 ];

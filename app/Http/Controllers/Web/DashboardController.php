@@ -189,7 +189,9 @@ class DashboardController extends Controller
         // Self-heal: regenerate via the service (not the GenerateSevaReceipt
         // job — that path also notifies the devotee). No R2 ->exists()
         // probe — the sweep NULLs receipt_path, so non-null == present.
-        if (! $booking->receipt_path) {
+        // needsRegeneration() also catches a path rendered in a language the
+        // devotee has since changed away from.
+        if (app(SevaReceiptService::class)->needsRegeneration($booking)) {
             try {
                 app(SevaReceiptService::class)->generateReceipt($booking);
                 $booking->refresh();

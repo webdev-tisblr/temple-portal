@@ -47,7 +47,24 @@ class HallBookingResource extends Resource
                 Forms\Components\TextInput::make('days_count')->label('Days')->disabled(),
                 Forms\Components\TextInput::make('booking_type')->disabled(),
                 Forms\Components\TextInput::make('expected_guests')->disabled(),
-                Forms\Components\TextInput::make('total_amount')->prefix('₹')->disabled(),
+                // GST snapshot. Hidden entirely on bookings taken before GST
+                // was switched on, so historical rows don't sprout empty
+                // tax fields that imply they were somehow taxed at zero.
+                Forms\Components\TextInput::make('subtotal_amount')
+                    ->label('Taxable value')
+                    ->prefix('₹')
+                    ->disabled()
+                    ->visible(fn ($record) => $record?->gst_rate !== null),
+                Forms\Components\TextInput::make('gst_amount')
+                    ->label(fn ($record) => 'GST'.($record?->gst_rate !== null ? ' @ '.rtrim(rtrim(number_format((float) $record->gst_rate, 2), '0'), '.').'%' : ''))
+                    ->prefix('₹')
+                    ->disabled()
+                    ->visible(fn ($record) => $record?->gst_rate !== null),
+                Forms\Components\TextInput::make('total_amount')
+                    ->label('Total charged')
+                    ->prefix('₹')
+                    ->disabled()
+                    ->helperText(fn ($record) => $record?->gst_rate !== null ? 'Taxable value + GST.' : null),
             ])->columns(2),
             Forms\Components\Section::make('Payment')->schema([
                 Forms\Components\Placeholder::make('razorpay_payment_id_label')
@@ -71,6 +88,22 @@ class HallBookingResource extends Resource
                     ->label('Paid At')
                     ->content(fn ($record) => $record?->payment?->paid_at?->format('d M Y, H:i') ?? '—'),
             ])->columns(3),
+            // Shown ONLY while a devotee request is open, so it reads as a
+            // task to action rather than a dormant field. The decision
+            // itself is the two header actions, not this section.
+            Forms\Components\Section::make('Cancellation requested by the devotee')
+                ->icon('heroicon-o-exclamation-triangle')
+                ->description('The devotee has asked the trust to cancel. The booking is still confirmed and the date is still blocked — approve or decline it with the buttons at the top of this page.')
+                ->visible(fn ($record) => $record?->cancel_requested_at !== null && $record?->cancel_responded_at === null)
+                ->schema([
+                    Forms\Components\Placeholder::make('cancel_requested_at_label')
+                        ->label('Requested at')
+                        ->content(fn ($record) => $record?->cancel_requested_at?->format('d M Y, H:i') ?? '—'),
+                    Forms\Components\Placeholder::make('cancel_reason_label')
+                        ->label('Reason given')
+                        ->content(fn ($record) => $record?->cancel_reason ?: 'No reason given'),
+                ])->columns(2),
+
             Forms\Components\Section::make('Admin')->schema([
                 Forms\Components\Select::make('status')->options([
                     'pending' => 'Pending', 'confirmed' => 'Confirmed',
@@ -98,6 +131,20 @@ class HallBookingResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('purpose')->limit(30),
                 Tables\Columns\TextColumn::make('total_amount')->prefix('₹'),
+                Tables\Columns\IconColumn::make('cancel_requested_at')
+                    ->label('Cancel req.')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-exclamation-triangle')
+                    ->falseIcon('heroicon-o-minus-small')
+                    ->trueColor('danger')
+                    ->falseColor('gray')
+                    // TRUE only for OPEN requests — an answered one is history.
+                    ->getStateUsing(fn (HallBooking $record): bool => $record->cancel_requested_at !== null
+                        && $record->cancel_responded_at === null)
+                    ->tooltip(fn (HallBooking $record): ?string => $record->cancel_requested_at !== null
+                        && $record->cancel_responded_at === null
+                            ? ($record->cancel_reason ?: 'No reason given')
+                            : null),
                 Tables\Columns\TextColumn::make('status')->badge()->color(fn ($state) => match ($state) {
                     'confirmed' => 'success', 'pending' => 'warning',
                     'cancelled' => 'danger', 'completed' => 'info', default => 'gray',
@@ -105,6 +152,12 @@ class HallBookingResource extends Resource
             ])
             ->defaultSort('booking_date', 'desc')
             ->filters([
+                Tables\Filters\Filter::make('cancellation_requested')
+                    ->label('Cancellation requested')
+                    ->query(fn (\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder => $query
+                        ->whereNotNull('cancel_requested_at')
+                        ->whereNull('cancel_responded_at'))
+                    ->toggle(),
                 Tables\Filters\SelectFilter::make('status')->options([
                     'pending' => 'Pending', 'confirmed' => 'Confirmed',
                     'cancelled' => 'Cancelled', 'completed' => 'Completed',

@@ -69,7 +69,7 @@ class DonationWebController extends Controller
                 'id' => $t->id,
                 'slug' => $t->slug,
                 'name' => $t->name,
-                'extra_fields' => $t->extra_fields ?? [],
+                'extra_fields' => $t->localizedExtraFields(),
             ];
         })->values()->toArray();
 
@@ -318,14 +318,19 @@ class DonationWebController extends Controller
         // sweep NULLs greeting_card_path when it deletes the object, so a
         // non-null path means the file is present — no R2 ->exists() probe
         // (S3 HEADs from Hostinger hang).
-        if (empty($donation->greeting_card_path)) {
+        // needsRegeneration() also fires when the cached card was rendered
+        // in a language the devotee has since changed away from — card
+        // paths carry a `-{locale}` suffix for exactly this comparison.
+        if (app(\App\Services\GreetingCardService::class)->needsRegeneration($donation)) {
             $regeneratedPath = app(\App\Services\GreetingCardService::class)->generate($donation);
             $donation->refresh();
             // generate() returns null when the donation_type has no
             // template configured at all — that's not a missing-file
             // situation, it's "no card was ever supposed to exist for
-            // this donation type". 404 is the right response.
-            if (! $regeneratedPath || empty($donation->greeting_card_path)) {
+            // this donation type". 404 is the right response, but only when
+            // there is no previously rendered card to fall back on: a
+            // template removed after the fact must not 404 an old card.
+            if (! $regeneratedPath && empty($donation->greeting_card_path)) {
                 abort(404);
             }
         }

@@ -616,7 +616,8 @@ class StoreWebController extends Controller
         // invoice_path when it deletes the object, so non-null == present.
         // Use InvoiceService directly (not the GenerateStoreInvoice job)
         // so we don't re-email the customer every download.
-        if (! $order->invoice_path) {
+        // needsRegeneration() also covers a stale-locale path.
+        if (app(\App\Services\InvoiceService::class)->needsRegeneration($order)) {
             try {
                 app(\App\Services\InvoiceService::class)->generateInvoice($order);
                 $order->refresh();

@@ -298,7 +298,8 @@ class StoreController extends BaseApiController
         // so the customer doesn't get re-emailed on every download. No R2
         // ->exists() probe — S3 HEADs from Hostinger hang, and the sweep
         // NULLs invoice_path when it deletes the object, so non-null == present.
-        if (! $order->invoice_path) {
+        // needsRegeneration() also covers a stale-locale path.
+        if (app(\App\Services\InvoiceService::class)->needsRegeneration($order)) {
             try {
                 app(\App\Services\InvoiceService::class)->generateInvoice($order);
                 $order->refresh();

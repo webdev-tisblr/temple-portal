@@ -18,7 +18,7 @@ class HallBooking extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['status', 'total_amount', 'booking_date', 'end_date', 'days_count'])
+            ->logOnly(['status', 'total_amount', 'subtotal_amount', 'gst_rate', 'gst_amount', 'booking_date', 'end_date', 'days_count', 'cancel_requested_at', 'cancel_responded_at'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
             ->useLogName('money');
@@ -46,10 +46,16 @@ class HallBooking extends Model
         'contact_name',
         'contact_phone',
         'total_amount',
+        'subtotal_amount',
+        'gst_rate',
+        'gst_amount',
         'status',
         'payment_id',
         'admin_notes',
         'invoice_path',
+        'cancel_requested_at',
+        'cancel_reason',
+        'cancel_responded_at',
     ];
 
     protected $casts = [
@@ -57,6 +63,11 @@ class HallBooking extends Model
         'end_date' => 'date',
         'days_count' => 'integer',
         'total_amount' => 'decimal:2',
+        'subtotal_amount' => 'decimal:2',
+        'gst_rate' => 'decimal:2',
+        'gst_amount' => 'decimal:2',
+        'cancel_requested_at' => 'datetime',
+        'cancel_responded_at' => 'datetime',
         'expected_guests' => 'integer',
     ];
 

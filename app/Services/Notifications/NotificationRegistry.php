@@ -28,6 +28,7 @@ namespace App\Services\Notifications;
  *   donation.greeting_card → app/Jobs/GenerateGreetingCard.php
  *   seva.booking.confirmed → app/Jobs/GenerateSevaReceipt.php
  *   hall.booking.confirmed → app/Jobs/GenerateHallInvoice.php
+ *   hall.booking.cancel_request → app/Services/HallCancellationService.php
  *   store.order.confirmed  → app/Jobs/GenerateStoreInvoice.php
  *   auth.otp               → app/Services/OtpService.php
  *   contact.submitted      → app/Http/Controllers/Web/ContactController.php
@@ -273,8 +274,35 @@ final class NotificationRegistry
                     'booking_type' => 'Booking type label, eg "Full Day" (booking.booking_type_label)',
                     'purpose' => 'Booking purpose (booking.purpose)',
                     'amount' => 'Total amount with thousands separator (booking.total_amount_formatted)',
+                    'subtotal_amount' => 'Taxable value before GST — blank when the booking carries no GST (booking.subtotal_amount_formatted)',
+                    'gst_amount' => 'GST charged — blank when the booking carries no GST (booking.gst_amount_formatted)',
+                    'gst_rate' => 'GST rate, eg "18%" — blank when the booking carries no GST (booking.gst_rate_formatted)',
                     'booking_number' => 'Booking number (booking.booking_number)',
                     'invoice_pdf_url' => 'Invoice PDF link — permanent, regenerates on demand (invoice_pdf_url)',
+                    'trust_name' => 'Trust name from System Settings (trust_name)',
+                ],
+            ],
+
+            // Fires when a DEVOTEE asks to cancel a confirmed hall booking.
+            // The booking is NOT cancelled by this — it stays confirmed and
+            // the date stays blocked until the trust decides in admin. Map
+            // this to a WhatsApp template aimed at the trust's own number so
+            // somebody actually sees the request; a devotee-facing
+            // acknowledgement can be a second template on the same trigger.
+            'hall.booking.cancel_request' => [
+                'label' => 'Hall — cancellation REQUESTED by devotee',
+                'description' => 'Fires when a devotee requests cancellation of a confirmed hall booking from the app or the website. Nothing is cancelled automatically — an admin approves or declines it on the booking page. Point this at the trust so requests are seen promptly.',
+                'placeholders' => [
+                    'contact_name' => 'Contact name on the booking (booking.contact_name)',
+                    'contact_phone' => 'Contact phone on the booking (booking.contact_phone)',
+                    'hall_name' => 'Hall name (booking.hall.name)',
+                    'booking_number' => 'Booking number (booking.booking_number)',
+                    'booking_date' => 'Booking start date, pre-formatted (booking.booking_date)',
+                    'booking_date_range' => 'Whole range as one string, eg "12 - 14 Aug 2026" (booking.booking_date_range)',
+                    'days_count' => 'Number of days booked (booking.days_count)',
+                    'amount' => 'Total amount with thousands separator (booking.total_amount_formatted)',
+                    'cancel_reason' => 'Reason the devotee gave, or an em dash when they gave none (booking.cancel_reason)',
+                    'cancel_requested_at' => 'When the request was made, pre-formatted (booking.cancel_requested_at)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
             ],

@@ -94,6 +94,10 @@ class HallBookingController extends Controller
             'conflicting_dates' => $verdict['conflicting_dates'],
             'days' => $price['days'],
             'price_per_day' => $price['price_per_day'],
+            // Additive — the picker shows a GST line when gst_rate is not null.
+            'subtotal_amount' => $price['subtotal'],
+            'gst_rate' => $price['gst_rate'],
+            'gst_amount' => $price['gst_amount'],
             'total_amount' => $price['total'],
             'max_booking_days' => $hall->maxBookingDays(),
         ]);
@@ -160,12 +164,12 @@ class HallBookingController extends Controller
 
         // TEST MODE — skip Razorpay, direct confirm
         if (config('razorpay.test_mode')) {
-            return $this->bookTestMode($validated, $devotee, $hall, $totalAmount);
+            return $this->bookTestMode($validated, $devotee, $hall, $totalAmount, $price);
         }
 
         // REAL PAYMENT MODE
         try {
-            $result = DB::transaction(function () use ($validated, $devotee, $hall, $totalAmount) {
+            $result = DB::transaction(function () use ($validated, $devotee, $hall, $totalAmount, $price) {
                 // Race-safe re-check under a row lock — the pre-existing
                 // hall double-booking hole (two devotees both paying for
                 // the same date) is closed here, mirroring the seva path.
@@ -206,6 +210,12 @@ class HallBookingController extends Controller
                     'contact_name' => $validated['contact_name'],
                     'contact_phone' => $validated['contact_phone'],
                     'total_amount' => $totalAmount,
+                    // GST snapshot alongside the gross total, so the invoice
+                    // can print Taxable Value / CGST / SGST without recomputing
+                    // from a setting that may have changed since.
+                    'subtotal_amount' => $price['subtotal'],
+                    'gst_rate' => $price['gst_rate'],
+                    'gst_amount' => $price['gst_amount'],
                     'status' => 'pending',
                     'payment_id' => $payment->id,
                 ]);
@@ -239,10 +249,13 @@ class HallBookingController extends Controller
         }
     }
 
-    private function bookTestMode(array $validated, $devotee, Hall $hall, float $totalAmount): View
+    /**
+     * @param  array{days:int, price_per_day:float, subtotal:float, gst_rate:float|null, gst_amount:float, total:float}  $price
+     */
+    private function bookTestMode(array $validated, $devotee, Hall $hall, float $totalAmount, array $price): View
     {
         try {
-            $result = DB::transaction(function () use ($validated, $devotee, $hall, $totalAmount) {
+            $result = DB::transaction(function () use ($validated, $devotee, $hall, $totalAmount, $price) {
                 // Same locked re-check as the live path — test mode must not
                 // be the one place that can double-book a hall.
                 if (! $this->availability->hasRangeCapacityForUpdate($hall, $validated['booking_date'], $validated['end_date'])) {
@@ -274,6 +287,12 @@ class HallBookingController extends Controller
                     'contact_name' => $validated['contact_name'],
                     'contact_phone' => $validated['contact_phone'],
                     'total_amount' => $totalAmount,
+                    // GST snapshot alongside the gross total, so the invoice
+                    // can print Taxable Value / CGST / SGST without recomputing
+                    // from a setting that may have changed since.
+                    'subtotal_amount' => $price['subtotal'],
+                    'gst_rate' => $price['gst_rate'],
+                    'gst_amount' => $price['gst_amount'],
                     'status' => 'confirmed',
                     'payment_id' => $payment->id,
                 ]);
@@ -362,7 +381,8 @@ class HallBookingController extends Controller
 
         // No R2 ->exists() probe — S3 HEADs from Hostinger hang, and the
         // sweep NULLs invoice_path when it deletes the object.
-        if (! $booking->invoice_path) {
+        // needsRegeneration() also covers a stale-locale path.
+        if (app(\App\Services\HallInvoiceService::class)->needsRegeneration($booking)) {
             try {
                 // Service, not the job — self-heal regen must not
                 // re-notify the customer.
@@ -389,4 +409,35 @@ class HallBookingController extends Controller
     // GenerateHallInvoice (job) / HallInvoiceService now — the old
     // generateHallInvoice() + emailHallInvoice() duplicates were
     // removed 2026-08-04 when the receipt merged into the trigger.
+
+    /**
+     * Devotee asks the trust to cancel a confirmed booking (2026-08-12).
+     *
+     * Website twin of POST /api/v1/hall-bookings/{booking}/cancel-request.
+     * Both go through HallCancellationService so the eligibility rule is
+     * defined once. A REQUEST only — nothing is cancelled here.
+     */
+    public function requestCancellation(Request $request, HallBooking $booking, \App\Services\HallCancellationService $cancellations)
+    {
+        $devotee = Auth::guard('devotee')->user();
+
+        // 404 rather than 403 so the URL cannot be used to discover which
+        // booking ids exist against other devotees.
+        abort_if($booking->devotee_id !== $devotee->id, 404);
+
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $reasonCode = $cancellations->ineligibilityReason($booking);
+        if ($reasonCode !== null) {
+            return back()->withErrors(['cancel' => __('halls.cancel_blocked_'.$reasonCode)]);
+        }
+
+        if (! $cancellations->request($booking, $validated['reason'] ?? null)) {
+            return back()->withErrors(['cancel' => __('halls.cancel_blocked_already_requested')]);
+        }
+
+        return back()->with('success', __('halls.cancel_requested_ok'));
+    }
 }

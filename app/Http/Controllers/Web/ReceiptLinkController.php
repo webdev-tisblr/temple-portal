@@ -21,8 +21,15 @@ use Illuminate\Support\Facades\Log;
  * The route signature IS the authorization — no devotee session needed,
  * so the link works from a forwarded WhatsApp message months later.
  * PDFs on r2_private are a regenerable cache (swept after 7 days), so
- * every method regenerates on a NULL path before redirecting through
+ * every method regenerates before redirecting through
  * private_file_redirect() (10-minute presigned R2 URL).
+ *
+ * Regeneration is gated on the service's own needsRegeneration(), NOT on
+ * a bare null check. Paths are locale-suffixed ("-gu.pdf"), so a devotee
+ * who switches language has a stored path that no longer matches the one
+ * pathFor() would produce — a null check alone kept serving the old
+ * language until the 7-day sweep, which is exactly what these links are
+ * long-lived enough to hit (fixed 2026-08-12).
  *
  * Routes live behind ['signed', 'throttle:30,1'] — do NOT add them to
  * the CacheGuestResponse whitelist or the Cloudflare cache rule.
@@ -35,7 +42,7 @@ class ReceiptLinkController extends Controller
             abort(404);
         }
 
-        if (! $booking->receipt_path) {
+        if (app(SevaReceiptService::class)->needsRegeneration($booking)) {
             try {
                 app(SevaReceiptService::class)->generateReceipt($booking);
                 $booking->refresh();
@@ -59,7 +66,7 @@ class ReceiptLinkController extends Controller
             abort(404);
         }
 
-        if (! $order->invoice_path) {
+        if (app(InvoiceService::class)->needsRegeneration($order)) {
             try {
                 app(InvoiceService::class)->generateInvoice($order);
                 $order->refresh();
@@ -81,7 +88,7 @@ class ReceiptLinkController extends Controller
             abort(404);
         }
 
-        if (! $booking->invoice_path) {
+        if (app(HallInvoiceService::class)->needsRegeneration($booking)) {
             try {
                 app(HallInvoiceService::class)->generateInvoice($booking);
                 $booking->refresh();

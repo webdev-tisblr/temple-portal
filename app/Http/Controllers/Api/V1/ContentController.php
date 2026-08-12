@@ -723,7 +723,10 @@ class ContentController extends BaseApiController
                     'name_en' => $t->name_en,
                     'slug' => $t->slug,
                     'description' => $t->description,
-                    'extra_fields' => $t->extra_fields,
+                    // Carries a resolved `label` per field, matching the
+                    // X-Locale the caller sent. The raw label_* columns ride
+                    // along untouched as a safety net for older builds.
+                    'extra_fields' => $t->localizedExtraFields(),
                 ]);
         });
 

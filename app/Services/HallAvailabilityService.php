@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Enums\UnavailableReason;
 use App\Models\Hall;
 use App\Models\HallBooking;
+use App\Models\SystemSetting;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -172,18 +173,58 @@ final class HallAvailabilityService
      * Server-authoritative pricing: flat price_per_day × days, the whole
      * range blocked. The client NEVER computes this.
      *
-     * @return array{days:int, price_per_day:float, total:float}
+     * THE one place hall money is calculated. All four booking entry points
+     * (web, API, web test-mode, admin counter entry) call this, so GST added
+     * here reaches every one of them — which is exactly why it was added
+     * here in 2026-08-12 rather than in the controllers.
+     *
+     * `total` stays the GROSS payable, so callers that hand it to Razorpay
+     * or persist it as total_amount need no change; `subtotal` and
+     * `gst_amount` decompose it for the invoice.
+     *
+     * @return array{days:int, price_per_day:float, subtotal:float, gst_rate:float|null, gst_amount:float, total:float}
      */
     public function priceFor(Hall $hall, string $start, string $end): array
     {
         $days = max(1, (int) Carbon::parse($start)->startOfDay()->diffInDays(Carbon::parse($end)->startOfDay()) + 1);
         $perDay = (float) $hall->price_per_day;
+        $subtotal = round($perDay * $days, 2);
+
+        $gstRate = $this->gstRateFor($hall);
+        $gstAmount = $gstRate === null ? 0.0 : round($subtotal * $gstRate / 100, 2);
 
         return [
             'days' => $days,
             'price_per_day' => $perDay,
-            'total' => round($perDay * $days, 2),
+            'subtotal' => $subtotal,
+            'gst_rate' => $gstRate,
+            'gst_amount' => $gstAmount,
+            'total' => round($subtotal + $gstAmount, 2),
         ];
+    }
+
+    /**
+     * Effective GST percentage for a hall, or NULL when tax does not apply.
+     *
+     * Order: the master switch, then the hall's own override, then the
+     * trust-wide default. A hall may legitimately be taxed differently from
+     * the rest (a commercial banquet rate vs a community hall), so the
+     * per-hall column wins when set.
+     *
+     * NULL — not 0.0 — is the "no GST" answer, so the booking row records
+     * "untaxed" rather than the false claim "taxed at 0%".
+     */
+    public function gstRateFor(Hall $hall): ?float
+    {
+        if (SystemSetting::getValue('hall_gst_enabled', '0') !== '1') {
+            return null;
+        }
+
+        $rate = $hall->gst_rate !== null
+            ? (float) $hall->gst_rate
+            : (float) SystemSetting::getValue('hall_gst_rate', '0');
+
+        return $rate > 0 ? round($rate, 2) : null;
     }
 
     /**

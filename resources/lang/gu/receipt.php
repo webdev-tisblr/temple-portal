@@ -60,6 +60,9 @@ return [
     'label_grand_total' => 'કુલ રકમ',
 
     'label_amount_in_words' => 'રકમ શબ્દોમાં',
+    'label_taxable_value' => 'કરપાત્ર રકમ',
+    'label_cgst' => 'CGST',
+    'label_sgst' => 'SGST',
 
     'status_pending' => 'બાકી',
     'status_confirmed' => 'કન્ફર્મ',

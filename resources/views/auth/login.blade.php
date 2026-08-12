@@ -4,9 +4,17 @@
 
     Shape: two columns from `lg` up — today's darshan photograph on the left,
     the OTP flow on the cream sheet at the right — collapsing to a single
-    column (photo, then sheet) on phones. The photo's scrim dissolves INTO
-    the sheet colour (downwards on mobile, rightwards on desktop) so the two
-    halves never meet at a hard seam, and the trust crest sits on that seam.
+    column (photo, then sheet) on phones. Photo and sheet meet at a CLEAN
+    edge carried by a gold hairline, with the trust crest as a medallion
+    straddling it.
+
+    Revised 2026-08-12: the original build faded the photo into the sheet
+    colour with a pair of cream gradients so the halves met with no visible
+    seam. It bleached the bottom third of every darshan photograph and read
+    as a broken render rather than a transition. Replaced with one
+    bottom-weighted scrim (legibility only) plus the gold seam rule. The
+    app-download block also collapsed from two per-store QR codes to one
+    universal code — see the "Get the app" section below.
 
     Nothing about the OTP flow changed: the same two POSTs, the same Alpine
     state machine, the same inline validation errors and resend path. Only
@@ -32,7 +40,12 @@
     $darshanCaption = $darshanPhoto?->caption;
     $darshanDate = $darshanPhoto?->captured_on?->translatedFormat('j M Y');
 
-    $hasStoreLinks = $androidStoreUrl !== '' || $iosStoreUrl !== '';
+    // The universal link OR the exported QR image is enough to render the
+    // block on its own — the two per-store URLs are only the fallback path.
+    $hasStoreLinks = $universalStoreUrl !== ''
+        || $universalQrImage !== null
+        || $androidStoreUrl !== ''
+        || $iosStoreUrl !== '';
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -68,24 +81,36 @@
             @endif
         >
 
-        {{-- Legibility wash: darkens the top (mobile chip) and the bottom
-             (desktop caption) without flattening the middle of the photo. --}}
+        {{-- ONE scrim, bottom-weighted, doing a single job: hold the caption
+             chip and the date legible over an unpredictable photograph.
+
+             Rebuilt 2026-08-12. The previous treatment stacked three
+             gradients — a legibility wash plus two cream "dissolves" that
+             faded the photo into the sheet colour so the columns met with no
+             seam. In practice the dissolve ate the bottom third of every
+             darshan photograph into a grey-cream haze and read as a
+             rendering fault rather than a design. A photograph is either in
+             the composition or it is not; this one is, so it gets a clean
+             hard edge and the gold rule below carries the join. --}}
         <div class="absolute inset-0 pointer-events-none"
-             style="background: linear-gradient(180deg, rgba(42,24,16,0.52) 0%, rgba(42,24,16,0.04) 40%, rgba(42,24,16,0.10) 62%, rgba(42,24,16,0.46) 100%);"></div>
+             style="background: linear-gradient(180deg, rgba(42,24,16,0.58) 0%, rgba(42,24,16,0.08) 32%, rgba(42,24,16,0.12) 55%, rgba(42,24,16,0.68) 100%);"></div>
 
-        {{-- The dissolve into the sheet — downwards on mobile… --}}
-        <div class="absolute inset-0 pointer-events-none lg:hidden"
-             style="background: linear-gradient(180deg, rgba(251,245,234,0) 52%, rgba(251,245,234,0.65) 80%, rgba(251,245,234,0.97) 94%, #FBF5EA 100%);"></div>
-        {{-- …and rightwards on desktop, so the column edge disappears. --}}
-        <div class="absolute inset-0 pointer-events-none hidden lg:block"
-             style="background: linear-gradient(90deg, rgba(251,245,234,0) 58%, rgba(251,245,234,0.45) 84%, rgba(251,245,234,0.96) 97%, #FBF5EA 100%);"></div>
+        {{-- The seam itself: a gold hairline along the edge the sheet meets
+             — bottom on mobile, right on desktop. Deliberate, not dissolved. --}}
+        <div class="absolute inset-x-0 bottom-0 h-px pointer-events-none lg:hidden"
+             style="background: linear-gradient(90deg, rgba(200,148,52,0) 0%, rgba(200,148,52,0.75) 22%, rgba(200,148,52,0.75) 78%, rgba(200,148,52,0) 100%);"></div>
+        <div class="absolute inset-y-0 right-0 w-px pointer-events-none hidden lg:block"
+             style="background: linear-gradient(180deg, rgba(200,148,52,0) 0%, rgba(200,148,52,0.7) 18%, rgba(200,148,52,0.7) 82%, rgba(200,148,52,0) 100%);"></div>
 
-        {{-- Caption sits where the wash is dark: top-left on mobile (the
-             bottom is dissolving into cream there), bottom-left on desktop.
-             Only when there IS a darshan photo — labelling the bundled
-             fallback photograph "today's darshan" would be a small lie. --}}
+        {{-- Caption anchors bottom-left on every breakpoint now that the
+             scrim is dark at the base throughout — it used to jump to the
+             top on mobile only because the old cream dissolve bleached the
+             bottom. On mobile it clears the crest, which overlaps the seam
+             at centre. Only when there IS a darshan photo — labelling the
+             bundled fallback photograph "today's darshan" would be a small
+             lie. --}}
         @if($darshanPhoto)
-        <div class="absolute left-0 top-0 lg:top-auto lg:bottom-0 p-5 sm:p-7 lg:p-10 xl:p-12">
+        <div class="absolute bottom-0 left-0 max-w-[70%] p-5 pb-7 sm:p-7 lg:max-w-none lg:p-10 xl:p-12">
             <span class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-semibold"
                   style="background: rgba(42,24,16,0.42); color: #FFFCF5; border: 1px solid rgba(255,252,245,0.22); backdrop-filter: blur(4px);">
                 <span class="h-1.5 w-1.5 rounded-full" style="background: #E8751A;"></span>
@@ -275,11 +300,22 @@
             </div>
 
             {{-- ── Get the app ──────────────────────────────────────────
-                 Desktop sees scannable codes (generated inline, server-side
-                 — no third-party QR service, no external request); phones
-                 see the store link itself, because a QR is useless on the
-                 very device you would scan it with. Either platform whose
-                 store URL is unset in System Settings is simply absent. --}}
+                 ONE code when a universal link is configured (2026-08-12):
+                 the link itself decides App Store vs Play from the scanning
+                 device's user agent, so the visitor never has to work out
+                 which of two codes belongs to their phone — which is the
+                 whole failure mode of a two-QR block on a wall or a screen.
+
+                 Set `app_universal_store_url` in System Settings → Mobile
+                 App to switch to it. With it blank the page falls back to
+                 the per-store pair, so nothing breaks before the smart link
+                 exists.
+
+                 Codes are generated inline server-side (App\Support\QrCode)
+                 — no third-party QR service, no external request, no static
+                 image to go stale when the URL changes. Phones get the link
+                 as a button instead: a QR is useless on the very device you
+                 would scan it with. --}}
             @if($hasStoreLinks)
                 <section class="mt-7">
                     <div class="flex items-center gap-3">
@@ -288,40 +324,97 @@
                         <span class="h-px flex-1" style="background: rgba(122,30,30,0.14);"></span>
                     </div>
 
-                    @if($androidQr || $iosQr)
-                        <div class="mt-4 hidden justify-center gap-4 md:flex">
-                            @if($androidQr)
-                                <figure class="w-[8.5rem] rounded-2xl p-3 text-center"
-                                        style="background: #FFFCF5; border: 1px solid rgba(122,30,30,0.12); box-shadow: 0 2px 12px rgba(0,0,0,0.05);">
-                                    <a href="{{ $androidStoreUrl }}" target="_blank" rel="noopener">{!! $androidQr !!}</a>
-                                    <figcaption class="mt-2 text-[11px] font-semibold" style="color: #5E4F3D;">{{ __('login.app_android') }}</figcaption>
-                                </figure>
-                            @endif
-                            @if($iosQr)
-                                <figure class="w-[8.5rem] rounded-2xl p-3 text-center"
-                                        style="background: #FFFCF5; border: 1px solid rgba(122,30,30,0.12); box-shadow: 0 2px 12px rgba(0,0,0,0.05);">
-                                    <a href="{{ $iosStoreUrl }}" target="_blank" rel="noopener">{!! $iosQr !!}</a>
-                                    <figcaption class="mt-2 text-[11px] font-semibold" style="color: #5E4F3D;">{{ __('login.app_ios') }}</figcaption>
-                                </figure>
-                            @endif
+                    @if($universalQr || $universalQrImage)
+                        {{-- Single code: bigger than either of the old pair,
+                             because it no longer shares the row.
+
+                             Rendered from the setting when there is one, else
+                             from the exported PNG. The PNG carries no URL we
+                             can read, so it is shown as a plain figure rather
+                             than a link — there is nothing to link it to. --}}
+                        <div class="mt-4 hidden justify-center md:flex">
+                            <figure data-qr="app" class="w-[11rem] rounded-2xl p-3.5 text-center"
+                                    style="background: #FFFCF5; border: 1px solid rgba(122,30,30,0.12); box-shadow: 0 2px 14px rgba(0,0,0,0.06);">
+                                @if($universalQr)
+                                    <a href="{{ $universalStoreUrl }}" target="_blank" rel="noopener">{!! $universalQr !!}</a>
+                                @else
+                                    <img src="{{ $universalQrImage }}"
+                                         alt="{{ __('login.app_scan_any') }}"
+                                         width="648" height="648"
+                                         class="h-auto w-full"
+                                         loading="lazy" decoding="async">
+                                @endif
+                                <figcaption class="mt-2.5 text-[11px] font-semibold" style="color: #5E4F3D;">
+                                    {{ __('login.app_scan_any') }}
+                                </figcaption>
+                            </figure>
                         </div>
                         <p class="mt-3 hidden text-center text-[11px] md:block" style="color: #8A7860;">
                             {{ __('login.app_scan_hint') }}
                         </p>
-                    @endif
 
-                    <div class="mt-4 flex flex-col gap-2 {{ ($androidQr || $iosQr) ? 'md:hidden' : '' }}">
-                        @if($androidStoreUrl !== '')
-                            <a href="{{ $androidStoreUrl }}" target="_blank" rel="noopener" class="btn-temple w-full py-3">
-                                {{ __('login.app_android') }}
-                            </a>
+                        {{-- Phones can't scan a code on their own screen, so
+                             they get a tappable link. The universal setting
+                             gives one directly; with only the PNG we fall
+                             back to the per-store buttons, which DO carry
+                             URLs — otherwise a phone visitor would be shown
+                             a code they cannot use and no way to install. --}}
+                        <div class="mt-4 md:hidden">
+                            @if($universalStoreUrl !== '')
+                                <a href="{{ $universalStoreUrl }}" target="_blank" rel="noopener" class="btn-temple w-full py-3">
+                                    {{ __('login.app_get') }}
+                                </a>
+                            @else
+                                <div class="flex flex-col gap-2">
+                                    @if($androidStoreUrl !== '')
+                                        <a href="{{ $androidStoreUrl }}" target="_blank" rel="noopener" class="btn-temple w-full py-3">
+                                            {{ __('login.app_android') }}
+                                        </a>
+                                    @endif
+                                    @if($iosStoreUrl !== '')
+                                        <a href="{{ $iosStoreUrl }}" target="_blank" rel="noopener" class="btn-temple w-full py-3">
+                                            {{ __('login.app_ios') }}
+                                        </a>
+                                    @endif
+                                </div>
+                            @endif
+                        </div>
+                    @else
+                        @if($androidQr || $iosQr)
+                            <div class="mt-4 hidden justify-center gap-4 md:flex">
+                                @if($androidQr)
+                                    <figure data-qr="app" class="w-[8.5rem] rounded-2xl p-3 text-center"
+                                            style="background: #FFFCF5; border: 1px solid rgba(122,30,30,0.12); box-shadow: 0 2px 12px rgba(0,0,0,0.05);">
+                                        <a href="{{ $androidStoreUrl }}" target="_blank" rel="noopener">{!! $androidQr !!}</a>
+                                        <figcaption class="mt-2 text-[11px] font-semibold" style="color: #5E4F3D;">{{ __('login.app_android') }}</figcaption>
+                                    </figure>
+                                @endif
+                                @if($iosQr)
+                                    <figure data-qr="app" class="w-[8.5rem] rounded-2xl p-3 text-center"
+                                            style="background: #FFFCF5; border: 1px solid rgba(122,30,30,0.12); box-shadow: 0 2px 12px rgba(0,0,0,0.05);">
+                                        <a href="{{ $iosStoreUrl }}" target="_blank" rel="noopener">{!! $iosQr !!}</a>
+                                        <figcaption class="mt-2 text-[11px] font-semibold" style="color: #5E4F3D;">{{ __('login.app_ios') }}</figcaption>
+                                    </figure>
+                                @endif
+                            </div>
+                            <p class="mt-3 hidden text-center text-[11px] md:block" style="color: #8A7860;">
+                                {{ __('login.app_scan_hint') }}
+                            </p>
                         @endif
-                        @if($iosStoreUrl !== '')
-                            <a href="{{ $iosStoreUrl }}" target="_blank" rel="noopener" class="btn-temple w-full py-3">
-                                {{ __('login.app_ios') }}
-                            </a>
-                        @endif
-                    </div>
+
+                        <div class="mt-4 flex flex-col gap-2 {{ ($androidQr || $iosQr) ? 'md:hidden' : '' }}">
+                            @if($androidStoreUrl !== '')
+                                <a href="{{ $androidStoreUrl }}" target="_blank" rel="noopener" class="btn-temple w-full py-3">
+                                    {{ __('login.app_android') }}
+                                </a>
+                            @endif
+                            @if($iosStoreUrl !== '')
+                                <a href="{{ $iosStoreUrl }}" target="_blank" rel="noopener" class="btn-temple w-full py-3">
+                                    {{ __('login.app_ios') }}
+                                </a>
+                            @endif
+                        </div>
+                    @endif
                 </section>
             @endif
 

@@ -96,6 +96,46 @@ class DonationType extends Model
     }
 
     /**
+     * `extra_fields` with a resolved `label` on every entry.
+     *
+     * The raw JSON stores three parallel columns (`label_gu`, `label_hi`,
+     * `label_en`) but only `label_gu` and `label_en` are required in the
+     * admin, so `label_hi` is routinely blank. Until 2026-08-12 BOTH
+     * consumers — the website's Alpine form and the Flutter donate screen —
+     * hardcoded `label_gu || label_en`, so a Hindi or English donor was
+     * shown Gujarati labels on every dynamic field even though the rest of
+     * the page was translated.
+     *
+     * Resolution happens HERE, once, so the two surfaces cannot drift: the
+     * same fallback chain the name/description accessors use (requested
+     * locale → Gujarati → English → the raw key, which is never blank).
+     * Consumers read `label` and never touch the `label_*` columns, exactly
+     * as they already read `name` rather than `name_gu`.
+     */
+    public function localizedExtraFields(?string $locale = null): array
+    {
+        $locale ??= app()->getLocale();
+
+        return collect($this->extra_fields ?? [])
+            ->filter(fn ($field) => is_array($field))
+            ->map(function (array $field) use ($locale): array {
+                $localized = match ($locale) {
+                    'hi' => $field['label_hi'] ?? null,
+                    'en' => $field['label_en'] ?? null,
+                    default => null,
+                };
+
+                $field['label'] = (string) (filled($localized)
+                    ? $localized
+                    : ($field['label_gu'] ?? $field['label_en'] ?? $field['key'] ?? ''));
+
+                return $field;
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
      * Relationship: donations.
      */
     public function donations(): HasMany

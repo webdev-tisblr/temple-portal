@@ -23,11 +23,24 @@ class SystemSettingSeeder extends Seeder
             ['key' => 'youtube_channel_id', 'value' => '', 'group' => 'general', 'description' => 'YouTube channel ID'],
             ['key' => 'default_language', 'value' => 'gu', 'group' => 'general', 'description' => 'Default language code'],
             ['key' => 'receipt_prefix', 'value' => 'SPHST/80G', 'group' => 'payment', 'description' => '80G receipt number prefix'],
+            // Hall GST. OFF by default so enabling it is a deliberate act by
+            // the trust once they hold a GSTIN — switching it on changes what
+            // devotees are charged, so it must never default to on.
+            ['key' => 'hall_gst_enabled', 'value' => '0', 'group' => 'payment', 'description' => 'Charge GST on hall bookings (added on top of the hall rate)'],
+            ['key' => 'hall_gst_rate', 'value' => '18.00', 'group' => 'payment', 'description' => 'Default GST percentage for hall bookings; a hall may override it'],
+            ['key' => 'trust_gstin', 'value' => '', 'group' => 'payment', 'description' => 'Trust GSTIN, printed on hall invoices when GST is charged'],
             // Mobile app store links + install-banner toggle. Also read by the
             // /api/v1/app-config force-update endpoint.
             ['key' => 'app_install_banner_enabled', 'value' => '1', 'group' => 'app', 'description' => 'Show the "install our app" banner on the mobile website'],
             ['key' => 'app_ios_store_url', 'value' => '', 'group' => 'app', 'description' => 'Apple App Store listing URL'],
             ['key' => 'app_android_store_url', 'value' => '', 'group' => 'app', 'description' => 'Google Play Store listing URL'],
+            // One link that sends iPhones to the App Store and Android
+            // phones to Play (a OneLink/branch-style smart URL). When set it
+            // replaces the two per-store QR codes on /login with a single
+            // code, which is what a visitor standing in the temple actually
+            // scans — they should not have to know which of two codes is
+            // theirs. Blank falls back to the per-store pair.
+            ['key' => 'app_universal_store_url', 'value' => '', 'group' => 'app', 'description' => 'One smart link that routes iOS → App Store and Android → Play Store (drives the single login QR)'],
             // App Store guideline 3.2.2(iv): keep OFF until the trust is a
             // Benevity-approved nonprofit; the iOS app then donates via the
             // website. Flipping to '1' re-enables native iOS donations

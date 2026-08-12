@@ -5,5 +5,4 @@
 // in the page's own string table so the board keeps working offline.
 return [
     'seva_annadan' => 'અન્નદાન સેવા',
-    'starts_from' => 'શરૂઆત ₹:amount થી',
 ];

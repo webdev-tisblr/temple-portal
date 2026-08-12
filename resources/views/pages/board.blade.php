@@ -216,11 +216,6 @@
                     animation: pulse 2s ease-in-out infinite; }
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
 
-        .price-pill {
-            display: inline-block; margin-top: 1vh; font-size: 2.1vh; font-weight: 700;
-            color: var(--ink); background: var(--gold); border-radius: 3vh; padding: .6vh 1.4vw;
-        }
-
         .anon-name {
             font-family: 'Noto Serif Gujarati',serif; font-size: 3.6vh;
             font-weight: 700; color: var(--gold); margin: .6vh 0;
@@ -350,21 +345,34 @@
                                 <span class="card-eyebrow" data-s="seva_eyebrow"></span>
                             </div>
                             <div class="photo-bot">
+                                {{-- No price on the board. The screen is an
+                                     invitation to seva, not a rate card; the
+                                     app and website carry the pricing. --}}
                                 <div class="photo-title">{{ $seva['title'] }}</div>
-                                {{-- Tiered sevas (annadaan has three menu levels)
-                                     are priced FROM the cheapest, so the card
-                                     invites rather than deters. --}}
-                                <div class="price-pill">
-                                    @if($seva['tiered'])
-                                        {{ __('board.starts_from', ['amount' => number_format($seva['price'])]) }}
-                                    @else
-                                        ₹{{ number_format($seva['price']) }}
-                                    @endif
-                                </div>
                             </div>
                         </div>
                     </div>
                 @endforeach
+
+                {{-- Featured campaign (Shree Ram Vatika), on its own
+                     photograph. Restored 2026-08-13: the seva-card rewrite
+                     spliced out a region that included this card, so the
+                     campaign silently vanished from the rotation. --}}
+                @if($campaignTitle)
+                    <div class="card" data-card>
+                        <div class="photo-card">
+                            <img src="{{ $campaignImage ?: asset('images/hanumanji-hero.jpg') }}" alt="">
+                            <div class="photo-veil"></div>
+                            <div class="photo-top">
+                                <span class="card-eyebrow" data-s="vatika_eyebrow"></span>
+                            </div>
+                            <div class="photo-bot">
+                                <div class="photo-title">{{ $campaignTitle }}</div>
+                                <div class="card-body" style="max-width:none;text-align:left" data-s="vatika_body"></div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
 
                 <div class="card" data-card>
                     @if($darshanUrl)

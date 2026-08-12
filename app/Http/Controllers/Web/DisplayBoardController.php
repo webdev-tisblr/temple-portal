@@ -67,21 +67,17 @@ class DisplayBoardController extends Controller
                 ->get()
                 ->groupBy('category')
                 ->map(function ($group) {
-                    // Annadaan ships as three menu tiers. Show ONE card: the
-                    // richest tier's photograph (the most appealing plate),
-                    // priced from the cheapest so nobody is put off by the
-                    // top of the range.
+                    // Annadaan ships as three menu tiers; they collapse into
+                    // ONE card carrying the richest tier's photograph (the
+                    // most appealing plate). No price — the board invites
+                    // seva, it is not a rate card.
                     $display = $group->sortByDesc('price')->first();
-                    $cheapest = (float) $group->min('price');
-                    $tiered = $group->count() > 1;
 
                     return [
-                        'title' => $tiered
+                        'title' => $group->count() > 1
                             ? __('board.seva_'.$display->category)
                             : $display->name,
                         'image' => image_url($display->image_path),
-                        'price' => $cheapest,
-                        'tiered' => $tiered,
                     ];
                 })
                 ->values()

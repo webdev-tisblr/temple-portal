@@ -517,6 +517,11 @@
 
     var st = {
         lastSeq: null, seen: new Set(), queue: [], rows: [], anon: [],
+        // Seqs queued or currently on air. The server returns a new gift
+        // in BOTH `entries` and `recent` on the same poll, so without this
+        // the sidebar took it immediately AND the announcement added it
+        // again when the card landed — the same donation twice.
+        pending: new Set(),
         announcing: false, enabled: true, backoff: CFG.pollMs, lastOk: Date.now(),
         card: 0, annSeconds: 8, headline: ''
     };
@@ -582,6 +587,9 @@
     }
 
     function pushRow(e) {
+        // Idempotent: a re-render, a retry or a server list that already
+        // carries this gift must never produce a second row.
+        if (e.seq !== undefined && st.rows.some(function (r) { return r.seq === e.seq; })) return;
         st.rows.unshift(e);
         if (st.rows.length > CFG.listCap) st.rows.length = CFG.listCap;
     }
@@ -639,6 +647,9 @@
             card.classList.remove('is-in');
             void card.offsetWidth;
             card.classList.add('is-out');
+            // Released from pending in the same tick it joins the column, so
+            // there is no frame in which it is in neither or in both.
+            st.pending.delete(e.seq);
             pushRow(e);
             renderList(true);
 
@@ -678,7 +689,12 @@
         // The server's ordered list is the source of truth for the column;
         // locally-added rows only bridge the gap until the next poll.
         if (Array.isArray(d.recent) && d.recent.length && !st.announcing) {
-            var fresh = d.recent.filter(function (e) { return !kill.has(e.seq); });
+            // Anything still waiting to be announced is withheld, so the
+            // row appears exactly when the card flies into the column —
+            // never before it, and never twice.
+            var fresh = d.recent.filter(function (e) {
+                return !kill.has(e.seq) && !st.pending.has(e.seq);
+            });
             if (fresh.length !== st.rows.length || (fresh[0] && st.rows[0] && fresh[0].seq !== st.rows[0].seq)) {
                 st.rows = fresh; renderList(false);
             }
@@ -696,11 +712,19 @@
         entries.forEach(function (e) {
             if (st.seen.has(e.seq)) return;
             st.seen.add(e.seq);
-            if (!stale) st.queue.push(e);
+            if (!stale) { st.queue.push(e); st.pending.add(e.seq); }
             if (e.seq > st.lastSeq) seq(e.seq);
         });
 
-        if (stale) { seq(latest); renderList(false); return; }
+        if (stale) {
+            // Catch-up abandons the announcement queue; anything held
+            // pending must be released or it would never reach the column.
+            st.pending.clear();
+            st.queue = [];
+            seq(latest);
+            renderList(false);
+            return;
+        }
 
         if (st.seen.size > 800) st.seen = new Set(st.queue.map(function (e) { return e.seq; }));
         announceNext();

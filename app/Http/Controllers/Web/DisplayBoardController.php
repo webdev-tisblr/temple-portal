@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\DailyDarshanPhoto;
 use App\Models\SystemSetting;
 use App\Services\DisplayBoardService;
 use App\Support\QrCode;
@@ -48,9 +49,16 @@ class DisplayBoardController extends Controller
             ?: SystemSetting::getValue('app_android_store_url', '')
             ?: SystemSetting::getValue('app_ios_store_url', ''));
 
+        // Today's darshan, same source of truth as /darshan and the login page.
+        // The darshan card was two lines of text in a tall panel; the actual
+        // photograph is both the point of the feature and what fills the space.
+        $darshan = DailyDarshanPhoto::currentCached();
+
         return $this->noStore(response()->view('pages.board', [
             'token' => $token,
             'demo' => $request->boolean('demo'),
+            'darshanUrl' => $darshan?->displayUrl(),
+            'darshanCaption' => $darshan?->caption,
             'locale' => $this->board->locale(),
             'pollMs' => 2000,
             'universalStoreUrl' => $storeUrl,

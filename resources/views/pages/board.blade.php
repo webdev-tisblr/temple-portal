@@ -129,12 +129,15 @@
             font-weight: 700; font-size: 3.1vh; color: var(--parch);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .t-sub { font-size: 1.7vh; color: var(--gold); margin-top: .2vh; }
+        .t-sub { font-size: 1.9vh; color: var(--gold); margin-top: .3vh; font-weight: 600; }
+        .t-head { font-size: 1.6vh; color: var(--parch-faint); margin-top: .2vh; }
         .clock { margin-left: auto; text-align: right; flex: none; }
         .clock-time { font-size: 3vh; font-weight: 700; color: var(--parch-dim); font-variant-numeric: tabular-nums; }
         .clock-date { font-size: 1.5vh; color: var(--parch-faint); }
 
-        .cols { display: grid; grid-template-columns: 1fr 1.05fr; gap: 2vw; min-height: 0; }
+        /* 60:40 — the information side carries images and a QR and needs the
+   room; the donor column only ever holds a name, a tag and a figure. */
+        .cols { display: grid; grid-template-columns: 60fr 40fr; gap: 1.6vw; min-height: 0; }
 
         .panel {
             background: var(--panel); border: 1px solid var(--gold-soft);
@@ -160,21 +163,26 @@
         }
         .card-body { font-size: 2vh; color: var(--parch-dim); max-width: 34vw; }
 
-        .seva-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1vh 1.4vw; margin-top: 1.4vh; width: 100%; }
+        .seva-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4vh 1.2vw; margin-top: 2vh; width: 100%; }
         .seva {
-            display: flex; align-items: center; gap: .7vw; font-size: 1.95vh;
+            display: flex; align-items: center; gap: .8vw; font-size: 2.4vh;
             background: var(--panel-2); border: 1px solid var(--gold-soft);
-            border-radius: 1.1vh; padding: 1.1vh 1vw; color: var(--parch);
+            border-radius: 1.3vh; padding: 1.8vh 1.2vw; color: var(--parch);
         }
         .seva b { color: var(--gold); font-weight: 700; }
 
         .info-qr {
             flex: none; display: flex; align-items: center; gap: 1.6vw;
-            border-top: 1px solid var(--gold-soft); padding-top: 1.8vh;
+            border-top: 1px solid var(--gold-soft); padding-top: 1.6vh;
         }
-        .qr-wrap { background: #FFF9EE; padding: 1.1vh; border-radius: 1.4vh; flex: none; }
-        .qr-wrap svg, .qr-wrap img { display: block; width: 15vh; height: 15vh; }
-        .qr-text { text-align: left; min-width: 0; }
+        .qr-wrap {
+            background: #FFF9EE; padding: .9vh; border-radius: 1.2vh; flex: none; order: 2;
+            /* Sized HERE, not on the svg: the generated code carries an inline
+               width:100%, and an inline style beats a class selector. */
+            width: 16vh; height: 16vh;
+        }
+        .qr-wrap svg, .qr-wrap img { display: block; width: 100%; height: 100%; }
+        .qr-text { text-align: left; min-width: 0; order: 1; flex: 1; }
         .qr-title {
             font-family: 'Noto Serif Gujarati','Noto Serif Devanagari',serif;
             font-size: 2.5vh; font-weight: 700; color: var(--parch);
@@ -183,6 +191,30 @@
         .qr-feats { display: flex; flex-wrap: wrap; gap: .5vh .8vw; margin-top: 1vh; }
         .qr-feat { font-size: 1.5vh; color: var(--gold); background: var(--panel-2);
                    border: 1px solid var(--gold-soft); border-radius: .9vh; padding: .4vh .8vw; }
+
+        /* Full-bleed photo card. object-fit: cover keeps any aspect ratio
+           filling the frame — darshan photos arrive in all shapes. */
+        .photo-card { position: absolute; inset: 0; border-radius: 1.4vh; overflow: hidden; }
+        .photo-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .photo-veil {
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(10,6,3,.72) 0%, rgba(10,6,3,.06) 34%,
+                        rgba(10,6,3,.20) 62%, rgba(10,6,3,.86) 100%);
+        }
+        .photo-top { position: absolute; top: 2vh; left: 2vh; right: 2vh; text-align: left; }
+        .photo-bot { position: absolute; bottom: 2vh; left: 2vh; right: 2vh; text-align: left; }
+        .photo-title {
+            font-family: 'Noto Serif Gujarati','Noto Serif Devanagari',serif;
+            font-size: 3vh; font-weight: 700; color: var(--parch);
+            text-shadow: 0 1px 2vh rgba(0,0,0,.8);
+        }
+        .live-pill {
+            display: inline-flex; align-items: center; gap: .6vw; font-size: 1.6vh; font-weight: 700;
+            color: var(--parch); background: rgba(200,40,40,.85); border-radius: 3vh; padding: .5vh 1.1vw;
+        }
+        .live-dot { width: .9vh; height: .9vh; border-radius: 50%; background: #fff;
+                    animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
 
         .anon-name {
             font-family: 'Noto Serif Gujarati',serif; font-size: 3.6vh;
@@ -291,7 +323,8 @@
         <img class="crest" src="{{ asset('images/shree-pataliya-hanumanji-logo.png') }}" alt="">
         <div class="titles">
             <div class="t-name">{{ __('common.temple_name') }}</div>
-            <div class="t-sub" id="headline"></div>
+            <div class="t-sub" data-s="trust_line"></div>
+            <div class="t-head" id="headline"></div>
         </div>
         <div class="clock">
             <div class="clock-time" id="clock-time">—</div>
@@ -310,21 +343,43 @@
                         <div class="seva"><b>◈</b><span data-s="seva_dhwaja"></span></div>
                         <div class="seva"><b>◈</b><span data-s="seva_vastra"></span></div>
                         <div class="seva"><b>◈</b><span data-s="seva_annadaan"></span></div>
-                        <div class="seva"><b>◈</b><span data-s="seva_abhishek"></span></div>
+                        <div class="seva"><b>◈</b><span data-s="seva_shringar"></span></div>
                     </div>
                     <div class="card-body" style="margin-top:1.6vh" data-s="seva_body"></div>
                 </div>
 
                 <div class="card" data-card>
-                    <div class="card-eyebrow" data-s="vatika_eyebrow"></div>
-                    <div class="card-title" data-s="vatika_title"></div>
-                    <div class="card-body" data-s="vatika_body"></div>
+                    <div class="photo-card">
+                        <img src="{{ asset('images/hanumanji-hero.jpg') }}" alt="">
+                        <div class="photo-veil"></div>
+                        <div class="photo-top">
+                            <span class="card-eyebrow" data-s="vatika_eyebrow"></span>
+                        </div>
+                        <div class="photo-bot">
+                            <div class="photo-title" data-s="vatika_title"></div>
+                            <div class="card-body" style="max-width:none;text-align:left" data-s="vatika_body"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="card" data-card>
-                    <div class="card-eyebrow" data-s="darshan_eyebrow"></div>
-                    <div class="card-title" data-s="darshan_title"></div>
-                    <div class="card-body" data-s="darshan_body"></div>
+                    @if($darshanUrl)
+                        <div class="photo-card">
+                            <img src="{{ $darshanUrl }}" alt="">
+                            <div class="photo-veil"></div>
+                            <div class="photo-top">
+                                <span class="live-pill"><span class="live-dot"></span><span data-s="darshan_live"></span></span>
+                            </div>
+                            <div class="photo-bot">
+                                <div class="photo-title" data-s="darshan_title"></div>
+                                <div class="card-body" style="max-width:none;text-align:left">{{ $darshanCaption ?: '' }}</div>
+                            </div>
+                        </div>
+                    @else
+                        <div class="card-eyebrow" data-s="darshan_eyebrow"></div>
+                        <div class="card-title" data-s="darshan_title"></div>
+                        <div class="card-body" data-s="darshan_body"></div>
+                    @endif
                 </div>
 
                 {{-- Gupt Daan honour card: masked, shuffled, no time shown, so
@@ -404,7 +459,8 @@
         gu: {
             app_eyebrow:'મંદિરની એપ', app_title:'એપ ડાઉનલોડ કરો', app_scan:'સ્કૅન કરો — iPhone અને Android',
             seva_eyebrow:'સેવા', seva_title:'સેવા બુકિંગ',
-            seva_dhwaja:'ધ્વજા સેવા', seva_vastra:'વસ્ત્ર સેવા', seva_annadaan:'અન્નદાન સેવા', seva_abhishek:'અભિષેક સેવા',
+            seva_dhwaja:'ધ્વજા સેવા', seva_vastra:'વસ્ત્ર સેવા', seva_annadaan:'અન્નદાન સેવા', seva_shringar:'શૃંગાર સેવા',
+            trust_line:'સેવા ટ્રસ્ટ • અંતરજાળ', darshan_live:'દાદાનાં જીવંત દર્શન',
             seva_body:'એપ કે વેબસાઇટ પરથી સેવા બુક કરો',
             darshan_eyebrow:'દર્શન', darshan_title:'રોજ દર્શન', darshan_body:'દરરોજનાં દર્શન એપમાં જુઓ',
             vatika_eyebrow:'નિર્માણ', vatika_title:'શ્રી રામ વાટિકા', vatika_body:'શ્રી રામ વાટિકા નિર્માણમાં સહયોગ આપો',
@@ -416,7 +472,8 @@
         hi: {
             app_eyebrow:'मंदिर ऐप', app_title:'ऐप डाउनलोड करें', app_scan:'स्कैन करें — iPhone और Android',
             seva_eyebrow:'सेवा', seva_title:'सेवा बुकिंग',
-            seva_dhwaja:'ध्वजा सेवा', seva_vastra:'वस्त्र सेवा', seva_annadaan:'अन्नदान सेवा', seva_abhishek:'अभिषेक सेवा',
+            seva_dhwaja:'ध्वजा सेवा', seva_vastra:'वस्त्र सेवा', seva_annadaan:'अन्नदान सेवा', seva_shringar:'शृंगार सेवा',
+            trust_line:'सेवा ट्रस्ट • अंतरजाल', darshan_live:'दादा के जीवंत दर्शन',
             seva_body:'ऐप या वेबसाइट से सेवा बुक करें',
             darshan_eyebrow:'दर्शन', darshan_title:'रोज़ दर्शन', darshan_body:'प्रतिदिन के दर्शन ऐप में देखें',
             vatika_eyebrow:'निर्माण', vatika_title:'श्री राम वाटिका', vatika_body:'श्री राम वाटिका निर्माण में सहयोग दें',
@@ -428,7 +485,8 @@
         en: {
             app_eyebrow:'Temple app', app_title:'Download the app', app_scan:'Scan — iPhone & Android',
             seva_eyebrow:'Seva', seva_title:'Seva booking',
-            seva_dhwaja:'Dhwaja Seva', seva_vastra:'Vastra Seva', seva_annadaan:'Annadaan Seva', seva_abhishek:'Abhishek Seva',
+            seva_dhwaja:'Dhwaja Seva', seva_vastra:'Vastra Seva', seva_annadaan:'Annadaan Seva', seva_shringar:'Shringar Seva',
+            trust_line:'Seva Trust • Antarjal', darshan_live:'Live darshan',
             seva_body:'Book a seva from the app or website',
             darshan_eyebrow:'Darshan', darshan_title:'Daily Darshan', darshan_body:'See each day’s darshan in the app',
             vatika_eyebrow:'Construction', vatika_title:'Shree Ram Vatika', vatika_body:'Support the Shree Ram Vatika',

@@ -27,6 +27,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class AppServiceProvider extends ServiceProvider
@@ -83,10 +84,43 @@ class AppServiceProvider extends ServiceProvider
         // Section::make() calls are plain layout wrappers with no header bar
         // to put a toggle in, and collapsing one would hide fields behind an
         // unlabelled arrow.
+        //
+        // Collapsed state PERSISTS per section, per page, per browser. That
+        // needs a stable DOM id: Filament's persistCollapsed keys its Alpine
+        // store on `section-${$el.id}-isCollapsed`, and our sections set no
+        // id, so every one of them would key on the SAME empty string —
+        // collapsing one section would collapse every section on every page.
+        //
+        // The id is derived at RENDER time (a closure, not a string) because
+        // the Livewire component is not known when the section is built.
+        // Heading alone would make "Status" on Products and "Status" on
+        // Sevas share one state; scoping by the page class keeps them apart.
         $collapsible = function ($section): void {
-            if (filled($section->getHeading())) {
-                $section->collapsible();
+            if (blank($section->getHeading())) {
+                return;
             }
+
+            $section
+                ->collapsible()
+                ->id(function ($component): ?string {
+                    $heading = strip_tags((string) $component->getHeading());
+
+                    if ($heading === '') {
+                        return null;
+                    }
+
+                    // Outside a Livewire request there is no page to scope
+                    // to — fall back rather than throw, since an id is a
+                    // convenience here and never correctness.
+                    $page = rescue(
+                        fn (): string => class_basename($component->getLivewire()),
+                        'admin',
+                        report: false,
+                    );
+
+                    return 'sec-'.Str::slug($page.'-'.$heading);
+                })
+                ->persistCollapsed();
         };
 
         FormSection::configureUsing($collapsible);

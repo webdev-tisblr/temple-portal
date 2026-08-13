@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Pages\SystemSettings;
 use App\Filament\Resources\HallResource\Pages\CreateHall;
 use App\Filament\Resources\ProductResource\Pages\CreateProduct;
 use App\Models\AdminUser;
@@ -82,5 +83,62 @@ class AdminSectionsCollapsibleTest extends TestCase
 
         Livewire::test(CreateHall::class)->assertOk();
         Livewire::test(CreateProduct::class)->assertOk();
+    }
+
+    /**
+     * 5. Collapsed state persists, which is ONLY safe because each section
+     *    carries a distinct id. Filament keys the Alpine store on
+     *    `section-${$el.id}-isCollapsed`; with our sections previously
+     *    setting no id at all, every one of them would have keyed on the
+     *    same empty string and collapsing one would collapse the lot.
+     */
+    public function test_each_section_persists_under_its_own_id(): void
+    {
+        $rules = FormSection::make('Booking Rules');
+        $pricing = FormSection::make('Pricing');
+
+        $this->assertTrue($rules->shouldPersistCollapsed());
+        $this->assertNotNull($rules->getId());
+        $this->assertNotSame($rules->getId(), $pricing->getId(), 'two sections must never share a persist key');
+    }
+
+    /**
+     * 6. The id is scoped to the PAGE, not just the heading — otherwise
+     *    collapsing "Status" on Products would collapse "Status" on Sevas,
+     *    which reads as the UI losing track of itself.
+     */
+    public function test_the_same_heading_on_two_pages_gets_two_ids(): void
+    {
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+        $this->actingAs($this->superAdmin(), 'admin');
+
+        // Deliberately NOT deduped — duplicates are what we are looking for.
+        $idsOn = function (string $page): array {
+            $html = Livewire::test($page)->html();
+            preg_match_all('/id="(sec-[a-z0-9-]+)"/', $html, $m);
+
+            return $m[1];
+        };
+
+        $hall = $idsOn(CreateHall::class);
+        $product = $idsOn(CreateProduct::class);
+        $settings = $idsOn(SystemSettings::class);
+
+        $this->assertNotEmpty($hall, 'sections must render their ids into the DOM');
+        $this->assertNotEmpty($product);
+
+        $this->assertSame([], array_intersect($hall, $product), 'ids must not collide across pages');
+
+        // Within a page, two sections sharing an id would share a persist
+        // key and collapse together. Settings is the real test here: it is
+        // by far the largest form, and its tabs make repeated headings
+        // plausible in a way they are not on a resource form.
+        foreach (['hall' => $hall, 'product' => $product, 'settings' => $settings] as $page => $ids) {
+            $this->assertSame(
+                array_values(array_unique($ids)),
+                $ids,
+                "two sections on the {$page} page share an id",
+            );
+        }
     }
 }

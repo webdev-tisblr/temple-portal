@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\HasExtraFields;
 use App\Models\Concerns\HasManagedImages;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DonationCampaign extends Model
 {
+    use HasExtraFields;
     use HasManagedImages;
 
     protected $table = 'temple_donation_campaigns';
@@ -53,6 +55,7 @@ class DonationCampaign extends Model
         'greeting_card_template_hi',
         'greeting_card_template_en',
         'greeting_card_config',
+        'extra_fields',
         'featured_video_url',
         'media',
         'faqs',
@@ -75,6 +78,7 @@ class DonationCampaign extends Model
         'media' => 'array',
         'faqs' => 'array',
         'greeting_card_config' => 'array',
+        'extra_fields' => 'array',
     ];
 
     public function getTitleAttribute(): string

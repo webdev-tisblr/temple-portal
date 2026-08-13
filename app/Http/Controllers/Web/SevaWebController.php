@@ -123,14 +123,21 @@ class SevaWebController extends Controller
             return back()->withErrors(['slot_time' => $slotError]);
         }
 
+        // Extra-field answers, with any photo uploaded to R2 first. Done
+        // BEFORE the transaction: an upload is slow network I/O and must not
+        // be holding a row lock (2026-08-13).
+        $extraData = \App\Support\ExtraFieldValues::store(
+            $request, $seva->extra_fields, $validated['extra_data'] ?? null, 'seva-extras'
+        );
+
         // TEST MODE — skip Razorpay, direct confirm
         if (config('razorpay.test_mode')) {
-            return $this->bookTestMode($seva, $validated, $devotee, $quantity, $totalAmount);
+            return $this->bookTestMode($seva, $validated, $devotee, $quantity, $totalAmount, $extraData);
         }
 
         // REAL PAYMENT MODE
         try {
-            $result = DB::transaction(function () use ($seva, $validated, $devotee, $quantity, $totalAmount) {
+            $result = DB::transaction(function () use ($seva, $validated, $devotee, $quantity, $totalAmount, $extraData) {
                 // Race-safe capacity re-check under a row lock — closes the
                 // window between validateBooking() above and the insert
                 // below where two devotees could grab the same last slot.
@@ -177,6 +184,7 @@ class SevaWebController extends Controller
                     'sankalp' => $validated['sankalp'] ?? null,
                     'selected_product_id' => $validated['selected_product_id'] ?? null,
                     'selected_variant_label' => $validated['selected_variant_label'] ?? null,
+                    'extra_data' => $extraData,
                 ]);
 
                 return [
@@ -205,10 +213,10 @@ class SevaWebController extends Controller
         }
     }
 
-    private function bookTestMode(Seva $seva, array $validated, $devotee, int $quantity, float $totalAmount): View|RedirectResponse
+    private function bookTestMode(Seva $seva, array $validated, $devotee, int $quantity, float $totalAmount, ?array $extraData = null): View|RedirectResponse
     {
         try {
-            $result = DB::transaction(function () use ($seva, $validated, $devotee, $quantity, $totalAmount) {
+            $result = DB::transaction(function () use ($seva, $validated, $devotee, $quantity, $totalAmount, $extraData) {
                 if (! app(SevaSlotService::class)->hasSlotCapacityForUpdate(
                     $seva, $validated['booking_date'], $validated['slot_time'] ?? null
                 )) {
@@ -244,6 +252,7 @@ class SevaWebController extends Controller
                     'sankalp' => $validated['sankalp'] ?? null,
                     'selected_product_id' => $validated['selected_product_id'] ?? null,
                     'selected_variant_label' => $validated['selected_variant_label'] ?? null,
+                    'extra_data' => $extraData,
                 ]);
 
                 // No Donation row for seva bookings — seva payments are

@@ -112,6 +112,16 @@ class DonationCampaignResource extends Resource
             // Campaign donations carry no donation_type_id (the donate form hides
             // the type picker in campaign mode), so without artwork HERE a
             // campaign gift can never produce a card at all.
+            Forms\Components\Section::make('Extra Fields (asked at donation)')
+                ->icon('heroicon-o-clipboard-document-list')
+                ->description('Optional questions a donor answers when giving to THIS campaign — a name to dedicate it to, a photo. Answers can be placed on the greeting card below.')
+                ->collapsed()
+                ->schema([
+                    \App\Filament\Support\ExtraFieldsRepeater::make(
+                        'Asked on the campaign donation form, on the website and in the app.'
+                    ),
+                ]),
+
             Forms\Components\Section::make('Greeting Card')
                 ->icon('heroicon-o-photo')
                 ->description('Optional: donors to this campaign receive a greeting card image, rendered in their preferred language. Upload a background per language, then drag & drop variables on the canvas. Nothing is sent until the "Donation — campaign greeting card" notification template is created and enabled.')
@@ -147,13 +157,13 @@ class DonationCampaignResource extends Resource
                             'statePath' => 'data.greeting_card_config',
                             // Campaigns have no extra_fields, so the built-ins are
                             // the whole set — same situation as Seva.
-                            'availableVars' => [
+                            'availableVars' => array_merge([
                                 ['key' => '_donor_name', 'label' => 'Devotee Name', 'type' => 'text', 'auto' => true],
                                 ['key' => '_campaign_title', 'label' => 'Campaign Name', 'type' => 'text', 'auto' => true],
                                 ['key' => '_amount', 'label' => 'Amount', 'type' => 'text', 'auto' => true],
                                 ['key' => '_date', 'label' => 'Date', 'type' => 'text', 'auto' => true],
                                 ['key' => '_temple_name', 'label' => 'Temple Name', 'type' => 'text', 'auto' => true],
-                            ],
+                            ], \App\Filament\Support\ExtraFieldsRepeater::asCardVariables($record?->extra_fields)),
                         ]))
                         ->columnSpanFull(),
 

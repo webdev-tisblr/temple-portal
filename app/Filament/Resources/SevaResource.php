@@ -202,6 +202,16 @@ class SevaResource extends Resource
                         ->visible(fn (Get $get) => (bool) $get('enable_product_selection')),
                 ])->columns(2),
 
+            Forms\Components\Section::make('Extra Fields (asked at booking)')
+                ->icon('heroicon-o-clipboard-document-list')
+                ->description('Optional questions the devotee answers when booking this seva — a name, a date, a photo. Answers can be placed on the greeting card below.')
+                ->collapsed()
+                ->schema([
+                    \App\Filament\Support\ExtraFieldsRepeater::make(
+                        'Asked on the seva booking form, on the website and in the app.'
+                    ),
+                ]),
+
             Forms\Components\Section::make('Greeting Card')
                 ->icon('heroicon-o-photo')
                 ->description('Optional: devotees receive a greeting card image after booking this seva, rendered in their preferred language. Upload a background per language, then drag & drop variables on the canvas. Delivery channels are controlled by the "Seva — greeting card" notification templates.')
@@ -235,7 +245,7 @@ class SevaResource extends Resource
                         ->content(fn ($record) => view('filament.components.greeting-card-editor', [
                             'record' => $record,
                             'statePath' => 'data.greeting_card_config',
-                            'availableVars' => [
+                            'availableVars' => array_merge([
                                 ['key' => '_donor_name', 'label' => 'Devotee Name', 'type' => 'text', 'auto' => true],
                                 ['key' => '_seva_name', 'label' => 'Seva Name', 'type' => 'text', 'auto' => true],
                                 ['key' => '_booking_date', 'label' => 'Booking Date', 'type' => 'text', 'auto' => true],
@@ -244,7 +254,7 @@ class SevaResource extends Resource
                                 ['key' => '_sankalp', 'label' => 'Sankalp', 'type' => 'text', 'auto' => true],
                                 ['key' => '_date', 'label' => 'Date', 'type' => 'text', 'auto' => true],
                                 ['key' => '_temple_name', 'label' => 'Temple Name', 'type' => 'text', 'auto' => true],
-                            ],
+                            ], \App\Filament\Support\ExtraFieldsRepeater::asCardVariables($record?->extra_fields)),
                         ]))
                         ->columnSpanFull(),
 

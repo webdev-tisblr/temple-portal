@@ -34,18 +34,19 @@ class DonationController extends BaseApiController
         // file); store each to R2 and replace the value with the R2 path so
         // GreetingCardService can use it as an overlay source. Text fields
         // pass through untouched.
+        // Definitions come from the donation TYPE, or from the CAMPAIGN when
+        // the gift is to a campaign (donation_type_id is null there, because
+        // the type picker is hidden in campaign mode) — 2026-08-13.
         $extraData = $validated['extra_data'] ?? null;
-        if ($extraData && ! empty($validated['donation_type_id'])) {
-            $donationType = DonationType::find($validated['donation_type_id']);
-            if ($donationType && is_array($donationType->extra_fields)) {
-                foreach ($donationType->extra_fields as $field) {
-                    $key = $field['key'] ?? null;
-                    if ($key && ($field['type'] ?? '') === 'image' && $request->hasFile("extra_data.{$key}")) {
-                        $extraData[$key] = $request->file("extra_data.{$key}")->store('donation-extras', 'r2');
-                    }
-                }
-            }
+        $definitions = null;
+
+        if (! empty($validated['donation_type_id'])) {
+            $definitions = DonationType::find($validated['donation_type_id'])?->extra_fields;
+        } elseif (! empty($validated['campaign_id'])) {
+            $definitions = \App\Models\DonationCampaign::find($validated['campaign_id'])?->extra_fields;
         }
+
+        $extraData = \App\Support\ExtraFieldValues::store($request, $definitions, $extraData, 'donation-extras');
 
         // Item 5.4 — the strict 80G rule, decided up front so the row is
         // born truthful. `wants_80g` is what the donor asked for;

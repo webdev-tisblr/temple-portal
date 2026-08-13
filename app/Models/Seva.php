@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\HasExtraFields;
 use App\Models\Concerns\HasManagedImages;
 use App\Services\SevaSlotService;
 use Illuminate\Database\Eloquent\Model;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Seva extends Model
 {
+    use HasExtraFields;
     use HasManagedImages;
 
     protected $table = 'temple_sevas';
@@ -39,6 +41,7 @@ class Seva extends Model
         'is_variable_price',
         'image_path',
         'slot_config',
+        'extra_fields',
         'slot_pool_id',
         'requires_booking',
         'is_active',
@@ -61,6 +64,7 @@ class Seva extends Model
         'min_price' => 'decimal:2',
         'is_variable_price' => 'boolean',
         'slot_config' => 'array',
+        'extra_fields' => 'array',
         'reminder_offsets' => 'array',
         'linked_products' => 'array',
         'greeting_card_config' => 'array',

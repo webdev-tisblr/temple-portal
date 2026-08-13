@@ -61,37 +61,6 @@ class CreateDonationRequest extends FormRequest
             // send no such field) keep asking for one; whether they GET
             // one is decided by the PAN gate in ReceiptService, not here.
             'wants_80g' => ['nullable', 'boolean'],
-            'extra_data' => ['nullable', 'array'],
-            // extra_data is a mixed bag: DonationType.extra_fields can define
-            // text/number/etc. inputs AND file (image) inputs, all keyed
-            // dynamically. DonationWebController stores ANY uploaded file
-            // under extra_data.{key} straight to R2, so the file inputs must
-            // be constrained to images. We can't enumerate the keys here, so
-            // the per-item rule applies the image constraint ONLY when the
-            // value is an actual uploaded file, leaving scalar text values
-            // (which are validated as nullable) untouched.
-            'extra_data.*' => [
-                'nullable',
-                function (string $attribute, $value, \Closure $fail): void {
-                    if (! $value instanceof UploadedFile) {
-                        return;
-                    }
-
-                    $validator = validator(
-                        [$attribute => $value],
-                        [$attribute => [
-                            'file',
-                            'image',
-                            'mimes:jpg,jpeg,png,webp',
-                            'max:4096',
-                        ]],
-                    );
-
-                    if ($validator->fails()) {
-                        $fail('The uploaded file must be a JPG, PNG, or WEBP image under 4 MB.');
-                    }
-                },
-            ],
-        ];
+        ] + \App\Support\ExtraFieldValues::rules();
     }
 }

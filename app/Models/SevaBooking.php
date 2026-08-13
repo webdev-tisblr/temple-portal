@@ -44,6 +44,7 @@ class SevaBooking extends Model
         'payment_id',
         'devotee_name_for_seva',
         'sankalp',
+        'extra_data',
         'selected_product_id',
         'selected_variant_label',
         'notes',
@@ -64,6 +65,7 @@ class SevaBooking extends Model
     }
 
     protected $casts = [
+        'extra_data' => 'array',
         'status' => BookingStatus::class,
         'booking_date' => 'date',
         'total_amount' => 'decimal:2',

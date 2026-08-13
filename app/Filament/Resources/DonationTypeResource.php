@@ -53,37 +53,7 @@ class DonationTypeResource extends Resource
             ])->columns(2),
 
             Forms\Components\Section::make('Extra Fields (Dynamic Form Builder)')->schema([
-                Forms\Components\Repeater::make('extra_fields')
-                    ->schema([
-                        Forms\Components\TextInput::make('key')
-                            ->required()
-                            ->placeholder('e.g. birthday_person_name')
-                            ->rules(['alpha_dash']),
-                        Forms\Components\TextInput::make('label_gu')
-                            ->required()
-                            ->placeholder('ગુજરાતી લેબલ'),
-                        Forms\Components\TextInput::make('label_hi')
-                            ->placeholder('हिन्दी लेबल'),
-                        Forms\Components\TextInput::make('label_en')
-                            ->required()
-                            ->placeholder('English Label'),
-                        Forms\Components\Select::make('type')
-                            ->options([
-                                'text' => 'Text',
-                                'number' => 'Number',
-                                'date' => 'Date',
-                                'image' => 'Image',
-                                'textarea' => 'Textarea',
-                            ])
-                            ->required(),
-                        Forms\Components\Toggle::make('required')
-                            ->default(false),
-                    ])
-                    ->columns(3)
-                    ->defaultItems(0)
-                    ->addActionLabel('Add Field')
-                    ->collapsible()
-                    ->columnSpanFull(),
+                \App\Filament\Support\ExtraFieldsRepeater::make(),
             ]),
 
             Forms\Components\Section::make('Greeting Card')

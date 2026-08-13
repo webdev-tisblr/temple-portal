@@ -135,18 +135,19 @@ class DonationWebController extends Controller
             : (now()->year - 1) . '-' . substr((string) now()->year, -2);
 
         // Process extra_data — handle image uploads
+        // Field definitions come from the donation TYPE, or — in campaign mode,
+        // where the type picker is hidden and donation_type_id is null — from
+        // the CAMPAIGN itself (2026-08-13).
         $extraData = $validated['extra_data'] ?? null;
-        if ($extraData && !empty($validated['donation_type_id'])) {
-            $donationType = DonationType::find($validated['donation_type_id']);
-            if ($donationType && is_array($donationType->extra_fields)) {
-                foreach ($donationType->extra_fields as $field) {
-                    $key = $field['key'] ?? null;
-                    if ($key && ($field['type'] ?? '') === 'image' && $request->hasFile("extra_data.{$key}")) {
-                        $extraData[$key] = $request->file("extra_data.{$key}")->store('donation-extras', 'r2');
-                    }
-                }
-            }
+        $definitions = null;
+
+        if (! empty($validated['donation_type_id'])) {
+            $definitions = DonationType::find($validated['donation_type_id'])?->extra_fields;
+        } elseif (! empty($validated['campaign_id'])) {
+            $definitions = \App\Models\DonationCampaign::find($validated['campaign_id'])?->extra_fields;
         }
+
+        $extraData = \App\Support\ExtraFieldValues::store($request, $definitions, $extraData, 'donation-extras');
 
         try {
             $result = DB::transaction(function () use ($validated, $devotee, $amount, $fy, $extraData, $wants80g, $is80gEligible, $anonymous) {

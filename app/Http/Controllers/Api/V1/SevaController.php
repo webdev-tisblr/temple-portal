@@ -384,7 +384,13 @@ class SevaController extends BaseApiController
         }
 
         try {
-            $result = DB::transaction(function () use ($seva, $validated, $devotee, $quantity, $totalAmount, $variantLabel) {
+            // Extra-field answers, photos uploaded to R2 BEFORE the
+            // transaction so slow network I/O never holds a row lock.
+            $extraData = \App\Support\ExtraFieldValues::store(
+                $request, $seva->extra_fields, $validated['extra_data'] ?? null, 'seva-extras'
+            );
+
+            $result = DB::transaction(function () use ($seva, $validated, $devotee, $quantity, $totalAmount, $variantLabel, $extraData) {
                 // Race-safe capacity re-check under a row lock (see
                 // SevaSlotService::hasSlotCapacityForUpdate). Closes the
                 // window between validateBooking() and the insert.
@@ -430,6 +436,7 @@ class SevaController extends BaseApiController
                     'sankalp' => $validated['sankalp'] ?? null,
                     'selected_product_id' => $validated['selected_product_id'] ?? null,
                     'selected_variant_label' => $variantLabel,
+                    'extra_data' => $extraData,
                 ]);
 
                 return ['booking' => $booking, 'payment' => $payment, 'razorpay_order' => $razorpayOrder];

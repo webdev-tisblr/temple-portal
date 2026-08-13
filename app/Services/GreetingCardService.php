@@ -412,19 +412,37 @@ class GreetingCardService
      */
     private function resolveCampaignFieldValue(string $fieldKey, Donation $donation, string $locale = 'gu'): ?string
     {
-        return match ($fieldKey) {
-            '_donor_name' => $donation->devotee?->name,
-            '_campaign_title' => $donation->campaign?->title,
-            '_sub_cause' => $donation->subCause?->title,
-            '_amount' => "\u{20B9}".number_format((float) $donation->amount, 2),
-            '_date' => now()->format('d/m/Y'),
-            '_temple_name' => $this->templeName($locale),
-            default => null,
-        };
+        if (str_starts_with($fieldKey, '_')) {
+            return match ($fieldKey) {
+                '_donor_name' => $donation->devotee?->name,
+                '_campaign_title' => $donation->campaign?->title,
+                '_sub_cause' => $donation->subCause?->title,
+                '_amount' => "\u{20B9}".number_format((float) $donation->amount, 2),
+                '_date' => now()->format('d/m/Y'),
+                '_temple_name' => $this->templeName($locale),
+                default => null,
+            };
+        }
+
+        // Campaign extra fields (2026-08-13). A campaign donation is still a
+        // Donation, so its answers live in the same extra_data column the
+        // donation-type resolver reads — including image fields, whose value
+        // is the R2 key of the upload.
+        $extraData = $donation->extra_data ?? [];
+
+        return isset($extraData[$fieldKey]) ? (string) $extraData[$fieldKey] : null;
     }
 
     private function resolveSevaFieldValue(string $fieldKey, SevaBooking $booking, string $locale = 'gu'): ?string
     {
+        if (! str_starts_with($fieldKey, '_')) {
+            // Seva extra fields (2026-08-13) — the devotee's answers on the
+            // booking, mirroring donations' extra_data.
+            $extraData = $booking->extra_data ?? [];
+
+            return isset($extraData[$fieldKey]) ? (string) $extraData[$fieldKey] : null;
+        }
+
         return match ($fieldKey) {
             '_donor_name' => $booking->devotee_name_for_seva ?: $booking->devotee?->name,
             '_seva_name' => $this->sevaNameForLocale($booking, $locale),

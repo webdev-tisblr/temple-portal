@@ -26,6 +26,6 @@ class BookSevaRequest extends FormRequest
             'sankalp' => ['nullable', 'string', 'max:1000'],
             'selected_product_id' => ['nullable', 'integer', 'exists:temple_products,id'],
             'selected_variant_label' => ['nullable', 'string', 'max:255'],
-        ];
+        ] + \App\Support\ExtraFieldValues::rules();
     }
 }

@@ -13,6 +13,8 @@ use App\Services\UploadedImageCompressor;
 use Filament\Actions\DeleteAction as PageDeleteAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\RichEditor;
+use Filament\Forms\Components\Section as FormSection;
+use Filament\Infolists\Components\Section as InfolistSection;
 use Filament\Notifications\Notification;
 use Filament\Tables\Actions\DeleteAction as TableDeleteAction;
 use Filament\Tables\Actions\DeleteBulkAction;
@@ -63,6 +65,32 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('display-board', fn (Request $request) => Limit::perMinute(120)->by(
             (string) ($request->header('X-Board-Token') ?: $request->query('token', $request->ip()))
         ));
+
+        // Every admin section is collapsible, everywhere (2026-08-13).
+        //
+        // Set globally rather than by editing 137 Section::make() calls
+        // across the resources: a default that has to be repeated by hand is
+        // a default that will be missed on the next resource somebody adds,
+        // which is exactly how it came to be present on some pages and
+        // absent on others.
+        //
+        // configureUsing runs inside make(), BEFORE the chained calls in a
+        // resource, so anything explicit still wins — a section that already
+        // says ->collapsed() keeps opening collapsed, and one that says
+        // ->collapsible(false) stays fixed.
+        //
+        // Only sections with a heading get a chevron. The three headingless
+        // Section::make() calls are plain layout wrappers with no header bar
+        // to put a toggle in, and collapsing one would hide fields behind an
+        // unlabelled arrow.
+        $collapsible = function ($section): void {
+            if (filled($section->getHeading())) {
+                $section->collapsible();
+            }
+        };
+
+        FormSection::configureUsing($collapsible);
+        InfolistSection::configureUsing($collapsible);
 
         Seva::observe(SevaObserver::class);
         // Materialises / cancels seva reminder schedule rows as bookings

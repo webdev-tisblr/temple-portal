@@ -742,6 +742,8 @@ class ContentController extends BaseApiController
     {
         return [
             'id' => $campaign->id,
+            // Campaign-specific questions asked at donation (2026-08-13).
+            'extra_fields' => $campaign->localizedExtraFields(),
             'slug' => $campaign->slug,
             // Resolved (server locale) + all variants so the app can switch
             // language client-side without refetching.

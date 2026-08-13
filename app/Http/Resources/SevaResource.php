@@ -36,6 +36,10 @@ class SevaResource extends JsonResource
 
         return [
             'id' => $this->id,
+            // Admin-defined questions asked at booking (2026-08-13). Carries a
+            // resolved `label` matching the X-Locale header, exactly as
+            // donation types do — clients read `label`, never label_gu.
+            'extra_fields' => $this->localizedExtraFields(),
             'name' => $this->name,
             'name_gu' => $this->name_gu,
             'name_hi' => $this->name_hi,

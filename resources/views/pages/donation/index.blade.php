@@ -290,7 +290,10 @@ function donationForm() {
         purpose: prefill.purpose || '',
         anonymous: !!prefill.anonymous,
         wants80g: !!prefill.wants_80g,
-        currentExtraFields: [],
+        // Campaign mode has no type dropdown, so onTypeChange() never runs
+        // and the fields must be seeded from the campaign itself.
+        currentExtraFields: @json($campaignExtraFields ?? []),
+        campaignExtraFields: @json($campaignExtraFields ?? []),
 
         // Donation types data from server
         donationTypesData: @json($donationTypesJs),
@@ -319,6 +322,13 @@ function donationForm() {
             } else {
                 this.donationType = 'general';
                 this.currentExtraFields = [];
+            }
+
+            // A campaign gift keeps the campaign's fields regardless of any
+            // type the query string happened to carry.
+            if (this.campaignExtraFields.length) {
+                this.donationType = 'campaign';
+                this.currentExtraFields = this.campaignExtraFields;
             }
         },
 

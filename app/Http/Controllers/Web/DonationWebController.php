@@ -76,8 +76,13 @@ class DonationWebController extends Controller
         SEOMeta::setTitle('દાન કરો — શ્રી પાતાળિયા હનુમાનજી સેવા ટ્રસ્ટ');
         SEOMeta::setDescription('શ્રી પાતાળિયા હનુમાનજી મંદિર માટે ઓનલાઈન દાન કરો.');
 
+        // In campaign mode the type dropdown is hidden, so the CAMPAIGN's own
+        // extra fields are the ones to ask (2026-08-13).
+        $campaignExtraFields = $selectedCampaign?->localizedExtraFields() ?? [];
+
         return view('pages.donation.index', compact(
             'campaigns',
+            'campaignExtraFields',
             'donationTypes',
             'donationTypesJs',
             'selectedCampaign',

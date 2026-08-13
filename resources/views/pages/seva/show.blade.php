@@ -354,8 +354,42 @@
 
                         {{-- Book Button (whole panel is auth-gated above) --}}
                         <div class="mt-6">
-                            <form method="POST" action="{{ route('seva.book', $seva) }}">
+                            {{-- multipart: extra fields can include a photo
+                                 upload (2026-08-13). Without the enctype the
+                                 file silently never reaches the server. --}}
+                            <form method="POST" action="{{ route('seva.book', $seva) }}" enctype="multipart/form-data">
                                 @csrf
+
+                                {{-- Admin-defined extra fields for this seva.
+                                     Same shape as the donate form's, including
+                                     the file input; answers land in the
+                                     booking's extra_data and can be placed on
+                                     the greeting card. --}}
+                                @foreach($seva->localizedExtraFields() as $field)
+                                    <div class="mb-4 text-left">
+                                        <label class="block text-sm font-medium text-amber-600 mb-1">
+                                            {{ $field['label'] }}@if($field['required'] ?? false)<span class="text-red-400"> *</span>@endif
+                                        </label>
+
+                                        @if(($field['type'] ?? 'text') === 'image')
+                                            <input type="file"
+                                                name="extra_data[{{ $field['key'] }}]"
+                                                accept="image/*"
+                                                @if($field['required'] ?? false) required @endif
+                                                class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-amber-900/40 file:text-amber-400">
+                                        @elseif(($field['type'] ?? 'text') === 'textarea')
+                                            <textarea name="extra_data[{{ $field['key'] }}]" rows="2"
+                                                @if($field['required'] ?? false) required @endif
+                                                class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20"></textarea>
+                                        @else
+                                            <input type="{{ in_array($field['type'] ?? 'text', ['number', 'date'], true) ? $field['type'] : 'text' }}"
+                                                name="extra_data[{{ $field['key'] }}]"
+                                                @if($field['required'] ?? false) required @endif
+                                                class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
+                                        @endif
+                                    </div>
+                                @endforeach
+
                                 <input type="hidden" name="booking_date" :value="selectedDate">
                                 <input type="hidden" name="slot_time" :value="selectedSlot">
                                 <input type="hidden" name="quantity" value="1">

@@ -137,4 +137,74 @@ class ExtraFieldsTest extends TestCase
         );
         $this->assertTrue($bad->fails(), 'a non-image upload must be rejected');
     }
+
+    /**
+     * The new column round-trips, including an image field holding an R2 key.
+     *
+     * Deliberately NOT a full web-form POST: the seva slot validator needs a
+     * fixture that satisfies its own rules, which is a different feature's
+     * concern and made the test about slot config rather than extra fields.
+     * The upload path is covered above, the form markup was verified by hand.
+     */
+    public function test_seva_bookings_persist_extra_data(): void
+    {
+        $booking = \Database\Factories\SevaBookingFactory::new()->create([
+            'payment_id' => \Database\Factories\PaymentFactory::new()->create()->id,
+            'extra_data' => ['person_name' => 'Rameshbhai', 'photo' => 'seva-extras/abc.jpg'],
+        ]);
+
+        $fresh = $booking->fresh();
+
+        $this->assertIsArray($fresh->extra_data, 'the column must cast to an array');
+        $this->assertSame('Rameshbhai', $fresh->extra_data['person_name']);
+        $this->assertSame('seva-extras/abc.jpg', $fresh->extra_data['photo']);
+    }
+
+    /**
+     * The seva booking form actually asks the questions.
+     *
+     * Must be requested as a logged-in devotee: the whole booking panel sits
+     * behind an auth gate, so a logged-out check renders none of it and proves
+     * nothing (which is exactly what a curl against the live page did).
+     */
+    public function test_the_seva_form_renders_extra_fields_and_accepts_files(): void
+    {
+        $seva = \Database\Factories\SevaFactory::new()->create([
+            'is_active' => true,
+            'extra_fields' => $this->definition(),
+        ]);
+
+        $html = $this->actingAs(\Database\Factories\DevoteeFactory::new()->create(), 'devotee')
+            ->get(route('seva.show', $seva))
+            ->assertOk()
+            ->getContent();
+
+        // Without the enctype a chosen photo silently never reaches the server.
+        $this->assertStringContainsString('enctype="multipart/form-data"', $html);
+
+        $this->assertStringContainsString('name="extra_data[person_name]"', $html);
+        $this->assertStringContainsString('name="extra_data[photo]"', $html);
+        $this->assertStringContainsString('type="file"', $html);
+        $this->assertStringContainsString('કોનું નામ', $html, 'the label should render in the page locale');
+    }
+
+    /** The campaign donate form asks the campaign's questions. */
+    public function test_the_campaign_donate_form_renders_campaign_extra_fields(): void
+    {
+        $campaign = DonationCampaign::create([
+            'title_gu' => 'શ્રી રામ વાટિકા', 'slug' => 'vatika-fields', 'goal_amount' => 100000,
+            'start_date' => now()->subDay()->toDateString(), 'end_date' => now()->addMonth()->toDateString(),
+            'is_active' => true, 'extra_fields' => $this->definition(),
+        ]);
+
+        $html = $this->actingAs(\Database\Factories\DevoteeFactory::new()->create(), 'devotee')
+            ->get(route('donate', ['campaign' => $campaign->id]))
+            ->assertOk()
+            ->getContent();
+
+        // Seeded into the Alpine component: campaign mode hides the type
+        // dropdown, so onTypeChange() never runs and nothing else would fill it.
+        $this->assertStringContainsString('person_name', $html);
+        $this->assertStringContainsString('campaignExtraFields', $html);
+    }
 }

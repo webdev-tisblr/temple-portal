@@ -12,7 +12,11 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Models\SystemSetting;
+use App\Services\InvoiceService;
+use App\Services\PaymentCaptureService;
 use App\Services\RazorpayService;
+use App\Services\StoreGstService;
 use Artesaos\SEOTools\Facades\SEOMeta;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -21,7 +25,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -175,7 +178,7 @@ class StoreWebController extends Controller
 
         // Cart key: "productId" for simple, "productId:variantLabel" for variant
         $cartKey = $product->has_variants
-            ? $product->id . ':' . $request->variant_label
+            ? $product->id.':'.$request->variant_label
             : (string) $product->id;
 
         if (isset($cart[$cartKey])) {
@@ -233,7 +236,7 @@ class StoreWebController extends Controller
         $cartItemsJs = collect($items)->map(function ($item) {
             $name = $item['product']->name;
             if ($item['variant_label']) {
-                $name .= ' — ' . $item['variant_label'];
+                $name .= ' — '.$item['variant_label'];
             }
 
             return [
@@ -388,16 +391,24 @@ class StoreWebController extends Controller
         $shippingCharge = 0;
         $totalAmount = $subtotal + $shippingCharge;
 
+        // Inclusive GST: this DECOMPOSES the cart, it does not add to it —
+        // $subtotal and $totalAmount are the same figures either way, which
+        // is why the Razorpay amount below needs no adjustment. Done once,
+        // before the mode branch, so test mode and real payment cannot
+        // record different tax for the same cart.
+        $tax = app(StoreGstService::class)->decompose($lineItems);
+        $lineItems = $tax['lines'];
+
         // TEST MODE — skip Razorpay, direct confirm
         if (config('razorpay.test_mode')) {
-            return $this->checkoutTestMode($validated, $devotee, $lineItems, $subtotal, $shippingCharge, $totalAmount);
+            return $this->checkoutTestMode($validated, $devotee, $lineItems, $subtotal, $shippingCharge, $totalAmount, $tax);
         }
 
         // REAL PAYMENT MODE
         try {
-            $result = DB::transaction(function () use ($validated, $devotee, $lineItems, $subtotal, $shippingCharge, $totalAmount) {
+            $result = DB::transaction(function () use ($validated, $devotee, $lineItems, $subtotal, $shippingCharge, $totalAmount, $tax) {
                 $paymentId = (string) Str::uuid();
-                $receipt = 'ORD-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
+                $receipt = 'ORD-'.now()->format('Ymd').'-'.strtoupper(Str::random(6));
 
                 $razorpayService = app(RazorpayService::class);
                 $amountInPaise = (int) round($totalAmount * 100);
@@ -420,6 +431,8 @@ class StoreWebController extends Controller
                     'devotee_id' => $devotee->id,
                     'payment_id' => $payment->id,
                     'subtotal' => $subtotal,
+                    'taxable_amount' => $tax['taxable_amount'],
+                    'gst_amount' => $tax['gst_amount'],
                     'shipping_charge' => $shippingCharge,
                     'total_amount' => $totalAmount,
                     'status' => 'pending',
@@ -436,7 +449,7 @@ class StoreWebController extends Controller
                     $product = $item['product'];
                     $productName = $product->name_en ?? $product->name_gu;
                     if ($item['variant_label']) {
-                        $productName .= ' — ' . $item['variant_label'];
+                        $productName .= ' — '.$item['variant_label'];
                     }
                     OrderItem::create([
                         'order_id' => $order->id,
@@ -446,6 +459,8 @@ class StoreWebController extends Controller
                         'quantity' => $item['quantity'],
                         'unit_price' => $item['unit_price'],
                         'subtotal' => $item['subtotal'],
+                        'gst_rate' => $item['gst_rate'] ?? null,
+                        'gst_amount' => $item['gst_amount'] ?? null,
                     ]);
                     // NB: stock is NOT decremented here. PaymentCaptureService
                     // does it once Razorpay confirms the payment, so abandoned
@@ -460,7 +475,7 @@ class StoreWebController extends Controller
             });
 
             return view('pages.seva.checkout', [
-                'razorpayKeyId' => \App\Models\SystemSetting::getValue('razorpay_key_id', config('razorpay.key_id')),
+                'razorpayKeyId' => SystemSetting::getValue('razorpay_key_id', config('razorpay.key_id')),
                 'orderId' => $result['razorpay_order']->id,
                 'amount' => (int) round($totalAmount * 100),
                 'currency' => 'INR',
@@ -479,15 +494,15 @@ class StoreWebController extends Controller
         }
     }
 
-    private function checkoutTestMode(array $validated, $devotee, array $lineItems, float $subtotal, float $shippingCharge, float $totalAmount): View|RedirectResponse
+    private function checkoutTestMode(array $validated, $devotee, array $lineItems, float $subtotal, float $shippingCharge, float $totalAmount, array $tax): View|RedirectResponse
     {
         try {
-            $result = DB::transaction(function () use ($validated, $devotee, $lineItems, $subtotal, $shippingCharge, $totalAmount) {
+            $result = DB::transaction(function () use ($validated, $devotee, $lineItems, $subtotal, $shippingCharge, $totalAmount, $tax) {
                 $paymentId = (string) Str::uuid();
 
                 $payment = Payment::create([
                     'id' => $paymentId,
-                    'razorpay_order_id' => 'test_' . Str::random(14),
+                    'razorpay_order_id' => 'test_'.Str::random(14),
                     'amount' => $totalAmount,
                     'currency' => 'INR',
                     'status' => 'captured',
@@ -500,6 +515,8 @@ class StoreWebController extends Controller
                     'devotee_id' => $devotee->id,
                     'payment_id' => $payment->id,
                     'subtotal' => $subtotal,
+                    'taxable_amount' => $tax['taxable_amount'],
+                    'gst_amount' => $tax['gst_amount'],
                     'shipping_charge' => $shippingCharge,
                     'total_amount' => $totalAmount,
                     'status' => 'confirmed',
@@ -516,7 +533,7 @@ class StoreWebController extends Controller
                     $product = $item['product'];
                     $productName = $product->name_en ?? $product->name_gu;
                     if ($item['variant_label']) {
-                        $productName .= ' — ' . $item['variant_label'];
+                        $productName .= ' — '.$item['variant_label'];
                     }
                     OrderItem::create([
                         'order_id' => $order->id,
@@ -526,6 +543,8 @@ class StoreWebController extends Controller
                         'quantity' => $item['quantity'],
                         'unit_price' => $item['unit_price'],
                         'subtotal' => $item['subtotal'],
+                        'gst_rate' => $item['gst_rate'] ?? null,
+                        'gst_amount' => $item['gst_amount'] ?? null,
                     ]);
                     // Decrement variant-specific stock for variable
                     // products; top-level stock_quantity for the rest.
@@ -581,7 +600,7 @@ class StoreWebController extends Controller
                     // notification fan-out atomically. Web used to do a
                     // partial update here that SKIPPED STOCK DECREMENT
                     // entirely — real inventory bug.
-                    app(\App\Services\PaymentCaptureService::class)->markCaptured(
+                    app(PaymentCaptureService::class)->markCaptured(
                         $payment,
                         $paymentId,
                     );
@@ -617,12 +636,12 @@ class StoreWebController extends Controller
         // Use InvoiceService directly (not the GenerateStoreInvoice job)
         // so we don't re-email the customer every download.
         // needsRegeneration() also covers a stale-locale path.
-        if (app(\App\Services\InvoiceService::class)->needsRegeneration($order)) {
+        if (app(InvoiceService::class)->needsRegeneration($order)) {
             try {
-                app(\App\Services\InvoiceService::class)->generateInvoice($order);
+                app(InvoiceService::class)->generateInvoice($order);
                 $order->refresh();
             } catch (\Throwable $e) {
-                Log::error("On-demand invoice regen failed", [
+                Log::error('On-demand invoice regen failed', [
                     'order_id' => $order->id,
                     'error' => $e->getMessage(),
                 ]);

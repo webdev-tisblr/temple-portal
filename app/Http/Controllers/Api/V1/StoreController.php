@@ -11,20 +11,21 @@ use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\SystemSetting;
+use App\Services\InvoiceService;
 use App\Services\RazorpayService;
+use App\Services\StoreGstService;
+use App\Support\LocalizedCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class StoreController extends BaseApiController
 {
     public function categories(): JsonResponse
     {
-        $categories = \App\Support\LocalizedCache::remember('store.categories', 900, function () {
+        $categories = LocalizedCache::remember('store.categories', 900, function () {
             return ProductCategory::where('is_active', true)
                 ->where('is_seva_only', false)
                 ->orderBy('sort_order')
@@ -161,6 +162,7 @@ class StoreController extends BaseApiController
                     $subtotal += $itemSubtotal;
 
                     $orderItems[] = [
+                        'product' => $product,
                         'product_id' => $product->id,
                         'product_name' => $product->name,
                         'variant_label' => $variantLabel,
@@ -174,7 +176,13 @@ class StoreController extends BaseApiController
                     // creating an order we know can't be fulfilled.
                 }
 
-                $receipt = 'ORDER-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
+                // Inclusive GST: this only DECOMPOSES what the cart already
+                // costs — $subtotal is unchanged, so the Razorpay amount
+                // below is the same figure with or without tax.
+                $tax = app(StoreGstService::class)->decompose($orderItems);
+                $orderItems = $tax['lines'];
+
+                $receipt = 'ORDER-'.now()->format('Ymd').'-'.strtoupper(Str::random(6));
                 $razorpayService = app(RazorpayService::class);
                 $amountInPaise = (int) round($subtotal * 100);
 
@@ -197,6 +205,8 @@ class StoreController extends BaseApiController
                     'devotee_id' => $devotee->id,
                     'payment_id' => $payment->id,
                     'subtotal' => $subtotal,
+                    'taxable_amount' => $tax['taxable_amount'],
+                    'gst_amount' => $tax['gst_amount'],
                     'shipping_charge' => 0,
                     'total_amount' => $subtotal,
                     'status' => 'pending',
@@ -210,6 +220,9 @@ class StoreController extends BaseApiController
                 ]);
 
                 foreach ($orderItems as $oi) {
+                    // `product` is the model carried along for the tax
+                    // lookup, not a column.
+                    unset($oi['product']);
                     OrderItem::create(array_merge($oi, ['order_id' => $order->id]));
                 }
 
@@ -244,6 +257,7 @@ class StoreController extends BaseApiController
             return $this->error($e->getMessage(), 422);
         } catch (\Exception $e) {
             Log::error('Store order failed', ['error' => $e->getMessage()]);
+
             return $this->error('ઓર્ડર નિષ્ફળ. ફરી પ્રયાસ કરો.', 500);
         }
     }
@@ -299,9 +313,9 @@ class StoreController extends BaseApiController
         // ->exists() probe — S3 HEADs from Hostinger hang, and the sweep
         // NULLs invoice_path when it deletes the object, so non-null == present.
         // needsRegeneration() also covers a stale-locale path.
-        if (app(\App\Services\InvoiceService::class)->needsRegeneration($order)) {
+        if (app(InvoiceService::class)->needsRegeneration($order)) {
             try {
-                app(\App\Services\InvoiceService::class)->generateInvoice($order);
+                app(InvoiceService::class)->generateInvoice($order);
                 $order->refresh();
             } catch (\Throwable $e) {
                 Log::error('On-demand invoice regen failed (api)', [

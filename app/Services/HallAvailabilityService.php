@@ -178,6 +178,17 @@ final class HallAvailabilityService
      * here reaches every one of them — which is exactly why it was added
      * here in 2026-08-12 rather than in the controllers.
      *
+     * GST IS INCLUSIVE (changed 2026-08-13; it was added on top until then).
+     * The hall's advertised day rate IS what the devotee pays, and tax is
+     * carved OUT of it for the invoice — so the trust nets less per booking
+     * than the sticker price, which is the intended trade for a price that
+     * needs no asterisk.
+     *
+     * That direction is load-bearing for rounding: `total` is computed
+     * first, from the rate the devotee was quoted, and `subtotal` is derived
+     * from it. Deriving the total from a rounded taxable value instead would
+     * drift it a paisa off the advertised price.
+     *
      * `total` stays the GROSS payable, so callers that hand it to Razorpay
      * or persist it as total_amount need no change; `subtotal` and
      * `gst_amount` decompose it for the invoice.
@@ -188,10 +199,17 @@ final class HallAvailabilityService
     {
         $days = max(1, (int) Carbon::parse($start)->startOfDay()->diffInDays(Carbon::parse($end)->startOfDay()) + 1);
         $perDay = (float) $hall->price_per_day;
-        $subtotal = round($perDay * $days, 2);
+        $total = round($perDay * $days, 2);
 
         $gstRate = $this->gstRateFor($hall);
-        $gstAmount = $gstRate === null ? 0.0 : round($subtotal * $gstRate / 100, 2);
+
+        // Tax is the REMAINDER of the total, never a second rounded
+        // computation — taxable + GST must equal the amount charged to the
+        // paisa or the invoice does not reconcile against the payment.
+        $subtotal = $gstRate === null
+            ? $total
+            : round($total / (1 + $gstRate / 100), 2);
+        $gstAmount = round($total - $subtotal, 2);
 
         return [
             'days' => $days,
@@ -199,7 +217,7 @@ final class HallAvailabilityService
             'subtotal' => $subtotal,
             'gst_rate' => $gstRate,
             'gst_amount' => $gstAmount,
-            'total' => round($subtotal + $gstAmount, 2),
+            'total' => $total,
         ];
     }
 

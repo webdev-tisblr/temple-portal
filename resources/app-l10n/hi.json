@@ -115,6 +115,7 @@
   "availability.day_count": "{} दिन",
   "hall.title": "हॉल बुकिंग",
   "hall.taxable_value": "कर योग्य राशि",
+  "hall.gst_inclusive": "दर्शाई गई राशि में GST शामिल है",
   "hall.gst": "GST",
   "hall.total_payable": "कुल देय",
   "hall.request_cancellation": "रद्द करने का अनुरोध करें",

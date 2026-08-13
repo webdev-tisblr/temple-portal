@@ -171,10 +171,45 @@
 
         {{-- Totals --}}
         <table class="totals-table">
+            @php
+                // GST is INCLUSIVE, so `subtotal` is already the gross the
+                // devotee paid. The taxable value is what is left after
+                // carving the tax out of the TAXED lines only — an order can
+                // mix taxed and untaxed products, so the untaxed part of
+                // subtotal belongs to neither figure and simply never
+                // appears here.
+                //
+                // CGST is derived and SGST is the REMAINDER, never a second
+                // rounded halving, or an odd paisa goes missing against
+                // gst_amount and the invoice fails to add up.
+                $gstAmount = (float) ($order->gst_amount ?? 0);
+                $taxable = (float) ($order->taxable_amount ?? 0);
+                $cgst = round($gstAmount / 2, 2);
+                $sgst = round($gstAmount - $cgst, 2);
+                // Rates vary per line, so the header shows the effective one
+                // rather than claiming a single configured rate.
+                $effRate = $taxable > 0 ? round($gstAmount / $taxable * 100, 2) : 0;
+                $halfRate = $effRate > 0 ? rtrim(rtrim(number_format($effRate / 2, 2), '0'), '.') : null;
+            @endphp
+            @if($gstAmount > 0)
+            <tr>
+                <td class="totals-label">{{ __('receipt.label_taxable_value') }}</td>
+                <td class="totals-value">&#8377; {{ number_format($taxable, 2) }}</td>
+            </tr>
+            <tr>
+                <td class="totals-label">{{ __('receipt.label_cgst') }} @ {{ $halfRate }}%</td>
+                <td class="totals-value">&#8377; {{ number_format($cgst, 2) }}</td>
+            </tr>
+            <tr>
+                <td class="totals-label">{{ __('receipt.label_sgst') }} @ {{ $halfRate }}%</td>
+                <td class="totals-value">&#8377; {{ number_format($sgst, 2) }}</td>
+            </tr>
+            @else
             <tr>
                 <td class="totals-label">{{ __('receipt.label_subtotal') }}</td>
                 <td class="totals-value">&#8377; {{ number_format((float) $order->subtotal, 2) }}</td>
             </tr>
+            @endif
             @if((float) $order->shipping_charge > 0)
             <tr>
                 <td class="totals-label">{{ __('receipt.label_shipping') }}</td>
@@ -190,6 +225,9 @@
         {{-- Amount in Words — words stay English in every language, see the services --}}
         <table class="amount-box" width="100%" cellpadding="0" cellspacing="0"><tr><td>
             <div class="amount-words">{{ __('receipt.label_amount_in_words') }}: <span class="words-value">{{ $amount_in_words }}</span></div>
+            @if($gstAmount > 0 && ($trust_gstin ?? '') !== '')
+                <div class="amount-words" style="margin-top: 4px;">GSTIN: <span class="words-value">{{ $trust_gstin }}</span></div>
+            @endif
         </td></tr></table>
 
         {{-- Footer --}}

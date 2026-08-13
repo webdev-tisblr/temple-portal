@@ -7,7 +7,6 @@ namespace App\Filament\Resources;
 use App\Enums\OrderStatus;
 use App\Filament\Resources\OrderResource\Pages;
 use App\Models\Order;
-use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
@@ -18,7 +17,6 @@ use Illuminate\Database\Eloquent\Builder;
 
 class OrderResource extends Resource
 {
-
     protected static ?string $model = Order::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-shopping-cart';
@@ -64,6 +62,13 @@ class OrderResource extends Resource
                     Infolists\Components\TextEntry::make('quantity')->label('Qty'),
                     Infolists\Components\TextEntry::make('unit_price')->prefix('₹')->label('Unit Price'),
                     Infolists\Components\TextEntry::make('subtotal')->prefix('₹')->label('Subtotal'),
+                    // Inclusive GST — these decompose `subtotal`, they do not
+                    // add to it. Hidden entirely on untaxed orders, where the
+                    // columns are NULL rather than 0.00.
+                    Infolists\Components\TextEntry::make('taxable_amount')->prefix('₹')->label('Taxable value')
+                        ->visible(fn ($record): bool => $record->gst_amount !== null),
+                    Infolists\Components\TextEntry::make('gst_amount')->prefix('₹')->label('GST (included)')
+                        ->visible(fn ($record): bool => $record->gst_amount !== null),
                 ])->columns(4),
             ]),
         ]);

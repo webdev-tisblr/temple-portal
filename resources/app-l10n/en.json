@@ -115,6 +115,7 @@
   "availability.day_count": "{} days",
   "hall.title": "Hall Booking",
   "hall.taxable_value": "Taxable value",
+  "hall.gst_inclusive": "Amount shown includes GST",
   "hall.gst": "GST",
   "hall.total_payable": "Total payable",
   "hall.request_cancellation": "Request cancellation",

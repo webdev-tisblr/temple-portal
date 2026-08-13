@@ -14,11 +14,13 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Seva;
+use App\Models\SevaBooking;
 use App\Models\SystemSetting;
 use App\Support\DevoteeLocale;
 use App\Support\PhoneNumber;
 use Carbon\CarbonInterface;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -157,7 +159,7 @@ class CounterEntryService
      * for an online payment.
      *
      * @param  array<string,mixed>  $data
-     * @return array{payment: Payment, record: \Illuminate\Database\Eloquent\Model, devotee: Devotee, type: string, label: string, duplicate: bool}
+     * @return array{payment: Payment, record: Model, devotee: Devotee, type: string, label: string, duplicate: bool}
      *
      * @throws AuthorizationException|ValidationException
      */
@@ -550,7 +552,7 @@ class CounterEntryService
     }
 
     /** @param array<string,mixed> $data */
-    private function createSevaBooking(array $data, Devotee $devotee, Payment $payment, array $quote, CarbonInterface $paidAt): \App\Models\SevaBooking
+    private function createSevaBooking(array $data, Devotee $devotee, Payment $payment, array $quote, CarbonInterface $paidAt): SevaBooking
     {
         $seva = Seva::findOrFail($data['seva_id']);
         $date = Carbon::parse((string) $data['booking_date'])->toDateString();
@@ -574,7 +576,7 @@ class CounterEntryService
         // is what fires SevaBookingObserver::updated() and therefore the
         // reminder schedule. Creating it confirmed would take the
         // observer's created() branch instead and skip the capture flip.
-        return $this->createStamped(\App\Models\SevaBooking::class, [
+        return $this->createStamped(SevaBooking::class, [
             'devotee_id' => $devotee->id,
             'seva_id' => $seva->id,
             'booking_date' => $date,
@@ -647,10 +649,17 @@ class CounterEntryService
             ]);
         }
 
+        // Inclusive GST — decomposes the counter sale, never adds to it, so
+        // the cash the karyakar takes is exactly the quote shown on screen.
+        $tax = app(StoreGstService::class)->decompose($lines);
+        $lines = $tax['lines'];
+
         $order = $this->createStamped(Order::class, array_merge([
             'devotee_id' => $devotee->id,
             'payment_id' => $payment->id,
             'subtotal' => $quote['total'],
+            'taxable_amount' => $tax['taxable_amount'],
+            'gst_amount' => $tax['gst_amount'],
             'shipping_charge' => 0,
             'total_amount' => $quote['total'],
             'status' => 'pending',
@@ -666,6 +675,8 @@ class CounterEntryService
                 'quantity' => $line['quantity'],
                 'unit_price' => $line['unit_price'],
                 'subtotal' => $line['subtotal'],
+                'gst_rate' => $line['gst_rate'] ?? null,
+                'gst_amount' => $line['gst_amount'] ?? null,
             ]);
             // Stock is NOT decremented here — markCaptured() owns that, so
             // the counter sale gets the same variant-aware, id-ordered,
@@ -730,7 +741,7 @@ class CounterEntryService
      * @param  array<string,mixed>  $attributes
      * @return TModel
      */
-    private function createStamped(string $class, array $attributes, CarbonInterface $paidAt): \Illuminate\Database\Eloquent\Model
+    private function createStamped(string $class, array $attributes, CarbonInterface $paidAt): Model
     {
         $model = new $class($attributes);
         $model->created_at = $paidAt;
@@ -797,7 +808,7 @@ class CounterEntryService
      * winning Payment so the UI can show the same confirmation instead of
      * creating a second one.
      *
-     * @return array{payment: Payment, record: \Illuminate\Database\Eloquent\Model, devotee: Devotee, type: string, label: string, duplicate: bool}
+     * @return array{payment: Payment, record: Model, devotee: Devotee, type: string, label: string, duplicate: bool}
      */
     private function describeExisting(Payment $payment, string $type): array
     {

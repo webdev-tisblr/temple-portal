@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ProductResource\Pages;
+use App\Filament\Support\TranslatableTabs;
 use App\Models\Product;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -16,7 +17,6 @@ use Illuminate\Support\Str;
 
 class ProductResource extends Resource
 {
-
     protected static ?string $model = Product::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-shopping-bag';
@@ -29,7 +29,7 @@ class ProductResource extends Resource
     {
         return $form->schema([
             Forms\Components\Section::make('Basic Info')->schema([
-                \App\Filament\Support\TranslatableTabs::make(function (string $locale, string $label) {
+                TranslatableTabs::make(function (string $locale, string $label) {
                     $name = Forms\Components\TextInput::make("name_{$locale}")->label("Name {$label}")->required()->maxLength(255);
                     if ($locale === 'en') {
                         $name->live(onBlur: true)
@@ -121,6 +121,27 @@ class ProductResource extends Resource
                     ->default(false),
                 Forms\Components\TextInput::make('sort_order')->numeric()->default(0),
             ])->columns(4),
+
+            Forms\Components\Section::make('GST')
+                ->icon('heroicon-o-receipt-percent')
+                ->description('GST is INCLUSIVE — the price above is what the devotee pays either way. Turning this on does not raise the price; it declares that part of that price is tax, and the invoice carves it out.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Toggle::make('gst_enabled')
+                        ->label('Charge GST on this product')
+                        ->default(false)
+                        ->live()
+                        ->helperText('Off by default, and off for every existing product. Leave it off for prasad and seva-linked items. Also needs the master switch under Settings → Store GST.'),
+                    Forms\Components\TextInput::make('gst_rate')
+                        ->label('GST rate override (%)')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(28)
+                        ->step(0.01)
+                        ->suffix('%')
+                        ->visible(fn (Forms\Get $get): bool => (bool) $get('gst_enabled'))
+                        ->helperText('Leave blank to use the trust-wide store rate. Set it only where this product\'s rate genuinely differs (food vs non-food).'),
+                ])->columns(2),
         ]);
     }
 
@@ -145,11 +166,12 @@ class ProductResource extends Resource
                     ->description(fn (Product $record) => ! $record->track_stock
                         ? 'not tracked'
                         : ($record->has_variants
-                            ? 'across ' . count($record->variants ?? []) . ' variants'
+                            ? 'across '.count($record->variants ?? []).' variants'
                             : null)),
                 Tables\Columns\ToggleColumn::make('is_active')->label('Active'),
                 Tables\Columns\IconColumn::make('is_featured')->label('Featured')->boolean(),
                 Tables\Columns\IconColumn::make('is_seva_only')->label('Seva Only')->boolean()->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\IconColumn::make('gst_enabled')->label('GST')->boolean()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('sort_order')->sortable(),
             ])
             ->defaultSort('sort_order')

@@ -26,7 +26,7 @@ class Order extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['status', 'total_amount', 'subtotal', 'shipping_charge'])
+            ->logOnly(['status', 'total_amount', 'subtotal', 'taxable_amount', 'gst_amount', 'shipping_charge'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
             ->useLogName('money');
@@ -44,6 +44,8 @@ class Order extends Model
         'devotee_id',
         'payment_id',
         'subtotal',
+        'taxable_amount',
+        'gst_amount',
         'shipping_charge',
         'total_amount',
         'status',
@@ -60,6 +62,8 @@ class Order extends Model
     protected $casts = [
         'status' => OrderStatus::class,
         'subtotal' => 'decimal:2',
+        'taxable_amount' => 'decimal:2',
+        'gst_amount' => 'decimal:2',
         'shipping_charge' => 'decimal:2',
         'total_amount' => 'decimal:2',
     ];
@@ -70,7 +74,7 @@ class Order extends Model
 
         static::creating(function (Order $order) {
             if (empty($order->order_number)) {
-                $order->order_number = 'ORD-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
+                $order->order_number = 'ORD-'.now()->format('Ymd').'-'.strtoupper(Str::random(6));
             }
         });
     }

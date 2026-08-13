@@ -3,20 +3,30 @@
 namespace Tests\Feature;
 
 use App\Models\Hall;
+use App\Models\HallBooking;
 use App\Models\SystemSetting;
 use App\Services\HallAvailabilityService;
+use Database\Factories\DevoteeFactory;
+use Database\Factories\PaymentFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * GST on hall bookings (2026-08-12) — added ON TOP of the advertised day
- * rate, computed only inside HallAvailabilityService::priceFor() so all four
- * booking entry points (web, API, web test-mode, admin counter) inherit it.
+ * GST on hall bookings — INCLUSIVE in the advertised day rate since
+ * 2026-08-13 (it was added on top when introduced a day earlier). Computed
+ * only inside HallAvailabilityService::priceFor() so all four booking entry
+ * points (web, API, web test-mode, admin counter) inherit it.
  *
- * The invariant these tests defend: `total` is always the GROSS payable, and
- * always equals subtotal + gst_amount. Every payment path — the Razorpay
- * order amount, the Payment row, PaymentCaptureService, financial reports —
- * reads that one number, so any drift here is a mischarge.
+ * Two invariants these tests defend:
+ *
+ * 1. `total` never moves when GST is switched on. The devotee pays the
+ *    advertised rate either way; the switch decides how much of it the trust
+ *    keeps. Anything else is a price change dressed up as a tax setting.
+ *
+ * 2. `total` is always the GROSS payable and always equals
+ *    subtotal + gst_amount. Every payment path — the Razorpay order amount,
+ *    the Payment row, PaymentCaptureService, financial reports — reads that
+ *    one number, so any drift here is a mischarge.
  */
 class HallGstTest extends TestCase
 {
@@ -53,15 +63,35 @@ class HallGstTest extends TestCase
         $this->assertSame(10000.0, $price['total'], 'total must be unchanged when GST is off');
     }
 
-    public function test_gst_is_added_on_top_of_the_day_rate(): void
+    public function test_gst_is_carved_out_of_the_day_rate_not_added_to_it(): void
     {
         $this->gst(true, '18.00');
         $price = app(HallAvailabilityService::class)->priceFor($this->hall(), '2026-09-01', '2026-09-01');
 
-        $this->assertSame(10000.0, $price['subtotal'], 'the advertised rate stays the taxable value');
+        // 10000 / 1.18 = 8474.576…, and the tax is the remainder.
+        $this->assertSame(10000.0, $price['total'], 'the advertised rate IS what is charged');
         $this->assertSame(18.0, $price['gst_rate']);
-        $this->assertSame(1800.0, $price['gst_amount']);
-        $this->assertSame(11800.0, $price['total']);
+        $this->assertSame(8474.58, $price['subtotal']);
+        $this->assertSame(1525.42, $price['gst_amount']);
+    }
+
+    /**
+     * The headline promise of inclusive pricing: flipping the setting must
+     * not change anyone's bill. If this ever fails, the trust has silently
+     * repriced every hall.
+     */
+    public function test_switching_gst_on_does_not_change_what_the_devotee_pays(): void
+    {
+        $service = app(HallAvailabilityService::class);
+        $hall = $this->hall();
+
+        $this->gst(false);
+        $without = $service->priceFor($hall, '2026-09-01', '2026-09-03');
+
+        $this->gst(true, '18.00');
+        $with = $service->priceFor($hall, '2026-09-01', '2026-09-03');
+
+        $this->assertSame($without['total'], $with['total']);
     }
 
     public function test_gst_applies_to_the_whole_multi_day_range(): void
@@ -71,9 +101,9 @@ class HallGstTest extends TestCase
         $price = app(HallAvailabilityService::class)->priceFor($this->hall(), '2026-09-01', '2026-09-03');
 
         $this->assertSame(3, $price['days']);
-        $this->assertSame(30000.0, $price['subtotal']);
-        $this->assertSame(5400.0, $price['gst_amount']);
-        $this->assertSame(35400.0, $price['total']);
+        $this->assertSame(30000.0, $price['total'], '3 × the day rate, tax already inside');
+        $this->assertSame(25423.73, $price['subtotal']);
+        $this->assertSame(4576.27, $price['gst_amount']);
     }
 
     public function test_per_hall_override_beats_the_trust_default(): void
@@ -82,8 +112,9 @@ class HallGstTest extends TestCase
         $price = app(HallAvailabilityService::class)->priceFor($this->hall(perDay: 10000, override: 12.0), '2026-09-01', '2026-09-01');
 
         $this->assertSame(12.0, $price['gst_rate']);
-        $this->assertSame(1200.0, $price['gst_amount']);
-        $this->assertSame(11200.0, $price['total']);
+        $this->assertSame(10000.0, $price['total']);
+        $this->assertSame(8928.57, $price['subtotal']);
+        $this->assertSame(1071.43, $price['gst_amount']);
     }
 
     public function test_a_zero_rate_reads_as_untaxed_rather_than_zero_tax(): void
@@ -166,12 +197,12 @@ class HallGstTest extends TestCase
         $this->assertStringContainsString('1,051.58', $html);
     }
 
-    private function bookingWith(?float $subtotal, ?float $rate, ?float $gst, float $total): \App\Models\HallBooking
+    private function bookingWith(?float $subtotal, ?float $rate, ?float $gst, float $total): HallBooking
     {
         $hall = $this->hall();
 
-        return \App\Models\HallBooking::create([
-            'devotee_id' => \Database\Factories\DevoteeFactory::new()->create()->id,
+        return HallBooking::create([
+            'devotee_id' => DevoteeFactory::new()->create()->id,
             'hall_id' => $hall->id,
             'booking_date' => '2026-09-01',
             'end_date' => '2026-09-01',
@@ -185,12 +216,12 @@ class HallGstTest extends TestCase
             'gst_rate' => $rate,
             'gst_amount' => $gst,
             'status' => 'confirmed',
-            'payment_id' => \Database\Factories\PaymentFactory::new()->create()->id,
+            'payment_id' => PaymentFactory::new()->create()->id,
         ]);
     }
 
     /** The same payload HallInvoiceService hands the blade. */
-    private function invoiceData(\App\Models\HallBooking $booking): array
+    private function invoiceData(HallBooking $booking): array
     {
         $booking->loadMissing('hall', 'devotee');
 

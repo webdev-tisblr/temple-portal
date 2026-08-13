@@ -38,6 +38,7 @@ class InvoiceService
                 'trust_reg_no' => SystemSetting::getValue('trust_registration_no') ?: 'A/1497 Dated 26-04-1994',
                 'trust_80g_reg_no' => SystemSetting::getValue('trust_80g_reg_no') ?: 'A.A/RG./80G/12/G.R./2011-12/3958',
                 'trust_pan' => SystemSetting::getValue('trust_pan') ?: 'AAKTS1478C',
+                'trust_gstin' => SystemSetting::getValue('trust_gstin', ''),
                 // English in every language on purpose — see SevaReceiptService.
                 'amount_in_words' => NumberToWords::convert((float) $order->total_amount),
                 'payment_mode_label' => $this->paymentModeLabel($order),

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 
 class Product extends Model
 {
@@ -20,9 +21,9 @@ class Product extends Model
     {
         // Bust the store landing caches (featured strip + category counts) on any change.
         $bust = static function (): void {
-            \Illuminate\Support\Facades\Cache::forget('store_featured_products');
-            \Illuminate\Support\Facades\Cache::forget('store_categories_with_counts');
-            \Illuminate\Support\Facades\Cache::forget('home.prasad.v1'); // home page prasad highlight strip
+            Cache::forget('store_featured_products');
+            Cache::forget('store_categories_with_counts');
+            Cache::forget('home.prasad.v1'); // home page prasad highlight strip
         };
         static::saved($bust);
         static::deleted($bust);
@@ -51,6 +52,8 @@ class Product extends Model
         'has_variants',
         'variants',
         'is_seva_only',
+        'gst_enabled',
+        'gst_rate',
         'sort_order',
     ];
 
@@ -62,6 +65,8 @@ class Product extends Model
         'is_featured' => 'boolean',
         'has_variants' => 'boolean',
         'is_seva_only' => 'boolean',
+        'gst_enabled' => 'boolean',
+        'gst_rate' => 'decimal:2',
         'variants' => 'array',
         'sort_order' => 'integer',
     ];
@@ -70,6 +75,7 @@ class Product extends Model
     {
         $locale = app()->getLocale();
         $field = "name_{$locale}";
+
         return $this->$field ?? $this->name_gu;
     }
 
@@ -77,6 +83,7 @@ class Product extends Model
     {
         $locale = app()->getLocale();
         $field = "description_{$locale}";
+
         return $this->$field ?? $this->description_gu;
     }
 
@@ -112,6 +119,7 @@ class Product extends Model
                     return true;
                 }
             }
+
             return false;
         }
 
@@ -158,10 +166,11 @@ class Product extends Model
     {
         if ($this->has_variants && ! empty($this->variants)) {
             $min = collect($this->variants)->min('price');
-            return '₹' . number_format((float) $min, 2) . '+';
+
+            return '₹'.number_format((float) $min, 2).'+';
         }
 
-        return '₹' . number_format((float) $this->price, 2);
+        return '₹'.number_format((float) $this->price, 2);
     }
 
     /**
@@ -206,18 +215,23 @@ class Product extends Model
         $variants = $this->variants;
         $found = false;
         foreach ($variants as $i => $v) {
-            if (($v['label'] ?? '') !== $label) continue;
+            if (($v['label'] ?? '') !== $label) {
+                continue;
+            }
             $variants[$i]['stock'] = max(0, (int) ($v['stock'] ?? 0) - $qty);
             $found = true;
             break;
         }
 
-        if (! $found) return false;
+        if (! $found) {
+            return false;
+        }
 
         // forceFill + save — assigning to ->variants alone doesn't trip
         // Eloquent's dirty tracking when the underlying array is the
         // same reference. Persist explicitly.
         $this->forceFill(['variants' => $variants])->save();
+
         return true;
     }
 
@@ -249,15 +263,20 @@ class Product extends Model
         $variants = $this->variants;
         $found = false;
         foreach ($variants as $i => $v) {
-            if (($v['label'] ?? '') !== $label) continue;
+            if (($v['label'] ?? '') !== $label) {
+                continue;
+            }
             $variants[$i]['stock'] = (int) ($v['stock'] ?? 0) + $qty;
             $found = true;
             break;
         }
 
-        if (! $found) return false;
+        if (! $found) {
+            return false;
+        }
 
         $this->forceFill(['variants' => $variants])->save();
+
         return true;
     }
 

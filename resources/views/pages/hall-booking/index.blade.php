@@ -341,9 +341,16 @@
                             {{-- Tax breakdown, shown only when the SERVER
                                  quoted a GST rate. The devotee must see the
                                  tax before paying, not first meet it on the
-                                 invoice. Still never computed here. --}}
+                                 invoice. Still never computed here.
+
+                                 GST is INCLUSIVE (2026-08-13), so these two
+                                 lines add up to the total ABOVE them rather
+                                 than to something larger — hence the explicit
+                                 note, without which the breakdown reads like
+                                 tax about to be added on. --}}
                             <template x-if="quoteGstRate !== null">
                                 <div class="mt-3 pt-3 border-t border-amber-800/30 space-y-1">
+                                    <div class="text-[11px] text-amber-100/40">{{ __('halls.gst_inclusive') }}</div>
                                     <div class="flex justify-between text-[12px] text-amber-100/50">
                                         <span>{{ __('halls.taxable_value') }}</span>
                                         <span x-text="'₹' + quoteSubtotal.toLocaleString('en-IN')"></span>

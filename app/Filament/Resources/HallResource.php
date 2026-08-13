@@ -105,7 +105,7 @@ class HallResource extends Resource
                     ->numeric()
                     ->prefix('₹')
                     ->required()
-                    ->helperText('Hall bookings are full-day only — one price per date. GST, when enabled, is added ON TOP of this at checkout.'),
+                    ->helperText('Hall bookings are full-day only — one price per date. GST, when enabled, is INCLUDED in this price, not added at checkout — the devotee pays exactly this.'),
                 Forms\Components\TextInput::make('gst_rate')
                     ->label('GST rate override (%)')
                     ->numeric()

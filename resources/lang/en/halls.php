@@ -43,6 +43,7 @@ return [
     'cancel_confirm_body' => 'The trust will review your request. The booking stays confirmed until they decide, and any refund is decided by the trust.',
     'taxable_value' => 'Taxable value',
     'gst' => 'GST',
+    'gst_inclusive' => 'Amount shown includes GST',
     'book_prefix' => 'Book — ₹',
     'gallery1' => 'Temple Hall - Main View',
     'gallery2' => 'Event Hall - Interior View',

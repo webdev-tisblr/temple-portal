@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Filament\Support\TranslatableTabs;
 use App\Models\Msg91WebhookEvent;
 use App\Models\SystemSetting;
+use App\Rules\ValidPhoneNumber;
+use App\Services\DisplayBoardService;
 use App\Services\SmsService;
 use App\Services\WhatsAppService;
 use Filament\Forms;
@@ -23,9 +26,13 @@ class SystemSettings extends Page implements HasForms
     use InteractsWithForms;
 
     protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
+
     protected static ?string $navigationGroup = 'System';
+
     protected static ?string $title = 'System Settings';
+
     protected static ?string $navigationLabel = 'Settings';
+
     protected static ?int $navigationSort = 10;
 
     protected static string $view = 'filament.pages.system-settings';
@@ -85,7 +92,7 @@ class SystemSettings extends Page implements HasForms
         // flashed for two seconds instead of eight (2026-08-12). Defaults live
         // in DisplayBoardService::DEFAULTS so the form and the reader can
         // never disagree about what "unset" means.
-        foreach (\App\Services\DisplayBoardService::DEFAULTS as $key => $default) {
+        foreach (DisplayBoardService::DEFAULTS as $key => $default) {
             if (! array_key_exists($key, $settings) || $settings[$key] === '' || $settings[$key] === null) {
                 $settings[$key] = $default;
             }
@@ -143,7 +150,7 @@ class SystemSettings extends Page implements HasForms
                 ->limit(10)
                 ->get();
         } catch (\Throwable $e) {
-            return new HtmlString('<p class="text-sm text-danger-600">Could not read delivery reports: ' . e($e->getMessage()) . '</p>');
+            return new HtmlString('<p class="text-sm text-danger-600">Could not read delivery reports: '.e($e->getMessage()).'</p>');
         }
 
         if ($events->isEmpty()) {
@@ -152,11 +159,11 @@ class SystemSettings extends Page implements HasForms
             // rather than as a fault.
             return new HtmlString(
                 '<div class="text-sm rounded-lg border border-warning-300 bg-warning-50 p-3 text-warning-800 '
-                . 'dark:border-warning-600 dark:bg-warning-900/20 dark:text-warning-300">'
-                . '<strong>No delivery reports received yet.</strong> This is normal until the webhook URL above is '
-                . 'saved in MSG91. Until then every SMS stays "unconfirmed" in the notification log — the platform '
-                . 'genuinely does not know whether those messages arrived.'
-                . '</div>'
+                .'dark:border-warning-600 dark:bg-warning-900/20 dark:text-warning-300">'
+                .'<strong>No delivery reports received yet.</strong> This is normal until the webhook URL above is '
+                .'saved in MSG91. Until then every SMS stays "unconfirmed" in the notification log — the platform '
+                .'genuinely does not know whether those messages arrived.'
+                .'</div>'
             );
         }
 
@@ -170,23 +177,23 @@ class SystemSettings extends Page implements HasForms
             };
 
             $rows .= '<tr class="border-t border-gray-200 dark:border-gray-700">'
-                . '<td class="py-1.5 pr-3 whitespace-nowrap">' . e(optional($event->received_at)->format('d M H:i') ?? '—') . '</td>'
+                .'<td class="py-1.5 pr-3 whitespace-nowrap">'.e(optional($event->received_at)->format('d M H:i') ?? '—').'</td>'
                 // Masked at write time; masked again here would be a no-op.
-                . '<td class="py-1.5 pr-3 whitespace-nowrap">' . e($event->recipient_masked ?? '—') . '</td>'
-                . '<td class="py-1.5 pr-3 whitespace-nowrap ' . $colour . '">' . e(ucfirst($status)) . '</td>'
+                .'<td class="py-1.5 pr-3 whitespace-nowrap">'.e($event->recipient_masked ?? '—').'</td>'
+                .'<td class="py-1.5 pr-3 whitespace-nowrap '.$colour.'">'.e(ucfirst($status)).'</td>'
                 // MSG91's wording, verbatim — the whole reason this panel exists.
-                . '<td class="py-1.5">' . e($event->description ?? '—') . '</td>'
-                . '</tr>';
+                .'<td class="py-1.5">'.e($event->description ?? '—').'</td>'
+                .'</tr>';
         }
 
         return new HtmlString(
             '<div class="overflow-x-auto"><table class="w-full text-sm">'
-            . '<thead><tr class="text-left text-gray-500 dark:text-gray-400">'
-            . '<th class="pb-1 pr-3 font-medium">When</th>'
-            . '<th class="pb-1 pr-3 font-medium">To</th>'
-            . '<th class="pb-1 pr-3 font-medium">Status</th>'
-            . '<th class="pb-1 font-medium">MSG91 reason</th>'
-            . '</tr></thead><tbody>' . $rows . '</tbody></table></div>'
+            .'<thead><tr class="text-left text-gray-500 dark:text-gray-400">'
+            .'<th class="pb-1 pr-3 font-medium">When</th>'
+            .'<th class="pb-1 pr-3 font-medium">To</th>'
+            .'<th class="pb-1 pr-3 font-medium">Status</th>'
+            .'<th class="pb-1 font-medium">MSG91 reason</th>'
+            .'</tr></thead><tbody>'.$rows.'</tbody></table></div>'
         );
     }
 
@@ -205,7 +212,7 @@ class SystemSettings extends Page implements HasForms
                             // block, app temple-info). Bare key = Gujarati;
                             // hi/en live in suffixed keys and fall back to
                             // Gujarati when left empty.
-                            \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                            TranslatableTabs::make(fn (string $locale, string $label) => [
                                 Forms\Components\TextInput::make($locale === 'gu' ? 'trust_name' : "trust_name_{$locale}")
                                     ->label("Trust Name {$label}")
                                     ->required($locale === 'gu'),
@@ -220,7 +227,7 @@ class SystemSettings extends Page implements HasForms
                             // logo/name on every page via the footer
                             // partial. Plain text only — line breaks
                             // are honoured by Tailwind's leading-relaxed.
-                            \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                            TranslatableTabs::make(fn (string $locale, string $label) => [
                                 Forms\Components\Textarea::make($locale === 'gu' ? 'trust_tagline' : "trust_tagline_{$locale}")
                                     ->label("Footer tagline {$label}")
                                     ->rows(3)
@@ -232,7 +239,7 @@ class SystemSettings extends Page implements HasForms
                             ->description('Shown on the app\'s Temple Info screen (and available to the website). Each text is per-language — empty Hindi/English falls back to Gujarati.')
                             ->collapsed()
                             ->schema([
-                                \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                                TranslatableTabs::make(fn (string $locale, string $label) => [
                                     Forms\Components\Textarea::make($locale === 'gu' ? 'trust_about' : "trust_about_{$locale}")
                                         ->label("About the Trust {$label}")
                                         ->rows(4),
@@ -333,16 +340,16 @@ class SystemSettings extends Page implements HasForms
 
                         Forms\Components\Section::make('Hall GST')
                             ->icon('heroicon-o-receipt-percent')
-                            ->description('GST on hall bookings, added ON TOP of the hall\'s day rate — the advertised rate stays the rate and tax appears as its own line on the invoice. Turning this ON changes what devotees are charged at checkout, so switch it on only once the trust actually holds a GSTIN.')
+                            ->description('GST on hall bookings, INCLUSIVE in the hall\'s day rate — the advertised rate is what the devotee pays, and the invoice carves the tax out of it. Turning this on does not change what anyone is charged; it changes how much of that amount the trust keeps. Switch it on only once the trust actually holds a GSTIN.')
                             ->schema([
                                 Forms\Components\Toggle::make('hall_gst_enabled')
                                     ->label('Charge GST on hall bookings')
-                                    ->helperText('Off by default. Applies to NEW bookings only — bookings already taken keep the amounts they were invoiced at.'),
+                                    ->helperText('Applies to NEW bookings only — bookings already taken keep the amounts they were invoiced at.'),
                                 Forms\Components\TextInput::make('trust_gstin')
                                     ->label('Trust GSTIN')
                                     ->placeholder('24XXXXXXXXXXXZX')
                                     ->maxLength(15)
-                                    ->helperText('Printed on hall invoices whenever GST is charged.'),
+                                    ->helperText('Printed on hall and store invoices whenever GST is charged.'),
                                 Forms\Components\TextInput::make('hall_gst_rate')
                                     ->label('Default GST rate (%)')
                                     ->numeric()
@@ -352,6 +359,23 @@ class SystemSettings extends Page implements HasForms
                                     ->default('18.00')
                                     ->suffix('%')
                                     ->helperText('Split evenly into CGST + SGST on the invoice. An individual hall can override this on its own edit page.'),
+                            ])->columns(2),
+
+                        Forms\Components\Section::make('Store GST')
+                            ->icon('heroicon-o-receipt-percent')
+                            ->description('GST on store products, INCLUSIVE in the listed price. Unlike halls this is opt-in PER PRODUCT — a product is taxed only if its own "Charge GST" toggle is on, so prasad and seva-linked items stay untaxed while a taxable item can sit in the same cart.')
+                            ->schema([
+                                Forms\Components\Toggle::make('store_gst_enabled')
+                                    ->label('Charge GST on store products')
+                                    ->helperText('The master switch. With this off, no product is taxed no matter what its own toggle says. Applies to NEW orders only.'),
+                                Forms\Components\TextInput::make('store_gst_rate')
+                                    ->label('Default GST rate (%)')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(28)
+                                    ->step(0.01)
+                                    ->suffix('%')
+                                    ->helperText('Used by every GST-enabled product that does not set its own rate. Food and non-food items are rarely the same rate, so set the per-product override where they differ.'),
                             ])->columns(2),
 
                         Forms\Components\Section::make('80G Details')->schema([
@@ -425,12 +449,12 @@ class SystemSettings extends Page implements HasForms
                                     Forms\Components\Placeholder::make('push_tone_preview')
                                         ->hiddenLabel()
                                         ->content(fn (Forms\Get $get) => in_array($get('push_notification_tone'), ['jayshreeram'], true)
-                                            ? new \Illuminate\Support\HtmlString(
+                                            ? new HtmlString(
                                                 '<audio controls preload="none" style="height:36px;max-width:100%;" src="'
                                                 .e(asset('sounds/'.$get('push_notification_tone').'.mp3'))
                                                 .'"></audio>'
                                             )
-                                            : new \Illuminate\Support\HtmlString('<em style="font-size:.8rem;color:#9ca3af;">System default — plays each phone\'s own notification sound.</em>')),
+                                            : new HtmlString('<em style="font-size:.8rem;color:#9ca3af;">System default — plays each phone\'s own notification sound.</em>')),
                                 ]),
                             ])->columns(2)->collapsible(),
 
@@ -456,7 +480,7 @@ class SystemSettings extends Page implements HasForms
                                 Forms\Components\TextInput::make('otp_test_phone')
                                     ->label('Test phone (digits only, no +)')
                                     ->helperText('e.g. 9000000000 (Indian) or 15551234567 (with country code).')
-                                    ->rule(new \App\Rules\ValidPhoneNumber)
+                                    ->rule(new ValidPhoneNumber)
                                     ->maxLength(15),
                                 Forms\Components\TextInput::make('otp_test_code')
                                     ->label('Fixed OTP code (6 digits)')
@@ -661,10 +685,10 @@ class SystemSettings extends Page implements HasForms
                                             ->columnSpanFull()
                                             ->content(new HtmlString(
                                                 '<p class="text-sm text-gray-600 dark:text-gray-400">MSG91 accepts every submission with '
-                                                . '<code>{"type":"success"}</code> — including submissions with a wrong auth key or an invalid '
-                                                . 'template. Nothing is checked when we send. Paste the URL below into the MSG91 dashboard '
-                                                . '(<strong>Settings → Webhooks / Delivery Report URL</strong>) and MSG91 will report each message\'s real '
-                                                . 'outcome back here, with its own reason for any failure.</p>'
+                                                .'<code>{"type":"success"}</code> — including submissions with a wrong auth key or an invalid '
+                                                .'template. Nothing is checked when we send. Paste the URL below into the MSG91 dashboard '
+                                                .'(<strong>Settings → Webhooks / Delivery Report URL</strong>) and MSG91 will report each message\'s real '
+                                                .'outcome back here, with its own reason for any failure.</p>'
                                             )),
 
                                         Forms\Components\TextInput::make('sms_msg91_webhook_url')
@@ -680,7 +704,7 @@ class SystemSettings extends Page implements HasForms
                                                         // Clipboard write has to happen in the
                                                         // browser; json_encode keeps the value
                                                         // safely quoted inside the JS string.
-                                                        $livewire->js('window.navigator.clipboard.writeText(' . json_encode((string) $state) . ');');
+                                                        $livewire->js('window.navigator.clipboard.writeText('.json_encode((string) $state).');');
                                                         Notification::make()->title('Webhook URL copied')->success()->send();
                                                     })
                                             ),
@@ -690,10 +714,10 @@ class SystemSettings extends Page implements HasForms
                                             ->columnSpanFull()
                                             ->content(new HtmlString(
                                                 '<p class="text-sm text-gray-600 dark:text-gray-400">MSG91 offers no signing secret and no custom header on '
-                                                . 'delivery reports, so the random token in the URL is the credential. It is unguessable and can be '
-                                                . 'rotated, but anyone holding the URL can post to it. The worst a forged report can do is change the '
-                                                . 'delivery status shown against a message that was already sent — it cannot send anything, read '
-                                                . 'devotee data, or touch payments.</p>'
+                                                .'delivery reports, so the random token in the URL is the credential. It is unguessable and can be '
+                                                .'rotated, but anyone holding the URL can post to it. The worst a forged report can do is change the '
+                                                .'delivery status shown against a message that was already sent — it cannot send anything, read '
+                                                .'devotee data, or touch payments.</p>'
                                             )),
 
                                         Forms\Components\Actions::make([
@@ -704,8 +728,8 @@ class SystemSettings extends Page implements HasForms
                                                 ->requiresConfirmation()
                                                 ->modalHeading('Regenerate the webhook token?')
                                                 ->modalDescription('This immediately invalidates the URL already pasted into MSG91. '
-                                                    . 'Delivery reports STOP arriving — and every SMS will show as unconfirmed — until you paste '
-                                                    . 'the new URL into the MSG91 dashboard. Only do this if the current URL has leaked.')
+                                                    .'Delivery reports STOP arriving — and every SMS will show as unconfirmed — until you paste '
+                                                    .'the new URL into the MSG91 dashboard. Only do this if the current URL has leaked.')
                                                 ->modalSubmitActionLabel('Yes, regenerate')
                                                 ->action(fn () => $this->regenerateMsg91WebhookToken()),
                                         ])->columnSpanFull(),
@@ -778,6 +802,7 @@ class SystemSettings extends Page implements HasForms
     {
         if (empty($recipient)) {
             Notification::make()->title('Enter a recipient email first.')->warning()->send();
+
             return;
         }
 
@@ -787,8 +812,9 @@ class SystemSettings extends Page implements HasForms
         $driver = $data['mail_driver'] ?? 'log';
         if ($driver !== 'smtp') {
             Notification::make()
-                ->title('Mail driver is set to "' . $driver . '". Switch to SMTP to test.')
+                ->title('Mail driver is set to "'.$driver.'". Switch to SMTP to test.')
                 ->warning()->send();
+
             return;
         }
 
@@ -809,14 +835,14 @@ class SystemSettings extends Page implements HasForms
         try {
             Mail::raw(
                 "This is a test email from Shree Patadiya Hanumanji Seva Trust Digital Portal.\n\nIf you received this, your SMTP settings are working correctly.",
-                function ($message) use ($recipient, $data) {
+                function ($message) use ($recipient) {
                     $message->to($recipient)
                         ->subject('SMTP Test — Temple Portal');
                 }
             );
 
             Notification::make()
-                ->title('Test email sent to ' . $recipient)
+                ->title('Test email sent to '.$recipient)
                 ->success()->send();
         } catch (\Exception $e) {
             Notification::make()
@@ -844,6 +870,7 @@ class SystemSettings extends Page implements HasForms
                 ->body($result['message'])
                 ->success()
                 ->send();
+
             return;
         }
 
@@ -872,6 +899,7 @@ class SystemSettings extends Page implements HasForms
                 ->body($result['message'])
                 ->success()
                 ->send();
+
             return;
         }
 
@@ -889,16 +917,20 @@ class SystemSettings extends Page implements HasForms
      * just typed in. Without this, "Test connection" before "Save"
      * would always test the previously-saved credentials.
      *
-     * @param string $prefix Key prefix to scope the flush — typically
-     *                       'whatsapp_' or 'sms_'.
-     * @param string $group  SystemSetting.group value for new rows.
+     * @param  string  $prefix  Key prefix to scope the flush — typically
+     *                          'whatsapp_' or 'sms_'.
+     * @param  string  $group  SystemSetting.group value for new rows.
      */
     private function persistFormState(string $prefix = 'whatsapp_', string $group = 'whatsapp'): void
     {
         $data = $this->form->getState();
         foreach ($data as $key => $value) {
-            if (! str_starts_with($key, $prefix)) continue;
-            if (in_array($key, self::DISPLAY_ONLY_KEYS, true)) continue;
+            if (! str_starts_with($key, $prefix)) {
+                continue;
+            }
+            if (in_array($key, self::DISPLAY_ONLY_KEYS, true)) {
+                continue;
+            }
             SystemSetting::updateOrCreate(
                 ['key' => $key],
                 ['value' => $value ?? '', 'group' => $group, 'updated_at' => now()]
@@ -936,6 +968,7 @@ class SystemSettings extends Page implements HasForms
     {
         if (empty($recipient)) {
             Notification::make()->title('Enter a test recipient mobile first.')->warning()->send();
+
             return;
         }
 
@@ -950,6 +983,7 @@ class SystemSettings extends Page implements HasForms
                 ->body('Paste the MSG91 template id into "Default OTP Template ID" and save before sending a test.')
                 ->warning()
                 ->send();
+
             return;
         }
 
@@ -979,9 +1013,9 @@ class SystemSettings extends Page implements HasForms
         Notification::make()
             ->title($result['ok'] ? "Test OTP submitted to MSG91 (code: {$code})" : 'Test SMS failed')
             ->body($result['ok']
-                ? 'Sent variables: ' . implode(', ', array_keys($variables))
-                    . '. MSG91 accepted the request — that is NOT confirmation of delivery. '
-                    . 'Check "Recent delivery reports" below (or the handset) to see what actually happened.'
+                ? 'Sent variables: '.implode(', ', array_keys($variables))
+                    .'. MSG91 accepted the request — that is NOT confirmation of delivery. '
+                    .'Check "Recent delivery reports" below (or the handset) to see what actually happened.'
                 : $result['message'])
             ->color($result['ok'] ? 'info' : 'danger')
             ->persistent(! $result['ok'])
@@ -991,7 +1025,7 @@ class SystemSettings extends Page implements HasForms
     /** The full kiosk URL, derived so it can never go stale after a rotation. */
     private function boardKioskUrl(): string
     {
-        return url('/board').'?token='.app(\App\Services\DisplayBoardService::class)->accessToken();
+        return url('/board').'?token='.app(DisplayBoardService::class)->accessToken();
     }
 
     /**
@@ -1001,7 +1035,7 @@ class SystemSettings extends Page implements HasForms
      */
     public function regenerateBoardToken(): void
     {
-        app(\App\Services\DisplayBoardService::class)->regenerateAccessToken();
+        app(DisplayBoardService::class)->regenerateAccessToken();
         $this->data['board_kiosk_url'] = $this->boardKioskUrl();
 
         Notification::make()

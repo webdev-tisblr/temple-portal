@@ -338,45 +338,48 @@ class SystemSettings extends Page implements HasForms
                                 Forms\Components\TextInput::make('board_headline_en')->label('Headline (English)'),
                             ])->columns(2),
 
-                        Forms\Components\Section::make('Hall GST')
+                        Forms\Components\Section::make('GST')
                             ->icon('heroicon-o-receipt-percent')
-                            ->description('GST on hall bookings, INCLUSIVE in the hall\'s day rate — the advertised rate is what the devotee pays, and the invoice carves the tax out of it. Turning this on does not change what anyone is charged; it changes how much of that amount the trust keeps. Switch it on only once the trust actually holds a GSTIN.')
+                            ->description('GST is INCLUSIVE across the platform: the advertised price is what the devotee pays, and the invoice carves the tax out of it. Turning a switch on here does not change what anyone is charged — it changes how much of that amount the trust keeps. Switch on only once the trust actually holds a GSTIN.')
                             ->schema([
-                                Forms\Components\Toggle::make('hall_gst_enabled')
-                                    ->label('Charge GST on hall bookings')
-                                    ->helperText('Applies to NEW bookings only — bookings already taken keep the amounts they were invoiced at.'),
                                 Forms\Components\TextInput::make('trust_gstin')
                                     ->label('Trust GSTIN')
                                     ->placeholder('24XXXXXXXXXXXZX')
                                     ->maxLength(15)
+                                    ->columnSpanFull()
                                     ->helperText('Printed on hall and store invoices whenever GST is charged.'),
-                                Forms\Components\TextInput::make('hall_gst_rate')
-                                    ->label('Default GST rate (%)')
-                                    ->numeric()
-                                    ->minValue(0)
-                                    ->maxValue(28)
-                                    ->step(0.01)
-                                    ->default('18.00')
-                                    ->suffix('%')
-                                    ->helperText('Split evenly into CGST + SGST on the invoice. An individual hall can override this on its own edit page.'),
-                            ])->columns(2),
 
-                        Forms\Components\Section::make('Store GST')
-                            ->icon('heroicon-o-receipt-percent')
-                            ->description('GST on store products, INCLUSIVE in the listed price. Unlike halls this is opt-in PER PRODUCT — a product is taxed only if its own "Charge GST" toggle is on, so prasad and seva-linked items stay untaxed while a taxable item can sit in the same cart.')
-                            ->schema([
-                                Forms\Components\Toggle::make('store_gst_enabled')
-                                    ->label('Charge GST on store products')
-                                    ->helperText('The master switch. With this off, no product is taxed no matter what its own toggle says. Applies to NEW orders only.'),
-                                Forms\Components\TextInput::make('store_gst_rate')
-                                    ->label('Default GST rate (%)')
-                                    ->numeric()
-                                    ->minValue(0)
-                                    ->maxValue(28)
-                                    ->step(0.01)
-                                    ->suffix('%')
-                                    ->helperText('Used by every GST-enabled product that does not set its own rate. Food and non-food items are rarely the same rate, so set the per-product override where they differ.'),
-                            ])->columns(2),
+                                Forms\Components\Fieldset::make('Halls')
+                                    ->schema([
+                                        Forms\Components\Toggle::make('hall_gst_enabled')
+                                            ->label('Charge GST on hall bookings')
+                                            ->helperText('Applies to every hall, and to NEW bookings only — bookings already taken keep the amounts they were invoiced at.'),
+                                        Forms\Components\TextInput::make('hall_gst_rate')
+                                            ->label('Default GST rate (%)')
+                                            ->numeric()
+                                            ->minValue(0)
+                                            ->maxValue(28)
+                                            ->step(0.01)
+                                            ->default('18.00')
+                                            ->suffix('%')
+                                            ->helperText('Split evenly into CGST + SGST on the invoice. An individual hall can override this on its own edit page.'),
+                                    ])->columns(2),
+
+                                Forms\Components\Fieldset::make('Store')
+                                    ->schema([
+                                        Forms\Components\Toggle::make('store_gst_enabled')
+                                            ->label('Charge GST on store products')
+                                            ->helperText('A master switch only. Unlike halls, each product must ALSO opt in on its own edit page — so prasad and seva-linked items stay untaxed while a taxable item sits in the same cart.'),
+                                        Forms\Components\TextInput::make('store_gst_rate')
+                                            ->label('Default GST rate (%)')
+                                            ->numeric()
+                                            ->minValue(0)
+                                            ->maxValue(28)
+                                            ->step(0.01)
+                                            ->suffix('%')
+                                            ->helperText('Used by every GST-enabled product that does not set its own rate. Food and non-food are rarely the same rate, so set the per-product override where they differ.'),
+                                    ])->columns(2),
+                            ]),
 
                         Forms\Components\Section::make('80G Details')->schema([
                             Forms\Components\TextInput::make('trust_80g_reg_no')->label('80G Registration No.'),

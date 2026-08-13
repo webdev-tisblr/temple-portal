@@ -321,7 +321,15 @@ class GreetingCardService
         }
 
         $value = $resolve($fieldKey);
-        if ($value === null || $value === '') {
+        $isBlank = ($value === null || $value === '');
+
+        // A blank TEXT overlay draws nothing — an empty caption is correct,
+        // and a placeholder where a donor's name should be would be worse
+        // than the gap. A blank IMAGE overlay is different: an admin can
+        // define a photo-upload extra field and leave it optional, and a
+        // donor who skips it used to get a card with a hole in it. That
+        // falls through to the trust logo instead (2026-08-13).
+        if ($isBlank && $type !== 'image') {
             return;
         }
 
@@ -335,7 +343,7 @@ class GreetingCardService
                 ScriptFont::forText((string) $value) ?? $fontPath,
             );
         } elseif ($type === 'image') {
-            $this->applyImageOverlay($image, $overlay, (string) $value);
+            $this->applyImageOverlay($image, $overlay, $isBlank ? null : (string) $value);
         }
     }
 
@@ -545,21 +553,20 @@ class GreetingCardService
      * Place an image overlay (e.g. a photo from extra_data uploaded via the
      * donation form — those land in R2 public bucket since Phase 3a).
      */
-    private function applyImageOverlay(\GdImage $image, array $overlay, string $storagePath): void
+    /**
+     * @param  string|null  $storagePath  R2 key of the donor's upload, or NULL
+     *   when they did not upload one — in which case the trust logo is drawn so
+     *   the card never ships with an empty box.
+     */
+    private function applyImageOverlay(\GdImage $image, array $overlay, ?string $storagePath): void
     {
-        try {
-            $bytes = Storage::disk('r2')->get($storagePath);
-        } catch (\Throwable $e) {
-            Log::warning('Greeting card overlay image fetch failed', [
-                'path' => $storagePath,
-                'error' => $e->getMessage(),
-            ]);
+        $bytes = $storagePath === null
+            ? $this->fallbackOverlayBytes()
+            : $this->overlayBytesFromR2($storagePath) ?? $this->fallbackOverlayBytes();
 
-            return;
-        }
         if (! $bytes) {
-            Log::warning('Greeting card overlay image not found on R2', ['path' => $storagePath]);
-
+            // Even the fallback is unreadable. A card with a gap still beats
+            // no card at all, so draw nothing and carry on.
             return;
         }
 
@@ -737,5 +744,60 @@ class GreetingCardService
         }
 
         return $photo;
+    }
+
+    /** The donor's uploaded image, or NULL when it cannot be read. */
+    private function overlayBytesFromR2(string $storagePath): ?string
+    {
+        try {
+            $bytes = Storage::disk('r2')->get($storagePath);
+        } catch (\Throwable $e) {
+            Log::warning('Greeting card overlay image fetch failed', [
+                'path' => $storagePath,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        if (! $bytes) {
+            Log::warning('Greeting card overlay image not found on R2', ['path' => $storagePath]);
+
+            return null;
+        }
+
+        return $bytes;
+    }
+
+    /**
+     * Stand-in artwork for an image overlay the donor left empty.
+     *
+     * Admin-overridable through `greeting_card_fallback_image` (an R2 key), so
+     * the trust can swap in dedicated artwork without a deploy. Unset falls
+     * back to the bundled trust logo — a LOCAL file, which is why this cannot
+     * simply reuse the R2 reader above.
+     */
+    private function fallbackOverlayBytes(): ?string
+    {
+        $configured = SystemSetting::getValue('greeting_card_fallback_image', '');
+
+        if ($configured !== '') {
+            $bytes = $this->overlayBytesFromR2($configured);
+            if ($bytes) {
+                return $bytes;
+            }
+            // Configured but unreadable — fall through to the bundled logo
+            // rather than leaving a hole.
+        }
+
+        $logo = public_path('images/shree-pataliya-hanumanji-logo.png');
+
+        if (! is_readable($logo)) {
+            Log::warning('Greeting card fallback logo missing', ['path' => $logo]);
+
+            return null;
+        }
+
+        return file_get_contents($logo) ?: null;
     }
 }

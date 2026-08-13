@@ -216,11 +216,6 @@
                     animation: pulse 2s ease-in-out infinite; }
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
 
-        .anon-name {
-            font-family: 'Noto Serif Gujarati',serif; font-size: 3.6vh;
-            font-weight: 700; color: var(--gold); margin: .6vh 0;
-        }
-
         /* ── Right: recent offerings ─────────────────────────────────────── */
         .donors { min-height: 0; }
         .donors-head {
@@ -393,14 +388,6 @@
                         <div class="card-body" data-s="darshan_body"></div>
                     @endif
                 </div>
-
-                {{-- Gupt Daan honour card: masked, shuffled, no time shown, so
-                     a quiet gift is honoured without becoming traceable. --}}
-                <div class="card" data-card id="card-anon" style="display:none">
-                    <div class="card-eyebrow" data-s="anon_eyebrow"></div>
-                    <div class="anon-name" id="anon-name"></div>
-                    <div class="card-body" data-s="anon_body"></div>
-                </div>
             </div>
 
             {{-- Permanent, always scannable. --}}
@@ -476,7 +463,6 @@
             seva_body:'એપ કે વેબસાઇટ પરથી સેવા બુક કરો',
             darshan_eyebrow:'દર્શન', darshan_title:'રોજ દર્શન', darshan_body:'દરરોજનાં દર્શન એપમાં જુઓ',
             vatika_eyebrow:'નિર્માણ', vatika_title:'શ્રી રામ વાટિકા', vatika_body:'શ્રી રામ વાટિકા નિર્માણમાં સહયોગ આપો',
-            anon_eyebrow:'ગુપ્ત દાન', anon_body:'નામ વગર અર્પણ કરેલ સેવા',
             feat_darshan:'રોજ દર્શન', feat_seva:'સેવા બુકિંગ', feat_donate:'દાન', feat_events:'ઉત્સવ',
             recent_title:'તાજેતરનાં દાન', ann_eyebrow:'સેવા પ્રાપ્ત થઈ', bless:'જય હનુમાન',
             first_line:'આપનું દાન પ્રથમ હોઈ શકે', off:'જય શ્રી રામ', today:'આજે'
@@ -489,7 +475,6 @@
             seva_body:'ऐप या वेबसाइट से सेवा बुक करें',
             darshan_eyebrow:'दर्शन', darshan_title:'रोज़ दर्शन', darshan_body:'प्रतिदिन के दर्शन ऐप में देखें',
             vatika_eyebrow:'निर्माण', vatika_title:'श्री राम वाटिका', vatika_body:'श्री राम वाटिका निर्माण में सहयोग दें',
-            anon_eyebrow:'गुप्त दान', anon_body:'बिना नाम अर्पित सेवा',
             feat_darshan:'रोज़ दर्शन', feat_seva:'सेवा बुकिंग', feat_donate:'दान', feat_events:'उत्सव',
             recent_title:'हाल के दान', ann_eyebrow:'सेवा प्राप्त हुई', bless:'जय हनुमान',
             first_line:'आपका दान पहला हो सकता है', off:'जय श्री राम', today:'आज'
@@ -502,7 +487,6 @@
             seva_body:'Book a seva from the app or website',
             darshan_eyebrow:'Darshan', darshan_title:'Daily Darshan', darshan_body:'See each day’s darshan in the app',
             vatika_eyebrow:'Construction', vatika_title:'Shree Ram Vatika', vatika_body:'Support the Shree Ram Vatika',
-            anon_eyebrow:'Gupt Daan', anon_body:'Offered without a name',
             feat_darshan:'Daily Darshan', feat_seva:'Seva booking', feat_donate:'Donate', feat_events:'Events',
             recent_title:'Recent offerings', ann_eyebrow:'Offering received', bless:'Jay Hanuman',
             first_line:'Yours could be the first offering', off:'Jay Shri Ram', today:'Today'
@@ -516,7 +500,7 @@
     });
 
     var st = {
-        lastSeq: null, seen: new Set(), queue: [], rows: [], anon: [],
+        lastSeq: null, seen: new Set(), queue: [], rows: [],
         // Seqs queued or currently on air. The server returns a new gift
         // in BOTH `entries` and `recent` on the same poll, so without this
         // the sidebar took it immediately AND the announcement added it
@@ -596,16 +580,10 @@
 
     /* ── Left rotation ─────────────────────────────────────────────────── */
     function rotate() {
-        var cards = Array.prototype.slice.call(document.querySelectorAll('[data-card]'))
-            .filter(function (c) { return c.id !== 'card-anon' || st.anon.length; });
+        var cards = Array.prototype.slice.call(document.querySelectorAll('[data-card]'));
         cards.forEach(function (c) { c.classList.remove('is-on'); c.style.display = 'none'; });
         var card = cards[st.card % cards.length];
         st.card++;
-        if (card.id === 'card-anon') {
-            // Shuffled server-side and shown without a time, so a Gupt Daan
-            // gift can never be tied to whoever just left the counter.
-            $('anon-name').textContent = st.anon[Math.floor(Math.random() * st.anon.length)].name;
-        }
         card.style.display = 'flex';
         card.classList.add('is-on');
     }
@@ -669,7 +647,6 @@
             st.headline = d.config.headline || '';
             $('headline').textContent = st.headline;
         }
-        if (Array.isArray(d.anonymous_recent)) st.anon = d.anonymous_recent;
 
         if (!st.enabled) {
             st.rows = []; renderList(false);

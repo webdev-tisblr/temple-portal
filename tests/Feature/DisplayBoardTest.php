@@ -90,7 +90,7 @@ class DisplayBoardTest extends TestCase
      * full-screen takeover, because in a hall the timing itself identifies the
      * donor who just left the counter.
      */
-    public function test_an_anonymous_gift_is_not_announced_but_still_honoured(): void
+    public function test_an_anonymous_gift_never_reaches_the_screen(): void
     {
         $this->capture(['anonymous' => true]);
         $this->travel(10)->seconds();
@@ -107,13 +107,16 @@ class DisplayBoardTest extends TestCase
         // anonymous gifts are kept out of it entirely...
         $this->assertSame([], $data['recent'], 'the ordered column must be named gifts only');
 
-        // ...and honoured in the shuffled, order-free roll instead.
-        $this->assertCount(1, $data['anonymous_recent']);
-        $this->assertSame(__('projects.gupt_daan_name'), $data['anonymous_recent'][0]['name']);
-        $this->assertArrayNotHasKey(
-            'seq',
-            $data['anonymous_recent'][0],
-            'no sequence number, or the ordering leaks back out',
+        // The board carried a shuffled "Gupt Daan" honour card until
+        // 2026-08-13, when the trust asked for it to go. So an anonymous
+        // gift is now recorded and simply never displayed anywhere — assert
+        // the WHOLE payload, not one key, or a future card would slip a
+        // masked row back onto the screen without failing a test.
+        $this->assertArrayNotHasKey('anonymous_recent', $data);
+        $this->assertStringNotContainsString(
+            __('projects.gupt_daan_name'),
+            json_encode($data, JSON_UNESCAPED_UNICODE),
+            'no part of the feed may carry a Gupt Daan row',
         );
     }
 
@@ -129,7 +132,6 @@ class DisplayBoardTest extends TestCase
 
         $this->assertCount(2, $data['recent']);
         $this->assertSame('Second Donor', $data['recent'][0]['name'], 'newest first');
-        $this->assertSame([], $data['anonymous_recent']);
     }
 
     /** 3. Donor free text must never reach a screen in front of the congregation. */

@@ -158,7 +158,6 @@ class DisplayBoardService
             // Always sent, so the attract loop can run entirely from client
             // memory during a network outage.
             'recent' => $enabled ? $this->recentNamed() : [],
-            'anonymous_recent' => $enabled ? $this->anonymousRoll() : [],
             // Lets the screen pull an entry that is already on air.
             'suppressed_ids' => $enabled ? $this->recentlySuppressedIds() : [],
             'server_time' => now()->toIso8601String(),
@@ -175,12 +174,12 @@ class DisplayBoardService
     /**
      * The standing "recent offerings" column, newest first.
      *
-     * NAMED gifts only, and that exclusion is the whole reason this is a
-     * separate method from anonymousRoll(). An ORDERED list is a timeline: a
-     * masked row sitting at position one, moments after someone walked away
-     * from the counter, identifies that person just as surely as printing
-     * their name would. Masking protects the name; only removing the ordering
-     * protects the timing.
+     * NAMED gifts only, and that exclusion is load-bearing rather than
+     * cosmetic. An ORDERED list is a timeline: a masked row sitting at
+     * position one, moments after someone walked away from the counter,
+     * identifies that person just as surely as printing their name would.
+     * Masking protects the name; only leaving Gupt Daan off the list
+     * protects the timing. Never relax this filter.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -192,26 +191,6 @@ class DisplayBoardService
             ->limit(self::RECENT_LIMIT)
             ->get()
             ->map(fn (DonationBoardEntry $e): array => $this->row($e))
-            ->all();
-    }
-
-    /**
-     * Gupt Daan gifts for the rotating honour card — masked, shuffled, and
-     * carrying no sequence number, so nothing about the order or the timing
-     * survives to the screen. They are honoured; they are not traceable.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    private function anonymousRoll(): array
-    {
-        return DonationBoardEntry::showable()
-            ->where('anonymous', true)
-            ->orderByDesc('id')
-            ->limit(self::RECENT_LIMIT)
-            ->get()
-            ->map(fn (DonationBoardEntry $e): array => $this->row($e, withSeq: false))
-            ->shuffle()
-            ->values()
             ->all();
     }
 

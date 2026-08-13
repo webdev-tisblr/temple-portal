@@ -88,6 +88,14 @@ class GenerateStoreInvoice implements ShouldQueue
                 'order' => array_merge($this->order->toArray(), [
                     'total_amount_formatted' => number_format((float) $this->order->total_amount, 2),
                     'items_count' => $this->order->items->count(),
+                    // Total UNITS, which is what a devotee means by "items".
+                    // items_count counts order ROWS: two of one product is one
+                    // row, so "your order of 1 items" for two ladoo boxes.
+                    'total_quantity' => (int) $this->order->items->sum('quantity'),
+                    // "2 × Shri Ladoo Prasad" per line — email only.
+                    'items_list' => static::itemsList($this->order),
+                    // Same content on ONE line, safe for a WhatsApp parameter.
+                    'items_summary' => static::itemsSummary($this->order),
                 ]),
                 'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
                 // Permanent signed link — regenerates the PDF on miss;
@@ -211,5 +219,48 @@ class GenerateStoreInvoice implements ShouldQueue
             </div>
         </div>
         HTML;
+    }
+
+    /**
+     * "2 × Shri Ladoo Prasad" per line. For EMAIL only — a newline inside a
+     * WhatsApp template parameter is rejected by Meta.
+     *
+     * Product names are the snapshot stored on the order row, so a renamed or
+     * re-translated product never rewrites an order already placed. That means
+     * a Gujarati product name stays Gujarati inside a Hindi message, which is
+     * correct: it is what the devotee actually bought.
+     */
+    public static function itemsList(Order $order): string
+    {
+        return $order->items
+            ->map(fn ($i): string => $i->quantity.' × '.static::itemLabel($i))
+            ->implode("\n");
+    }
+
+    /**
+     * One-line version for WhatsApp, capped so a large order cannot blow past
+     * Meta's parameter length limit.
+     */
+    public static function itemsSummary(Order $order, int $max = 4): string
+    {
+        $items = $order->items;
+
+        $shown = $items->take($max)
+            ->map(fn ($i): string => $i->quantity.' × '.static::itemLabel($i))
+            ->implode(', ');
+
+        $rest = $items->count() - $max;
+
+        return $rest > 0 ? $shown.' +'.$rest.' more' : $shown;
+    }
+
+    /** Product name plus its variant, when the line carries one. */
+    private static function itemLabel($item): string
+    {
+        $name = (string) $item->product_name;
+
+        return filled($item->variant_label)
+            ? $name.' ('.$item->variant_label.')'
+            : $name;
     }
 }

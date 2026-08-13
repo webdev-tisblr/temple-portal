@@ -179,7 +179,14 @@ final class WhatsAppNotificationDriver implements NotificationDriver
                         $resolved = $context->render((string) ($literal ?? ''), $placeholderMap);
                     }
 
-                    $params[] = ['type' => 'text', 'text' => $resolved];
+                    // Meta rejects a body parameter containing a newline, a
+                    // tab, or 4+ consecutive spaces — the whole send fails with
+                    // (#132000)/(#131008), which is the family of errors that
+                    // cost an evening in 2026-05-14. Nothing upstream stopped a
+                    // multi-line value reaching here, so it is flattened at the
+                    // boundary: a list placeholder degrades to one readable
+                    // line instead of killing the message.
+                    $params[] = ['type' => 'text', 'text' => self::flattenForWhatsApp($resolved)];
                 } elseif (in_array($type, ['image', 'document', 'video'], true)) {
                     // Media param — URLs / filenames are always strings,
                     // so no date-formatting concerns here, but they go
@@ -204,5 +211,26 @@ final class WhatsAppNotificationDriver implements NotificationDriver
             $out[] = $entry;
         }
         return $out;
+    }
+
+    /**
+     * Make any resolved value safe to hand Meta as a template parameter.
+     *
+     * Newlines and tabs become ", " so a multi-line list still reads as a
+     * list; runs of whitespace collapse because 4+ consecutive spaces are
+     * rejected too. Deliberately applied to EVERY text parameter, not just
+     * the list ones — the constraint is Meta's, so the guard belongs at the
+     * boundary rather than in each caller that might forget.
+     */
+    public static function flattenForWhatsApp(?string $value): string
+    {
+        $value = (string) $value;
+
+        // Newline/tab → separator, but don't create ", , " out of blank lines.
+        $value = preg_replace('/[\r\n\t]+/u', ', ', $value) ?? $value;
+        $value = preg_replace('/(,\s*){2,}/u', ', ', $value) ?? $value;
+        $value = preg_replace('/[ ]{2,}/u', ' ', $value) ?? $value;
+
+        return trim($value, " ,\t\n\r");
     }
 }

@@ -162,4 +162,49 @@ class GreetingCardPhotoFallbackTest extends TestCase
 
         $this->assertNotNull($donation->greeting_card_path, 'a broken upload must not kill the card');
     }
+
+    /**
+     * The fallback lives in the SHARED overlay path, so it protects campaign
+     * and seva cards too — not just donation types.
+     *
+     * Worth being precise about the practical reach: only DonationType has
+     * `extra_fields`, which is the only way an admin can define a photo-upload
+     * field. Campaigns and sevas have none, and their overlay editors offer
+     * text variables only — so an image overlay can only reach their cards if
+     * one is hand-written into greeting_card_config, which is exactly what
+     * this test does. If that ever becomes a real feature, this already works.
+     */
+    public function test_the_fallback_also_covers_a_campaign_card(): void
+    {
+        Storage::disk('r2')->put('greeting-templates/campaign.png', $this->png());
+
+        $campaign = \App\Models\DonationCampaign::create([
+            'title_gu' => 'શ્રી રામ વાટિકા',
+            'slug' => 'vatika-fallback-test',
+            'goal_amount' => 100000,
+            'start_date' => now()->subMonth()->toDateString(),
+            'end_date' => now()->addMonths(6)->toDateString(),
+            'is_active' => true,
+            'greeting_card_template' => 'greeting-templates/campaign.png',
+            'greeting_card_config' => ['overlays' => [
+                // Hand-written image overlay with no donor upload behind it.
+                ['field_key' => 'photo', 'type' => 'image', 'x' => 10, 'y' => 10, 'width' => 120, 'height' => 120],
+                ['field_key' => '_campaign_title', 'type' => 'text', 'x' => 10, 'y' => 170, 'font_size' => 16],
+            ]],
+        ]);
+
+        $payment = PaymentFactory::new()->create(['status' => 'created']);
+        $donation = DonationFactory::new()->create([
+            'devotee_id' => DevoteeFactory::new()->create()->id,
+            'payment_id' => $payment->id,
+            'campaign_id' => $campaign->id,
+            'donation_type' => 'campaign',
+            'donation_type_id' => null,
+            'extra_data' => [],
+        ]);
+
+        app(GreetingCardService::class)->generate($donation->fresh());
+
+        $this->assertNotNull($donation->fresh()->greeting_card_path, 'campaign card must render with the logo, not a hole');
+    }
 }

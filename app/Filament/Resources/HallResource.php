@@ -5,26 +5,33 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\HallResource\Pages;
+use App\Filament\Support\ReminderRuleFields;
+use App\Filament\Support\TranslatableTabs;
 use App\Models\Hall;
+use App\Services\HallReminderScheduler;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Carbon;
 
 class HallResource extends Resource
 {
-
     protected static ?string $model = Hall::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
+
     protected static ?string $navigationGroup = 'Portal Setup';
+
     protected static ?int $navigationSort = 50;
 
     public static function form(Form $form): Form
     {
         return $form->schema([
             Forms\Components\Section::make('Content')->schema([
-                \App\Filament\Support\TranslatableTabs::make(fn (string $locale, string $label) => [
+                TranslatableTabs::make(fn (string $locale, string $label) => [
                     Forms\Components\TextInput::make("name_{$locale}")->label("Name {$label}")->required($locale === 'gu')->maxLength(255),
                     Forms\Components\RichEditor::make("description_{$locale}")->label("Description {$label}"),
                     Forms\Components\Textarea::make("rules_{$locale}")->label("Rules {$label}")->rows(4),
@@ -59,6 +66,37 @@ class HallResource extends Resource
                         ->default('09:00')
                         ->helperText('A hall booking has no start time, so this is the moment the cut-off counts back from.'),
                 ])->columns(3),
+
+            Forms\Components\Section::make('Reminders')
+                ->icon('heroicon-o-bell')
+                ->description('Add any number of rules — each one is when + who + channel + message. Counted back from the day-start time on the FIRST booked day, and applied to bookings confirmed after the rule exists. Nothing sends until a template is enabled for the "Hall — reminder before booking" trigger.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('reminderRules')
+                        ->relationship()
+                        // visible(), never disabled() — Filament skips hidden
+                        // components when dehydrating AND when running
+                        // saveRelationships, so an admin without the
+                        // permission cannot add, edit or silently WIPE rules
+                        // by saving the rest of the hall form. Same reasoning
+                        // as the seva repeater (G7, 2026-08-09).
+                        ->visible(fn (): bool => auth('admin')->user()?->can('update_hall::reminder::rule') ?? false)
+                        ->hiddenLabel()
+                        ->schema(ReminderRuleFields::schema(
+                            subject: 'booking',
+                            triggerKey: 'hall.booking.reminder',
+                            withAssignee: false,
+                            placeholders: '{{contact_name}} {{devotee_name}} {{hall_name}} {{booking_date}} {{booking_date_range}} {{days_count}} {{amount}} {{booking_number}} {{time_remaining_label}} {{trust_name}} {{admin_name}}',
+                        ))
+                        ->columns(2)
+                        ->defaultItems(0)
+                        ->addActionLabel('Add reminder rule')
+                        ->collapsible()
+                        ->itemLabel(fn (array $state): ?string => isset($state['offset_minutes'])
+                            ? HallReminderScheduler::humanLabel((int) $state['offset_minutes'])
+                                .' before → '.($state['recipient_type'] ?? '').' → '.($state['channel'] ?? '')
+                            : null),
+                ]),
 
             // Bookings are full-day only (2026-08-04): single price.
             Forms\Components\Section::make('Pricing')->schema([
@@ -101,13 +139,13 @@ class HallResource extends Resource
                                 ->image()
                                 ->directory('hall-media')
                                 ->maxSize(4096)
-                                ->visible(fn (\Filament\Forms\Get $get): bool => $get('media_type') === 'photo'),
+                                ->visible(fn (Get $get): bool => $get('media_type') === 'photo'),
                             Forms\Components\TextInput::make('video_url')
                                 ->label('Video URL')
                                 ->url()
                                 ->maxLength(500)
                                 ->placeholder('https://youtu.be/xxxxxxxxxxx')
-                                ->visible(fn (\Filament\Forms\Get $get): bool => $get('media_type') === 'video'),
+                                ->visible(fn (Get $get): bool => $get('media_type') === 'video'),
                             Forms\Components\TextInput::make('sort_order')->numeric()->default(0),
                         ])
                         ->columns(2)
@@ -162,7 +200,7 @@ class HallResource extends Resource
                         ->defaultItems(0)
                         ->addActionLabel('Add Blockout Date')
                         ->itemLabel(fn (array $state): ?string => ($state['date'] ?? null)
-                            ? \Illuminate\Support\Carbon::parse($state['date'])->format('d/m/Y').' — '.($state['reason'] ?? '')
+                            ? Carbon::parse($state['date'])->format('d/m/Y').' — '.($state['reason'] ?? '')
                             : null),
                 ]),
 

@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\HallBooking;
 use App\Models\Seva;
 use App\Models\SevaBooking;
 use App\Models\SystemSetting;
+use App\Observers\HallBookingObserver;
 use App\Observers\SevaBookingObserver;
 use App\Observers\SevaObserver;
 use App\Services\UploadedImageCompressor;
@@ -16,6 +18,8 @@ use Filament\Tables\Actions\DeleteAction as TableDeleteAction;
 use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Tables\Columns\ImageColumn;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -64,6 +68,9 @@ class AppServiceProvider extends ServiceProvider
         // Materialises / cancels seva reminder schedule rows as bookings
         // change state, on every confirm path. See SevaReminderScheduler.
         SevaBooking::observe(SevaBookingObserver::class);
+        // Same contract as the seva observer: it runs inside the payment
+        // capture transaction and must never throw.
+        HallBooking::observe(HallBookingObserver::class);
 
         // All Filament image uploads land in Cloudflare R2 (the 'r2' disk
         // pins to the public bucket, served via cdn.patadiyahanumanji.com).
@@ -95,80 +102,80 @@ class AppServiceProvider extends ServiceProvider
         // CORS Policy.
         FileUpload::configureUsing(function (FileUpload $c) {
             $c->disk('r2')
-              ->fetchFileInformation(false)
-              ->getUploadedFileUsing(function (FileUpload $component, string $file, string|array|null $storedFileNames): ?array {
-                  $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-                  $mime = match ($ext) {
-                      'jpg', 'jpeg' => 'image/jpeg',
-                      'png' => 'image/png',
-                      'webp' => 'image/webp',
-                      'gif' => 'image/gif',
-                      'svg' => 'image/svg+xml',
-                      'pdf' => 'application/pdf',
-                      default => 'application/octet-stream',
-                  };
+                ->fetchFileInformation(false)
+                ->getUploadedFileUsing(function (FileUpload $component, string $file, string|array|null $storedFileNames): ?array {
+                    $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+                    $mime = match ($ext) {
+                        'jpg', 'jpeg' => 'image/jpeg',
+                        'png' => 'image/png',
+                        'webp' => 'image/webp',
+                        'gif' => 'image/gif',
+                        'svg' => 'image/svg+xml',
+                        'pdf' => 'application/pdf',
+                        default => 'application/octet-stream',
+                    };
 
-                  // In multiple() mode Filament hands the whole map of stored
-                  // names, keyed by path — passing the array straight through
-                  // would show "Array" as every file's name in FilePond.
-                  $name = is_array($storedFileNames)
-                      ? ($storedFileNames[$file] ?? basename($file))
-                      : ($storedFileNames ?: basename($file));
+                    // In multiple() mode Filament hands the whole map of stored
+                    // names, keyed by path — passing the array straight through
+                    // would show "Array" as every file's name in FilePond.
+                    $name = is_array($storedFileNames)
+                        ? ($storedFileNames[$file] ?? basename($file))
+                        : ($storedFileNames ?: basename($file));
 
-                  return [
-                      'name' => $name,
-                      'size' => 1,
-                      'type' => $mime,
-                      'url' => $component->getDisk()->url($file),
-                  ];
-              })
+                    return [
+                        'name' => $name,
+                        'size' => 1,
+                        'type' => $mime,
+                        'url' => $component->getDisk()->url($file),
+                    ];
+                })
               // Shrink photos before they reach R2 — see UploadedImageCompressor
               // for the why and the measured numbers. Applies to every upload in
               // the admin, not just the gallery. Anything the compressor declines
               // (PDFs, SVG, animated GIF, already-small images, an image it fails
               // to decode) falls through to Filament's stock store, untouched.
-              ->saveUploadedFileUsing(function (FileUpload $component, TemporaryUploadedFile $file): ?string {
-                  try {
-                      if (! $file->exists()) {
-                          return null;
-                      }
-                  } catch (\Throwable) {
-                      return null;
-                  }
+                ->saveUploadedFileUsing(function (FileUpload $component, TemporaryUploadedFile $file): ?string {
+                    try {
+                        if (! $file->exists()) {
+                            return null;
+                        }
+                    } catch (\Throwable) {
+                        return null;
+                    }
 
-                  $store = fn (): ?string => $file->{$component->getVisibility() === 'public' ? 'storePubliclyAs' : 'storeAs'}(
-                      $component->getDirectory(),
-                      $component->getUploadedFileNameForStorage($file),
-                      $component->getDiskName(),
-                  );
+                    $store = fn (): ?string => $file->{$component->getVisibility() === 'public' ? 'storePubliclyAs' : 'storeAs'}(
+                        $component->getDirectory(),
+                        $component->getUploadedFileNameForStorage($file),
+                        $component->getDiskName(),
+                    );
 
-                  $local = $file->getRealPath();
+                    $local = $file->getRealPath();
 
-                  if ($local === false || $local === '') {
-                      return $store();
-                  }
+                    if ($local === false || $local === '') {
+                        return $store();
+                    }
 
-                  $compressed = app(UploadedImageCompressor::class)->compress(
-                      $local,
-                      $file->getClientOriginalExtension(),
-                  );
+                    $compressed = app(UploadedImageCompressor::class)->compress(
+                        $local,
+                        $file->getClientOriginalExtension(),
+                    );
 
-                  if ($compressed === null) {
-                      return $store();
-                  }
+                    if ($compressed === null) {
+                        return $store();
+                    }
 
-                  // Keep Filament's ULID filename but carry the extension the
-                  // encoder actually produced (a .jpeg upload comes back .jpg).
-                  $name = preg_replace('/\.[^.]+$/', '', $component->getUploadedFileNameForStorage($file));
-                  $path = trim($component->getDirectory().'/'.$name.'.'.$compressed['extension'], '/');
+                    // Keep Filament's ULID filename but carry the extension the
+                    // encoder actually produced (a .jpeg upload comes back .jpg).
+                    $name = preg_replace('/\.[^.]+$/', '', $component->getUploadedFileNameForStorage($file));
+                    $path = trim($component->getDirectory().'/'.$name.'.'.$compressed['extension'], '/');
 
-                  $component->getDisk()->put($path, $compressed['bytes'], [
-                      'visibility' => $component->getVisibility(),
-                      'ContentType' => $compressed['mime'],
-                  ]);
+                    $component->getDisk()->put($path, $compressed['bytes'], [
+                        'visibility' => $component->getVisibility(),
+                        'ContentType' => $compressed['mime'],
+                    ]);
 
-                  return $path;
-              });
+                    return $path;
+                });
         }, isImportant: true);
         ImageColumn::configureUsing(fn (ImageColumn $c) => $c->disk('r2'));
 
@@ -230,7 +237,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Per-row table action — "Delete" link on each row.
         TableDeleteAction::configureUsing(function (TableDeleteAction $action) use ($renderFkError) {
-            $action->action(function (TableDeleteAction $action, \Illuminate\Database\Eloquent\Model $record) use ($renderFkError) {
+            $action->action(function (TableDeleteAction $action, Model $record) use ($renderFkError) {
                 try {
                     $record->delete();
                     Notification::make()->title('Deleted')->success()->send();
@@ -238,6 +245,7 @@ class AppServiceProvider extends ServiceProvider
                     if ($e->getCode() === '23000') {
                         $renderFkError('Cannot delete — referenced by other records');
                         $action->cancel();
+
                         return;
                     }
                     throw $e;
@@ -249,7 +257,7 @@ class AppServiceProvider extends ServiceProvider
         // Walk one record at a time so a single offender doesn't abort
         // the whole batch; collect failures and surface them at the end.
         DeleteBulkAction::configureUsing(function (DeleteBulkAction $action) use ($renderFkError) {
-            $action->action(function (DeleteBulkAction $action, \Illuminate\Database\Eloquent\Collection $records) use ($renderFkError) {
+            $action->action(function (DeleteBulkAction $action, Collection $records) use ($renderFkError) {
                 $deleted = 0;
                 $blocked = 0;
                 foreach ($records as $record) {
@@ -259,6 +267,7 @@ class AppServiceProvider extends ServiceProvider
                     } catch (QueryException $e) {
                         if ($e->getCode() === '23000') {
                             $blocked++;
+
                             continue;
                         }
                         throw $e;
@@ -266,13 +275,13 @@ class AppServiceProvider extends ServiceProvider
                 }
                 if ($deleted > 0) {
                     Notification::make()
-                        ->title("Deleted {$deleted} record" . ($deleted === 1 ? '' : 's'))
+                        ->title("Deleted {$deleted} record".($deleted === 1 ? '' : 's'))
                         ->success()
                         ->send();
                 }
                 if ($blocked > 0) {
                     $renderFkError(
-                        "{$blocked} record" . ($blocked === 1 ? '' : 's') . ' could not be deleted',
+                        "{$blocked} record".($blocked === 1 ? '' : 's').' could not be deleted',
                         'They are referenced by donations, bookings, orders or similar dependent rows. Remove or reassign those first.',
                     );
                 }
@@ -281,10 +290,11 @@ class AppServiceProvider extends ServiceProvider
 
         // Edit-page header action — the trash icon on /admin/.../edit pages.
         PageDeleteAction::configureUsing(function (PageDeleteAction $action) use ($renderFkError) {
-            $action->action(function (PageDeleteAction $action, \Illuminate\Database\Eloquent\Model $record) use ($renderFkError) {
+            $action->action(function (PageDeleteAction $action, Model $record) use ($renderFkError) {
                 try {
                     $record->delete();
                     Notification::make()->title('Deleted')->success()->send();
+
                     return $action->getLivewire()->redirect(
                         $action->getLivewire()::getResource()::getUrl('index')
                     );
@@ -292,6 +302,7 @@ class AppServiceProvider extends ServiceProvider
                     if ($e->getCode() === '23000') {
                         $renderFkError('Cannot delete — referenced by other records');
                         $action->cancel();
+
                         return;
                     }
                     throw $e;

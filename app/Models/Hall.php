@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\HasManagedImages;
+use App\Support\LocalizedCache;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class Hall extends Model
 {
@@ -18,8 +21,8 @@ class Hall extends Model
     {
         // Bust the API halls list + home page hall card on any admin change.
         $bust = static function (): void {
-            \App\Support\LocalizedCache::forget('halls.active');
-            \Illuminate\Support\Facades\Cache::forget('home.hall.v1');
+            LocalizedCache::forget('halls.active');
+            Cache::forget('home.hall.v1');
         };
         static::saved($bust);
         static::deleted($bust);
@@ -88,7 +91,7 @@ class Hall extends Model
 
         $days = array_map('strtolower', (array) $this->blackout_days);
         if ($days !== []) {
-            $weekday = strtolower(\Illuminate\Support\Carbon::parse($date)->format('l'));
+            $weekday = strtolower(Carbon::parse($date)->format('l'));
             if (in_array($weekday, $days, true)) {
                 return __('halls.weekday_blocked');
             }
@@ -127,14 +130,14 @@ class Hall extends Model
      * anchor the cut-off counts back from. Halls have no slot times, so
      * the admin sets a per-hall "day starts at" time (default 09:00).
      */
-    public function dayStartMoment(string $date): \Illuminate\Support\Carbon
+    public function dayStartMoment(string $date): Carbon
     {
         $raw = (string) ($this->day_start_time ?? '09:00');
         if (! preg_match('/^(\d{1,2}):(\d{2})/', $raw, $m)) {
             $m = [null, '9', '00'];
         }
 
-        return \Illuminate\Support\Carbon::parse($date)->setTime((int) $m[1], (int) $m[2], 0);
+        return Carbon::parse($date)->setTime((int) $m[1], (int) $m[2], 0);
     }
 
     /**
@@ -145,6 +148,7 @@ class Hall extends Model
     {
         $locale = app()->getLocale();
         $field = "name_{$locale}";
+
         return $this->attributes[$field]
             ?? $this->attributes['name_gu']
             ?? $this->attributes['name']
@@ -155,6 +159,7 @@ class Hall extends Model
     {
         $locale = app()->getLocale();
         $field = "description_{$locale}";
+
         return $this->attributes[$field]
             ?? $this->attributes['description_gu']
             ?? $this->attributes['description']
@@ -165,6 +170,7 @@ class Hall extends Model
     {
         $locale = app()->getLocale();
         $field = "rules_{$locale}";
+
         return $this->attributes[$field]
             ?? $this->attributes['rules_gu']
             ?? $this->attributes['rules']
@@ -174,6 +180,17 @@ class Hall extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(HallBooking::class, 'hall_id');
+    }
+
+    /**
+     * Reminder rules for this hall. Ordered the way the admin repeater shows
+     * them so the list does not reshuffle between saves.
+     */
+    public function reminderRules(): HasMany
+    {
+        return $this->hasMany(HallReminderRule::class, 'hall_id')
+            ->orderBy('sort_order')
+            ->orderBy('offset_minutes');
     }
 
     public function media(): HasMany

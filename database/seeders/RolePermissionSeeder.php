@@ -67,6 +67,7 @@ class RolePermissionSeeder extends Seeder
         'guide::category',
         'hall',
         'hall::booking',
+        'hall::reminder::rule',
         'notification',
         'notification::log',
         'notification::template',
@@ -394,6 +395,7 @@ class RolePermissionSeeder extends Seeder
                 // line printed 4 "unknown permission" warnings per deploy.
                 $crud('status::template'),
                 $crud('seva::reminder::rule'),
+                $crud('hall::reminder::rule'),
                 $crud('notification', ['view_any', 'view', 'create', 'update', 'delete', 'delete_any']),
                 $readOnly('notification::log'),
                 $readOnly('contact::submission'),

@@ -13,19 +13,38 @@ use Illuminate\Support\HtmlString;
 use Spatie\Permission\Models\Role;
 
 /**
- * The form schema for one seva reminder rule, rendered by the rules
- * repeater in the Edit Seva page's "Reminders" section.
+ * The form schema for ONE reminder rule — shared by the seva repeater on
+ * Edit Seva and the hall repeater on Edit Hall.
  *
  * A rule = WHEN (offset) + WHO (recipient) + HOW (channel) + WHAT
  * (inline gu/hi/en message, or an approved WhatsApp template).
+ *
+ * Deliberately ONE definition with a few knobs rather than two copies:
+ * the seva and hall rule forms are the same form, and a second copy would
+ * drift the moment either side gained a field. The differences that
+ * actually exist are the trigger key the WhatsApp picker filters on, the
+ * placeholder hint, whether "assignee" is an option (halls have none) and
+ * the wording of the offset label.
  */
 final class ReminderRuleFields
 {
-    public static function schema(): array
-    {
+    /**
+     * @param  string  $subject  'seva' or 'hall' — only affects wording.
+     * @param  string  $triggerKey  Trigger the WhatsApp template picker filters on.
+     * @param  bool  $withAssignee  Offer the "assignee" recipient type (sevas only).
+     * @param  string|null  $placeholders  Hint line under the inline message box.
+     */
+    public static function schema(
+        string $subject = 'seva',
+        string $triggerKey = 'seva.booking.reminder',
+        bool $withAssignee = true,
+        ?string $placeholders = null,
+    ): array {
+        $placeholders ??= '{{devotee_name}} {{seva_name}} {{booking_date}} {{slot_time}} {{time_remaining_label}} {{trust_name}} {{admin_name}} {{assignee_name}} {{assignee_phone}}';
+
         return [
             Forms\Components\Select::make('offset_minutes')
-                ->label('When (before the seva)')
+                ->label("When (before the {$subject})")
                 ->options([
                     30 => '30 minutes before',
                     60 => '1 hour before',
@@ -45,7 +64,7 @@ final class ReminderRuleFields
                 ->options([
                     SevaReminderRule::RECIPIENT_DEVOTEE => 'Devotee (the booker)',
                     SevaReminderRule::RECIPIENT_ADMIN_ROLE => 'Admin role (pujari / staff…)',
-                    SevaReminderRule::RECIPIENT_ASSIGNEE => 'Seva assignee',
+                    ...($withAssignee ? [SevaReminderRule::RECIPIENT_ASSIGNEE => 'Seva assignee'] : []),
                     SevaReminderRule::RECIPIENT_CUSTOM_PHONE => 'Custom phone number(s)',
                 ])
                 ->default(SevaReminderRule::RECIPIENT_DEVOTEE)
@@ -81,10 +100,10 @@ final class ReminderRuleFields
 
             Forms\Components\Select::make('notification_template_id')
                 ->label('WhatsApp template')
-                ->helperText('Only templates created for the "Seva — reminder before booking" trigger are listed — their {{1}}, {{2}}… variables are already mapped to booking data. To change the wording or variables, edit the template under Notification Templates (or create a new one on that trigger).')
+                ->helperText('Only templates created for this reminder trigger are listed — their {{1}}, {{2}}… variables are already mapped to booking data. To change the wording or variables, edit the template under Notification Templates (or create a new one on that trigger).')
                 ->options(fn () => NotificationTemplate::query()
                     ->where('channel', NotificationTemplate::CHANNEL_WHATSAPP)
-                    ->where('key', 'seva.booking.reminder')
+                    ->where('key', $triggerKey)
                     ->orderBy('label')
                     ->pluck('label', 'id')->all())
                 ->searchable()
@@ -123,6 +142,7 @@ final class ReminderRuleFields
                         $variant = $variants[$locale] ?? null;
                         if (! is_array($variant) || empty($variant['template_name'])) {
                             $html .= '<div style="color:#d97706;font-size:.85rem;">Not configured — devotees preferring this language get the Gujarati version.</div>';
+
                             continue;
                         }
                         $html .= self::renderWaVariantPreview($variant);
@@ -141,7 +161,7 @@ final class ReminderRuleFields
                     Forms\Components\Textarea::make("body_{$locale}")
                         ->label("Message {$label}")
                         ->rows(3)
-                        ->helperText('Placeholders: {{devotee_name}} {{seva_name}} {{booking_date}} {{slot_time}} {{time_remaining_label}} {{trust_name}} {{admin_name}} {{assignee_name}} {{assignee_phone}}'),
+                        ->helperText('Placeholders: '.$placeholders),
                 ], id: 'rule_message'),
             ])->visible(fn (Get $get): bool => $get('channel') !== NotificationTemplate::CHANNEL_WHATSAPP),
 

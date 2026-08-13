@@ -166,6 +166,7 @@ jobs:
                     # first time; harmless on every subsequent deploy. New
                     # confirmations are scheduled automatically via the observer.
                     php artisan seva:backfill-reminder-schedule || true
+                    php artisan hall:backfill-reminder-schedule || true
                     # Re-stamp fire_at for pending full-day/full-week reminders that
                     # were generated with the old midnight anchor (before the
                     # configurable 09:00 anchor landed). Idempotent — recomputes the

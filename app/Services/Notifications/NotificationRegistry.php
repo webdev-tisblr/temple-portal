@@ -30,6 +30,7 @@ namespace App\Services\Notifications;
  *   seva.booking.confirmed → app/Jobs/GenerateSevaReceipt.php
  *   hall.booking.confirmed → app/Jobs/GenerateHallInvoice.php
  *   hall.booking.cancel_request → app/Services/HallCancellationService.php
+ *   hall.booking.reminder  → app/Console/Commands/DispatchHallReminders.php
  *   store.order.confirmed  → app/Jobs/GenerateStoreInvoice.php
  *   auth.otp               → app/Services/OtpService.php
  *   contact.submitted      → app/Http/Controllers/Web/ContactController.php
@@ -325,6 +326,30 @@ final class NotificationRegistry
                     'amount' => 'Total amount with thousands separator (booking.total_amount_formatted)',
                     'cancel_reason' => 'Reason the devotee gave, or an em dash when they gave none (booking.cancel_reason)',
                     'cancel_requested_at' => 'When the request was made, pre-formatted (booking.cancel_requested_at)',
+                    'trust_name' => 'Trust name from System Settings (trust_name)',
+                ],
+            ],
+
+            // Context is built by DispatchHallReminders, not by a capture
+            // path: booking (HallBooking->toArray() merged with hall_name,
+            // booking_date, booking_date_range, days_count,
+            // total_amount_formatted, booking_number), devotee,
+            // time_remaining_label, trust_name.
+            'hall.booking.reminder' => [
+                'label' => 'Hall — reminder before booking',
+                'description' => 'Fires ahead of a confirmed hall booking, at the times configured under Reminders on each hall (Admin → Halls → edit → Reminders). No rules means nothing fires. The reminder is counted back from the start of the FIRST booked day, and a WhatsApp reminder to the hirer goes to the contact number on the booking when there is one, otherwise to their registered number.',
+                'placeholders' => [
+                    'contact_name' => 'Contact name on the booking (booking.contact_name)',
+                    'contact_phone' => 'Contact phone on the booking (booking.contact_phone)',
+                    'devotee_name' => 'Devotee name on the account (devotee.name)',
+                    'admin_name' => 'Admin name — only when the rule targets an admin role (admin.name)',
+                    'hall_name' => 'Hall name (booking.hall_name)',
+                    'booking_number' => 'Booking number (booking.booking_number)',
+                    'booking_date' => 'Booking start date, pre-formatted (booking.booking_date)',
+                    'booking_date_range' => 'Whole range as one string, eg "12 - 14 Aug 2026" (booking.booking_date_range)',
+                    'days_count' => 'Number of days booked (booking.days_count)',
+                    'amount' => 'Total amount with thousands separator (booking.total_amount_formatted)',
+                    'time_remaining_label' => 'How far ahead this reminder is, eg "1 day" or "2 hours" (time_remaining_label)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
             ],

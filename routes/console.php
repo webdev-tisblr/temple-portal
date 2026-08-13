@@ -7,6 +7,7 @@ use App\Jobs\SendPushNotification;
 use App\Models\DonationCampaign;
 use App\Models\Notification;
 use App\Models\OtpCode;
+use App\Models\WebLoginToken;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -85,6 +86,14 @@ Schedule::command('seva:dispatch-reminders')
     ->withoutOverlapping(10)
     ->runInBackground();
 
+// Hall booking reminders. Same shape and the same 10-minute lock expiry:
+// the command permanently skips anything more than 12h late, so a leaked
+// lock from Laravel's 24h default would silently bin half a day of them.
+Schedule::command('hall:dispatch-reminders')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(10)
+    ->runInBackground();
+
 // Notification safety net — retry sends that stalled mid-flight (worker
 // died after writing the `pending` row) or failed transiently (SMTP /
 // WhatsApp / FCM blip). Re-attempts in place with a bounded budget
@@ -120,7 +129,7 @@ Schedule::command('notifications:prune-logs')
     ->withoutOverlapping(30);
 
 // Prune expired OTP codes + spent app→web login handoff tokens daily
-Schedule::command('model:prune', ['--model' => [OtpCode::class, \App\Models\WebLoginToken::class]])
+Schedule::command('model:prune', ['--model' => [OtpCode::class, WebLoginToken::class]])
     ->daily();
 
 // GC expired Sanctum token rows (90-day expiry; single-active-login also

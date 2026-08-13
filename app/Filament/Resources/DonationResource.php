@@ -6,10 +6,11 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\DonationResource\Pages;
 use App\Models\Donation;
-use Filament\Forms;
+use App\Models\DonationType;
 use Filament\Forms\Form;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -17,7 +18,6 @@ use Illuminate\Database\Eloquent\Builder;
 
 class DonationResource extends Resource
 {
-
     protected static ?string $model = Donation::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-gift';
@@ -30,7 +30,6 @@ class DonationResource extends Resource
     {
         return false;
     }
-
 
     public static function form(Form $form): Form
     {
@@ -145,10 +144,16 @@ class DonationResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                Tables\Filters\SelectFilter::make('donation_type')->options([
-                    'general' => 'General', 'seva' => 'Seva', 'annadan' => 'Annadan',
-                    'construction' => 'Construction', 'festival' => 'Festival', 'campaign' => 'Campaign',
-                ]),
+                // The admin-managed types, not a hardcoded parallel list.
+                // ->get()->pluck(): `name` is a localized ACCESSOR, and a raw
+                // pluck would select a column that does not exist.
+                Tables\Filters\SelectFilter::make('donation_type_id')
+                    ->label('Donation type')
+                    ->options(fn (): array => DonationType::query()
+                        ->orderBy('sort_order')
+                        ->get()
+                        ->pluck('name', 'id')
+                        ->all()),
                 // Item 5.4 — lets staff pull the Gupt Daan register without
                 // exporting the whole table.
                 Tables\Filters\TernaryFilter::make('anonymous')
@@ -212,7 +217,7 @@ class DonationResource extends Resource
                             'suppressed_by' => $hiding ? auth('admin')->id() : null,
                         ]);
 
-                        \Filament\Notifications\Notification::make()
+                        Notification::make()
                             ->title($hiding ? 'Hidden from the display board' : 'Restored to the display board')
                             ->success()
                             ->send();

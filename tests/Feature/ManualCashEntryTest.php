@@ -5,8 +5,15 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Filament\Pages\CounterEntryPage;
+use App\Filament\Pages\FinancialReports;
+use App\Filament\Resources\DonationResource;
+use App\Filament\Resources\HallBookingResource;
+use App\Filament\Resources\OrderResource;
+use App\Filament\Resources\SevaBookingResource;
 use App\Models\AdminUser;
+use App\Models\Devotee;
 use App\Models\Donation;
+use App\Models\DonationType;
 use App\Models\HallBooking;
 use App\Models\NotificationTemplate;
 use App\Models\Order;
@@ -26,12 +33,13 @@ use Database\Seeders\RolePermissionSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Livewire\Livewire;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -683,7 +691,7 @@ class ManualCashEntryTest extends TestCase
 
         $this->assertSame($existing->id, $result['devotee']->id);
         $this->assertSame('Purano Bhakt', $result['devotee']->fresh()->name, 'a match must not rename the devotee');
-        $this->assertSame(1, \App\Models\Devotee::where('phone', '9876500016')->count());
+        $this->assertSame(1, Devotee::where('phone', '9876500016')->count());
     }
 
     public function test_an_unknown_number_without_a_name_is_refused(): void
@@ -728,7 +736,7 @@ class ManualCashEntryTest extends TestCase
         // …and it is reportable: the FinancialReports CSV names the person
         // who took the cash, which is the whole point of the column.
         $this->actingAs($admin, 'admin');
-        $csv = $this->csvFrom(app(\App\Filament\Pages\FinancialReports::class)->exportCsv());
+        $csv = $this->csvFrom(app(FinancialReports::class)->exportCsv());
         $this->assertStringContainsString('Collected by', $csv);
         $this->assertStringContainsString($admin->name, $csv);
         $this->assertStringContainsString('cheque', $csv);
@@ -808,7 +816,7 @@ class ManualCashEntryTest extends TestCase
 
         // And Spatie can still hydrate the subject back off each row.
         $this->assertTrue(
-            \Spatie\Activitylog\Models\Activity::query()
+            Activity::query()
                 ->where('subject_type', Payment::class)
                 ->where('subject_id', $payment->id)
                 ->first()
@@ -871,11 +879,19 @@ class ManualCashEntryTest extends TestCase
         $this->actingAs($admin, 'admin');
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
+        // The counter offers only the trust's configured types now — the
+        // hardcoded General/Seva/Annadan list is gone, so a type must exist
+        // for a counter entry to be filable at all.
+        $type = DonationType::firstOrCreate(
+            ['slug' => 'general'],
+            ['name_gu' => 'સામાન્ય', 'name_hi' => 'सामान्य', 'name_en' => 'General', 'is_active' => true],
+        );
+
         Livewire::test(CounterEntryPage::class)
             ->fillForm([
                 'record_type' => CounterEntryService::TYPE_DONATION,
                 'phone' => '9876500021',
-                'donation_type' => 'general',
+                'donation_type_id' => $type->id,
                 'amount' => 1001,
                 'payment_method' => 'cash',
                 'paid_on' => now()->toDateString(),
@@ -884,6 +900,10 @@ class ManualCashEntryTest extends TestCase
             ->assertHasNoFormErrors();
 
         $donation = Donation::firstOrFail();
+        $this->assertSame($type->id, $donation->donation_type_id);
+        // The legacy enum column is kept in step from the type's slug, so
+        // reports and receipts written against it still work.
+        $this->assertSame('general', $donation->getRawOriginal('donation_type'));
         $this->assertSame($devotee->id, $donation->devotee_id);
         $this->assertEqualsWithDelta(1001.0, (float) $donation->amount, 0.001);
         $this->assertSame('captured', $donation->payment->status->value);
@@ -960,9 +980,9 @@ class ManualCashEntryTest extends TestCase
         // The counter page is the ONE create path. Reviving these would
         // re-open exactly the hole they were closed for: a booking with no
         // payment, hand-inserted through a generic Filament form.
-        $this->assertFalse(\App\Filament\Resources\DonationResource::canCreate());
-        $this->assertFalse(\App\Filament\Resources\SevaBookingResource::canCreate());
-        $this->assertFalse(\App\Filament\Resources\HallBookingResource::canCreate());
-        $this->assertFalse(\App\Filament\Resources\OrderResource::canCreate());
+        $this->assertFalse(DonationResource::canCreate());
+        $this->assertFalse(SevaBookingResource::canCreate());
+        $this->assertFalse(HallBookingResource::canCreate());
+        $this->assertFalse(OrderResource::canCreate());
     }
 }

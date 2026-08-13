@@ -23,6 +23,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -236,22 +237,17 @@ class CounterEntryPage extends Page implements HasForms
         return Forms\Components\Section::make('Donation details')
             ->visible(fn (Get $get): bool => $get('record_type') === CounterEntryService::TYPE_DONATION)
             ->schema([
-                Forms\Components\Select::make('donation_type')
-                    ->label('Category')
-                    ->options([
-                        'general' => 'General',
-                        'seva' => 'Seva',
-                        'annadan' => 'Annadan',
-                        'construction' => 'Construction',
-                        'festival' => 'Festival',
-                        'campaign' => 'Campaign',
-                        'other' => 'Other',
-                    ])
-                    ->default('general')
-                    ->required(),
-
+                // The hardcoded Category select that sat here until
+                // 2026-08-13 is gone. It offered a second, parallel list of
+                // types that no admin could edit, so a counter entry could be
+                // filed under a category the trust had never configured —
+                // and the type the trust DID configure had to be picked
+                // separately, in the field below. One list now, the one the
+                // trust manages. The legacy donation_type column is still
+                // written, derived from the chosen type's slug, so reports
+                // and receipts on existing rows keep working.
                 Forms\Components\Select::make('donation_type_id')
-                    ->label('Donation type (admin-managed)')
+                    ->label('Donation type')
                     // ->get()->pluck() and NOT a raw pluck: `name` is a
                     // localized ACCESSOR, not a column. A raw pluck selects
                     // a column that does not exist and 500s the page — the
@@ -261,7 +257,9 @@ class CounterEntryPage extends Page implements HasForms
                         ->get()
                         ->pluck('name', 'id')
                         ->all())
-                    ->searchable(),
+                    ->required()
+                    ->searchable()
+                    ->helperText('Managed under Donations → Donation Types.'),
 
                 Forms\Components\Select::make('campaign_id')
                     ->label('Campaign (optional)')
@@ -331,7 +329,7 @@ class CounterEntryPage extends Page implements HasForms
                         // shape App 1.4.8+32 reads) — not a list of maps.
                         $slots = app(SevaSlotService::class)->getSlotAvailability(
                             $seva,
-                            \Illuminate\Support\Carbon::parse((string) $date)->toDateString(),
+                            Carbon::parse((string) $date)->toDateString(),
                         );
 
                         return collect($slots['available'] ?? [])

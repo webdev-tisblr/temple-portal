@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\DonationType as DonationTypeEnum;
 use App\Models\AdminUser;
 use App\Models\Devotee;
 use App\Models\Donation;
+use App\Models\DonationType as DonationTypeModel;
 use App\Models\Hall;
 use App\Models\HallBooking;
 use App\Models\Order;
@@ -509,6 +511,22 @@ class CounterEntryService
 
     // ── Per-type row creation (all inside the caller's transaction) ──
 
+    /**
+     * The legacy `donation_type` enum value for a counter entry.
+     *
+     * @param  array<string,mixed>  $data
+     */
+    private function legacyCategoryFor(array $data): string
+    {
+        $slug = ! empty($data['donation_type_id'])
+            ? DonationTypeModel::find($data['donation_type_id'])?->slug
+            : null;
+
+        return $slug && DonationTypeEnum::tryFrom($slug) !== null
+            ? $slug
+            : ($data['donation_type'] ?? 'other');
+    }
+
     /** @param array<string,mixed> $data */
     private function createDonation(array $data, Devotee $devotee, Payment $payment, array $quote, CarbonInterface $paidAt): Donation
     {
@@ -535,7 +553,13 @@ class CounterEntryService
             'devotee_id' => $devotee->id,
             'payment_id' => $payment->id,
             'amount' => $quote['total'],
-            'donation_type' => $data['donation_type'] ?? 'general',
+            // Derived, never chosen: the counter form offers only the
+            // admin-managed types now. The legacy enum column is kept in
+            // step by mapping the chosen type's slug onto it, exactly as
+            // CreateDonationRequest does for the web and app — a slug with
+            // no matching case ("birthday") lands on `other`, and the real
+            // type is carried by donation_type_id regardless.
+            'donation_type' => $this->legacyCategoryFor($data),
             'donation_type_id' => $data['donation_type_id'] ?? null,
             'purpose' => $data['purpose'] ?? null,
             'campaign_id' => $data['campaign_id'] ?? null,

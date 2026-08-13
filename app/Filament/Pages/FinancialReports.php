@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Models\Donation;
+use App\Models\DonationType;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -16,14 +17,18 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class FinancialReports extends Page implements HasForms, HasTable
 {
     use InteractsWithForms, InteractsWithTable;
 
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
+
     protected static ?string $navigationGroup = 'Financial Reports';
+
     protected static ?string $title = 'Financial Reports';
+
     protected static ?int $navigationSort = 10;
 
     protected static string $view = 'filament.pages.financial-reports';
@@ -34,8 +39,12 @@ class FinancialReports extends Page implements HasForms, HasTable
     }
 
     public ?string $date_from = null;
+
     public ?string $date_to = null;
-    public ?string $donation_type = null;
+
+    /** Admin-managed type id — the legacy category enum is no longer offered. */
+    public ?string $donation_type_id = null;
+
     public ?string $financial_year = null;
 
     public function mount(): void
@@ -56,10 +65,16 @@ class FinancialReports extends Page implements HasForms, HasTable
         return $form->schema([
             Forms\Components\DatePicker::make('date_from')->label('From'),
             Forms\Components\DatePicker::make('date_to')->label('To'),
-            Forms\Components\Select::make('donation_type')->options([
-                '' => 'All', 'general' => 'General', 'seva' => 'Seva', 'annadan' => 'Annadan',
-                'construction' => 'Construction', 'festival' => 'Festival',
-            ])->placeholder('All Types'),
+            // The trust's own types, managed under Donations → Donation
+            // Types. ->get()->pluck() because `name` is a localized accessor.
+            Forms\Components\Select::make('donation_type_id')
+                ->label('Donation type')
+                ->options(fn (): array => DonationType::query()
+                    ->orderBy('sort_order')
+                    ->get()
+                    ->pluck('name', 'id')
+                    ->all())
+                ->placeholder('All Types'),
             Forms\Components\Select::make('financial_year')->options(
                 Donation::distinct()->pluck('financial_year', 'financial_year')->toArray()
             )->placeholder('All Years'),
@@ -81,7 +96,14 @@ class FinancialReports extends Page implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('devotee.name')->label('Devotee')->default('Anonymous'),
                 Tables\Columns\TextColumn::make('amount')->prefix('₹')->sortable()
                     ->summarize(Tables\Columns\Summarizers\Sum::make()->prefix('₹')->label('Total')),
-                Tables\Columns\TextColumn::make('donation_type')->badge()->label('Type'),
+                // The configured type, falling back to the legacy category
+                // for donations taken before types were admin-managed —
+                // otherwise 100 historic rows would read as blank.
+                Tables\Columns\TextColumn::make('donation_type_id')
+                    ->badge()
+                    ->label('Type')
+                    ->state(fn (Donation $record): string => $record->donationType?->name
+                        ?: ucfirst((string) $record->getRawOriginal('donation_type'))),
                 Tables\Columns\TextColumn::make('financial_year')->label('FY'),
             ])
             ->defaultSort('created_at', 'desc');
@@ -113,7 +135,7 @@ class FinancialReports extends Page implements HasForms, HasTable
             ->whereHas('payment', fn (Builder $q) => $q->where('status', 'captured'))
             ->when($this->date_from, fn (Builder $q) => $q->whereDate('created_at', '>=', $this->date_from))
             ->when($this->date_to, fn (Builder $q) => $q->whereDate('created_at', '<=', $this->date_to))
-            ->when($this->donation_type, fn (Builder $q) => $q->where('donation_type', $this->donation_type))
+            ->when($this->donation_type_id, fn (Builder $q) => $q->where('donation_type_id', $this->donation_type_id))
             ->when($this->financial_year, fn (Builder $q) => $q->where('financial_year', $this->financial_year));
     }
 
@@ -142,7 +164,7 @@ class FinancialReports extends Page implements HasForms, HasTable
                     $d->devotee?->name ?? 'Anonymous',
                     $d->devotee?->phone ?? '-',
                     number_format((float) $d->amount, 2),
-                    ucfirst($d->getRawOriginal('donation_type')),
+                    $d->donationType?->name ?: ucfirst((string) $d->getRawOriginal('donation_type')),
                     $d->purpose ?? '-',
                     $d->financial_year,
                     $d->payment?->status?->value ?? '-',
@@ -171,10 +193,10 @@ class FinancialReports extends Page implements HasForms, HasTable
 
         $output = $pdf->output();
 
-        return response()->streamDownload(fn () => print($output), $filename, ['Content-Type' => 'application/pdf']);
+        return response()->streamDownload(fn () => print ($output), $filename, ['Content-Type' => 'application/pdf']);
     }
 
-    private function getFilteredDonations(): \Illuminate\Support\Collection
+    private function getFilteredDonations(): Collection
     {
         return $this->baseQuery()
             ->with('devotee', 'receipt', 'payment.createdByAdmin')

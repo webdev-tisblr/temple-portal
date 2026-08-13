@@ -381,7 +381,11 @@ class RolePermissionSeeder extends Seeder
                 // all four still hard-return canCreate() === false.
                 $crud('seva::booking', ['view_any', 'view', 'create', 'update', 'delete', 'delete_any']),
                 $crud('hall::booking', ['view_any', 'view', 'create', 'update', 'delete', 'delete_any']),
-                $crud('order', ['view_any', 'view', 'create', 'update']),
+                // delete/delete_any added 2026-08-13 so the trust can clear
+                // orders from the admin (matching hall::booking) rather than
+                // needing an SSH session. Deleting an order does NOT delete
+                // its payment — the money record survives for audit.
+                $crud('order', ['view_any', 'view', 'create', 'update', 'delete', 'delete_any']),
                 $crud('donation', ['view_any', 'view', 'create', 'update']),
 
                 // People

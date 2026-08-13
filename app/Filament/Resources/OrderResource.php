@@ -101,6 +101,25 @@ class OrderResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
+                // Authorised by OrderPolicy::delete (delete_order). Line
+                // items go with it — temple_order_items cascades on the FK.
+                //
+                // The PAYMENT row is deliberately left behind. It is the
+                // money record: for a real order it must survive for audit
+                // and reconciliation, and it is also what the Razorpay
+                // webhook history references. Clearing test payments is a
+                // separate, deliberate act.
+                Tables\Actions\DeleteAction::make()
+                    ->modalDescription(fn (Order $record): string => "Order {$record->order_number} and its line items will be deleted. The payment record is kept."),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    // DeleteBulkAction IS auto-authorised by Filament against
+                    // OrderPolicy::deleteAny, unlike a custom BulkAction —
+                    // see the note on SevaBookingResource's mark_completed.
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->modalDescription('The selected orders and their line items will be deleted. Payment records are kept.'),
+                ]),
             ]);
     }
 

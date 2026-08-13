@@ -150,16 +150,19 @@ jobs:
                     # entirely — but the snapshot is the safety net for the line below.
                     php artisan backup:run --only-db || true
                     php artisan migrate --force
-                    # Idempotent — only inserts rows that don't already exist.
-                    # Seeds the per-channel notification templates so triggers
-                    # like contact.submitted have a delivery body the moment
-                    # the trigger fires.
-                    php artisan db:seed --class=Database\\Seeders\\NotificationTemplatesSeeder --force || true
-                    # Gallery/Seva category seeders are deliberately NOT run on
-                    # deploy (removed 2026-08-05): they are one-time setup for
-                    # fresh installs (DatabaseSeeder). firstOrCreate can't
-                    # overwrite admin edits, but it DID resurrect categories the
-                    # admin had deleted, on every single deploy.
+                    # NO CONTENT SEEDERS RUN ON DEPLOY (2026-08-13, trust's
+                    # call ahead of launch). Every seeder that creates records
+                    # a human would see — notification templates, gallery and
+                    # seva categories — is now one-time setup for a fresh
+                    # install only, via DatabaseSeeder. They were all
+                    # firstOrCreate, so they never overwrote an admin edit, but
+                    # they DID resurrect rows the admin had deliberately
+                    # deleted, on every single deploy. Production content is
+                    # now owned entirely by the admin panel.
+                    #
+                    # If a fresh install ever needs the bundled templates
+                    # again, run by hand:
+                    #   php artisan db:seed --class=Database\\Seeders\\NotificationTemplatesSeeder --force
                     # Materialise reminder rows for bookings confirmed before the
                     # pre-computed seva reminder schedule existed. Idempotent
                     # (firstOrCreate on booking+offset) — only has an effect the

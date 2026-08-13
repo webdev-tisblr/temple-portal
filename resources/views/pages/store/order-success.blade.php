@@ -33,7 +33,7 @@
                         @foreach($order->items as $item)
                             <div class="flex justify-between py-1">
                                 <span class="text-amber-100/70">{{ $item->product_name }} x {{ $item->quantity }}</span>
-                                <span class="text-amber-100/60">₹{{ number_format((float) $item->subtotal, 2) }}</span>
+                                <span class="text-amber-100/60">₹{{ inr((float) $item->subtotal, 2) }}</span>
                             </div>
                         @endforeach
                     </div>
@@ -42,13 +42,13 @@
                 @if((float) $order->shipping_charge > 0)
                     <div class="flex justify-between py-2.5 border-b border-amber-900/20">
                         <span class="text-amber-100/40">{{ __('store.shipping_charge') }}</span>
-                        <span class="font-medium text-amber-100/70">₹{{ number_format((float) $order->shipping_charge, 2) }}</span>
+                        <span class="font-medium text-amber-100/70">₹{{ inr((float) $order->shipping_charge, 2) }}</span>
                     </div>
                 @endif
 
                 <div class="flex justify-between py-2.5">
                     <span class="text-amber-100/40">{{ __('store.total') }}</span>
-                    <span class="font-bold text-gold text-base">₹{{ number_format((float) $order->total_amount, 2) }}</span>
+                    <span class="font-bold text-gold text-base">₹{{ inr((float) $order->total_amount, 2) }}</span>
                 </div>
             </div>
 

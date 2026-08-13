@@ -39,7 +39,7 @@
                             </x-dashboard.cell>
 
                             <x-dashboard.cell :label="__('dashboard.col_amount')">
-                                <span class="font-semibold" style="color: #C45F12;">₹{{ number_format((float) $donation->amount) }}</span>
+                                <span class="font-semibold" style="color: #C45F12;">₹{{ inr((float) $donation->amount) }}</span>
                             </x-dashboard.cell>
 
                             <x-dashboard.cell :label="__('dashboard.col_type')">

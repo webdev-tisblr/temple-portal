@@ -163,28 +163,28 @@
             $subtotal = (float) ($booking->subtotal_amount ?? $booking->total_amount);
             $cgst = round($gstAmount / 2, 2);
             $sgst = round($gstAmount - $cgst, 2);
-            $halfRate = $gstRate !== null ? rtrim(rtrim(number_format($gstRate / 2, 2), '0'), '.') : null;
+            $halfRate = $gstRate !== null ? rtrim(rtrim(inr($gstRate / 2, 2), '0'), '.') : null;
         @endphp
 
         @if($gstRate !== null && $gstAmount > 0)
             <table class="totals-table" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                     <td class="t-label">{{ __('receipt.label_taxable_value') }}</td>
-                    <td class="t-value">&#8377; {{ number_format($subtotal, 2) }}</td>
+                    <td class="t-value">&#8377; {{ inr($subtotal, 2) }}</td>
                 </tr>
                 <tr>
                     <td class="t-label">{{ __('receipt.label_cgst') }} @ {{ $halfRate }}%</td>
-                    <td class="t-value">&#8377; {{ number_format($cgst, 2) }}</td>
+                    <td class="t-value">&#8377; {{ inr($cgst, 2) }}</td>
                 </tr>
                 <tr>
                     <td class="t-label">{{ __('receipt.label_sgst') }} @ {{ $halfRate }}%</td>
-                    <td class="t-value">&#8377; {{ number_format($sgst, 2) }}</td>
+                    <td class="t-value">&#8377; {{ inr($sgst, 2) }}</td>
                 </tr>
             </table>
         @endif
 
         <table class="amount-box" width="100%" cellpadding="0" cellspacing="0"><tr><td>
-            <div class="amount-total">&#8377; {{ number_format((float) $booking->total_amount, 2) }}</div>
+            <div class="amount-total">&#8377; {{ inr((float) $booking->total_amount, 2) }}</div>
             {{-- Words stay English in every language — see the services. --}}
             <div class="amount-words">{{ __('receipt.label_amount_in_words') }}: <span class="words-value">{{ $amount_in_words }}</span></div>
             @if($gstRate !== null && $gstAmount > 0 && ($trust_gstin ?? '') !== '')

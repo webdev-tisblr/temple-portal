@@ -74,7 +74,7 @@
                                  on SevaBooking, so every row silently rendered
                                  ₹0. --}}
                             <x-dashboard.cell :label="__('dashboard.col_amount')">
-                                <span class="font-semibold" style="color: #C45F12;">₹{{ number_format((float) ($booking->total_amount ?? 0)) }}</span>
+                                <span class="font-semibold" style="color: #C45F12;">₹{{ inr((float) ($booking->total_amount ?? 0)) }}</span>
                             </x-dashboard.cell>
 
                             <x-dashboard.cell :label="__('dashboard.col_status')">
@@ -156,7 +156,7 @@
                             </x-dashboard.cell>
 
                             <x-dashboard.cell :label="__('dashboard.col_amount')">
-                                <span class="font-semibold" style="color: #C45F12;">₹{{ number_format((float) ($hallBooking->total_amount ?? 0)) }}</span>
+                                <span class="font-semibold" style="color: #C45F12;">₹{{ inr((float) ($hallBooking->total_amount ?? 0)) }}</span>
                             </x-dashboard.cell>
 
                             <x-dashboard.cell :label="__('dashboard.col_status')">

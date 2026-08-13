@@ -38,7 +38,7 @@
         <div class="bg-amber-900/20 border border-amber-800/30 rounded-xl p-4 text-left mt-6 text-sm">
             <div class="flex justify-between py-2 border-b border-amber-900/20">
                 <span class="text-amber-100/40">{{ __('common.amount') }}</span>
-                <span class="font-bold text-gold">₹{{ number_format((float) $donation->amount) }}</span>
+                <span class="font-bold text-gold">₹{{ inr((float) $donation->amount) }}</span>
             </div>
             <div class="flex justify-between py-2 border-b border-amber-900/20">
                 <span class="text-amber-100/40">{{ __('donation.type_label') }}</span>

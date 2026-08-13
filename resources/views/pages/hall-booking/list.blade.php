@@ -69,7 +69,7 @@
                 <div class="pt-5 flex items-center justify-between border-t border-amber-900/15">
                     <div>
                         <p class="text-[11px] text-amber-600">{{ __('halls.full_day') }}</p>
-                        <p class="text-2xl font-black text-gold leading-tight">₹{{ number_format((float) $hall->price_per_day) }}</p>
+                        <p class="text-2xl font-black text-gold leading-tight">₹{{ inr((float) $hall->price_per_day) }}</p>
                     </div>
                     <span class="inline-flex items-center gap-1.5 font-extrabold text-sm px-8 py-3 rounded-full group-hover:translate-x-0.5 transition-transform"
                           style="background:#7A1E1E; color:#FFF7EC;">
@@ -133,7 +133,7 @@
                         <div class="mt-auto pt-4 flex items-center justify-between border-t border-amber-900/15">
                             <div>
                                 <p class="text-[11px] text-amber-600">{{ __('halls.full_day') }}</p>
-                                <p class="text-lg font-black text-gold leading-tight">₹{{ number_format((float) $hall->price_per_day) }}</p>
+                                <p class="text-lg font-black text-gold leading-tight">₹{{ inr((float) $hall->price_per_day) }}</p>
                             </div>
                             <span class="text-amber-600 text-sm font-semibold group-hover:translate-x-1 transition-transform flex items-center gap-1">
                                 {{ __('halls.book') }}

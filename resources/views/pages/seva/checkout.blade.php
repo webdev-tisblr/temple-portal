@@ -11,7 +11,7 @@
     </div>
     <h1 class="text-xl font-semibold text-amber-100/70 mb-2">{{ __('seva.payment_processing') }}</h1>
     <p class="text-amber-100/40">Razorpay {{ __('seva.razorpay_opening') }}</p>
-    <p class="text-sm text-amber-100/30 mt-4">{{ $description }} — ₹{{ number_format($amount / 100) }}</p>
+    <p class="text-sm text-amber-100/30 mt-4">{{ $description }} — ₹{{ inr($amount / 100) }}</p>
 </div>
 
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>

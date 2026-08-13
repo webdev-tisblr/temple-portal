@@ -85,7 +85,7 @@
         {{-- Amount --}}
         <div style="text-align:center; margin-top: 6px; padding: 4px; background: #f5f0ea; border: 1px solid #ddd;">
             <span style="font-size: 7px; color: #888;">COD / PREPAID</span><br>
-            <span style="font-size: 13px; font-weight: bold;">&#8377; {{ number_format((float) $order->total_amount, 2) }}</span>
+            <span style="font-size: 13px; font-weight: bold;">&#8377; {{ inr((float) $order->total_amount, 2) }}</span>
             <span style="font-size: 8px; color: #888; display: block;">{{ $order->payment && $order->payment->status->value === 'captured' ? 'PREPAID' : 'COD' }}</span>
         </div>
 

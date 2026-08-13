@@ -85,7 +85,7 @@
                     @if($product->has_variants && !empty($product->variants))
                         <span class="text-3xl font-black text-gold" x-text="'₹' + selectedPrice.toLocaleString('en-IN', {minimumFractionDigits: 2})"></span>
                     @else
-                        <span class="text-3xl font-black text-gold">₹{{ number_format((float) $product->price) }}</span>
+                        <span class="text-3xl font-black text-gold">₹{{ inr((float) $product->price) }}</span>
                     @endif
                 </div>
 
@@ -145,7 +145,7 @@
                                                     'px-4 py-2.5 border rounded-lg text-sm font-medium transition',
                                                     'opacity-40 cursor-not-allowed line-through' => $variantStock <= 0,
                                                 ])>
-                                                {{ $variant['label'] }} — ₹{{ number_format((float) $variant['price'], 2) }}
+                                                {{ $variant['label'] }} — ₹{{ inr((float) $variant['price'], 2) }}
                                                 @if($variantStock <= 0)
                                                     <span class="text-xs">(Out)</span>
                                                 @endif

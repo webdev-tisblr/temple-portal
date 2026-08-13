@@ -171,7 +171,7 @@
                              div borders inside table cells (amount box border cut
                              through the words line on real receipts, 2026-07-26) --}}
                         <table class="amount-box" width="100%" cellpadding="0" cellspacing="0"><tr><td>
-                            <div class="amount-figure">&#8377; {{ number_format((float) $receipt->amount, 2) }}</div>
+                            <div class="amount-figure">&#8377; {{ inr((float) $receipt->amount, 2) }}</div>
                             <div class="amount-words">{{ $receipt->amount_in_words }}</div>
                         </td></tr></table>
                     </div>

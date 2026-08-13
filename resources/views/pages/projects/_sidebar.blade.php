@@ -15,11 +15,11 @@
 
         {{-- Amounts --}}
         <div class="flex items-baseline gap-2 mb-1">
-            <span class="text-2xl font-bold text-gold">₹{{ number_format($raised) }}</span>
+            <span class="text-2xl font-bold text-gold">{{ inr_units($raised) }}</span>
             <span class="text-sm text-amber-100/30">{{ __('donation.raised') }}</span>
         </div>
         <div class="text-sm text-amber-100/40 mb-3">
-            ₹{{ number_format($goal) }} {{ __('donation.goal_from') }}
+            {{ inr_units($goal) }} {{ __('donation.goal_from') }}
         </div>
 
         {{-- Stats Row --}}
@@ -61,7 +61,7 @@
                             @click="amount = {{ $preset }}; customAmount = '{{ $preset }}'"
                             :class="amount === {{ $preset }} ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-900 border-amber-500 font-bold' : 'bg-transparent text-amber-100/60 border-amber-800/30 hover:border-amber-600'"
                             class="py-2.5 border rounded-lg text-sm font-semibold transition">
-                            ₹{{ number_format($preset) }}
+                            ₹{{ inr($preset) }}
                         </button>
                     @endforeach
                 </div>
@@ -78,7 +78,7 @@
                                    :class="selectedSubCause === '{{ $sc->id }}' ? 'border-amber-500 bg-amber-900/20' : 'border-amber-800/30 hover:border-amber-600'">
                                 <input type="radio" value="{{ $sc->id }}" x-model="selectedSubCause"
                                        class="text-amber-500 border-amber-800/40 bg-transparent focus:ring-amber-600/20">
-                                <span class="text-sm text-amber-100/70">{{ $sc->title }}@if($sc->goal_amount)<span class="text-amber-100/40 text-xs"> (₹{{ number_format((float) $sc->goal_amount) }})</span>@endif</span>
+                                <span class="text-sm text-amber-100/70">{{ $sc->title }}@if($sc->goal_amount)<span class="text-amber-100/40 text-xs"> ({{ inr_units((float) $sc->goal_amount) }})</span>@endif</span>
                             </label>
                         @endforeach
                     </div>

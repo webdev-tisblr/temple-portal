@@ -53,7 +53,7 @@
                             </x-dashboard.cell>
 
                             <x-dashboard.cell :label="__('dashboard.col_total')">
-                                <span class="font-semibold" style="color: #C45F12;">₹{{ number_format((float) $order->total_amount, 2) }}</span>
+                                <span class="font-semibold" style="color: #C45F12;">₹{{ inr((float) $order->total_amount, 2) }}</span>
                             </x-dashboard.cell>
 
                             <x-dashboard.cell :label="__('dashboard.col_status')">

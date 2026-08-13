@@ -38,8 +38,8 @@
                 <div class="h-2.5 rounded-full" style="width:{{ $pct }}%; background:linear-gradient(90deg,#E8751A,#C45F12);"></div>
             </div>
             <div class="flex justify-between mt-3 text-sm">
-                <span class="font-extrabold" style="color:#7A1E1E;">₹{{ number_format($raised) }}</span>
-                <span style="color:#5E4F3D;">{{ __('home.of') }} ₹{{ number_format($goal) }} · {{ $pct }}%</span>
+                <span class="font-extrabold" style="color:#7A1E1E;">{{ inr_units($raised) }}</span>
+                <span style="color:#5E4F3D;">{{ __('home.of') }} {{ inr_units($goal) }} · {{ $pct }}%</span>
             </div>
             <div class="mt-6">
                 <span class="inline-block font-extrabold text-sm px-10 py-3 rounded-full" style="background:#7A1E1E; color:#FFF7EC;">{{ __('home.contribute') }}</span>
@@ -69,8 +69,8 @@
                         <div class="h-2 rounded-full" style="width:{{ $pct }}%; background:linear-gradient(90deg,#E8751A,#C45F12);"></div>
                     </div>
                     <div class="flex justify-between mt-2.5 text-xs">
-                        <span class="font-extrabold" style="color:#7A1E1E;">₹{{ number_format($raised) }}</span>
-                        <span style="color:#5E4F3D;">{{ __('home.of') }} ₹{{ number_format($goal) }} · {{ $pct }}%</span>
+                        <span class="font-extrabold" style="color:#7A1E1E;">{{ inr_units($raised) }}</span>
+                        <span style="color:#5E4F3D;">{{ __('home.of') }} {{ inr_units($goal) }} · {{ $pct }}%</span>
                     </div>
                     <div class="mt-4 text-center font-extrabold text-sm py-2.5 rounded-full" style="background:#7A1E1E; color:#FFF7EC;">{{ __('home.contribute') }}</div>
                 </div>

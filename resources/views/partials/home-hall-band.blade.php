@@ -13,7 +13,7 @@
                         <div><div class="font-marcellus text-2xl" style="color:#F3DCAE;">{{ $hall->capacity }}</div><div class="opacity-70">{{ __('home.guest_capacity') }}</div></div>
                     @endif
                     @if($hall->price_per_day)
-                        <div><div class="font-marcellus text-2xl" style="color:#F3DCAE;">₹{{ number_format((float) $hall->price_per_day) }}</div><div class="opacity-70">{{ __('home.per_day') }}</div></div>
+                        <div><div class="font-marcellus text-2xl" style="color:#F3DCAE;">₹{{ inr((float) $hall->price_per_day) }}</div><div class="opacity-70">{{ __('home.per_day') }}</div></div>
                     @endif
                 </div>
                 <a href="{{ route('halls.show', $hall) }}"

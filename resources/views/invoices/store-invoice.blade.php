@@ -161,8 +161,8 @@
                         <td>{{ $index + 1 }}</td>
                         <td>{{ $item->product_name }}</td>
                         <td class="center">{{ $item->quantity }}</td>
-                        <td class="right">&#8377; {{ number_format((float) $item->unit_price, 2) }}</td>
-                        <td class="right">&#8377; {{ number_format((float) $item->subtotal, 2) }}</td>
+                        <td class="right">&#8377; {{ inr((float) $item->unit_price, 2) }}</td>
+                        <td class="right">&#8377; {{ inr((float) $item->subtotal, 2) }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -189,36 +189,36 @@
                 // Rates vary per line, so the header shows the effective one
                 // rather than claiming a single configured rate.
                 $effRate = $taxable > 0 ? round($gstAmount / $taxable * 100, 2) : 0;
-                $halfRate = $effRate > 0 ? rtrim(rtrim(number_format($effRate / 2, 2), '0'), '.') : null;
+                $halfRate = $effRate > 0 ? rtrim(rtrim(inr($effRate / 2, 2), '0'), '.') : null;
             @endphp
             @if($gstAmount > 0)
             <tr>
                 <td class="totals-label">{{ __('receipt.label_taxable_value') }}</td>
-                <td class="totals-value">&#8377; {{ number_format($taxable, 2) }}</td>
+                <td class="totals-value">&#8377; {{ inr($taxable, 2) }}</td>
             </tr>
             <tr>
                 <td class="totals-label">{{ __('receipt.label_cgst') }} @ {{ $halfRate }}%</td>
-                <td class="totals-value">&#8377; {{ number_format($cgst, 2) }}</td>
+                <td class="totals-value">&#8377; {{ inr($cgst, 2) }}</td>
             </tr>
             <tr>
                 <td class="totals-label">{{ __('receipt.label_sgst') }} @ {{ $halfRate }}%</td>
-                <td class="totals-value">&#8377; {{ number_format($sgst, 2) }}</td>
+                <td class="totals-value">&#8377; {{ inr($sgst, 2) }}</td>
             </tr>
             @else
             <tr>
                 <td class="totals-label">{{ __('receipt.label_subtotal') }}</td>
-                <td class="totals-value">&#8377; {{ number_format((float) $order->subtotal, 2) }}</td>
+                <td class="totals-value">&#8377; {{ inr((float) $order->subtotal, 2) }}</td>
             </tr>
             @endif
             @if((float) $order->shipping_charge > 0)
             <tr>
                 <td class="totals-label">{{ __('receipt.label_shipping') }}</td>
-                <td class="totals-value">&#8377; {{ number_format((float) $order->shipping_charge, 2) }}</td>
+                <td class="totals-value">&#8377; {{ inr((float) $order->shipping_charge, 2) }}</td>
             </tr>
             @endif
             <tr class="grand-total">
                 <td class="totals-label">{{ __('receipt.label_grand_total') }}</td>
-                <td class="totals-value">&#8377; {{ number_format((float) $order->total_amount, 2) }}</td>
+                <td class="totals-value">&#8377; {{ inr((float) $order->total_amount, 2) }}</td>
             </tr>
         </table>
 

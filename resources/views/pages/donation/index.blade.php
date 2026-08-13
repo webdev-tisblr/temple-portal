@@ -33,8 +33,8 @@
                 <div class="bg-gradient-to-r from-amber-600 to-amber-400 h-3 rounded-full transition-all" style="width: {{ $pct }}%"></div>
             </div>
             <div class="flex justify-between text-xs text-amber-100/40 mt-1">
-                <span>₹{{ number_format((float) $selectedCampaign->raised_amount) }} {{ __('donation.raised') }}</span>
-                <span>₹{{ number_format((float) $selectedCampaign->goal_amount) }} {{ __('donation.goal') }}</span>
+                <span>{{ inr_units((float) $selectedCampaign->raised_amount) }} {{ __('donation.raised') }}</span>
+                <span>{{ inr_units((float) $selectedCampaign->goal_amount) }} {{ __('donation.goal') }}</span>
             </div>
         </div>
     @endif
@@ -55,7 +55,7 @@
                         @click="selectPreset({{ $preset }})"
                         :class="amount === {{ $preset }} ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-900 border-amber-500 font-bold' : 'bg-transparent text-amber-100/60 border-amber-800/30 hover:border-amber-600'"
                         class="py-3 border rounded-lg text-sm font-semibold transition">
-                        ₹{{ number_format($preset) }}
+                        ₹{{ inr($preset) }}
                     </button>
                 @endforeach
             </div>

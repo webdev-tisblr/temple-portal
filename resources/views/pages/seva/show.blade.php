@@ -45,9 +45,9 @@
                 <div class="mt-3">
                     @if($seva->is_variable_price)
                         <span class="text-sm text-amber-100/40">{{ __('seva.min_amount') }}</span>
-                        <span class="text-2xl font-bold text-gold ml-1">₹{{ number_format((float) $seva->min_price) }}</span>
+                        <span class="text-2xl font-bold text-gold ml-1">₹{{ inr((float) $seva->min_price) }}</span>
                     @else
-                        <span class="text-2xl font-bold text-gold">₹{{ number_format((float) $seva->price) }}</span>
+                        <span class="text-2xl font-bold text-gold">₹{{ inr((float) $seva->price) }}</span>
                     @endif
                 </div>
 

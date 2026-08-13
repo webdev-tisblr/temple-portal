@@ -29,7 +29,7 @@
 
     <div class="summary">
         Total Donations: <span>{{ $donations->count() }}</span> &nbsp;|&nbsp;
-        Total Amount: <span>&#8377; {{ number_format((float) $total, 2) }}</span>
+        Total Amount: <span>&#8377; {{ inr((float) $total, 2) }}</span>
     </div>
 
     <table>
@@ -55,7 +55,7 @@
                 <td>{{ $d->receipt?->receipt_number ?? '-' }}</td>
                 <td>{{ $d->devotee?->name ?? 'Anonymous' }}</td>
                 <td>{{ $d->devotee?->phone ?? '-' }}</td>
-                <td style="text-align: right;">{{ number_format((float) $d->amount, 2) }}</td>
+                <td style="text-align: right;">{{ inr((float) $d->amount, 2) }}</td>
                 <td>{{ ucfirst($d->getRawOriginal('donation_type')) }}</td>
                 <td>{{ $d->purpose ?? '-' }}</td>
                 <td>{{ $d->financial_year }}</td>
@@ -68,7 +68,7 @@
             @if($donations->isNotEmpty())
             <tr class="total-row">
                 <td colspan="5" style="text-align: right;">Total:</td>
-                <td style="text-align: right;">{{ number_format((float) $total, 2) }}</td>
+                <td style="text-align: right;">{{ inr((float) $total, 2) }}</td>
                 <td colspan="4"></td>
             </tr>
             @endif

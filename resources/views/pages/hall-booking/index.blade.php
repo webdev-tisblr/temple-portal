@@ -115,7 +115,7 @@
                                 {{-- Full-day only (2026-08-04): single price row. --}}
                                 <tr class="border-t border-amber-900/15">
                                     <td class="px-4 py-2.5 text-amber-100/70">{{ __('halls.full_day_paren') }}</td>
-                                    <td class="px-4 py-2.5 text-right font-bold text-gold">₹{{ number_format((float) $hall->price_per_day) }}</td>
+                                    <td class="px-4 py-2.5 text-right font-bold text-gold">₹{{ inr((float) $hall->price_per_day) }}</td>
                                 </tr>
                             </tbody>
                         </table>

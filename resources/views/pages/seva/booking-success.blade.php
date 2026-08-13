@@ -45,7 +45,7 @@
                 @endif
                 <div class="flex justify-between py-2.5">
                     <span class="text-amber-100/40">{{ __('common.amount') }}</span>
-                    <span class="font-bold text-gold text-base">₹{{ number_format((float) $booking->total_amount, 2) }}</span>
+                    <span class="font-bold text-gold text-base">₹{{ inr((float) $booking->total_amount, 2) }}</span>
                 </div>
                 @if($booking->selected_product_id && $booking->selectedProduct)
                     <div class="flex justify-between py-2.5 border-t border-amber-900/20">

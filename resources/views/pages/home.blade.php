@@ -209,8 +209,8 @@
                                         <div class="h-[6px] rounded-full" style="width:{{ $card['pct'] }}%; background:linear-gradient(90deg,#E8751A,#F5B36B);"></div>
                                     </div>
                                     <div class="mt-1.5 text-xs" style="color:rgba(253,246,230,.9);">
-                                        <span class="font-extrabold" style="color:#FFF7EC;">₹{{ number_format($card['raised']) }}</span>
-                                        {{ __('home.of') }} ₹{{ number_format($card['goal']) }}
+                                        <span class="font-extrabold" style="color:#FFF7EC;">{{ inr_units($card['raised']) }}</span>
+                                        {{ __('home.of') }} {{ inr_units($card['goal']) }}
                                     </div>
                                 @elseif(!empty($card['text']))
                                     <div class="text-xs mt-1.5 leading-relaxed line-clamp-2" style="color:rgba(253,246,230,.85);">{{ $card['text'] }}</div>

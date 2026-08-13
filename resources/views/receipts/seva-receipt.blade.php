@@ -163,7 +163,7 @@
 
         {{-- Amount --}}
         <table class="amount-box" width="100%" cellpadding="0" cellspacing="0"><tr><td>
-            <div class="amount-total">&#8377; {{ number_format((float) $booking->total_amount, 2) }}</div>
+            <div class="amount-total">&#8377; {{ inr((float) $booking->total_amount, 2) }}</div>
             {{-- The words themselves stay English in every language (no verified
                  gu/hi numeral-to-words implementation); only the label translates. --}}
             <div class="amount-words">{{ __('receipt.label_amount_in_words') }}: <span class="words-value">{{ $amount_in_words }}</span></div>

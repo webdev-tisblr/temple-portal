@@ -7,6 +7,7 @@ namespace App\Http\Middleware;
 use App\Models\SystemSetting;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -106,20 +107,64 @@ class ComingSoonMode
             return $next($request);
         }
 
+        // A launch time that has passed opens the site, whatever the flag
+        // still says. `site:launch` flips the stored flag a minute later, but
+        // THIS check is what actually guarantees the doors open on time: if
+        // the scheduler is wedged, a deploy is mid-flight, or someone kills
+        // the cron, the site still goes live at the advertised moment rather
+        // than waiting for a human to notice.
+        $launchAt = static::launchAt();
+
+        if ($launchAt !== null && $launchAt->isPast()) {
+            return $next($request);
+        }
+
         // CDN-Cache-Control is what Cloudflare actually obeys; without it the
         // edge can pin this page and keep serving it after the flag goes off.
         return response()
-            ->view('pages.coming-soon', [], 503)
+            ->view('pages.coming-soon', ['launchAt' => $launchAt], 503)
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('CDN-Cache-Control', 'no-store')
             ->header('Retry-After', '3600');
     }
 
+    /**
+     * The configured launch moment, or NULL when the trust has not set one.
+     *
+     * Cached alongside the flag because it is read on the same hot path.
+     * Parsed in the app timezone (IST): the admin types a wall-clock time
+     * and means exactly that, so a stored '2026-08-15 09:00:00' must not be
+     * read as UTC and open the site five and a half hours early.
+     */
+    public static function launchAt(): ?Carbon
+    {
+        $raw = Cache::remember(
+            'system.launch_at',
+            60,
+            fn (): string => (string) SystemSetting::getValue('launch_at', ''),
+        );
+
+        if (trim($raw) === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($raw, config('app.timezone'));
+        } catch (\Throwable) {
+            // A malformed value must never take the site down or open it
+            // early — treat it as "no launch time set".
+            return null;
+        }
+    }
+
     private function shouldBypass(Request $request): bool
     {
         foreach (self::BYPASS_PATHS as $pattern) {
-            if ($request->is($pattern)) return true;
+            if ($request->is($pattern)) {
+                return true;
+            }
         }
+
         return false;
     }
 }

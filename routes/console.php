@@ -89,6 +89,14 @@ Schedule::command('seva:dispatch-reminders')
 // Hall booking reminders. Same shape and the same 10-minute lock expiry:
 // the command permanently skips anything more than 12h late, so a leaked
 // lock from Laravel's 24h default would silently bin half a day of them.
+// Opens the site when the configured launch moment passes. The middleware
+// already lets traffic through at that instant on its own — this is what
+// flips the stored flag and purges the edge cache so the world sees it.
+// Every minute, because "we launch at 9:00" means 9:00.
+Schedule::command('site:launch')
+    ->everyMinute()
+    ->withoutOverlapping(5);
+
 Schedule::command('hall:dispatch-reminders')
     ->everyFiveMinutes()
     ->withoutOverlapping(10)

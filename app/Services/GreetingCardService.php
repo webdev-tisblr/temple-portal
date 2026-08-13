@@ -69,19 +69,33 @@ class GreetingCardService
 
     private function generateCard(Donation $donation): ?string
     {
-        $donation->loadMissing('donationType', 'devotee');
-        $donationType = $donation->donationType;
+        $donation->loadMissing('donationType', 'devotee', 'campaign');
 
-        if (! $donationType || ! $donationType->greeting_card_template || ! $donationType->greeting_card_config) {
+        // Where the artwork lives, in priority order.
+        //
+        // A CAMPAIGN donation carries no donation_type_id at all — the donate
+        // form hides the type picker in campaign mode and offers sub-causes
+        // instead — so before 2026-08-13 it fell straight out of this method
+        // and no campaign gift ever produced a card. The campaign now carries
+        // its own artwork, exactly as sevas and donation types do.
+        //
+        // Type-level artwork still wins where both exist, so a campaign
+        // donation that somehow does carry a type behaves as it always has.
+        $source = $this->cardSourceFor($donation);
+
+        if ($source === null) {
             return null;
         }
 
         $locale = $this->localeForDevotee($donation->devotee);
+        $isCampaignCard = $source instanceof \App\Models\DonationCampaign;
 
         $pngBytes = $this->composeCard(
-            $this->templateForLocale($donationType, $locale),
-            $donationType->greeting_card_config['overlays'] ?? [],
-            fn (string $fieldKey): ?string => $this->resolveFieldValue($fieldKey, $donation, $locale),
+            $this->templateForLocale($source, $locale),
+            $source->greeting_card_config['overlays'] ?? [],
+            fn (string $fieldKey): ?string => $isCampaignCard
+                ? $this->resolveCampaignFieldValue($fieldKey, $donation, $locale)
+                : $this->resolveFieldValue($fieldKey, $donation, $locale),
         );
         if ($pngBytes === null) {
             return null;
@@ -349,6 +363,58 @@ class GreetingCardService
     /**
      * Resolve the value for a seva-booking field key.
      */
+    /**
+     * The model whose artwork this donation's card is rendered from, or NULL
+     * when neither the donation type nor the campaign has one configured.
+     *
+     * Public so the dispatching job can ask the same question to decide which
+     * notification trigger to fire, instead of re-deriving the rule and
+     * risking the two answers drifting apart.
+     */
+    public function cardSourceFor(Donation $donation): ?Model
+    {
+        $donation->loadMissing('donationType', 'campaign');
+
+        $type = $donation->donationType;
+        if ($type && $type->greeting_card_template && $type->greeting_card_config) {
+            return $type;
+        }
+
+        $campaign = $donation->campaign;
+        if ($campaign && $campaign->greeting_card_template && $campaign->greeting_card_config) {
+            return $campaign;
+        }
+
+        return null;
+    }
+
+    /** True when this donation's card comes from its campaign, not its type. */
+    public function cardIsFromCampaign(Donation $donation): bool
+    {
+        return $this->cardSourceFor($donation) instanceof \App\Models\DonationCampaign;
+    }
+
+    /**
+     * Overlay values for a campaign card.
+     *
+     * Twin of resolveSevaFieldValue(). Campaigns have no extra_fields, so
+     * unlike the donation-type resolver there is deliberately no fallback into
+     * $donation->extra_data — an unknown key renders as nothing rather than
+     * leaking whatever a donor happened to type into a dynamic field.
+     */
+    private function resolveCampaignFieldValue(string $fieldKey, Donation $donation, string $locale = 'gu'): ?string
+    {
+        return match ($fieldKey) {
+            '_donor_name' => $donation->devotee?->name,
+            '_campaign_title' => $donation->campaign?->title,
+            '_sub_cause' => $donation->subCause?->title,
+            '_amount' => "\u{20B9}".number_format((float) $donation->amount, 2),
+            '_date' => now()->format('d/m/Y'),
+            '_temple_name' => $this->templeName($locale),
+            default => null,
+        };
+    }
+
     private function resolveSevaFieldValue(string $fieldKey, SevaBooking $booking, string $locale = 'gu'): ?string
     {
         return match ($fieldKey) {

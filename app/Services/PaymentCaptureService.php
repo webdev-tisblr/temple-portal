@@ -290,8 +290,17 @@ class PaymentCaptureService
             // Greeting card is a fully separate deliverable — its own job,
             // its own `seva.greeting_card` trigger. Isolated so a card
             // failure never affects the receipt (and vice-versa).
+            //
+            // Sent HERE only when the seva is today or already past. Everything
+            // in the future is left to `seva:send-day-of-cards`, which sweeps
+            // each morning at 07:30 — the trust wants the card to arrive on the
+            // day of the seva, not weeks earlier when the booking was paid for.
+            // Same-day bookings still card immediately (the sweep has already
+            // run by then), as do backdated counter entries.
             try {
-                GenerateSevaGreetingCard::dispatchSync($captured['booking']);
+                if ($this->sevaCardIsDueNow($captured['booking'])) {
+                    GenerateSevaGreetingCard::dispatchSync($captured['booking']);
+                }
             } catch (\Throwable $e) {
                 Log::error('PaymentCapture: seva greeting card generation failed', [
                     'booking_id' => $captured['booking']->id,
@@ -484,5 +493,25 @@ class PaymentCaptureService
                 $hallBooking->update(['status' => 'cancelled']);
             }
         });
+    }
+
+    /**
+     * Is this booking's greeting card due at capture time?
+     *
+     * True only when the seva happens today or has already happened. A future
+     * seva is carded by `seva:send-day-of-cards` on the morning of the day
+     * instead. Kept as one method so both capture paths (Razorpay and the free
+     * / test-mode web confirm) apply the identical rule.
+     *
+     * A missing booking_date is treated as due now rather than never — losing
+     * the card entirely would be worse than sending it early.
+     */
+    public function sevaCardIsDueNow(\App\Models\SevaBooking $booking): bool
+    {
+        if ($booking->booking_date === null) {
+            return true;
+        }
+
+        return $booking->booking_date->startOfDay()->lte(now()->startOfDay());
     }
 }

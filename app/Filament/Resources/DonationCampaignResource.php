@@ -108,6 +108,67 @@ class DonationCampaignResource extends Resource
                     ->addActionLabel('Add FAQ'),
             ]),
 
+            // Mirrors the identical section on SevaResource / DonationTypeResource.
+            // Campaign donations carry no donation_type_id (the donate form hides
+            // the type picker in campaign mode), so without artwork HERE a
+            // campaign gift can never produce a card at all.
+            Forms\Components\Section::make('Greeting Card')
+                ->icon('heroicon-o-photo')
+                ->description('Optional: donors to this campaign receive a greeting card image, rendered in their preferred language. Upload a background per language, then drag & drop variables on the canvas. Nothing is sent until the "Donation — campaign greeting card" notification template is created and enabled.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\FileUpload::make('greeting_card_template')
+                        ->label('Background Template Image (Gujarati / default)')
+                        ->directory('greeting-templates')
+                        ->image()
+                        ->maxSize(5120)
+                        ->helperText('Recommended: 1200x800px PNG or JPG. The overlay layout below is positioned on THIS image and is shared by all languages.')
+                        ->columnSpanFull()
+                        ->live(),
+
+                    Forms\Components\Grid::make(2)->schema([
+                        Forms\Components\FileUpload::make('greeting_card_template_hi')
+                            ->label('Background (Hindi)')
+                            ->directory('greeting-templates')
+                            ->image()
+                            ->maxSize(5120)
+                            ->helperText('Optional. MUST be the same dimensions as the Gujarati image — falls back to Gujarati when empty.'),
+                        Forms\Components\FileUpload::make('greeting_card_template_en')
+                            ->label('Background (English)')
+                            ->directory('greeting-templates')
+                            ->image()
+                            ->maxSize(5120)
+                            ->helperText('Optional. MUST be the same dimensions as the Gujarati image — falls back to Gujarati when empty.'),
+                    ]),
+
+                    Forms\Components\Placeholder::make('card_editor_ui')
+                        ->content(fn ($record) => view('filament.components.greeting-card-editor', [
+                            'record' => $record,
+                            'statePath' => 'data.greeting_card_config',
+                            // Campaigns have no extra_fields, so the built-ins are
+                            // the whole set — same situation as Seva.
+                            'availableVars' => [
+                                ['key' => '_donor_name', 'label' => 'Devotee Name', 'type' => 'text', 'auto' => true],
+                                ['key' => '_campaign_title', 'label' => 'Campaign Name', 'type' => 'text', 'auto' => true],
+                                ['key' => '_amount', 'label' => 'Amount', 'type' => 'text', 'auto' => true],
+                                ['key' => '_date', 'label' => 'Date', 'type' => 'text', 'auto' => true],
+                                ['key' => '_temple_name', 'label' => 'Temple Name', 'type' => 'text', 'auto' => true],
+                            ],
+                        ]))
+                        ->columnSpanFull(),
+
+                    Forms\Components\Hidden::make('greeting_card_config')
+                        ->dehydrateStateUsing(function ($state) {
+                            if (is_string($state)) {
+                                $decoded = json_decode($state, true);
+
+                                return is_array($decoded) ? $decoded : $state;
+                            }
+
+                            return $state;
+                        }),
+                ]),
+
             Forms\Components\Section::make('Settings')->schema([
                 Forms\Components\TextInput::make('goal_amount')->label('Goal Amount')->numeric()->prefix('₹')->required(),
                 Forms\Components\DatePicker::make('start_date')->required(),

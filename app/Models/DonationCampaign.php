@@ -24,7 +24,14 @@ class DonationCampaign extends Model
 
     protected function managedImages(): array
     {
-        return ['image_path' => 'r2'];
+        return [
+            'image_path' => 'r2',
+            // Greeting-card backgrounds, so replacing artwork removes the
+            // superseded object from R2 instead of orphaning it.
+            'greeting_card_template' => 'r2',
+            'greeting_card_template_hi' => 'r2',
+            'greeting_card_template_en' => 'r2',
+        ];
     }
 
     protected $fillable = [
@@ -42,6 +49,10 @@ class DonationCampaign extends Model
         'raised_amount',
         'donor_count',
         'image_path',
+        'greeting_card_template',
+        'greeting_card_template_hi',
+        'greeting_card_template_en',
+        'greeting_card_config',
         'featured_video_url',
         'media',
         'faqs',
@@ -63,6 +74,7 @@ class DonationCampaign extends Model
         'is_featured' => 'boolean',
         'media' => 'array',
         'faqs' => 'array',
+        'greeting_card_config' => 'array',
     ];
 
     public function getTitleAttribute(): string

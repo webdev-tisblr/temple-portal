@@ -72,6 +72,14 @@ Schedule::command('bookings:clean-stale')
 // The 10-minute mutex expiry is load-bearing: the drain permanently skips
 // anything more than --max-late-minutes (12h) late, so a leaked lock on
 // Laravel's 24h default would silently bin half a day of reminders.
+// Seva greeting cards go out on the MORNING OF THE SEVA, not when the booking
+// was paid for. withoutOverlapping carries an explicit short expiry: Laravel's
+// default lock is 24h, which on a daily task could silently skip a whole day.
+Schedule::command('seva:send-day-of-cards')
+    ->dailyAt('07:30')
+    ->withoutOverlapping(10)
+    ->runInBackground();
+
 Schedule::command('seva:dispatch-reminders')
     ->everyFiveMinutes()
     ->withoutOverlapping(10)

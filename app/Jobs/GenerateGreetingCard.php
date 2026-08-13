@@ -84,12 +84,26 @@ class GenerateGreetingCard implements ShouldQueue
             ]);
         }
 
+        // A campaign card is a different message from a birthday card, so it
+        // gets its own trigger — same split the platform already makes between
+        // donation.confirmed and donation.campaign.confirmed. It ships with no
+        // template, so campaign cards send nothing until the trust writes and
+        // enables one; that is deliberate, not a gap.
+        //
+        // The service answers which source the artwork came from, so this
+        // cannot drift from the rendering decision.
+        $fromCampaign = $greetingCards->cardIsFromCampaign($this->donation);
+        $triggerKey = $fromCampaign
+            ? 'donation.campaign.greeting_card'
+            : 'donation.greeting_card';
+
         try {
             $notifications->dispatch(
-                'donation.greeting_card',
+                $triggerKey,
                 [
                     'devotee' => $devotee,
                     'donation' => $this->donation,
+                    'campaign_title' => $this->donation->campaign?->title,
                     // Publish the devotee name under BOTH keys so any
                     // admin-chosen token resolves — mirrors receipt_80g.
                     'name' => $devotee->name,
@@ -105,6 +119,7 @@ class GenerateGreetingCard implements ShouldQueue
 
             Log::info('Greeting card dispatched via NotificationService', [
                 'donation_id' => $this->donation->id,
+                'trigger' => $triggerKey,
             ]);
         } catch (\Throwable $e) {
             Log::error('Greeting card dispatch failed', [

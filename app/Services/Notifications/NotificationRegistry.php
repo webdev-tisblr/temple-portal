@@ -26,6 +26,7 @@ namespace App\Services\Notifications;
  *   donation.campaign.confirmed → app/Services/PaymentCaptureService.php
  *   donation.receipt_80g   → app/Jobs/Generate80GReceipt.php
  *   donation.greeting_card → app/Jobs/GenerateGreetingCard.php
+ *   donation.campaign.greeting_card → app/Jobs/GenerateGreetingCard.php
  *   seva.booking.confirmed → app/Jobs/GenerateSevaReceipt.php
  *   hall.booking.confirmed → app/Jobs/GenerateHallInvoice.php
  *   hall.booking.cancel_request → app/Services/HallCancellationService.php
@@ -173,6 +174,27 @@ final class NotificationRegistry
                     'booking_id' => 'Booking ID (booking.id)',
                     'assignee_name' => 'Seva assignee (pujari/staff) name — empty when the seva has no assignee (booking.seva.assignee.name)',
                     'assignee_phone' => 'Seva assignee phone — empty when the seva has no assignee (booking.seva.assignee.phone)',
+                    'trust_name' => 'Trust name from System Settings (trust_name)',
+                ],
+            ],
+
+            // Campaign gifts get their own card message. Shree Ram Vatika
+            // should not read like a birthday card, and the platform already
+            // makes exactly this split for confirmations
+            // (donation.confirmed vs donation.campaign.confirmed).
+            //
+            // Ships with NO template: nothing is sent until the trust creates
+            // and enables one here.
+            'donation.campaign.greeting_card' => [
+                'label' => 'Donation — campaign greeting card',
+                'description' => 'Fires after a donation to a CAMPAIGN is captured, when that campaign has greeting-card artwork uploaded (Campaigns → edit → Greeting Card). For WhatsApp, point the Header (IMAGE) link at {{ greeting_card_url }}; for email the PNG is attached automatically. Normal (non-campaign) donations use "Donation — greeting card" instead.',
+                'placeholders' => [
+                    'name' => 'Devotee name (name)',
+                    'donor_name' => 'Devotee name — alias of name (donor_name)',
+                    'campaign_title' => 'Campaign name in the devotee\'s language (campaign_title)',
+                    'amount' => 'Donation amount in INR (amount)',
+                    'amount_formatted' => 'Amount with thousands separator (amount_formatted)',
+                    'greeting_card_url' => 'Greeting card image URL — permanent public link (greeting_card_url)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
             ],

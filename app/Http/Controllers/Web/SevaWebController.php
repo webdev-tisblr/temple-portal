@@ -268,7 +268,13 @@ class SevaWebController extends Controller
             // Greeting card is its own deliverable (seva.greeting_card),
             // mirroring the live-payment path in PaymentCaptureService.
             try {
-                \App\Jobs\GenerateSevaGreetingCard::dispatchSync($result['booking']);
+                // Only when the seva is today or past — a future seva is
+                // carded on its own morning by seva:send-day-of-cards. Same
+                // rule as the Razorpay capture path, asked of the one service
+                // that owns it so the two cannot drift.
+                if (app(\App\Services\PaymentCaptureService::class)->sevaCardIsDueNow($result['booking'])) {
+                    \App\Jobs\GenerateSevaGreetingCard::dispatchSync($result['booking']);
+                }
             } catch (\Throwable $e) {
                 Log::error('Test-mode seva greeting card job failed', [
                     'booking_id' => $result['booking']->id,

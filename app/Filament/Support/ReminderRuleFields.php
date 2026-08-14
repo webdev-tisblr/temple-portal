@@ -69,12 +69,32 @@ final class ReminderRuleFields
                 ])
                 ->default(SevaReminderRule::RECIPIENT_DEVOTEE)
                 ->live()
+                // The Role select and the Phone input below are two fields
+                // sharing ONE column, so the value survives a change of
+                // recipient type: picking role "staff" then switching to
+                // Custom phone left "staff" sitting in the phone box, and
+                // switching back put a phone number into a Role select that
+                // has no such option — it renders blank while the state still
+                // holds the number, so saving without re-picking stored a
+                // phone number as the role. Clear it on every change.
+                //
+                // Custom phone numbers can only be reached over WhatsApp, so
+                // a stale channel from a previous choice has to go too.
+                ->afterStateUpdated(function (Forms\Set $set, ?string $state): void {
+                    $set('recipient_value', null);
+
+                    if ($state === SevaReminderRule::RECIPIENT_CUSTOM_PHONE) {
+                        $set('channel', NotificationTemplate::CHANNEL_WHATSAPP);
+                    }
+                })
                 ->required(),
 
             Forms\Components\Select::make('recipient_value')
                 ->label('Role')
                 ->options(fn () => Role::query()
+                    ->where('guard_name', 'admin')
                     ->orderBy('name')->pluck('name', 'name')->all())
+                ->live()
                 ->visible(fn (Get $get): bool => $get('recipient_type') === SevaReminderRule::RECIPIENT_ADMIN_ROLE)
                 ->required(fn (Get $get): bool => $get('recipient_type') === SevaReminderRule::RECIPIENT_ADMIN_ROLE),
 

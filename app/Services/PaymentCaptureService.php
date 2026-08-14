@@ -412,6 +412,12 @@ class PaymentCaptureService
         $context = [
             'donation' => $donation,
             'devotee' => $donation->devotee,
+            // BOTH branches need the printable amount, not just the campaign
+            // one. It lived in the campaign block alone, so when the `amount`
+            // placeholder was repointed here from the raw donation.amount
+            // column it resolved to nothing on a plain donation — a blank
+            // parameter, which Meta rejects outright.
+            'amount_formatted' => inr_money($donation->amount),
             'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
         ];
 
@@ -443,7 +449,6 @@ class PaymentCaptureService
         }
 
         return ['donation.campaign.confirmed', $context + [
-            'amount_formatted' => inr_money($donation->amount),
             'campaign_url' => $campaignUrl,
             'campaign_raised' => inr_money($campaign->raised_amount),
             'campaign_goal' => inr_money($campaign->goal_amount),

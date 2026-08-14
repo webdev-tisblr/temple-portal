@@ -323,7 +323,11 @@ final class NotificationRegistry
                     'devotee_phone' => 'Phone on the account — contact_phone above is the number written on THIS booking (devotee.phone)',
                     'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'hall_name' => "Hall name in the reader's language (booking.hall.name_gu)",
-                    'booking_date' => 'Booking start date, pre-formatted (booking.booking_date) — unchanged meaning for single-day bookings',
+                    // The path MUST be the last thing in the description —
+                    // buildPlaceholderMap only reads a trailing (…) group and
+                    // silently falls back to the token name otherwise, which
+                    // mapped this to a non-existent top-level `booking_date`.
+                    'booking_date' => 'Booking start date, pre-formatted; unchanged meaning for single-day bookings (booking.booking_date)',
                     'booking_end_date' => 'Booking end date, pre-formatted — same as the start for a single-day booking (booking.booking_end_date)',
                     'booking_date_range' => 'Whole range as one string, eg "12 – 14 Aug 2026" (booking.booking_date_range)',
                     'days_count' => 'Number of days booked, 1 for a single-day booking (booking.days_count)',

@@ -15,6 +15,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 
 class GenerateStoreInvoice implements ShouldQueue
 {
@@ -86,7 +87,7 @@ class GenerateStoreInvoice implements ShouldQueue
             $context = [
                 'devotee' => $devotee,
                 'order' => array_merge($this->order->toArray(), [
-                    'total_amount_formatted' => number_format((float) $this->order->total_amount, 2),
+                    'total_amount_formatted' => inr_money($this->order->total_amount),
                     'items_count' => $this->order->items->count(),
                     // Total UNITS, which is what a devotee means by "items".
                     // items_count counts order ROWS: two of one product is one
@@ -100,7 +101,7 @@ class GenerateStoreInvoice implements ShouldQueue
                 'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
                 // Permanent signed link — regenerates the PDF on miss;
                 // WhatsApp document headers point at this.
-                'invoice_pdf_url' => \Illuminate\Support\Facades\URL::signedRoute('store.invoice.link', ['order' => $this->order->id]),
+                'invoice_pdf_url' => URL::signedRoute('store.invoice.link', ['order' => $this->order->id]),
             ];
 
             // Key must be ABSENT (not []) when there is no PDF: contexts

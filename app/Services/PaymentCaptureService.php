@@ -69,11 +69,11 @@ use Illuminate\Support\Facades\Log;
 class PaymentCaptureService
 {
     /**
-     * @param  \Carbon\CarbonInterface|null  $paidAt  When the money actually
-     *   changed hands. Item 6.1 (manual cash entry): the trust receives cash
-     *   at the counter and may enter it a day or two later, and a receipt
-     *   dated "today" for money taken on Saturday is wrong on a statutory
-     *   document.
+     * @param  CarbonInterface|null  $paidAt  When the money actually
+     *                                        changed hands. Item 6.1 (manual cash entry): the trust receives cash
+     *                                        at the counter and may enter it a day or two later, and a receipt
+     *                                        dated "today" for money taken on Saturday is wrong on a statutory
+     *                                        document.
      *
      *   PURELY ADDITIVE — last parameter, nullable, defaulting to null which
      *   resolves to now(). Every pre-existing caller (Razorpay webhook,
@@ -443,10 +443,10 @@ class PaymentCaptureService
         }
 
         return ['donation.campaign.confirmed', $context + [
-            'amount_formatted' => number_format((float) $donation->amount, 2),
+            'amount_formatted' => inr_money($donation->amount),
             'campaign_url' => $campaignUrl,
-            'campaign_raised' => number_format((float) $campaign->raised_amount, 2),
-            'campaign_goal' => number_format((float) $campaign->goal_amount, 2),
+            'campaign_raised' => inr_money($campaign->raised_amount),
+            'campaign_goal' => inr_money($campaign->goal_amount),
         ]];
     }
 
@@ -506,7 +506,7 @@ class PaymentCaptureService
      * A missing booking_date is treated as due now rather than never — losing
      * the card entirely would be worse than sending it early.
      */
-    public function sevaCardIsDueNow(\App\Models\SevaBooking $booking): bool
+    public function sevaCardIsDueNow(SevaBooking $booking): bool
     {
         if ($booking->booking_date === null) {
             return true;

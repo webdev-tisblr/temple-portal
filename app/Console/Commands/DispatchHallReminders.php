@@ -121,7 +121,7 @@ class DispatchHallReminders extends Command
                 'booking_date' => $booking->booking_date?->format('d M Y'),
                 'booking_date_range' => $booking->date_range_label,
                 'days_count' => (int) ($booking->days_count ?: 1),
-                'total_amount_formatted' => number_format((float) $booking->total_amount, 2),
+                'total_amount_formatted' => inr_money($booking->total_amount),
                 'contact_name' => $booking->contact_name,
                 'contact_phone' => $booking->contact_phone,
             ]),

@@ -63,7 +63,7 @@ class GenerateGreetingCard implements ShouldQueue
 
         // WhatsApp needs a publicly-fetchable link. The greeting-card web
         // route is permanent + unauth (regenerates on miss), so no presign.
-        $greetingCardUrl = url('/donate/greeting-card/' . $this->donation->id);
+        $greetingCardUrl = url('/donate/greeting-card/'.$this->donation->id);
 
         // PNG bytes for the email attachment; pulled from R2 private once.
         $attachments = [];
@@ -108,8 +108,8 @@ class GenerateGreetingCard implements ShouldQueue
                     // admin-chosen token resolves — mirrors receipt_80g.
                     'name' => $devotee->name,
                     'donor_name' => $devotee->name,
-                    'amount' => (string) $this->donation->amount,
-                    'amount_formatted' => number_format((float) $this->donation->amount, 2),
+                    'amount' => inr_money($this->donation->amount),
+                    'amount_formatted' => inr_money($this->donation->amount),
                     'greeting_card_url' => $greetingCardUrl,
                     'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
                     '_attachments' => $attachments,

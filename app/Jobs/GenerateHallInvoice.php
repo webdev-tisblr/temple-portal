@@ -95,16 +95,16 @@ class GenerateHallInvoice implements ShouldQueue
                 'booking_end_date' => $this->booking->rangeEnd()->format('d M Y'),
                 'booking_date_range' => $this->booking->date_range_label,
                 'days_count' => (int) ($this->booking->days_count ?: 1),
-                'total_amount_formatted' => number_format((float) $this->booking->total_amount, 2),
+                'total_amount_formatted' => inr_money($this->booking->total_amount),
                 // GST placeholders (2026-08-12). Empty strings — not '0.00'
                 // — on an untaxed booking, so a template that prints them
                 // unconditionally renders a blank rather than claiming a
                 // zero-rupee tax was charged.
                 'subtotal_amount_formatted' => $this->booking->gst_rate !== null
-                    ? number_format((float) $this->booking->subtotal_amount, 2)
+                    ? inr_money($this->booking->subtotal_amount)
                     : '',
                 'gst_amount_formatted' => $this->booking->gst_rate !== null
-                    ? number_format((float) $this->booking->gst_amount, 2)
+                    ? inr_money($this->booking->gst_amount)
                     : '',
                 'gst_rate_formatted' => $this->booking->gst_rate !== null
                     ? rtrim(rtrim(number_format((float) $this->booking->gst_rate, 2), '0'), '.').'%'

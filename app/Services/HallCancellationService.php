@@ -26,7 +26,9 @@ use Illuminate\Support\Facades\DB;
 class HallCancellationService
 {
     public const REASON_NOT_CONFIRMED = 'not_confirmed';
+
     public const REASON_ALREADY_REQUESTED = 'already_requested';
+
     public const REASON_ALREADY_STARTED = 'already_started';
 
     /**
@@ -120,7 +122,7 @@ class HallCancellationService
                     'booking_end_date' => $booking->rangeEnd()->format('d M Y'),
                     'booking_date_range' => $booking->date_range_label,
                     'days_count' => (int) ($booking->days_count ?: 1),
-                    'total_amount_formatted' => number_format((float) $booking->total_amount, 2),
+                    'total_amount_formatted' => inr_money($booking->total_amount),
                     'contact_name' => $booking->contact_name,
                     'contact_phone' => $booking->contact_phone,
                     'cancel_reason' => $booking->cancel_reason ?? '—',

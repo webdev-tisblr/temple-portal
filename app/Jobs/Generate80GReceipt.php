@@ -127,7 +127,7 @@ class Generate80GReceipt implements ShouldQueue
                 [
                     'devotee' => $devotee,
                     'receipt' => array_merge($receipt->toArray(), [
-                        'amount_formatted' => number_format((float) $this->donation->amount, 2),
+                        'amount_formatted' => inr_money($this->donation->amount),
                     ]),
                     'donation' => $this->donation,
                     // Publish the devotee name under BOTH top-level keys
@@ -139,8 +139,8 @@ class Generate80GReceipt implements ShouldQueue
                     // and Meta rejects them with (#131008).
                     'name' => $devotee->name,
                     'donor_name' => $devotee->name,
-                    'amount' => (string) $this->donation->amount,
-                    'amount_formatted' => number_format((float) $this->donation->amount, 2),
+                    'amount' => inr_money($this->donation->amount),
+                    'amount_formatted' => inr_money($this->donation->amount),
                     'receipt_pdf_url' => $receiptPdfUrl,
                     'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
                     '_attachments' => $attachments,

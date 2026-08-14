@@ -80,14 +80,14 @@ class GenerateSevaReceipt implements ShouldQueue
 
         $context = [
             'booking' => array_merge($this->booking->toArray(), [
+                // Accessors do not survive toArray(), and `id` is a UUID
+                // that means nothing to a reader.
+                'booking_reference' => $this->booking->booking_reference,
                 // Publish every language, not just gu/en: templates map
                 // `booking.seva_name` and NotificationContext upgrades that
                 // to the _hi/_en sibling for a Hindi/English devotee,
                 // falling back to this Gujarati value when the translation
                 // is blank. Hindi had no path here at all before.
-                // Accessors do not survive toArray(), and `id` is a UUID
-                // that means nothing to a reader.
-                'booking_reference' => $this->booking->booking_reference,
                 'seva_name' => $this->booking->seva?->name_gu,
                 'seva_name_gu' => $this->booking->seva?->name_gu,
                 'seva_name_hi' => $this->booking->seva?->name_hi,
@@ -99,7 +99,7 @@ class GenerateSevaReceipt implements ShouldQueue
                 'slot_label' => $this->booking->slot_time_label,
                 'slot_time_label' => $this->booking->slot_time_label,
                 'slot_time' => $this->booking->slot_time_label,
-                'total_amount_formatted' => number_format((float) $this->booking->total_amount, 2),
+                'total_amount_formatted' => inr_money($this->booking->total_amount),
             ]),
             'devotee' => $this->booking->devotee,
             'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),

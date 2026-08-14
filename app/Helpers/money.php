@@ -41,6 +41,34 @@ if (! function_exists('inr')) {
     }
 }
 
+if (! function_exists('inr_money')) {
+    /**
+     * A complete, reader-ready rupee amount: "₹10", "₹1,000", "₹1,00,000".
+     *
+     * This is the form NOTIFICATIONS use. Unlike inr(), the ₹ is part of the
+     * value, because a message parameter often stands alone — a WhatsApp body
+     * binds {{n}} positionally with no surrounding markup to carry the sign,
+     * so a bare "15000.00" is what the devotee sees.
+     *
+     * Paise appear only when there are paise: temple amounts are whole rupees
+     * almost always, and "₹1,000.00" reads like an invoice line rather than a
+     * sentence. An amount with real paise still shows them in full.
+     *
+     * The sign leads a negative ("-₹500", not "₹-500"), which is only ever
+     * reachable through a refund/adjustment context.
+     */
+    function inr_money(float|int|string|null $amount): string
+    {
+        $value = (float) ($amount ?? 0);
+
+        // Exact paise test on the integer count, so a float like 1000.004
+        // does not sprout a spurious ".00".
+        $hasPaise = ((int) round(abs($value) * 100)) % 100 !== 0;
+
+        return ($value < 0 ? '-' : '').'₹'.inr(abs($value), $hasPaise ? 2 : 0);
+    }
+}
+
 if (! function_exists('inr_short')) {
     /**
      * A compact Indian amount for tight spaces — "15 Cr", "2.5 L", "45,000".

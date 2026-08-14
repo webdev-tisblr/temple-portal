@@ -25,8 +25,15 @@ namespace App\Services\Notifications;
  * `_en` sibling when the recipient's language is Hindi or English, and
  * only lands on the `_gu` path when that translation is blank. So
  * `{{ seva_name }}` reads Gujarati, Hindi or English to match the body
- * it sits in. The explicit `*_en` / `*_hi` tokens remain for templates
- * that want to force one language regardless of the reader.
+ * it sits in. There is deliberately ONE token per fact — the `*_hi` /
+ * `*_en` twins this list used to offer were a second way to say the same
+ * thing and an easy way to pick the wrong one. Templates saved before
+ * they were withdrawn keep resolving: the context keys are still
+ * published, they are simply no longer offered here.
+ *
+ * MONEY: amount placeholders render through inr_money() — "₹1,00,000",
+ * sign included, Indian digit grouping, paise only when there are paise.
+ * A template body must NOT print its own ₹ before one.
  *
  * IMPORTANT: paths must match the SHAPE OF THE ACTUAL DISPATCH
  * CONTEXT. Cross-reference each entry with the dispatch site:
@@ -65,9 +72,8 @@ final class NotificationRegistry
                     'donor_name' => 'Devotee name (devotee.name)',
                     'devotee_phone' => 'Devotee phone number (devotee.phone)',
                     'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
-                    'amount' => 'Donation amount in INR (donation.amount)',
+                    'amount' => "Donation amount, ready to print — includes \u{20B9} and Indian digit grouping (amount_formatted)",
                     'donation_type' => "Donation type label in the reader's language (donation.donationType.name_gu)",
-                    'donation_type_en' => 'Donation type label, always English (donation.donationType.name_en)',
                     'purpose' => 'Donation purpose if provided by donor (donation.purpose)',
                     'campaign_title' => "Campaign title if any, in the reader's language (donation.campaign.title_gu)",
                     'date' => 'Donation date (donation.created_at)',
@@ -92,9 +98,8 @@ final class NotificationRegistry
             // column as its FALLBACK — NotificationContext resolves the
             // recipient's language from the dispatch context (or the
             // devotee's saved language) and prefers the matching sibling,
-            // so it no longer needs a request to know the locale. Use the
-            // explicit campaign_title_hi / campaign_title_en only where a
-            // template must pin one language regardless of the reader.
+            // so it no longer needs a request to know the locale. That is
+            // why there is one campaign_title rather than three.
             'donation.campaign.confirmed' => [
                 'label' => 'Donation — campaign payment confirmed',
                 'description' => 'Fires when a donation MADE TO A CAMPAIGN is captured, in place of donation.confirmed (never both). Inactive until at least one template exists for this trigger — while none does, campaign donors keep receiving the generic donation.confirmed message. The 80G receipt still follows separately under donation.receipt_80g.',
@@ -102,18 +107,13 @@ final class NotificationRegistry
                     'donor_name' => 'Devotee name (devotee.name)',
                     'devotee_phone' => 'Devotee phone number (devotee.phone)',
                     'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
-                    'amount' => 'Donation amount in INR (donation.amount)',
-                    'amount_formatted' => 'Amount with thousands separator (amount_formatted)',
+                    'amount' => "Donation amount, ready to print — includes \u{20B9} and Indian digit grouping (amount_formatted)",
                     'campaign_title' => "Campaign title in the reader's language (donation.campaign.title_gu)",
-                    'campaign_title_hi' => 'Campaign title, always Hindi (donation.campaign.title_hi)',
-                    'campaign_title_en' => 'Campaign title, always English (donation.campaign.title_en)',
                     'sub_cause' => "Sub-cause title if the donor picked one, in the reader's language (donation.subCause.title_gu)",
-                    'sub_cause_en' => 'Sub-cause title if the donor picked one, always English (donation.subCause.title_en)',
                     'campaign_url' => 'Public campaign page link, /projects/{slug} (campaign_url)',
-                    'campaign_raised' => 'Amount raised by the campaign so far, formatted (campaign_raised)',
-                    'campaign_goal' => 'Campaign goal amount, formatted (campaign_goal)',
+                    'campaign_raised' => "Raised so far, ready to print — includes \u{20B9} (campaign_raised)",
+                    'campaign_goal' => "Campaign goal, ready to print — includes \u{20B9} (campaign_goal)",
                     'donation_type' => "Donation type label in the reader's language (donation.donationType.name_gu)",
-                    'donation_type_en' => 'Donation type label, always English (donation.donationType.name_en)',
                     'purpose' => 'Donation purpose if provided by donor (donation.purpose)',
                     'date' => 'Donation date (donation.created_at)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
@@ -134,8 +134,7 @@ final class NotificationRegistry
                     'devotee_phone' => 'Devotee phone number (devotee.phone)',
                     'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'receipt_number' => 'Receipt number (receipt.receipt_number)',
-                    'amount' => 'Donation amount in INR (amount)',
-                    'amount_formatted' => 'Amount with thousands separator (amount_formatted)',
+                    'amount' => "Donation amount, ready to print — includes \u{20B9} and Indian digit grouping (amount)",
                     'financial_year' => 'Financial year, eg "2026-27" (receipt.financial_year)',
                     'fiscal_year' => 'Alias of financial_year (receipt.fiscal_year)',
                     'receipt_pdf_url' => 'Presigned 80G PDF URL, 7-day validity (receipt_pdf_url)',
@@ -158,8 +157,7 @@ final class NotificationRegistry
                     'donor_name' => 'Devotee name — alias of name (donor_name)',
                     'devotee_phone' => 'Devotee phone number (devotee.phone)',
                     'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
-                    'amount' => 'Donation amount in INR (amount)',
-                    'amount_formatted' => 'Amount with thousands separator (amount_formatted)',
+                    'amount' => "Donation amount, ready to print — includes \u{20B9} and Indian digit grouping (amount)",
                     'greeting_card_url' => 'Greeting card image URL — permanent public link (greeting_card_url)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
@@ -185,11 +183,10 @@ final class NotificationRegistry
                     'devotee_phone' => 'Devotee phone number (devotee.phone)',
                     'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'seva_name' => "Seva name in the reader's language (booking.seva_name)",
-                    'seva_name_en' => 'Seva name, always English (booking.seva_name_en)',
                     'booking_date' => 'Seva date, e.g. 28 Jul 2026 (booking.booking_date)',
                     'slot_time' => 'Slot label — reads "Whole day"/"Whole week" for full-day sevas (booking.slot_time_label)',
                     'quantity' => 'Quantity booked (booking.quantity)',
-                    'amount' => 'Total amount, formatted (booking.total_amount_formatted)',
+                    'amount' => "Total amount, ready to print — includes \u{20B9} and Indian digit grouping (booking.total_amount_formatted)",
                     'receipt_number' => 'Receipt number (receipt_number)',
                     'receipt_pdf_url' => 'Receipt PDF link — permanent, regenerates on demand (receipt_pdf_url)',
                     'booking_reference' => 'Receipt number when the receipt exists, otherwise a short quotable reference — use this, not booking_id (booking.booking_reference)',
@@ -216,8 +213,7 @@ final class NotificationRegistry
                     'devotee_phone' => 'Devotee phone number (devotee.phone)',
                     'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'campaign_title' => 'Campaign name in the devotee\'s language (campaign_title)',
-                    'amount' => 'Donation amount in INR (amount)',
-                    'amount_formatted' => 'Amount with thousands separator (amount_formatted)',
+                    'amount' => "Donation amount, ready to print — includes \u{20B9} and Indian digit grouping (amount)",
                     'greeting_card_url' => 'Greeting card image URL — permanent public link (greeting_card_url)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
@@ -241,8 +237,7 @@ final class NotificationRegistry
                     'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'seva_name' => "Seva name in the reader's language (seva_name)",
                     'booking_date' => 'Seva date, e.g. 15/08/2026 (booking.booking_date)',
-                    'amount' => 'Total amount in INR (amount)',
-                    'amount_formatted' => 'Amount with thousands separator (amount_formatted)',
+                    'amount' => "Total amount, ready to print — includes \u{20B9} and Indian digit grouping (amount)",
                     'greeting_card_url' => 'Greeting card image URL — permanent public link (greeting_card_url)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
@@ -334,9 +329,9 @@ final class NotificationRegistry
                     'days_count' => 'Number of days booked, 1 for a single-day booking (booking.days_count)',
                     'booking_type' => 'Booking type label, eg "Full Day" (booking.booking_type_label)',
                     'purpose' => 'Booking purpose (booking.purpose)',
-                    'amount' => 'Total amount with thousands separator (booking.total_amount_formatted)',
-                    'subtotal_amount' => 'Taxable value before GST — blank when the booking carries no GST (booking.subtotal_amount_formatted)',
-                    'gst_amount' => 'GST charged — blank when the booking carries no GST (booking.gst_amount_formatted)',
+                    'amount' => "Total amount, ready to print — includes \u{20B9} and Indian digit grouping (booking.total_amount_formatted)",
+                    'subtotal_amount' => "Taxable value before GST, includes \u{20B9} — blank when the booking carries no GST (booking.subtotal_amount_formatted)",
+                    'gst_amount' => "GST charged, includes \u{20B9} — blank when the booking carries no GST (booking.gst_amount_formatted)",
                     'gst_rate' => 'GST rate, eg "18%" — blank when the booking carries no GST (booking.gst_rate_formatted)',
                     'booking_number' => 'Booking number (booking.booking_number)',
                     'invoice_pdf_url' => 'Invoice PDF link — permanent, regenerates on demand (invoice_pdf_url)',
@@ -364,7 +359,7 @@ final class NotificationRegistry
                     'booking_date' => 'Booking start date, pre-formatted (booking.booking_date)',
                     'booking_date_range' => 'Whole range as one string, eg "12 - 14 Aug 2026" (booking.booking_date_range)',
                     'days_count' => 'Number of days booked (booking.days_count)',
-                    'amount' => 'Total amount with thousands separator (booking.total_amount_formatted)',
+                    'amount' => "Total amount, ready to print — includes \u{20B9} and Indian digit grouping (booking.total_amount_formatted)",
                     'cancel_reason' => 'Reason the devotee gave, or an em dash when they gave none (booking.cancel_reason)',
                     'cancel_requested_at' => 'When the request was made, pre-formatted (booking.cancel_requested_at)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
@@ -391,7 +386,7 @@ final class NotificationRegistry
                     'booking_date' => 'Booking start date, pre-formatted (booking.booking_date)',
                     'booking_date_range' => 'Whole range as one string, eg "12 - 14 Aug 2026" (booking.booking_date_range)',
                     'days_count' => 'Number of days booked (booking.days_count)',
-                    'amount' => 'Total amount with thousands separator (booking.total_amount_formatted)',
+                    'amount' => "Total amount, ready to print — includes \u{20B9} and Indian digit grouping (booking.total_amount_formatted)",
                     'hours_remaining' => 'Hours remaining until the booking, a bare number with no unit (hours_remaining)',
                     'time_remaining_label' => 'Ready-made phrase WITH the unit, in the reader\'s language — "3 કલાક" / "3 घंटे" / "3 hours" (time_remaining_label)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
@@ -411,7 +406,7 @@ final class NotificationRegistry
                     'devotee_phone' => 'Devotee phone number — useful on a dispatch/packing notification to the trust (devotee.phone)',
                     'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'order_number' => 'Order number (order.order_number)',
-                    'amount' => 'Total amount with thousands separator (order.total_amount_formatted)',
+                    'amount' => "Total amount, ready to print — includes \u{20B9} and Indian digit grouping (order.total_amount_formatted)",
                     'item_count' => 'Number of PRODUCT LINES, not units — two of one product counts as 1. For "your order of N items" use total_quantity instead (order.items_count)',
                     'total_quantity' => 'Total units ordered — 2 of one product = 2 (order.total_quantity)',
                     'items_list' => 'Each line as "2 × Shri Ladoo Prasad", ONE PER LINE. EMAIL ONLY — WhatsApp rejects a parameter containing newlines; use items_summary there (order.items_list)',

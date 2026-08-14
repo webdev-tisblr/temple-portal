@@ -80,7 +80,17 @@ class GenerateSevaReceipt implements ShouldQueue
 
         $context = [
             'booking' => array_merge($this->booking->toArray(), [
+                // Publish every language, not just gu/en: templates map
+                // `booking.seva_name` and NotificationContext upgrades that
+                // to the _hi/_en sibling for a Hindi/English devotee,
+                // falling back to this Gujarati value when the translation
+                // is blank. Hindi had no path here at all before.
+                // Accessors do not survive toArray(), and `id` is a UUID
+                // that means nothing to a reader.
+                'booking_reference' => $this->booking->booking_reference,
                 'seva_name' => $this->booking->seva?->name_gu,
+                'seva_name_gu' => $this->booking->seva?->name_gu,
+                'seva_name_hi' => $this->booking->seva?->name_hi,
                 'seva_name_en' => $this->booking->seva?->name_en,
                 'booking_date' => $this->booking->booking_date?->format('d M Y'),
                 // slot_time_label is an accessor and does NOT survive

@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\HallBooking;
 use App\Models\HallReminderRule;
 use App\Models\HallReminderSchedule;
+use App\Support\DurationLabel;
 use Illuminate\Support\Carbon;
 
 /**
@@ -101,20 +102,13 @@ class HallReminderScheduler
     }
 
     /** "2 days", "3 hours" — for the admin repeater's row label. */
-    public static function humanLabel(int $minutes): string
+    /**
+     * Offset as a readable phrase. Defaults to English for the admin UI;
+     * the reminder dispatcher passes the recipient's language so
+     * {{ time_remaining_label }} matches the body it lands in.
+     */
+    public static function humanLabel(int $minutes, string $locale = 'en'): string
     {
-        if ($minutes % 1440 === 0) {
-            $days = intdiv($minutes, 1440);
-
-            return $days === 7 ? '1 week' : $days.' day'.($days === 1 ? '' : 's');
-        }
-
-        if ($minutes % 60 === 0) {
-            $hours = intdiv($minutes, 60);
-
-            return $hours.' hour'.($hours === 1 ? '' : 's');
-        }
-
-        return $minutes.' min';
+        return DurationLabel::make($minutes, $locale);
     }
 }

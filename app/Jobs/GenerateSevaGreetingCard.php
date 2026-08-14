@@ -85,7 +85,10 @@ class GenerateSevaGreetingCard implements ShouldQueue
                 [
                     'devotee' => $devotee,
                     'booking' => array_merge($this->booking->toArray(), [
+                        'booking_reference' => $this->booking->booking_reference,
                         'seva_name' => $this->booking->seva?->name_gu,
+                        'seva_name_gu' => $this->booking->seva?->name_gu,
+                        'seva_name_hi' => $this->booking->seva?->name_hi,
                         'seva_name_en' => $this->booking->seva?->name_en,
                         'booking_date' => $this->booking->booking_date?->format('d/m/Y'),
                         'slot_label' => $this->booking->slot_time_label,
@@ -95,6 +98,9 @@ class GenerateSevaGreetingCard implements ShouldQueue
                     'name' => $bookedForName,
                     'donor_name' => $bookedForName,
                     'seva_name' => $this->booking->seva?->name_gu,
+                    'seva_name_gu' => $this->booking->seva?->name_gu,
+                    'seva_name_hi' => $this->booking->seva?->name_hi,
+                    'seva_name_en' => $this->booking->seva?->name_en,
                     'amount' => (string) $this->booking->total_amount,
                     'amount_formatted' => number_format((float) $this->booking->total_amount, 2),
                     'greeting_card_url' => $greetingCardUrl,

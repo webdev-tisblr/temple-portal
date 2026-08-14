@@ -12,6 +12,7 @@ use App\Models\SystemSetting;
 use App\Services\HallReminderScheduler;
 use App\Services\Notifications\NotificationContext;
 use App\Services\Notifications\NotificationService;
+use App\Support\DurationLabel;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -103,11 +104,20 @@ class DispatchHallReminders extends Command
             return;
         }
 
-        $context = [
+        // Hall::name is a localized accessor, but it reads
+        // app()->getLocale() — always the default `gu` inside a scheduled
+        // command — so publish the raw per-language columns alongside it
+        // and let NotificationContext pick per recipient.
+        $hallAttributes = $booking->hall?->getAttributes() ?? [];
+
+        $context = array_merge([
             'devotee' => $booking->devotee,
             'booking' => array_merge($booking->toArray(), [
                 'booking_number' => 'HALL-'.$booking->id.'-'.$booking->created_at?->format('Ymd'),
                 'hall_name' => $booking->hall?->name,
+                'hall_name_gu' => $hallAttributes['name_gu'] ?? null,
+                'hall_name_hi' => $hallAttributes['name_hi'] ?? null,
+                'hall_name_en' => $hallAttributes['name_en'] ?? null,
                 'booking_date' => $booking->booking_date?->format('d M Y'),
                 'booking_date_range' => $booking->date_range_label,
                 'days_count' => (int) ($booking->days_count ?: 1),
@@ -115,9 +125,11 @@ class DispatchHallReminders extends Command
                 'contact_name' => $booking->contact_name,
                 'contact_phone' => $booking->contact_phone,
             ]),
-            'time_remaining_label' => HallReminderScheduler::humanLabel((int) $rule->offset_minutes),
+            // Parity with the seva reminder, which has always published a
+            // bare hour count next to the phrase.
+            'hours_remaining' => max(0, (int) round(((int) $rule->offset_minutes) / 60)),
             'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
-        ];
+        ], DurationLabel::contextValues((int) $rule->offset_minutes));
 
         // Recipient expansion → [strategy, value, extraContext].
         $recipients = [];
@@ -254,6 +266,12 @@ class DispatchHallReminders extends Command
                 'booking_number' => 'booking.booking_number',
                 'contact_phone' => 'booking.contact_phone',
                 'devotee_name' => 'devotee.name',
+                // The account holder's own details — contact_* above is the
+                // number written on the booking, which is often a different
+                // person (the one running the event, not the one who paid).
+                'devotee_phone' => 'devotee.phone',
+                'devotee_email' => 'devotee.email',
+                'hours_remaining' => 'hours_remaining',
                 'time_remaining_label' => 'time_remaining_label',
                 'trust_name' => 'trust_name',
                 'admin_name' => 'admin.name',

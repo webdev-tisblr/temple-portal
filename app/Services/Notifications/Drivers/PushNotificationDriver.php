@@ -56,11 +56,18 @@ final class PushNotificationDriver implements NotificationDriver
         $titles = $template->push_title ?? [];
         $bodies = $template->push_body ?? [];
 
-        $title = $context->render(
+        // Render through a context pinned to the language we just picked
+        // the title/body in — $devotee here is the RESOLVED recipient,
+        // which is not always context.devotee (admin_role fan-out), so
+        // letting the context re-derive its own locale could localize the
+        // placeholders into a different language than the sentence.
+        $localizedContext = $context->with(['locale' => $locale]);
+
+        $title = $localizedContext->render(
             (string) ($titles[$locale] ?? $titles['gu'] ?? $titles['en'] ?? ''),
             $template->placeholder_map ?? []
         );
-        $body = $context->render(
+        $body = $localizedContext->render(
             (string) ($bodies[$locale] ?? $bodies['gu'] ?? $bodies['en'] ?? ''),
             $template->placeholder_map ?? []
         );

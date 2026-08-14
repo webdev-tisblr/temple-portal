@@ -86,7 +86,7 @@ class HallResource extends Resource
                             subject: 'booking',
                             triggerKey: 'hall.booking.reminder',
                             withAssignee: false,
-                            placeholders: '{{contact_name}} {{devotee_name}} {{hall_name}} {{booking_date}} {{booking_date_range}} {{days_count}} {{amount}} {{booking_number}} {{time_remaining_label}} {{trust_name}} {{admin_name}}',
+                            placeholders: '{{contact_name}} {{contact_phone}} {{devotee_name}} {{devotee_phone}} {{devotee_email}} {{hall_name}} {{booking_date}} {{booking_date_range}} {{days_count}} {{amount}} {{booking_number}} {{hours_remaining}} {{time_remaining_label}} {{trust_name}} {{admin_name}}',
                         ))
                         ->columns(2)
                         ->defaultItems(0)

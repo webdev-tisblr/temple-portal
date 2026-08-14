@@ -256,7 +256,10 @@ class AuditNotificationPlaceholders extends Command
                 if (! $booking) return ['__no_data' => true];
                 return [
                     'booking' => array_merge($booking->toArray(), [
+                        'booking_reference' => $booking->booking_reference,
                         'seva_name' => $booking->seva?->name_gu,
+                        'seva_name_gu' => $booking->seva?->name_gu,
+                        'seva_name_hi' => $booking->seva?->name_hi,
                         'seva_name_en' => $booking->seva?->name_en,
                         'booking_date' => $booking->booking_date?->format('d M Y'),
                         'slot_label' => $booking->slot_time_label,

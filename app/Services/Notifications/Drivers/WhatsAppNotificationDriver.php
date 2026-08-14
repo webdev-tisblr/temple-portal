@@ -104,19 +104,7 @@ final class WhatsAppNotificationDriver implements NotificationDriver
      */
     private function resolveLocale(NotificationContext $context): string
     {
-        $locale = $context->get('locale');
-
-        if (! is_string($locale) || $locale === '') {
-            $devotee = $context->get('devotee');
-            $lang = is_object($devotee) && method_exists($devotee, 'getAttribute')
-                ? $devotee->getAttribute('language')
-                : null;
-            $locale = $lang instanceof \BackedEnum
-                ? (string) $lang->value
-                : (is_string($lang) && $lang !== '' ? $lang : 'gu');
-        }
-
-        return in_array($locale, ['gu', 'hi', 'en'], true) ? $locale : 'gu';
+        return $context->locale();
     }
 
     /**

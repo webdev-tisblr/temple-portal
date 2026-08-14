@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\SevaBooking;
 use App\Models\SevaReminderRule;
 use App\Models\SevaReminderSchedule;
+use App\Support\DurationLabel;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -204,19 +205,13 @@ class SevaReminderScheduler
     /**
      * Render an offset as a human label, eg "24 hours" or "3 days".
      */
-    public static function humanLabel(int $minutes): string
+    /**
+     * Offset as a readable phrase. Defaults to English for the admin UI;
+     * the reminder dispatcher passes the recipient's language so
+     * {{ time_remaining_label }} matches the body it lands in.
+     */
+    public static function humanLabel(int $minutes, string $locale = 'en'): string
     {
-        if ($minutes >= 1440 && $minutes % 1440 === 0) {
-            $days = intdiv($minutes, 1440);
-
-            return $days === 1 ? '1 day' : "{$days} days";
-        }
-        if ($minutes >= 60 && $minutes % 60 === 0) {
-            $hours = intdiv($minutes, 60);
-
-            return $hours === 1 ? '1 hour' : "{$hours} hours";
-        }
-
-        return "{$minutes} minutes";
+        return DurationLabel::make($minutes, $locale);
     }
 }

@@ -10,8 +10,10 @@ use App\Models\SevaBooking;
 use App\Models\SevaReminderRule;
 use App\Models\SevaReminderSchedule;
 use App\Models\SystemSetting;
+use App\Services\Notifications\NotificationContext;
 use App\Services\Notifications\NotificationService;
 use App\Services\SevaReminderScheduler;
+use App\Support\DurationLabel;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -73,6 +75,7 @@ class DispatchSevaReminders extends Command
                 if ($booking === null || $statusValue !== 'confirmed') {
                     $row->update(['status' => SevaReminderSchedule::STATUS_SKIPPED]);
                     $stats['skipped']++;
+
                     continue;
                 }
 
@@ -82,18 +85,18 @@ class DispatchSevaReminders extends Command
                 if ($row->fire_at->lessThan($staleCutoff) || $moment->lessThanOrEqualTo($now)) {
                     $row->update(['status' => SevaReminderSchedule::STATUS_SKIPPED]);
                     $stats['skipped']++;
+
                     continue;
                 }
 
                 $offsetMinutes = SevaReminderScheduler::parseOffset($row->offset) ?? 0;
 
-                $context = [
+                $context = array_merge([
                     'booking' => $booking,
                     'devotee' => $booking->devotee,
                     'hours_remaining' => max(0, (int) round($offsetMinutes / 60)),
-                    'time_remaining_label' => SevaReminderScheduler::humanLabel($offsetMinutes),
                     'trust_name' => $trustName,
-                ];
+                ], DurationLabel::contextValues($offsetMinutes));
 
                 if ($row->rule !== null) {
                     $delivered = $this->dispatchRule($notifier, $row->rule, $booking, $context);
@@ -102,6 +105,7 @@ class DispatchSevaReminders extends Command
                         // template). Mark skipped for visibility, not failed.
                         $row->update(['status' => SevaReminderSchedule::STATUS_SKIPPED]);
                         $stats['skipped']++;
+
                         continue;
                     }
                 } else {
@@ -207,7 +211,7 @@ class DispatchSevaReminders extends Command
             // 'locale' drives per-language template variant selection in
             // the WhatsApp driver (devotee's language for devotee rules,
             // Gujarati for staff/custom recipients).
-            $ctx = new \App\Services\Notifications\NotificationContext(array_merge($context, $extra, ['locale' => $locale]));
+            $ctx = new NotificationContext(array_merge($context, $extra, ['locale' => $locale]));
             $notifier->sendTemplate($template, $ctx);
             $attempted++;
         }
@@ -226,9 +230,10 @@ class DispatchSevaReminders extends Command
             $base = $rule->template;
             if (! $base) {
                 Log::warning('Reminder rule: whatsapp rule has no template reference', ['rule_id' => $rule->id]);
+
                 return null;
             }
-            $t = (new NotificationTemplate())->setRawAttributes($base->getAttributes(), sync: true);
+            $t = (new NotificationTemplate)->setRawAttributes($base->getAttributes(), sync: true);
             $t->exists = true; // clone of a stored row — keep its id for the audit log
             $t->recipient_strategy = $strategy;
             $t->recipient_value = $value;
@@ -241,10 +246,11 @@ class DispatchSevaReminders extends Command
         $body = $rule->bodyFor($locale);
         if (($title === null || $title === '') && ($body === null || $body === '')) {
             Log::warning('Reminder rule: no inline message configured', ['rule_id' => $rule->id, 'channel' => $rule->channel]);
+
             return null;
         }
 
-        $t = new NotificationTemplate();
+        $t = new NotificationTemplate;
         $t->forceFill([
             'key' => 'seva.booking.reminder',
             'label' => "Reminder rule #{$rule->id}",
@@ -265,7 +271,17 @@ class DispatchSevaReminders extends Command
             'recipient_value' => $value,
             'placeholder_map' => [
                 'devotee_name' => 'devotee.name',
+                // The devotee's own contact details, so a reminder aimed
+                // at the pujari/staff can actually reach the person who
+                // booked. assignee_phone below is the STAFF number and was
+                // the only contact this trigger published.
+                'devotee_phone' => 'devotee.phone',
+                'devotee_email' => 'devotee.email',
                 'admin_name' => 'admin.name',
+                // `name_gu` is the fallback, not a hardcoding —
+                // NotificationContext::getLocalized() prefers name_hi /
+                // name_en for a Hindi/English recipient and only lands
+                // here when that translation is blank.
                 'seva_name' => 'booking.seva.name_gu',
                 'booking_date' => 'booking.booking_date',
                 // ...slot_time_label, so a full-day seva's reminder reads
@@ -273,7 +289,10 @@ class DispatchSevaReminders extends Command
                 'slot_time' => 'booking.slot_time_label',
                 'hours_remaining' => 'hours_remaining',
                 'time_remaining_label' => 'time_remaining_label',
-                'booking_id' => 'booking.id',
+                // Both tokens resolve to the readable reference — `id` is a
+                // 36-char UUID and was being printed into messages.
+                'booking_reference' => 'booking.booking_reference',
+                'booking_id' => 'booking.booking_reference',
                 'assignee_name' => 'booking.seva.assignee.name',
                 'assignee_phone' => 'booking.seva.assignee.phone',
                 'trust_name' => 'trust_name',

@@ -20,6 +20,14 @@ namespace App\Services\Notifications;
  * If the path is omitted, the token name itself is used (works for
  * top-level context keys like `trust_name`).
  *
+ * LANGUAGE: a path naming a `_gu` column is the FALLBACK, not a
+ * hardcoding. NotificationContext::getLocalized() prefers the `_hi` /
+ * `_en` sibling when the recipient's language is Hindi or English, and
+ * only lands on the `_gu` path when that translation is blank. So
+ * `{{ seva_name }}` reads Gujarati, Hindi or English to match the body
+ * it sits in. The explicit `*_en` / `*_hi` tokens remain for templates
+ * that want to force one language regardless of the reader.
+ *
  * IMPORTANT: paths must match the SHAPE OF THE ACTUAL DISPATCH
  * CONTEXT. Cross-reference each entry with the dispatch site:
  *   donation.confirmed          → app/Services/PaymentCaptureService.php
@@ -55,11 +63,13 @@ final class NotificationRegistry
                 'description' => 'Fires when a donation payment is captured. The 80G receipt is built AFTER this trigger — for messages that need receipt_number or receipt_pdf_url, use the donation.receipt_80g trigger instead. NOTE: donations made to a campaign fire donation.campaign.confirmed instead, as soon as at least one template exists for that trigger — the two are mutually exclusive, a donation never fires both.',
                 'placeholders' => [
                     'donor_name' => 'Devotee name (devotee.name)',
+                    'devotee_phone' => 'Devotee phone number (devotee.phone)',
+                    'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'amount' => 'Donation amount in INR (donation.amount)',
-                    'donation_type' => 'Donation type label, Gujarati (donation.donationType.name_gu)',
-                    'donation_type_en' => 'Donation type label, English (donation.donationType.name_en)',
+                    'donation_type' => "Donation type label in the reader's language (donation.donationType.name_gu)",
+                    'donation_type_en' => 'Donation type label, always English (donation.donationType.name_en)',
                     'purpose' => 'Donation purpose if provided by donor (donation.purpose)',
-                    'campaign_title' => 'Campaign title if any (donation.campaign.title_gu)',
+                    'campaign_title' => "Campaign title if any, in the reader's language (donation.campaign.title_gu)",
                     'date' => 'Donation date (donation.created_at)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
@@ -78,28 +88,32 @@ final class NotificationRegistry
             //   top-level strings), amount_formatted, and the eager-loaded
             //   donation.subCause relation.
             //
-            // Localisation note: campaign_title deliberately pins the _gu
-            // column (like every other trigger) because notification
-            // rendering runs outside a request and has no locale. Use
-            // campaign_title_hi / campaign_title_en for the other languages
-            // — including inside per-language WhatsApp wa_variants.
+            // Localisation note (revised): campaign_title names the _gu
+            // column as its FALLBACK — NotificationContext resolves the
+            // recipient's language from the dispatch context (or the
+            // devotee's saved language) and prefers the matching sibling,
+            // so it no longer needs a request to know the locale. Use the
+            // explicit campaign_title_hi / campaign_title_en only where a
+            // template must pin one language regardless of the reader.
             'donation.campaign.confirmed' => [
                 'label' => 'Donation — campaign payment confirmed',
                 'description' => 'Fires when a donation MADE TO A CAMPAIGN is captured, in place of donation.confirmed (never both). Inactive until at least one template exists for this trigger — while none does, campaign donors keep receiving the generic donation.confirmed message. The 80G receipt still follows separately under donation.receipt_80g.',
                 'placeholders' => [
                     'donor_name' => 'Devotee name (devotee.name)',
+                    'devotee_phone' => 'Devotee phone number (devotee.phone)',
+                    'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'amount' => 'Donation amount in INR (donation.amount)',
                     'amount_formatted' => 'Amount with thousands separator (amount_formatted)',
-                    'campaign_title' => 'Campaign title, Gujarati (donation.campaign.title_gu)',
-                    'campaign_title_hi' => 'Campaign title, Hindi (donation.campaign.title_hi)',
-                    'campaign_title_en' => 'Campaign title, English (donation.campaign.title_en)',
-                    'sub_cause' => 'Sub-cause title if the donor picked one, Gujarati (donation.subCause.title_gu)',
-                    'sub_cause_en' => 'Sub-cause title if the donor picked one, English (donation.subCause.title_en)',
+                    'campaign_title' => "Campaign title in the reader's language (donation.campaign.title_gu)",
+                    'campaign_title_hi' => 'Campaign title, always Hindi (donation.campaign.title_hi)',
+                    'campaign_title_en' => 'Campaign title, always English (donation.campaign.title_en)',
+                    'sub_cause' => "Sub-cause title if the donor picked one, in the reader's language (donation.subCause.title_gu)",
+                    'sub_cause_en' => 'Sub-cause title if the donor picked one, always English (donation.subCause.title_en)',
                     'campaign_url' => 'Public campaign page link, /projects/{slug} (campaign_url)',
                     'campaign_raised' => 'Amount raised by the campaign so far, formatted (campaign_raised)',
                     'campaign_goal' => 'Campaign goal amount, formatted (campaign_goal)',
-                    'donation_type' => 'Donation type label, Gujarati (donation.donationType.name_gu)',
-                    'donation_type_en' => 'Donation type label, English (donation.donationType.name_en)',
+                    'donation_type' => "Donation type label in the reader's language (donation.donationType.name_gu)",
+                    'donation_type_en' => 'Donation type label, always English (donation.donationType.name_en)',
                     'purpose' => 'Donation purpose if provided by donor (donation.purpose)',
                     'date' => 'Donation date (donation.created_at)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
@@ -117,6 +131,8 @@ final class NotificationRegistry
                 'placeholders' => [
                     'name' => 'Devotee name (name)',
                     'donor_name' => 'Devotee name — alias of name (donor_name)',
+                    'devotee_phone' => 'Devotee phone number (devotee.phone)',
+                    'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'receipt_number' => 'Receipt number (receipt.receipt_number)',
                     'amount' => 'Donation amount in INR (amount)',
                     'amount_formatted' => 'Amount with thousands separator (amount_formatted)',
@@ -140,6 +156,8 @@ final class NotificationRegistry
                 'placeholders' => [
                     'name' => 'Devotee name (name)',
                     'donor_name' => 'Devotee name — alias of name (donor_name)',
+                    'devotee_phone' => 'Devotee phone number (devotee.phone)',
+                    'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'amount' => 'Donation amount in INR (amount)',
                     'amount_formatted' => 'Amount with thousands separator (amount_formatted)',
                     'greeting_card_url' => 'Greeting card image URL — permanent public link (greeting_card_url)',
@@ -164,15 +182,18 @@ final class NotificationRegistry
                 'description' => 'Fires when a seva booking payment is captured and the receipt PDF is generated — one message carrying the receipt. For WhatsApp, point the Header (DOCUMENT) link at {{ receipt_pdf_url }} (permanent link, regenerates on demand); for email the PDF is attached automatically.',
                 'placeholders' => [
                     'devotee_name' => 'Devotee name (devotee.name)',
-                    'seva_name' => 'Seva name in Gujarati (booking.seva_name)',
-                    'seva_name_en' => 'Seva name in English (booking.seva_name_en)',
+                    'devotee_phone' => 'Devotee phone number (devotee.phone)',
+                    'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
+                    'seva_name' => "Seva name in the reader's language (booking.seva_name)",
+                    'seva_name_en' => 'Seva name, always English (booking.seva_name_en)',
                     'booking_date' => 'Seva date, e.g. 28 Jul 2026 (booking.booking_date)',
                     'slot_time' => 'Slot label — reads "Whole day"/"Whole week" for full-day sevas (booking.slot_time_label)',
                     'quantity' => 'Quantity booked (booking.quantity)',
                     'amount' => 'Total amount, formatted (booking.total_amount_formatted)',
                     'receipt_number' => 'Receipt number (receipt_number)',
                     'receipt_pdf_url' => 'Receipt PDF link — permanent, regenerates on demand (receipt_pdf_url)',
-                    'booking_id' => 'Booking ID (booking.id)',
+                    'booking_reference' => 'Receipt number when the receipt exists, otherwise a short quotable reference — use this, not booking_id (booking.booking_reference)',
+                    'booking_id' => 'Internal 36-character UUID. Kept only for templates that already use it; it means nothing to a reader — prefer booking_reference (booking.booking_reference)',
                     'assignee_name' => 'Seva assignee (pujari/staff) name — empty when the seva has no assignee (booking.seva.assignee.name)',
                     'assignee_phone' => 'Seva assignee phone — empty when the seva has no assignee (booking.seva.assignee.phone)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
@@ -192,6 +213,8 @@ final class NotificationRegistry
                 'placeholders' => [
                     'name' => 'Devotee name (name)',
                     'donor_name' => 'Devotee name — alias of name (donor_name)',
+                    'devotee_phone' => 'Devotee phone number (devotee.phone)',
+                    'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'campaign_title' => 'Campaign name in the devotee\'s language (campaign_title)',
                     'amount' => 'Donation amount in INR (amount)',
                     'amount_formatted' => 'Amount with thousands separator (amount_formatted)',
@@ -214,7 +237,9 @@ final class NotificationRegistry
                 'placeholders' => [
                     'name' => 'Booked-for devotee name (name)',
                     'donor_name' => 'Booked-for devotee name — alias of name (donor_name)',
-                    'seva_name' => 'Seva name in Gujarati (seva_name)',
+                    'devotee_phone' => 'Devotee phone number (devotee.phone)',
+                    'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
+                    'seva_name' => "Seva name in the reader's language (seva_name)",
                     'booking_date' => 'Seva date, e.g. 15/08/2026 (booking.booking_date)',
                     'amount' => 'Total amount in INR (amount)',
                     'amount_formatted' => 'Amount with thousands separator (amount_formatted)',
@@ -238,13 +263,19 @@ final class NotificationRegistry
                 'description' => 'Fires N hours before each confirmed booking based on the per-seva reminder_offsets list. Every enabled template for this trigger fires (devotee, admin role, etc.).',
                 'placeholders' => [
                     'devotee_name' => 'Devotee name (devotee.name)',
+                    // A staff/pujari reminder names the devotee but had no
+                    // way to reach them — assignee_phone below is the STAFF
+                    // number, which is not the same thing.
+                    'devotee_phone' => 'Devotee phone number — use on staff/pujari reminders so they can reach the person who booked (devotee.phone)',
+                    'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'admin_name' => 'Admin name — only when recipient is admin_role (admin.name)',
-                    'seva_name' => 'Seva name in Gujarati (booking.seva.name_gu)',
+                    'seva_name' => "Seva name in the reader's language (booking.seva.name_gu)",
                     'booking_date' => 'Booking date (booking.booking_date)',
                     'slot_time' => 'Slot time — reads "Whole day"/"Whole week" for full-day sevas (booking.slot_time_label)',
-                    'hours_remaining' => 'Hours remaining until seva (hours_remaining)',
-                    'time_remaining_label' => 'Human label like "24 hours" or "3 days" (time_remaining_label)',
-                    'booking_id' => 'Booking ID (booking.id)',
+                    'hours_remaining' => 'Hours remaining until seva, a bare number with no unit (hours_remaining)',
+                    'time_remaining_label' => 'Ready-made phrase WITH the unit, in the reader\'s language — "3 કલાક" / "3 घंटे" / "3 hours" (time_remaining_label)',
+                    'booking_reference' => 'Receipt number when the receipt exists, otherwise a short quotable reference — use this, not booking_id (booking.booking_reference)',
+                    'booking_id' => 'Internal 36-character UUID. Kept only for templates that already use it; it means nothing to a reader — prefer booking_reference (booking.booking_reference)',
                     'assignee_name' => 'Seva assignee (pujari/staff) name — empty when the seva has no assignee (booking.seva.assignee.name)',
                     'assignee_phone' => 'Seva assignee phone — empty when the seva has no assignee (booking.seva.assignee.phone)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
@@ -264,7 +295,9 @@ final class NotificationRegistry
                 'description' => 'Fires when the day\'s first Daily Darshan photo is uploaded, once per devotee holding a confirmed booking for that date on a seva with the darshan toggle enabled. For WhatsApp, point the Header (IMAGE) link at {{ darshan_image_url }} to attach the photo.',
                 'placeholders' => [
                     'devotee_name' => 'Devotee name (devotee.name)',
-                    'seva_name' => 'Seva name in Gujarati (booking.seva.name_gu)',
+                    'devotee_phone' => 'Devotee phone number (devotee.phone)',
+                    'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
+                    'seva_name' => "Seva name in the reader's language (booking.seva.name_gu)",
                     'booking_date' => 'Booking date (booking.booking_date)',
                     'slot_time' => 'Slot time — reads "Whole day" for full-day sevas (booking.slot_time_label)',
                     'darshan_date' => 'Darshan photo date, pre-formatted (darshan_date)',
@@ -282,14 +315,19 @@ final class NotificationRegistry
             //   contact_name, hall (array)), devotee, trust_name,
             //   invoice_pdf_url (permanent signed link), _attachments
             //   (absent if PDF render failed).
-            // Hall.name (not localized).
+            // Hall names ARE translated (temple_halls.name_gu/_hi/_en);
+            // the `name` column is the pre-translation legacy value that
+            // the model's accessor falls back to.
             'hall.booking.confirmed' => [
                 'label' => 'Hall — booking confirmed',
                 'description' => 'Fires when a hall booking payment is captured and the invoice PDF is generated. For WhatsApp, point the Header (DOCUMENT) link at {{ invoice_pdf_url }} (permanent link, regenerates on demand); for email the PDF is attached automatically.',
                 'placeholders' => [
                     'contact_name' => 'Contact name (booking.contact_name)',
                     'contact_phone' => 'Contact phone (booking.contact_phone)',
-                    'hall_name' => 'Hall name (booking.hall.name)',
+                    'devotee_name' => 'Name on the account, which may differ from the contact name (devotee.name)',
+                    'devotee_phone' => 'Phone on the account — contact_phone above is the number written on THIS booking (devotee.phone)',
+                    'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
+                    'hall_name' => "Hall name in the reader's language (booking.hall.name_gu)",
                     'booking_date' => 'Booking start date, pre-formatted (booking.booking_date) — unchanged meaning for single-day bookings',
                     'booking_end_date' => 'Booking end date, pre-formatted — same as the start for a single-day booking (booking.booking_end_date)',
                     'booking_date_range' => 'Whole range as one string, eg "12 – 14 Aug 2026" (booking.booking_date_range)',
@@ -318,7 +356,10 @@ final class NotificationRegistry
                 'placeholders' => [
                     'contact_name' => 'Contact name on the booking (booking.contact_name)',
                     'contact_phone' => 'Contact phone on the booking (booking.contact_phone)',
-                    'hall_name' => 'Hall name (booking.hall.name)',
+                    'devotee_name' => 'Name on the account that raised the request (devotee.name)',
+                    'devotee_phone' => 'Phone on the account — worth including so the trust can call back even when the booking contact is unreachable (devotee.phone)',
+                    'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
+                    'hall_name' => "Hall name in the reader's language (booking.hall.name_gu)",
                     'booking_number' => 'Booking number (booking.booking_number)',
                     'booking_date' => 'Booking start date, pre-formatted (booking.booking_date)',
                     'booking_date_range' => 'Whole range as one string, eg "12 - 14 Aug 2026" (booking.booking_date_range)',
@@ -342,14 +383,17 @@ final class NotificationRegistry
                     'contact_name' => 'Contact name on the booking (booking.contact_name)',
                     'contact_phone' => 'Contact phone on the booking (booking.contact_phone)',
                     'devotee_name' => 'Devotee name on the account (devotee.name)',
+                    'devotee_phone' => 'Phone on the account — contact_phone above is the number written on THIS booking, often a different person (devotee.phone)',
+                    'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'admin_name' => 'Admin name — only when the rule targets an admin role (admin.name)',
-                    'hall_name' => 'Hall name (booking.hall_name)',
+                    'hall_name' => "Hall name in the reader's language (booking.hall_name)",
                     'booking_number' => 'Booking number (booking.booking_number)',
                     'booking_date' => 'Booking start date, pre-formatted (booking.booking_date)',
                     'booking_date_range' => 'Whole range as one string, eg "12 - 14 Aug 2026" (booking.booking_date_range)',
                     'days_count' => 'Number of days booked (booking.days_count)',
                     'amount' => 'Total amount with thousands separator (booking.total_amount_formatted)',
-                    'time_remaining_label' => 'How far ahead this reminder is, eg "1 day" or "2 hours" (time_remaining_label)',
+                    'hours_remaining' => 'Hours remaining until the booking, a bare number with no unit (hours_remaining)',
+                    'time_remaining_label' => 'Ready-made phrase WITH the unit, in the reader\'s language — "3 કલાક" / "3 घंटे" / "3 hours" (time_remaining_label)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
             ],
@@ -364,6 +408,8 @@ final class NotificationRegistry
                 'description' => 'Fires when a store order payment is captured and the invoice PDF is generated. For WhatsApp, point the Header (DOCUMENT) link at {{ invoice_pdf_url }} (permanent link, regenerates on demand); for email the PDF is attached automatically.',
                 'placeholders' => [
                     'devotee_name' => 'Devotee name (devotee.name)',
+                    'devotee_phone' => 'Devotee phone number — useful on a dispatch/packing notification to the trust (devotee.phone)',
+                    'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'order_number' => 'Order number (order.order_number)',
                     'amount' => 'Total amount with thousands separator (order.total_amount_formatted)',
                     'item_count' => 'Number of PRODUCT LINES, not units — two of one product counts as 1. For "your order of N items" use total_quantity instead (order.items_count)',
@@ -422,6 +468,8 @@ final class NotificationRegistry
                 'description' => 'Fires daily by the temple:send-birthday-blessings cron for every devotee whose date_of_birth is today.',
                 'placeholders' => [
                     'name' => 'Devotee name (name)',
+                    'devotee_phone' => 'Devotee phone number (devotee.phone)',
+                    'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'language' => "Devotee's preferred language code: gu / hi / en (language)",
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],

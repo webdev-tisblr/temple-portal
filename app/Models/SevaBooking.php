@@ -86,6 +86,30 @@ class SevaBooking extends Model
      * Returns null when there's no slot at all, so callers keep their
      * own "hide the row" / "—" behaviour.
      */
+    /**
+     * The reference a devotee or a staff member can actually quote back.
+     *
+     * `id` is a 36-char UUID — fine as a key, useless in a WhatsApp
+     * message, which is where it was being printed. The receipt number
+     * (SEVA-20260629-DC5DFD4463) is the number both sides recognise, but
+     * it is only stamped when the receipt PDF is generated, and roughly
+     * half of confirmed bookings have none yet — reminders fire before
+     * then. So fall back to a short, quotable slice of the UUID in the
+     * same shape rather than returning an empty string: an empty
+     * parameter makes Meta reject the whole WhatsApp send.
+     */
+    public function getBookingReferenceAttribute(): string
+    {
+        $receiptNumber = trim((string) ($this->receipt_number ?? ''));
+
+        if ($receiptNumber !== '') {
+            return $receiptNumber;
+        }
+
+        return 'SEVA-'.($this->created_at?->format('Ymd') ?? '')
+            .'-'.strtoupper(substr(str_replace('-', '', (string) $this->getKey()), 0, 8));
+    }
+
     public function getSlotTimeLabelAttribute(): ?string
     {
         $slot = trim((string) ($this->slot_time ?? ''));

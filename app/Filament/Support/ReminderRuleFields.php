@@ -40,7 +40,7 @@ final class ReminderRuleFields
         bool $withAssignee = true,
         ?string $placeholders = null,
     ): array {
-        $placeholders ??= '{{devotee_name}} {{seva_name}} {{booking_date}} {{slot_time}} {{time_remaining_label}} {{trust_name}} {{admin_name}} {{assignee_name}} {{assignee_phone}}';
+        $placeholders ??= '{{devotee_name}} {{devotee_phone}} {{devotee_email}} {{seva_name}} {{booking_date}} {{slot_time}} {{hours_remaining}} {{time_remaining_label}} {{trust_name}} {{admin_name}} {{assignee_name}} {{assignee_phone}}';
 
         return [
             Forms\Components\Select::make('offset_minutes')

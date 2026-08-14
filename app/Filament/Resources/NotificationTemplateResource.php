@@ -24,6 +24,21 @@ class NotificationTemplateResource extends Resource
 {
     protected static ?string $model = NotificationTemplate::class;
 
+    /**
+     * Triggers whose recipients come from a REMINDER RULE, not from this
+     * template. The dispatchers (DispatchSevaReminders /
+     * DispatchHallReminders) build an in-memory template per delivery and
+     * overwrite recipient_strategy + recipient_value from the rule, so
+     * anything set here is discarded. The form shows a pointer to the right
+     * page instead of a repeater that demands a row and then gets ignored.
+     *
+     * value = where the admin actually sets them.
+     */
+    private const RULE_DRIVEN_RECIPIENTS = [
+        'seva.booking.reminder' => 'Sevas → edit a seva → Reminders',
+        'hall.booking.reminder' => 'Halls → edit a hall → Reminders',
+    ];
+
     protected static ?string $navigationIcon = 'heroicon-o-envelope-open';
 
     protected static ?string $navigationGroup = 'Communication';
@@ -183,24 +198,27 @@ class NotificationTemplateResource extends Resource
             // on the push channel; NotificationService falls back to
             // the legacy single-recipient logic via the
             // recipient_strategy / recipient_value columns for push.
-            // For the seva reminder trigger, recipients are chosen per-rule
-            // on the Seva → Reminders page ("Who receives it"), and the
-            // dispatcher (DispatchSevaReminders) builds recipients from the
-            // rule, ignoring this column. Show a pointer instead of the field.
+            // Reminder triggers take their recipients from the rule (see
+            // RULE_DRIVEN_RECIPIENTS above), so show a pointer rather than a
+            // repeater. Hall reminders shipped after the seva ones and were
+            // missed here, which left the form demanding at least one
+            // recipient row for a value it then threw away.
             Forms\Components\Section::make('Recipients')
-                ->visible(fn (Forms\Get $get) => $get('key') === 'seva.booking.reminder')
+                ->visible(fn (Forms\Get $get) => array_key_exists((string) $get('key'), self::RULE_DRIVEN_RECIPIENTS))
                 ->schema([
                     Forms\Components\Placeholder::make('reminder_recipients_note')
                         ->hiddenLabel()
-                        ->content(new HtmlString(
-                            'Recipients for seva reminders are set per-rule on the <strong>Seva → Reminders</strong> section ("Who receives it"). This template only supplies the wording &amp; variables.'
+                        ->content(fn (Forms\Get $get) => new HtmlString(
+                            'Recipients for this reminder are set per-rule under <strong>'
+                            .e(self::RULE_DRIVEN_RECIPIENTS[(string) $get('key')] ?? '')
+                            .'</strong> ("Who receives it"). This template only supplies the wording &amp; variables.'
                         )),
                 ]),
 
             Forms\Components\Section::make('Recipients')
                 ->description('Each row resolves independently — add more to send the same message to multiple recipients in one go.')
                 ->visible(fn (Forms\Get $get) => $get('channel') !== NotificationTemplate::CHANNEL_PUSH
-                    && $get('key') !== 'seva.booking.reminder')
+                    && ! array_key_exists((string) $get('key'), self::RULE_DRIVEN_RECIPIENTS))
                 ->schema([
                     Forms\Components\Repeater::make('recipients')
                         ->hiddenLabel()

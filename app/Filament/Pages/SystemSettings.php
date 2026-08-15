@@ -512,6 +512,21 @@ class SystemSettings extends Page implements HasForms
                                     ->password()->revealable()->placeholder('Enter webhook secret'),
                             ])->columns(2)->collapsible(),
 
+                        // Google Analytics. Kept as a setting rather than a
+                        // hardcoded tag so the id can be changed or removed
+                        // without a deploy — and so leaving it blank renders
+                        // no tracking script at all.
+                        Forms\Components\Section::make('Google Analytics')
+                            ->icon('heroicon-o-chart-bar')
+                            ->schema([
+                                Forms\Components\TextInput::make('google_analytics_id')
+                                    ->label('Measurement ID')
+                                    ->placeholder('G-XXXXXXXXXX')
+                                    ->helperText('From Google Analytics → Admin → Data Streams. Leave blank to switch tracking off entirely. The public site is cached at the edge, so purge Cloudflare after changing this. The admin panel is never tracked.')
+                                    ->rule('regex:/^$|^G-[A-Z0-9]{6,12}$/i')
+                                    ->validationMessages(['regex' => 'A Measurement ID looks like G-XXXXXXXXXX.']),
+                            ])->collapsible(),
+
                         // Cloudflare Turnstile — public form protection.
                         // Inert until BOTH keys are set: the <x-turnstile />
                         // widget renders nothing and the `turnstile` route
@@ -759,6 +774,7 @@ class SystemSettings extends Page implements HasForms
             'receipt_' => 'payment',
             'razorpay_' => 'payment',
             'turnstile_' => 'security',
+            'google_analytics_' => 'integrations',
             'mail_' => 'mail',
             'whatsapp_' => 'whatsapp',
             'sms_' => 'sms',

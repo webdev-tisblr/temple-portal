@@ -21,6 +21,8 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('head')
+
+    <x-analytics />
 </head>
 <body class="font-sans antialiased">
     <x-layout.header />

@@ -235,7 +235,7 @@ final class ExistingBookingImporter
         $devotee = $this->devoteeFor($row);
 
         DB::transaction(function () use ($seva, $devotee, $date, $slotTime, $amount, $row): void {
-            SevaBooking::create([
+            $booking = SevaBooking::create([
                 'devotee_id' => $devotee->id,
                 'seva_id' => $seva->id,
                 'booking_date' => $date,
@@ -246,6 +246,8 @@ final class ExistingBookingImporter
                 'devotee_name_for_seva' => trim((string) ($row['member_name'] ?? '')) ?: null,
                 'notes' => trim((string) ($row['notes'] ?? '')) ?: null,
             ]);
+
+            $this->suppressDevoteeRemindersForPlaceholder($booking, $devotee);
         });
 
         return ['status' => 'booked', 'message' => "seva {$seva->id} {$date} {$slotTime} booked"];
@@ -302,6 +304,43 @@ final class ExistingBookingImporter
         });
 
         return ['status' => 'booked', 'message' => "hall {$hall->id} {$date}..{$endDate} booked"];
+    }
+
+    /**
+     * Stop reminders that would be sent to the placeholder devotee.
+     *
+     * Confirming a booking pre-computes one reminder row per applicable rule.
+     * That is right for a real booking, but a row imported without member
+     * details hangs off the placeholder number, so every DEVOTEE-targeted
+     * reminder is a WhatsApp send to 0000000000 that Meta rejects — noise in
+     * the logs, and a failure count that hides real ones.
+     *
+     * Staff and custom-phone reminders are deliberately LEFT ALONE: the slot
+     * genuinely is booked, and telling the pujari that is accurate whether or
+     * not the trust has typed in who booked it.
+     *
+     * Re-import the row with a real phone and the booking moves to that
+     * devotee, whose reminders schedule normally.
+     */
+    private function suppressDevoteeRemindersForPlaceholder(SevaBooking $booking, Devotee $devotee): void
+    {
+        if ($devotee->phone !== self::PLACEHOLDER_PHONE) {
+            return;
+        }
+
+        $devoteeRuleIds = DB::table('temple_seva_reminder_rules')
+            ->where('recipient_type', 'devotee')
+            ->pluck('id');
+
+        if ($devoteeRuleIds->isEmpty()) {
+            return;
+        }
+
+        DB::table('temple_seva_reminder_schedules')
+            ->where('seva_booking_id', $booking->getKey())
+            ->whereIn('rule_id', $devoteeRuleIds)
+            ->where('status', 'pending')
+            ->update(['status' => 'skipped']);
     }
 
     /**

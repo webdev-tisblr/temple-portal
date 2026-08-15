@@ -25,12 +25,25 @@ return Application::configure(basePath: dirname(__DIR__))
         //     for the devotee's real IP but was being validated against an
         //     edge IP, so it failed — "Verification failed. Please try again."
         //
-        // Trusting '*' is safe here in the sense that matters: only rate
-        // limiting and Turnstile read the client IP, never authentication.
-        // Tighten to Cloudflare's published ranges (or firewall the origin to
-        // Cloudflare) if the origin IP is ever directly reachable, otherwise
-        // a spoofed X-Forwarded-For could dodge the rate limits.
-        $middleware->trustProxies(at: '*');
+        // Pinned to Cloudflare's own ranges rather than '*', because the
+        // origin IP answers directly — a request straight to it with the
+        // site's Host header serves the real site. With a wildcard, anyone
+        // who knows that address could send a different X-Forwarded-For on
+        // every request and get a fresh rate-limit bucket each time, which
+        // is exactly the cap this is meant to restore. Honouring the header
+        // only when the peer really is Cloudflare closes that off while
+        // leaving devotee traffic resolving correctly.
+        //
+        // From https://www.cloudflare.com/ips/ — these change rarely. If
+        // client IPs ever look wrong again, re-check that list first.
+        $middleware->trustProxies(at: [
+            '173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22',
+            '141.101.64.0/18', '108.162.192.0/18', '190.93.240.0/20', '188.114.96.0/20',
+            '197.234.240.0/22', '198.41.128.0/17', '162.158.0.0/15', '104.16.0.0/13',
+            '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22',
+            '2400:cb00::/32', '2606:4700::/32', '2803:f800::/32', '2405:b500::/32',
+            '2405:8100::/32', '2a06:98c0::/29', '2c0f:f248::/32',
+        ]);
 
         $middleware->web(append: [
             // Coming-soon gate. Renders pages/coming-soon when the

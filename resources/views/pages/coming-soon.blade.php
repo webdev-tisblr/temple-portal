@@ -53,8 +53,7 @@
 
         {{-- Main heading --}}
         <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black leading-[1.1] tracking-tight">
-            <span style="color: #7A1E1E;">{{ __('comingsoon.soon') }}</span><br>
-            <span style="color: #C45F12;">{{ __('comingsoon.arriving') }}</span>
+            <span style="color: #7A1E1E;">{{ __('comingsoon.soon') }}</span>
         </h1>
 
         <p class="mt-5 text-lg" style="color: #5E4F3D;">

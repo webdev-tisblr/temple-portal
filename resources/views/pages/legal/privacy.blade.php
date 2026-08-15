@@ -52,6 +52,15 @@
                 <li><strong>Google Firebase (Cloud Messaging)</strong> — push notifications.</li>
                 <li><strong>Cloudflare R2</strong> — secure storage of images, receipts, and invoices.</li>
                 <li><strong>WhatsApp Business API &amp; SMS provider</strong> — delivery of OTP and notifications you opted into.</li>
+                <li>
+                    <strong>Google Analytics</strong> — visitor statistics for this website. It sets
+                    cookies to count visits and see which pages are used, so we can improve the site.
+                    It records general information such as the pages you view, roughly where in the
+                    world you are, and the type of device and browser you use. <strong>It is never
+                    given your name, phone number, email address, donation amounts, or anything else
+                    you enter on this site.</strong> You can switch it off with any browser setting or
+                    extension that blocks analytics cookies, and the site will keep working normally.
+                </li>
             </ul>
             <p class="mt-3"><strong>We never sell your personal information.</strong></p>
         </div>

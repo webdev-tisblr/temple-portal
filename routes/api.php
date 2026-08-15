@@ -179,10 +179,19 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         ->withoutMiddleware('throttle:60,1')
         ->middleware('throttle:msg91-webhook');
 
-    // Public auth routes — tighter throttle on the OTP surface. OtpService
-    // also enforces a per-phone send cap; this is the per-IP layer.
-    Route::post('/auth/otp/send', [AuthController::class, 'sendOtp'])->middleware('throttle:10,1');
-    Route::post('/auth/otp/verify', [AuthController::class, 'verifyOtp'])->middleware('throttle:10,1');
+    // Public auth routes. The REAL abuse protection is OtpService's per-phone
+    // cap (1 send/minute, 5/hour, plus a 5-failure verify lockout) — that is
+    // keyed on the phone number, so it holds however many devotees share an
+    // address. This per-IP layer is only a coarse backstop.
+    //
+    // Raised from 10/min after launch night: Indian mobile carriers put large
+    // numbers of subscribers behind one public IP, so a shared address is a
+    // crowd of ordinary devotees rather than an attacker. At 10 the cap was
+    // rejecting real logins (851 sends + 640 verifies answered 429). Lowering
+    // it again would not add protection the per-phone cap does not already
+    // give.
+    Route::post('/auth/otp/send', [AuthController::class, 'sendOtp'])->middleware('throttle:40,1');
+    Route::post('/auth/otp/verify', [AuthController::class, 'verifyOtp'])->middleware('throttle:40,1');
 
     // Device tokens — public registration so anonymous installs (no OTP
     // login yet) can still receive admin broadcasts. Auth-optional: if a

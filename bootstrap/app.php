@@ -12,6 +12,26 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Cloudflare sits in front of the origin, so without this EVERY
+        // request looks like it came from a Cloudflare edge IP. Two things
+        // broke on launch night as a result, both traced from the access log:
+        //
+        //   • Rate limits key on the client IP. Thousands of devotees were
+        //     funnelled into ~39 buckets (one per edge IP), so the 10/min cap
+        //     on /auth/otp/send burned out in seconds — 851 OTP sends and 640
+        //     verifies answered 429, i.e. "Too many requests" on the login
+        //     screen while the OTPs that DID get through sent perfectly.
+        //   • Turnstile posts `remoteip` to siteverify. The token is issued
+        //     for the devotee's real IP but was being validated against an
+        //     edge IP, so it failed — "Verification failed. Please try again."
+        //
+        // Trusting '*' is safe here in the sense that matters: only rate
+        // limiting and Turnstile read the client IP, never authentication.
+        // Tighten to Cloudflare's published ranges (or firewall the origin to
+        // Cloudflare) if the origin IP is ever directly reachable, otherwise
+        // a spoofed X-Forwarded-For could dodge the rate limits.
+        $middleware->trustProxies(at: '*');
+
         $middleware->web(append: [
             // Coming-soon gate. Renders pages/coming-soon when the
             // admin has flipped the toggle on the dashboard.

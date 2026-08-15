@@ -132,5 +132,19 @@
                 @endif
             </div>
         @endif
+
+        {{-- Dates booked on paper or over the phone have to be closed before
+             the site offers them again, so the entry point sits with the
+             launch controls rather than buried in a menu. --}}
+        @if (auth('admin')->user()?->can('page_ExistingBookingsPage'))
+            <p class="mt-4 border-t border-gray-200 pt-3 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                Bookings taken off the platform?
+                <a
+                    href="{{ \App\Filament\Pages\ExistingBookingsPage::getUrl() }}"
+                    class="font-medium text-primary-600 hover:underline dark:text-primary-400"
+                >Block those dates from a CSV</a>
+                — download the current sheet, fill in the members, upload it back.
+            </p>
+        @endif
     </x-filament::section>
 </x-filament-widgets::widget>

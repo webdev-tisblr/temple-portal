@@ -8,11 +8,14 @@ use App\Models\Donation;
 use App\Models\HallBooking;
 use App\Models\Seva;
 use App\Models\SevaBooking;
+use App\Models\SystemSetting;
 use App\Services\SevaSlotService;
+use App\Support\Pdf\GujaratiPdf;
 use Filament\Pages\Page;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * One screen that answers the questions the trust actually asks: what is on
@@ -60,6 +63,19 @@ class MasterDashboard extends Page
     /** How far ahead "nearing" looks. */
     public int $nearingDays = 14;
 
+    /** Range for the utilisation panel — forward-looking by default. */
+    public string $utilStart = '';
+
+    public string $utilEnd = '';
+
+    /**
+     * Utilisation asks SevaSlotService once per seva PER DAY, and the
+     * service hits the database each time. Six sevas over three months is
+     * already ~550 round trips, so the span is capped rather than letting
+     * someone pick a year and wonder why the page hangs.
+     */
+    private const UTIL_MAX_DAYS = 92;
+
     public function mount(): void
     {
         $today = Carbon::today();
@@ -68,6 +84,11 @@ class MasterDashboard extends Page
         $this->rangeStart = $today->copy()->subDays(29)->toDateString();
         $this->rangeEnd = $today->toDateString();
         $this->calendarMonth = $today->copy()->startOfMonth()->toDateString();
+
+        // Forward-looking: "how full are we" is a question about the weeks
+        // ahead, not the ones already gone.
+        $this->utilStart = $today->toDateString();
+        $this->utilEnd = $today->copy()->addDays(13)->toDateString();
     }
 
     public function previousMonth(): void
@@ -175,42 +196,106 @@ class MasterDashboard extends Page
      */
     public function getSlotUtilisationProperty(): array
     {
-        $date = $this->safeDate($this->snapshotDate) ?? Carbon::today()->toDateString();
+        [$start, $end, $capped] = $this->utilRange();
         $service = app(SevaSlotService::class);
         $rows = [];
 
         foreach (Seva::where('is_active', true)->orderBy('sort_order')->orderBy('id')->get() as $seva) {
-            $availability = $service->getSlotAvailability($seva, $date);
+            $taken = 0;
+            $total = 0;
+            $daysOffered = 0;
+            $lastReason = null;
 
-            $free = count($availability['available'] ?? []);
-            $taken = count($availability['booked'] ?? []);
-            $total = $free + $taken;
+            for ($day = $start->copy(); $day->lte($end); $day->addDay()) {
+                $availability = $service->getSlotAvailability($seva, $day->toDateString());
 
-            // A seva that offers nothing that day (wrong weekday, blackout,
-            // outside its acceptance window) is not 0% booked — it is simply
-            // not on. Showing it as an empty progress bar reads as neglect.
-            if ($total === 0) {
-                $rows[] = [
-                    'seva' => $seva->name_en ?: $seva->name_gu,
-                    'offered' => false,
-                    'reason' => $availability['blackout'] ?? false ? ($availability['blackout_reason'] ?: 'Blacked out') : 'Not offered on this date',
-                    'taken' => 0, 'total' => 0, 'pct' => 0,
-                ];
+                $free = count($availability['available'] ?? []);
+                $booked = count($availability['booked'] ?? []);
 
-                continue;
+                if ($free + $booked === 0) {
+                    // Not on that day — wrong weekday, blacked out, or
+                    // outside the acceptance window. Remember why, so a seva
+                    // that is never on across the whole range can say so
+                    // instead of showing an empty bar, which reads as neglect.
+                    $lastReason = ($availability['blackout'] ?? false)
+                        ? ($availability['blackout_reason'] ?: 'Blacked out')
+                        : 'Not offered on these dates';
+
+                    continue;
+                }
+
+                $daysOffered++;
+                $taken += $booked;
+                $total += $free + $booked;
             }
 
-            $rows[] = [
-                'seva' => $seva->name_en ?: $seva->name_gu,
-                'offered' => true,
-                'reason' => null,
-                'taken' => $taken,
-                'total' => $total,
-                'pct' => (int) round($taken / $total * 100),
-            ];
+            $rows[] = $total === 0
+                ? [
+                    'seva' => $seva->name_en ?: $seva->name_gu,
+                    'offered' => false,
+                    'reason' => $lastReason ?? 'Not offered on these dates',
+                    'taken' => 0, 'total' => 0, 'pct' => 0, 'days' => 0,
+                ]
+                : [
+                    'seva' => $seva->name_en ?: $seva->name_gu,
+                    'offered' => true,
+                    'reason' => null,
+                    'taken' => $taken,
+                    'total' => $total,
+                    'pct' => (int) round($taken / $total * 100),
+                    'days' => $daysOffered,
+                ];
         }
 
-        return $rows;
+        return ['rows' => $rows, 'capped' => $capped, 'from' => $start, 'to' => $end];
+    }
+
+    /** @return array{0: Carbon, 1: Carbon, 2: bool} */
+    private function utilRange(): array
+    {
+        $start = Carbon::parse($this->safeDate($this->utilStart) ?? Carbon::today()->toDateString());
+        $end = Carbon::parse($this->safeDate($this->utilEnd) ?? Carbon::today()->addDays(13)->toDateString());
+
+        if ($start->gt($end)) {
+            [$start, $end] = [$end, $start];
+        }
+
+        $capped = false;
+        if ($start->diffInDays($end) + 1 > self::UTIL_MAX_DAYS) {
+            $end = $start->copy()->addDays(self::UTIL_MAX_DAYS - 1);
+            $capped = true;
+        }
+
+        return [$start, $end, $capped];
+    }
+
+    /**
+     * The bookings list as a laid-out PDF rather than a screenshot of the
+     * page. Rendered through GujaratiPdf (mPDF) — DomPDF cannot shape
+     * Gujarati or Devanagari, and every seva name on this report is in one
+     * or the other.
+     */
+    public function downloadPdf(): StreamedResponse
+    {
+        [$start, $end] = $this->range();
+
+        $rows = $this->bookingsInRange();
+
+        $bytes = GujaratiPdf::render('exports.bookings-pdf', [
+            'rows' => $rows,
+            'from' => $start,
+            'to' => $end,
+            'trustName' => SystemSetting::getValue('trust_name_en', 'Shree Patadiya Hanumanji Seva Trust'),
+            'sevaCount' => $rows->where('kind', 'Seva')->count(),
+            'hallCount' => $rows->where('kind', 'Hall')->count(),
+            'total' => $rows->sum('amount'),
+        ], ['format' => 'A4-L']);
+
+        return response()->streamDownload(
+            fn () => print ($bytes),
+            'bookings-'.$start->format('Y-m-d').'-to-'.$end->format('Y-m-d').'.pdf',
+            ['Content-Type' => 'application/pdf'],
+        );
     }
 
     /**

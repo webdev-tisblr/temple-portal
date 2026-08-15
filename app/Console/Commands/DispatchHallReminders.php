@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\AdminUser;
 use App\Models\HallReminderRule;
 use App\Models\HallReminderSchedule;
 use App\Models\NotificationTemplate;
@@ -13,6 +12,7 @@ use App\Services\HallReminderScheduler;
 use App\Services\Notifications\NotificationContext;
 use App\Services\Notifications\NotificationService;
 use App\Support\DurationLabel;
+use App\Support\RoleRecipients;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -159,7 +159,7 @@ class DispatchHallReminders extends Command
                     Log::warning('Hall reminder rule: admin_role with no role name', ['rule_id' => $rule->id]);
                     break;
                 }
-                foreach (AdminUser::role($role)->where('is_active', true)->get() as $admin) {
+                foreach (RoleRecipients::forRole($role, $rule->recipient_user_ids) as $admin) {
                     $recipients[] = [NotificationTemplate::RECIPIENT_ADMIN_ROLE, $role, ['admin' => $admin]];
                 }
                 break;

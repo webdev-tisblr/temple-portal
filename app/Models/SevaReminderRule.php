@@ -21,8 +21,11 @@ class SevaReminderRule extends Model
     protected $table = 'temple_seva_reminder_rules';
 
     public const RECIPIENT_DEVOTEE = 'devotee';
+
     public const RECIPIENT_ADMIN_ROLE = 'admin_role';
+
     public const RECIPIENT_ASSIGNEE = 'assignee';
+
     public const RECIPIENT_CUSTOM_PHONE = 'custom_phone';
 
     protected $fillable = [
@@ -30,6 +33,7 @@ class SevaReminderRule extends Model
         'offset_minutes',
         'recipient_type',
         'recipient_value',
+        'recipient_user_ids',
         'channel',
         'notification_template_id',
         'title_gu',
@@ -44,6 +48,7 @@ class SevaReminderRule extends Model
 
     protected $casts = [
         'offset_minutes' => 'integer',
+        'recipient_user_ids' => 'array',
         'is_active' => 'boolean',
         'sort_order' => 'integer',
     ];

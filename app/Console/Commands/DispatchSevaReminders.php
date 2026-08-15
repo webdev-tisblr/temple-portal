@@ -14,6 +14,7 @@ use App\Services\Notifications\NotificationContext;
 use App\Services\Notifications\NotificationService;
 use App\Services\SevaReminderScheduler;
 use App\Support\DurationLabel;
+use App\Support\RoleRecipients;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -165,7 +166,7 @@ class DispatchSevaReminders extends Command
                     Log::warning('Reminder rule: admin_role with no role name', ['rule_id' => $rule->id]);
                     break;
                 }
-                foreach (AdminUser::role($role)->where('is_active', true)->get() as $admin) {
+                foreach (RoleRecipients::forRole($role, $rule->recipient_user_ids) as $admin) {
                     $recipients[] = [NotificationTemplate::RECIPIENT_ADMIN_ROLE, $role, ['admin' => $admin]];
                 }
                 break;

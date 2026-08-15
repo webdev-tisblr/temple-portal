@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Support;
 
+use App\Models\AdminUser;
 use App\Models\NotificationTemplate;
 use App\Models\SevaReminderRule;
 use App\Models\WhatsAppTemplateCache;
@@ -95,8 +96,50 @@ final class ReminderRuleFields
                     ->where('guard_name', 'admin')
                     ->orderBy('name')->pluck('name', 'name')->all())
                 ->live()
+                // A different role means a different set of people, so the
+                // names chosen below cannot carry over.
+                ->afterStateUpdated(fn (Forms\Set $set) => $set('recipient_user_ids', []))
                 ->visible(fn (Get $get): bool => $get('recipient_type') === SevaReminderRule::RECIPIENT_ADMIN_ROLE)
                 ->required(fn (Get $get): bool => $get('recipient_type') === SevaReminderRule::RECIPIENT_ADMIN_ROLE),
+
+            // Narrow an admin-role rule to named people. Empty = everyone
+            // holding the role, which is what the rule meant before this
+            // existed, so rules configured earlier are unaffected.
+            Forms\Components\Select::make('recipient_user_ids')
+                ->label('Specific people (optional)')
+                ->multiple()
+                ->searchable()
+                ->preload()
+                ->options(function (Get $get): array {
+                    $role = trim((string) $get('recipient_value'));
+
+                    if ($role === '') {
+                        return [];
+                    }
+
+                    return AdminUser::query()
+                        ->role($role)
+                        ->where('is_active', true)
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all();
+                })
+                ->helperText(function (Get $get): string {
+                    $role = trim((string) $get('recipient_value'));
+
+                    if ($role === '') {
+                        return 'Pick a role first.';
+                    }
+
+                    $count = AdminUser::query()->role($role)->where('is_active', true)->count();
+
+                    if ($count === 0) {
+                        return "No active admin currently holds the \"{$role}\" role — this rule would reach nobody.";
+                    }
+
+                    return "Leave empty to send to all {$count} active \"{$role}\" user(s). Choose names to send to only those.";
+                })
+                ->visible(fn (Get $get): bool => $get('recipient_type') === SevaReminderRule::RECIPIENT_ADMIN_ROLE),
 
             Forms\Components\TextInput::make('recipient_value')
                 ->label('Phone number(s)')

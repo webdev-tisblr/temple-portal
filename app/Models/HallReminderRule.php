@@ -30,6 +30,7 @@ class HallReminderRule extends Model
         'offset_minutes',
         'recipient_type',
         'recipient_value',
+        'recipient_user_ids',
         'channel',
         'notification_template_id',
         'title_gu', 'title_hi', 'title_en',
@@ -40,6 +41,7 @@ class HallReminderRule extends Model
 
     protected $casts = [
         'offset_minutes' => 'integer',
+        'recipient_user_ids' => 'array',
         'is_active' => 'boolean',
         'sort_order' => 'integer',
     ];

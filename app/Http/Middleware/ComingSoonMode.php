@@ -48,6 +48,12 @@ class ComingSoonMode
         // is precisely when coming-soon mode is most likely to still be on.
         // Without this the hall screen serves the 503 "ટૂંક સમયમાં" page.
         'board',
+        // The shareable countdown page (routes/web.php). It IS the
+        // coming-soon screen, so passing it through the gate would be
+        // circular — and it must keep resolving after launch, since the
+        // link outlives the countdown on whatever poster or bio it was
+        // pasted into.
+        'coming-soon',
         'board/*',
         'build/*',
         'images/*',

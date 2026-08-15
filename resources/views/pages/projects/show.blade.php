@@ -106,20 +106,30 @@
             {{-- ---- Description ---- --}}
             @if($project->description)
                 <div class="card-sacred p-6">
-                    <p class="text-amber-100/60 leading-relaxed">{{ $project->description }}</p>
+                    <p class="text-stone-700 leading-relaxed">{{ $project->description }}</p>
                 </div>
             @endif
 
-            {{-- ---- Writeup (Rich HTML) ---- --}}
+            {{-- ---- Writeup (Rich HTML) ----
+                 Built on the palette, NOT on `text-amber-100/X`. The
+                 compatibility layer in app.css remaps those bare utility
+                 classes to dark ink, but a `prose-p:` variant compiles to a
+                 different selector that the remap never matched — so the
+                 writeup kept rendering cream-on-cream while the plain
+                 paragraph above it looked fine. `prose-invert` was the other
+                 half of it: inverted prose is for a dark scaffold, and this
+                 card is #FFFCF5. --}}
             @if($project->writeup)
                 <div class="card-sacred p-6 sm:p-8">
-                    <div class="prose prose-invert prose-amber max-w-none
-                                prose-headings:text-gold prose-headings:font-bold
-                                prose-p:text-amber-100/60 prose-p:leading-relaxed
-                                prose-a:text-amber-400 prose-a:underline hover:prose-a:text-amber-300
-                                prose-strong:text-amber-100/80
-                                prose-ul:text-amber-100/60 prose-ol:text-amber-100/60
-                                prose-img:rounded-xl prose-img:border prose-img:border-amber-900/20">
+                    <div class="prose max-w-none
+                                prose-headings:text-maroon-500 prose-headings:font-bold
+                                prose-p:text-stone-700 prose-p:leading-relaxed
+                                prose-a:text-maroon-500 prose-a:underline hover:prose-a:text-maroon-600
+                                prose-strong:text-stone-700
+                                prose-li:text-stone-700
+                                prose-ul:text-stone-700 prose-ol:text-stone-700
+                                prose-blockquote:text-stone-600 prose-blockquote:border-maroon-700/30
+                                prose-img:rounded-xl prose-img:border prose-img:border-maroon-700/20">
                         {!! $project->writeup !!}
                     </div>
                 </div>

@@ -262,6 +262,25 @@ Route::middleware('auth:devotee')->group(function () {
     });
 });
 
+// The countdown page as a SHAREABLE link — for a link-in-bio, a poster QR,
+// a WhatsApp forward.
+//
+// Three differences from the coming-soon screen the middleware serves, all
+// deliberate:
+//   • 200, not 503. A 503 tells link previewers and crawlers the page is
+//     broken, so the card would not render where it is being pasted.
+//   • It bypasses ComingSoonMode (see BYPASS_PATHS), so it keeps working
+//     AFTER launch instead of 404ing the moment the doors open — a link
+//     printed on a poster outlives the countdown.
+//   • no-store, because the countdown is rendered from launch_at and an
+//     edge-cached copy would show a frozen clock.
+Route::get('/coming-soon', function () {
+    return response()
+        ->view('pages.coming-soon', ['launchAt' => \App\Http\Middleware\ComingSoonMode::launchAt()])
+        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        ->header('CDN-Cache-Control', 'no-store');
+})->name('coming-soon');
+
 // Crowdfunding Projects (public)
 Route::get('/projects', [ProjectController::class, 'index'])->name('projects.index');
 Route::get('/projects/{slug}', [ProjectController::class, 'show'])->name('projects.show');

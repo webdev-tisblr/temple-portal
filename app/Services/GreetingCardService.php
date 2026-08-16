@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\DailyDarshanPhoto;
 use App\Models\Donation;
+use App\Models\DonationCampaign;
 use App\Models\SevaBooking;
 use App\Models\SystemSetting;
 use App\Support\DevoteeLocale;
@@ -16,6 +18,14 @@ use Illuminate\Support\Facades\Storage;
 
 class GreetingCardService
 {
+    /**
+     * Fallback overlay bytes already fetched in this process, keyed by the
+     * card's date. @see fallbackOverlayBytes
+     *
+     * @var array<string, string|null>
+     */
+    private array $fallbackBytesMemo = [];
+
     /**
      * Generate a greeting card image for a donation.
      * Returns the storage path or null if no config/template.
@@ -88,7 +98,7 @@ class GreetingCardService
         }
 
         $locale = $this->localeForDevotee($donation->devotee);
-        $isCampaignCard = $source instanceof \App\Models\DonationCampaign;
+        $isCampaignCard = $source instanceof DonationCampaign;
 
         $pngBytes = $this->composeCard(
             $this->templateForLocale($source, $locale),
@@ -96,6 +106,9 @@ class GreetingCardService
             fn (string $fieldKey): ?string => $isCampaignCard
                 ? $this->resolveCampaignFieldValue($fieldKey, $donation, $locale)
                 : $this->resolveFieldValue($fieldKey, $donation, $locale),
+            // The day the gift was made — so an empty photo slot carries THAT
+            // day's darshan, and still does when the card is regenerated later.
+            $donation->created_at,
         );
         if ($pngBytes === null) {
             return null;
@@ -128,6 +141,10 @@ class GreetingCardService
                 $this->templateForLocale($seva, $locale),
                 $seva->greeting_card_config['overlays'] ?? [],
                 fn (string $fieldKey): ?string => $this->resolveSevaFieldValue($fieldKey, $booking, $locale),
+                // The seva DAY, not the booking day: the card is the keepsake
+                // of the seva being performed, so it carries that morning's
+                // darshan even when it was booked a month earlier.
+                $booking->booking_date ?? $booking->created_at,
             );
         } finally {
             app()->setLocale($previousLocale);
@@ -228,7 +245,7 @@ class GreetingCardService
      * apply every overlay through the caller's field resolver, return
      * the finished PNG bytes (null on any unrecoverable problem).
      */
-    private function composeCard(?string $templatePath, array $overlays, callable $resolve): ?string
+    private function composeCard(?string $templatePath, array $overlays, callable $resolve, ?\DateTimeInterface $cardDate = null): ?string
     {
         if (! $templatePath || empty($overlays)) {
             return null;
@@ -260,7 +277,7 @@ class GreetingCardService
         $fontPath = $this->resolveFontPath();
 
         foreach ($overlays as $overlay) {
-            $this->applyOverlay($image, $overlay, $resolve, $fontPath);
+            $this->applyOverlay($image, $overlay, $resolve, $fontPath, $cardDate);
         }
 
         ob_start();
@@ -311,7 +328,7 @@ class GreetingCardService
      * Apply a single overlay (text or image) onto the card. $resolve maps
      * a field key to its rendered value (donation vs seva resolver).
      */
-    private function applyOverlay(\GdImage $image, array $overlay, callable $resolve, ?string $fontPath): void
+    private function applyOverlay(\GdImage $image, array $overlay, callable $resolve, ?string $fontPath, ?\DateTimeInterface $cardDate = null): void
     {
         $type = $overlay['type'] ?? 'text';
         $fieldKey = $overlay['field_key'] ?? null;
@@ -328,7 +345,8 @@ class GreetingCardService
         // than the gap. A blank IMAGE overlay is different: an admin can
         // define a photo-upload extra field and leave it optional, and a
         // donor who skips it used to get a card with a hole in it. That
-        // falls through to the trust logo instead (2026-08-13).
+        // falls through to the day's darshan photo instead (2026-08-13,
+        // logo; darshan since 2026-08-16).
         if ($isBlank && $type !== 'image') {
             return;
         }
@@ -343,7 +361,7 @@ class GreetingCardService
                 ScriptFont::forText((string) $value) ?? $fontPath,
             );
         } elseif ($type === 'image') {
-            $this->applyImageOverlay($image, $overlay, $isBlank ? null : (string) $value);
+            $this->applyImageOverlay($image, $overlay, $isBlank ? null : (string) $value, $cardDate);
         }
     }
 
@@ -399,7 +417,7 @@ class GreetingCardService
     /** True when this donation's card comes from its campaign, not its type. */
     public function cardIsFromCampaign(Donation $donation): bool
     {
-        return $this->cardSourceFor($donation) instanceof \App\Models\DonationCampaign;
+        return $this->cardSourceFor($donation) instanceof DonationCampaign;
     }
 
     /**
@@ -573,14 +591,14 @@ class GreetingCardService
      */
     /**
      * @param  string|null  $storagePath  R2 key of the donor's upload, or NULL
-     *   when they did not upload one — in which case the trust logo is drawn so
-     *   the card never ships with an empty box.
+     *                                    when they did not upload one — in which case the trust logo is drawn so
+     *                                    the card never ships with an empty box.
      */
-    private function applyImageOverlay(\GdImage $image, array $overlay, ?string $storagePath): void
+    private function applyImageOverlay(\GdImage $image, array $overlay, ?string $storagePath, ?\DateTimeInterface $cardDate = null): void
     {
         $bytes = $storagePath === null
-            ? $this->fallbackOverlayBytes()
-            : $this->overlayBytesFromR2($storagePath) ?? $this->fallbackOverlayBytes();
+            ? $this->fallbackOverlayBytes($cardDate)
+            : $this->overlayBytesFromR2($storagePath) ?? $this->fallbackOverlayBytes($cardDate);
 
         if (! $bytes) {
             // Even the fallback is unreadable. A card with a gap still beats
@@ -788,15 +806,50 @@ class GreetingCardService
     }
 
     /**
-     * Stand-in artwork for an image overlay the donor left empty.
+     * Stand-in artwork for an image overlay the donor left empty, in order:
      *
-     * Admin-overridable through `greeting_card_fallback_image` (an R2 key), so
-     * the trust can swap in dedicated artwork without a deploy. Unset falls
-     * back to the bundled trust logo — a LOCAL file, which is why this cannot
-     * simply reuse the R2 reader above.
+     *   1. THE DAILY DARSHAN PHOTO for the card's own day — that day's
+     *      upload, else the last one before it, else the newest on record
+     *      (DailyDarshanPhoto::forDate). Requested 2026-08-16: a card whose
+     *      photo slot showed the flat logo now shows Hanumanji as he was
+     *      given darshan on the day the donation was made or the seva
+     *      performed, which is the whole point of the keepsake.
+     *   2. `greeting_card_fallback_image` (an R2 key) — dedicated artwork
+     *      the trust can set without a deploy, used when no darshan photo
+     *      exists at all (a fresh install, or every photo deactivated).
+     *   3. The bundled trust logo — a LOCAL file, which is why this cannot
+     *      simply reuse the R2 reader above.
+     *
+     * Anchored on $cardDate, not on today(), so a card regenerated after the
+     * r2_private sweep rebuilds with the same photo it was delivered with.
+     * Bytes are memoised per instance because the day-of seva sweep renders
+     * many cards in one process and would otherwise refetch one photo N times.
      */
-    private function fallbackOverlayBytes(): ?string
+    private function fallbackOverlayBytes(?\DateTimeInterface $cardDate = null): ?string
     {
+        $memoKey = $cardDate?->format('Y-m-d') ?? 'today';
+
+        if (array_key_exists($memoKey, $this->fallbackBytesMemo)) {
+            return $this->fallbackBytesMemo[$memoKey];
+        }
+
+        return $this->fallbackBytesMemo[$memoKey] = $this->resolveFallbackOverlayBytes($cardDate);
+    }
+
+    /** @see fallbackOverlayBytes — the uncached body. */
+    private function resolveFallbackOverlayBytes(?\DateTimeInterface $cardDate): ?string
+    {
+        $darshanPath = DailyDarshanPhoto::forDate($cardDate)?->overlaySourcePath();
+
+        if ($darshanPath) {
+            $bytes = $this->overlayBytesFromR2($darshanPath);
+            if ($bytes) {
+                return $bytes;
+            }
+            // Row exists but its file is gone from R2 — keep descending
+            // rather than punching a hole in the card.
+        }
+
         $configured = SystemSetting::getValue('greeting_card_fallback_image', '');
 
         if ($configured !== '') {

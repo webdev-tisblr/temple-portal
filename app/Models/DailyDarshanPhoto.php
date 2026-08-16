@@ -106,6 +106,54 @@ class DailyDarshanPhoto extends Model
     }
 
     /**
+     * The darshan photo that belongs to a GIVEN DAY: that day's most recent
+     * upload, else the last one uploaded before it, else the newest on record.
+     *
+     * currentCached() answers "what is today's darshan" for pages, and is
+     * cached under one shared key. This answers "what was the darshan on
+     * $date" for artefacts that are DATED — a greeting card carries the day
+     * the donation was made or the seva was performed, and r2_private is a
+     * regenerable cache, so a card rebuilt weeks later after a sweep must
+     * come back with the same photo it was delivered with. Anchoring on the
+     * date rather than on `today()` is what makes that reproducible.
+     *
+     * Deliberately uncached: the keys would be per-date and the booted()
+     * bust above only clears the single page key, so a stale entry could
+     * outlive the admin edit that should have replaced it. One indexed query
+     * per card generation is not worth that risk.
+     */
+    public static function forDate(?\DateTimeInterface $date = null): ?self
+    {
+        $date ??= today();
+
+        return static::where('is_active', true)
+            ->whereDate('captured_on', $date)
+            ->latest('id')
+            ->first()
+            ?? static::where('is_active', true)
+                ->whereDate('captured_on', '<=', $date)
+                ->orderByDesc('captured_on')
+                ->orderByDesc('id')
+                ->first()
+            // Nothing on or before that day — a card for a date that predates
+            // every upload still shows Hanumanji rather than nothing.
+            ?? static::where('is_active', true)
+                ->orderByDesc('captured_on')
+                ->orderByDesc('id')
+                ->first();
+    }
+
+    /**
+     * The R2 key to composite this photo from: the `medium` derivative, since
+     * originals come straight off a phone at 8–12 MB and GD would decode the
+     * whole thing to composite a 600px box.
+     */
+    public function overlaySourcePath(): ?string
+    {
+        return $this->medium_path ?: $this->image_path;
+    }
+
+    /**
      * Best URL for displaying this photo at page scale: the `medium`
      * derivative, because some originals are 8–12 MB straight off a phone.
      * Falls back to the original when the derivative hasn't been generated

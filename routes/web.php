@@ -14,9 +14,12 @@ use App\Http\Controllers\Web\HomeController;
 use App\Http\Controllers\Web\LegalController;
 use App\Http\Controllers\Web\PageController;
 use App\Http\Controllers\Web\ProjectController;
+use App\Http\Controllers\Web\ReceiptLinkController;
 use App\Http\Controllers\Web\SevaWebController;
 use App\Http\Controllers\Web\StoreWebController;
 use App\Http\Controllers\Web\TempleController;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Route;
 
 // Homepage
@@ -28,29 +31,18 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 // here always sees the origin's real state — never an edge-cached copy
 // (Cloudflare's stale-on-error masked the 2026-07-28 DB outage from
 // UptimeRobot for 5 hours).
-// Live donor display board (2026-08-13) — the kiosk screen in the temple hall.
-//
-// Deliberately a top-level path: CacheGuestResponse caches only '', darshan,
-// gallery, projects, trustees and pages/*, and the Cloudflare rule mirrors
-// those six shapes, so '/board' is excluded from both by simply not being one
-// of them. Do NOT move this under pages/* or it will serve a 120s-stale board.
-// 'board' is also in ComingSoonMode::BYPASS_PATHS so the hall screen survives
-// the site being hidden.
-Route::get('/board', [\App\Http\Controllers\Web\DisplayBoardController::class, 'show'])
-    ->name('board.show');
-
 Route::get('/up/deep', function () {
     $checks = [];
     try {
-        \Illuminate\Support\Facades\DB::select('select 1');
+        DB::select('select 1');
         $checks['mysql'] = 'ok';
-    } catch (\Throwable) {
+    } catch (Throwable) {
         $checks['mysql'] = 'fail';
     }
     try {
-        \Illuminate\Support\Facades\Redis::connection()->ping();
+        Redis::connection()->ping();
         $checks['redis'] = 'ok';
-    } catch (\Throwable) {
+    } catch (Throwable) {
         $checks['redis'] = 'fail';
     }
     $healthy = ! in_array('fail', $checks, true);
@@ -170,9 +162,9 @@ Route::post('/contact', [ContactController::class, 'submit'])->name('contact.sub
 // authorization; PDFs regenerate on miss, so links never expire.
 // NOT in the CacheGuestResponse whitelist / Cloudflare cache rule.
 Route::middleware(['signed', 'throttle:30,1'])->group(function () {
-    Route::get('/r/seva-receipt/{booking}', [\App\Http\Controllers\Web\ReceiptLinkController::class, 'sevaReceipt'])->name('seva.receipt.link');
-    Route::get('/r/store-invoice/{order}', [\App\Http\Controllers\Web\ReceiptLinkController::class, 'storeInvoice'])->name('store.invoice.link');
-    Route::get('/r/hall-invoice/{booking}', [\App\Http\Controllers\Web\ReceiptLinkController::class, 'hallInvoice'])->name('hall.invoice.link');
+    Route::get('/r/seva-receipt/{booking}', [ReceiptLinkController::class, 'sevaReceipt'])->name('seva.receipt.link');
+    Route::get('/r/store-invoice/{order}', [ReceiptLinkController::class, 'storeInvoice'])->name('store.invoice.link');
+    Route::get('/r/hall-invoice/{booking}', [ReceiptLinkController::class, 'hallInvoice'])->name('hall.invoice.link');
 });
 
 // Store (public)
@@ -242,10 +234,10 @@ Route::middleware('auth:devotee')->group(function () {
         Route::post('/store/checkout', [StoreWebController::class, 'checkout'])->name('store.checkout');
         Route::get('/store/order/{order}/invoice', [StoreWebController::class, 'downloadInvoice'])->name('store.order.invoice');
         Route::get('/hall-booking/{booking}/invoice', [HallBookingController::class, 'downloadInvoice'])->name('hall.booking.invoice');
-    // Devotee-initiated cancellation REQUEST — the trust decides.
-    Route::post('/hall-booking/{booking}/cancel-request', [HallBookingController::class, 'requestCancellation'])
-        ->middleware('throttle:6,1')
-        ->name('hall.booking.cancel-request');
+        // Devotee-initiated cancellation REQUEST — the trust decides.
+        Route::post('/hall-booking/{booking}/cancel-request', [HallBookingController::class, 'requestCancellation'])
+            ->middleware('throttle:6,1')
+            ->name('hall.booking.cancel-request');
 
         // Dashboard
         Route::prefix('dashboard')->name('dashboard.')->group(function () {

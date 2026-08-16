@@ -8,7 +8,6 @@ use App\Filament\Support\TranslatableTabs;
 use App\Models\Msg91WebhookEvent;
 use App\Models\SystemSetting;
 use App\Rules\ValidPhoneNumber;
-use App\Services\DisplayBoardService;
 use App\Services\SmsService;
 use App\Services\WhatsAppService;
 use Filament\Forms;
@@ -53,11 +52,6 @@ class SystemSettings extends Page implements HasForms
      */
     private const DISPLAY_ONLY_KEYS = [
         'sms_msg91_webhook_url',
-        // Same reasoning: the kiosk URL is derived from the board token plus
-        // APP_URL, so storing a copy would go stale the moment the token is
-        // rotated — and the whole point of the field is that the operator can
-        // paste what it shows into the hall screen and trust it.
-        'board_kiosk_url',
     ];
 
     /**
@@ -80,27 +74,6 @@ class SystemSettings extends Page implements HasForms
         // never blank — see SmsService::webhookToken().
         if (static::canManageSmsWebhook()) {
             $settings['sms_msg91_webhook_url'] = SmsService::webhookUrl();
-        }
-
-        $settings['board_kiosk_url'] = $this->boardKioskUrl();
-
-        // Seed any board key that has never been saved.
-        //
-        // Filament's ->default() does NOT apply to a form filled from the
-        // database, so without this the first save wrote every unseen board
-        // key as '' or false: amounts vanished from the screen and each donor
-        // flashed for two seconds instead of eight (2026-08-12). Defaults live
-        // in DisplayBoardService::DEFAULTS so the form and the reader can
-        // never disagree about what "unset" means.
-        foreach (DisplayBoardService::DEFAULTS as $key => $default) {
-            if (! array_key_exists($key, $settings) || $settings[$key] === '' || $settings[$key] === null) {
-                $settings[$key] = $default;
-            }
-        }
-
-        // Toggles need real booleans, not the '1'/'0' strings the table holds.
-        foreach (['board_enabled', 'board_show_amounts', 'board_show_city', 'board_announce_anonymous'] as $key) {
-            $settings[$key] = ($settings[$key] ?? '0') === '1';
         }
 
         $this->form->fill($settings);
@@ -260,82 +233,6 @@ class SystemSettings extends Page implements HasForms
                                 Forms\Components\TextInput::make('trust_whatsapp')
                                     ->label('Trust WhatsApp Number')
                                     ->helperText('Shown in the footer and the app temple-info screen.'),
-                            ])->columns(2),
-
-                        Forms\Components\Section::make('Live Donor Display Board')
-                            ->icon('heroicon-o-tv')
-                            ->description('The big screen in the hall that announces each donation as it is received. Open the kiosk link below on the display device (a laptop, mini-PC or Raspberry Pi in Chrome kiosk mode) — not on a smart TV\'s built-in browser.')
-                            ->collapsed()
-                            ->schema([
-                                Forms\Components\Toggle::make('board_enabled')
-                                    ->label('Board is live')
-                                    ->helperText('Off by default. When off, the screen shows a static temple panel instead — it never goes blank or shows an error.')
-                                    ->columnSpanFull(),
-
-                                Forms\Components\TextInput::make('board_kiosk_url')
-                                    ->label('Kiosk link')
-                                    ->readOnly()
-                                    ->dehydrated(false)
-                                    ->helperText('Open this on the display device. Treat it as a password — anyone with it can read the donor feed.')
-                                    ->columnSpanFull(),
-
-                                Forms\Components\Actions::make([
-                                    Forms\Components\Actions\Action::make('regenerate_board_token')
-                                        ->label('Regenerate link')
-                                        ->icon('heroicon-o-arrow-path')
-                                        ->color('danger')
-                                        ->requiresConfirmation()
-                                        ->modalHeading('Regenerate the board link?')
-                                        ->modalDescription('The screen currently running in the hall is on the old link and will immediately show "not found". You will need to open the new link on the display device. Only do this if the link has leaked.')
-                                        ->modalSubmitActionLabel('Yes, regenerate')
-                                        ->action(fn () => $this->regenerateBoardToken()),
-
-                                    Forms\Components\Actions\Action::make('turn_board_off_now')
-                                        ->label('Turn board off NOW')
-                                        ->icon('heroicon-o-no-symbol')
-                                        ->color('danger')
-                                        ->requiresConfirmation()
-                                        ->modalHeading('Turn the display board off?')
-                                        ->modalDescription('Takes effect within a couple of seconds without saving this page. The hall screen falls back to the temple panel. Use this if something is on screen that should not be.')
-                                        ->modalSubmitActionLabel('Turn it off')
-                                        ->action(fn () => $this->turnBoardOffNow()),
-                                ])->columnSpanFull(),
-
-                                Forms\Components\Select::make('board_locale')
-                                    ->label('Screen language')
-                                    ->options(['gu' => 'ગુજરાતી', 'hi' => 'हिन्दी', 'en' => 'English'])
-                                    ->default('gu')
-                                    ->helperText('Fixed for the screen. Staff switching language on their own phone does not change the hall display.'),
-
-                                Forms\Components\TextInput::make('board_announce_seconds')
-                                    ->label('Seconds per announcement')
-                                    ->numeric()->minValue(2)->maxValue(30)->default(8)
-                                    ->helperText('Shortens automatically if several donations arrive at once, so the screen never falls behind the counter.'),
-
-                                Forms\Components\Toggle::make('board_show_amounts')
-                                    ->label('Show amounts')
-                                    ->default(true)
-                                    ->helperText('Turn off to show names only.'),
-
-                                Forms\Components\Toggle::make('board_show_city')
-                                    ->label('Show city')
-                                    ->default(true),
-
-                                Forms\Components\Toggle::make('board_announce_anonymous')
-                                    ->label('Announce Gupt Daan donations on screen')
-                                    ->helperText('LEAVE OFF. A live screen announces a gift seconds after the donor walks away from the counter, so the room can tell who gave it — which defeats the point of Gupt Daan. With this off, anonymous gifts still appear in the rotating honour roll as રામ ભરોસે, shuffled and without a time, so they are honoured without being traceable.')
-                                    ->columnSpanFull(),
-
-                                Forms\Components\TextInput::make('board_delay_seconds')
-                                    ->label('Delay before showing (seconds)')
-                                    ->numeric()->minValue(0)->maxValue(120)->default(5)
-                                    ->helperText('Technical safeguard against two donations arriving at the same instant. Not a moderation window — use "Turn board off NOW" or hide the individual donation for that.'),
-
-                                Forms\Components\TextInput::make('board_headline_gu')
-                                    ->label('Headline (Gujarati)')
-                                    ->helperText('Optional line under the temple name, e.g. the event name.'),
-                                Forms\Components\TextInput::make('board_headline_hi')->label('Headline (Hindi)'),
-                                Forms\Components\TextInput::make('board_headline_en')->label('Headline (English)'),
                             ])->columns(2),
 
                         Forms\Components\Section::make('GST')
@@ -1038,47 +935,6 @@ class SystemSettings extends Page implements HasForms
                 : $result['message'])
             ->color($result['ok'] ? 'info' : 'danger')
             ->persistent(! $result['ok'])
-            ->send();
-    }
-
-    /** The full kiosk URL, derived so it can never go stale after a rotation. */
-    private function boardKioskUrl(): string
-    {
-        return url('/board').'?token='.app(DisplayBoardService::class)->accessToken();
-    }
-
-    /**
-     * Mint a new board token. Destructive on purpose: the screen in the hall
-     * is showing the OLD url and will start 404ing the moment this runs, so
-     * the message says so rather than just "done".
-     */
-    public function regenerateBoardToken(): void
-    {
-        app(DisplayBoardService::class)->regenerateAccessToken();
-        $this->data['board_kiosk_url'] = $this->boardKioskUrl();
-
-        Notification::make()
-            ->title('New board link generated')
-            ->body('The screen in the hall is still on the old link and will now show "not found". Open the new URL on the display device before the next donation.')
-            ->warning()
-            ->persistent()
-            ->send();
-    }
-
-    /**
-     * The panic button. Deliberately separate from the form so it takes effect
-     * without a save — when something wrong is on a screen in front of the
-     * congregation, one click has to be enough.
-     */
-    public function turnBoardOffNow(): void
-    {
-        SystemSetting::setValue('board_enabled', '0');
-        $this->data['board_enabled'] = false;
-
-        Notification::make()
-            ->title('Display board turned off')
-            ->body('The hall screen falls back to the temple panel within a couple of seconds. Nothing else is affected.')
-            ->success()
             ->send();
     }
 }

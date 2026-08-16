@@ -60,7 +60,6 @@ class PurgeTransactionalData extends Command
 
         // Donation-derived records BEFORE donations (FK: NO ACTION).
         'temple_receipts_80g',
-        'temple_donation_board_entries',
 
         // Reminder schedules before the bookings they point at.
         'temple_seva_reminder_schedules',

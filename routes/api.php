@@ -8,14 +8,17 @@ use App\Http\Controllers\Api\V1\CampaignController;
 use App\Http\Controllers\Api\V1\ContentController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\DonationController;
+use App\Http\Controllers\Api\V1\GuideController;
 use App\Http\Controllers\Api\V1\HallController;
 use App\Http\Controllers\Api\V1\Msg91WebhookController;
+use App\Http\Controllers\Api\V1\NotificationInboxController;
 use App\Http\Controllers\Api\V1\PaymentVerificationController;
 use App\Http\Controllers\Api\V1\PaymentWebhookController;
 use App\Http\Controllers\Api\V1\SevaController;
 use App\Http\Controllers\Api\V1\StoreController;
 use App\Http\Controllers\Api\V1\WhatsAppWebhookController;
 use App\Http\Resources\DevoteeResource;
+use App\Models\SystemSetting;
 use App\Services\PanValidationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -27,8 +30,8 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     // Values are admin-editable via SystemSetting; sensible defaults apply
     // when unset so an unconfigured install never reports update_required.
     Route::get('/app-config', function () {
-        $minVersion = \App\Models\SystemSetting::getValue('app_min_version', '1.0.0');
-        $latestVersion = \App\Models\SystemSetting::getValue('app_latest_version', $minVersion);
+        $minVersion = SystemSetting::getValue('app_min_version', '1.0.0');
+        $latestVersion = SystemSetting::getValue('app_latest_version', $minVersion);
 
         return response()->json([
             'success' => true,
@@ -36,11 +39,11 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
             'data' => [
                 'min_supported_version' => $minVersion,
                 'latest_version' => $latestVersion,
-                'android_store_url' => \App\Models\SystemSetting::getValue(
+                'android_store_url' => SystemSetting::getValue(
                     'app_android_store_url',
                     'https://play.google.com/store/apps/details?id=com.patadiyahanumanji.app',
                 ),
-                'ios_store_url' => \App\Models\SystemSetting::getValue(
+                'ios_store_url' => SystemSetting::getValue(
                     'app_ios_store_url',
                     'https://apps.apple.com/app/patadiya-hanumanji',
                 ),
@@ -48,22 +51,22 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
                 // current callers by setting app_update_required=1. The
                 // app should still compare its own build against
                 // min_supported_version for the authoritative gate.
-                'update_required' => \App\Models\SystemSetting::getValue('app_update_required', '0') === '1',
+                'update_required' => SystemSetting::getValue('app_update_required', '0') === '1',
                 // App Store guideline 3.2.2(iv): non-Benevity nonprofits may
                 // not collect donations in-app on iOS — the app must send
                 // devotees to the website instead. Default OFF; flip to 1
                 // only after Apple confirms the trust's approved-nonprofit
                 // status (Benevity), which re-enables the native iOS flow
                 // without an app release. Android ignores this flag.
-                'ios_native_donations_enabled' => \App\Models\SystemSetting::getValue('app_ios_native_donations', '0') === '1',
-                'donate_web_url' => \App\Models\SystemSetting::getValue(
+                'ios_native_donations_enabled' => SystemSetting::getValue('app_ios_native_donations', '0') === '1',
+                'donate_web_url' => SystemSetting::getValue(
                     'app_donate_web_url',
                     'https://patadiyahanumanji.com/donate',
                 ),
                 // "Join our WhatsApp Group" row in the app's More screen —
                 // hidden when the toggle is off or the URL is empty.
-                'whatsapp_group_url' => \App\Models\SystemSetting::getValue('app_whatsapp_group_url', ''),
-                'whatsapp_group_enabled' => \App\Models\SystemSetting::getValue('app_whatsapp_group_enabled', '0') === '1',
+                'whatsapp_group_url' => SystemSetting::getValue('app_whatsapp_group_url', ''),
+                'whatsapp_group_enabled' => SystemSetting::getValue('app_whatsapp_group_enabled', '0') === '1',
             ],
         ]);
     });
@@ -111,8 +114,8 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::get('/events', [ContentController::class, 'events']);
 
     // Public: User Guides / Help Center
-    Route::get('/guides', [\App\Http\Controllers\Api\V1\GuideController::class, 'index']);
-    Route::get('/guides/{id}', [\App\Http\Controllers\Api\V1\GuideController::class, 'show'])->whereNumber('id');
+    Route::get('/guides', [GuideController::class, 'index']);
+    Route::get('/guides/{id}', [GuideController::class, 'show'])->whereNumber('id');
 
     // Public: Store
     Route::get('/store/categories', [StoreController::class, 'categories']);
@@ -132,7 +135,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     // these; drop once app_min_version >= the release without blog UI.
     Route::get('/blog', fn () => response()->json(
         ['success' => true, 'message' => 'Success',
-         'data' => ['posts' => [], 'meta' => ['current_page' => 1, 'last_page' => 1, 'total' => 0]]]));
+            'data' => ['posts' => [], 'meta' => ['current_page' => 1, 'last_page' => 1, 'total' => 0]]]));
     Route::get('/blog/{slug}', fn () => response()->json(
         ['success' => false, 'message' => 'Post not found'], 404));
 
@@ -148,18 +151,6 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::post('/webhooks/razorpay', [PaymentWebhookController::class, 'handle'])
         ->withoutMiddleware('throttle:60,1');
 
-    // Live donor display board feed. Polled every ~2s by the hall screen.
-    //
-    // Exempt from the group's throttle:60,1 for the same reason as the webhook
-    // but a different mechanism: that bucket is keyed by IP, and the screen
-    // shares the temple's public IP with every devotee in the hall using the
-    // app. The replacement limiter is keyed by the board token instead (see
-    // AppServiceProvider). Lives under /api/v1 so ComingSoonMode's blanket
-    // 'api/*' bypass keeps the screen alive while the public site is hidden.
-    Route::get('/board/feed', [\App\Http\Controllers\Web\DisplayBoardController::class, 'feed'])
-        ->withoutMiddleware('throttle:60,1')
-        ->middleware('throttle:display-board')
-        ->name('board.feed');
     // WhatsApp delivery webhook. POST is the live event stream from
     // Meta Cloud API (relayed by "The Internet Store" BSP) — sent /
     // delivered / read / failed status events match against
@@ -214,13 +205,13 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
 
         // Notification inbox — paginated history of broadcast pushes
         // visible to this devotee, with per-devotee read state.
-        Route::get('/me/notifications', [\App\Http\Controllers\Api\V1\NotificationInboxController::class, 'index']);
-        Route::get('/me/notifications/unread-count', [\App\Http\Controllers\Api\V1\NotificationInboxController::class, 'unreadCount']);
-        Route::post('/me/notifications/read-all', [\App\Http\Controllers\Api\V1\NotificationInboxController::class, 'markAllRead']);
-        Route::post('/me/notifications/{notification}/read', [\App\Http\Controllers\Api\V1\NotificationInboxController::class, 'markRead']);
+        Route::get('/me/notifications', [NotificationInboxController::class, 'index']);
+        Route::get('/me/notifications/unread-count', [NotificationInboxController::class, 'unreadCount']);
+        Route::post('/me/notifications/read-all', [NotificationInboxController::class, 'markAllRead']);
+        Route::post('/me/notifications/{notification}/read', [NotificationInboxController::class, 'markRead']);
         // Soft-dismiss — hides from inbox without affecting the underlying broadcast.
-        Route::delete('/me/notifications/{notification}', [\App\Http\Controllers\Api\V1\NotificationInboxController::class, 'dismiss']);
-        Route::delete('/me/notifications', [\App\Http\Controllers\Api\V1\NotificationInboxController::class, 'dismissAll']);
+        Route::delete('/me/notifications/{notification}', [NotificationInboxController::class, 'dismiss']);
+        Route::delete('/me/notifications', [NotificationInboxController::class, 'dismissAll']);
 
         Route::get('/me', function (Request $request) {
             return response()->json([
@@ -262,9 +253,9 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
             if ($wantsClear) {
                 $updateData['pan_encrypted'] = null;
                 $updateData['pan_last_four'] = null;
-            } elseif (!empty($validated['pan_number'])) {
+            } elseif (! empty($validated['pan_number'])) {
                 $panService = app(PanValidationService::class);
-                if (!$panService->validate($validated['pan_number'])) {
+                if (! $panService->validate($validated['pan_number'])) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Invalid PAN format. Use format ABCDE1234F.',
@@ -281,6 +272,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
 
             $request->user()->update($updateData);
             $fresh = $request->user()->fresh();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Profile updated',

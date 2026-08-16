@@ -43,12 +43,6 @@ class ComingSoonMode
         'livewire/*',
         'filament/*',
         'api/*',
-        // The live donor display board runs on a screen in the temple hall and
-        // must keep working while the public site is hidden — the launch event
-        // is precisely when coming-soon mode is most likely to still be on.
-        // Without this the hall screen serves the 503 "ટૂંક સમયમાં" page.
-        'board',
-        'board/*',
         'build/*',
         'images/*',
         'storage/*',

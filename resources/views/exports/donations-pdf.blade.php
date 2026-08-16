@@ -25,6 +25,9 @@
         <p style="font-size:8px;color:#888;margin-bottom:4px;">Trust Reg. No: A/1497 Dated 26-04-1994 &nbsp;|&nbsp; 80G Reg. No: A.A/RG./80G/12/G.R./2011-12/3958 &nbsp;|&nbsp; PAN: AAKTS1478C</p>
         <h1 style="font-size:14px;margin-top:6px;">Donation Report</h1>
         <p>{{ \Carbon\Carbon::parse($dateFrom)->format('d M Y') }} &mdash; {{ \Carbon\Carbon::parse($dateTo)->format('d M Y') }}</p>
+        @if(!empty($filterSummary ?? null))
+        <p style="font-size:9px;color:#881337;margin-top:3px;">{{ $filterSummary }}</p>
+        @endif
     </div>
 
     <div class="summary">
@@ -42,6 +45,7 @@
                 <th>Phone</th>
                 <th>Amount (&#8377;)</th>
                 <th>Type</th>
+                <th>Campaign</th>
                 <th>Purpose</th>
                 <th>FY</th>
                 <th>Status</th>
@@ -57,19 +61,20 @@
                 <td>{{ $d->devotee?->phone ?? '-' }}</td>
                 <td style="text-align: right;">{{ inr((float) $d->amount, 2) }}</td>
                 <td>{{ ucfirst($d->getRawOriginal('donation_type')) }}</td>
+                <td>{{ $d->campaign ? ($d->campaign->title_en ?: $d->campaign->title_gu) : '-' }}</td>
                 <td>{{ $d->purpose ?? '-' }}</td>
                 <td>{{ $d->financial_year }}</td>
                 <td>{{ $d->payment?->status?->value ?? '-' }}</td>
             </tr>
             @empty
-            <tr><td colspan="10" style="text-align: center; padding: 20px; color: #999;">No donations found for this period.</td></tr>
+            <tr><td colspan="11" style="text-align: center; padding: 20px; color: #999;">No donations found for this period.</td></tr>
             @endforelse
 
             @if($donations->isNotEmpty())
             <tr class="total-row">
                 <td colspan="5" style="text-align: right;">Total:</td>
                 <td style="text-align: right;">{{ inr((float) $total, 2) }}</td>
-                <td colspan="4"></td>
+                <td colspan="5"></td>
             </tr>
             @endif
         </tbody>

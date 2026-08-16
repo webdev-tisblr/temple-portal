@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Models\Donation;
+use App\Models\DonationCampaign;
 use App\Models\DonationType;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Forms;
@@ -45,6 +46,14 @@ class FinancialReports extends Page implements HasForms, HasTable
     /** Admin-managed type id — the legacy category enum is no longer offered. */
     public ?string $donation_type_id = null;
 
+    /**
+     * Campaign id, or the literal 'none' for donations raised outside any
+     * campaign. 'none' has to be a real option: "how much came in outside
+     * the campaigns" is a question the trust asks as often as "how much did
+     * this campaign raise", and a plain null filter can't express it.
+     */
+    public ?string $campaign_id = null;
+
     public ?string $financial_year = null;
 
     public function mount(): void
@@ -75,10 +84,27 @@ class FinancialReports extends Page implements HasForms, HasTable
                     ->pluck('name', 'id')
                     ->all())
                 ->placeholder('All Types'),
+            // Campaign-wise collection. Newest campaign first because that is
+            // the one being reconciled; searchable because the list only grows.
+            Forms\Components\Select::make('campaign_id')
+                ->label('Campaign')
+                ->options(fn (): array => ['none' => 'No campaign (general donations)']
+                    + DonationCampaign::query()
+                        ->orderByDesc('id')
+                        ->get()
+                        ->mapWithKeys(fn (DonationCampaign $c): array => [
+                            // English-first, same as the Donations list — the
+                            // admin UI is English even though `title` resolves
+                            // to the request locale.
+                            (string) $c->id => ($c->title_en ?: $c->title_gu),
+                        ])
+                        ->all())
+                ->searchable()
+                ->placeholder('All Campaigns'),
             Forms\Components\Select::make('financial_year')->options(
                 Donation::distinct()->pluck('financial_year', 'financial_year')->toArray()
             )->placeholder('All Years'),
-        ])->columns(4)->statePath('');
+        ])->columns(['default' => 1, 'sm' => 2, 'xl' => 5])->statePath('');
     }
 
     public function applyFilters(): void
@@ -89,7 +115,7 @@ class FinancialReports extends Page implements HasForms, HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->query($this->baseQuery()->with('devotee', 'receipt'))
+            ->query($this->baseQuery()->with('devotee', 'receipt', 'campaign'))
             ->columns([
                 Tables\Columns\TextColumn::make('receipt.receipt_number')->label('Receipt No.')->default('-'),
                 Tables\Columns\TextColumn::make('created_at')->date('d/m/Y')->label('Date')->sortable(),
@@ -104,6 +130,14 @@ class FinancialReports extends Page implements HasForms, HasTable
                     ->label('Type')
                     ->state(fn (Donation $record): string => $record->donationType?->name
                         ?: ucfirst((string) $record->getRawOriginal('donation_type'))),
+                // Which campaign, not just "Campaign" — the type badge above
+                // already says that much.
+                Tables\Columns\TextColumn::make('campaign_id')
+                    ->label('Campaign')
+                    ->state(fn (Donation $record): string => $record->campaign
+                        ? ($record->campaign->title_en ?: $record->campaign->title_gu)
+                        : '—')
+                    ->wrap(),
                 Tables\Columns\TextColumn::make('financial_year')->label('FY'),
             ])
             ->defaultSort('created_at', 'desc');
@@ -136,6 +170,9 @@ class FinancialReports extends Page implements HasForms, HasTable
             ->when($this->date_from, fn (Builder $q) => $q->whereDate('created_at', '>=', $this->date_from))
             ->when($this->date_to, fn (Builder $q) => $q->whereDate('created_at', '<=', $this->date_to))
             ->when($this->donation_type_id, fn (Builder $q) => $q->where('donation_type_id', $this->donation_type_id))
+            ->when($this->campaign_id, fn (Builder $q) => $this->campaign_id === 'none'
+                ? $q->whereNull('campaign_id')
+                : $q->where('campaign_id', $this->campaign_id))
             ->when($this->financial_year, fn (Builder $q) => $q->where('financial_year', $this->financial_year));
     }
 
@@ -153,7 +190,7 @@ class FinancialReports extends Page implements HasForms, HasTable
             // the export must say WHICH admin took it. That is the actual
             // question the trust asks of this report, and it is why
             // temple_payments carries created_by_admin_id at all.
-            fputcsv($handle, ['Date', 'Receipt No.', 'Devotee', 'Phone', 'Amount (₹)', 'Type', 'Purpose', 'FY', 'Status', 'Mode', 'Collected by']);
+            fputcsv($handle, ['Date', 'Receipt No.', 'Devotee', 'Phone', 'Amount (₹)', 'Type', 'Campaign', 'Purpose', 'FY', 'Status', 'Mode', 'Collected by']);
 
             foreach ($donations as $d) {
                 $offline = $d->payment?->isOffline() ?? false;
@@ -165,6 +202,7 @@ class FinancialReports extends Page implements HasForms, HasTable
                     $d->devotee?->phone ?? '-',
                     number_format((float) $d->amount, 2),
                     $d->donationType?->name ?: ucfirst((string) $d->getRawOriginal('donation_type')),
+                    $d->campaign ? ($d->campaign->title_en ?: $d->campaign->title_gu) : '-',
                     $d->purpose ?? '-',
                     $d->financial_year,
                     $d->payment?->status?->value ?? '-',
@@ -189,6 +227,9 @@ class FinancialReports extends Page implements HasForms, HasTable
             'dateFrom' => $from,
             'dateTo' => $to,
             'total' => $total,
+            // A filtered PDF that doesn't say what it was filtered to reads
+            // as the full period's collection to whoever receives it.
+            'filterSummary' => $this->filterSummary(),
         ])->setPaper('a4', 'landscape');
 
         $output = $pdf->output();
@@ -199,8 +240,31 @@ class FinancialReports extends Page implements HasForms, HasTable
     private function getFilteredDonations(): Collection
     {
         return $this->baseQuery()
-            ->with('devotee', 'receipt', 'payment.createdByAdmin')
+            ->with('devotee', 'receipt', 'campaign', 'payment.createdByAdmin')
             ->orderBy('created_at', 'desc')
             ->get();
+    }
+
+    /** Human-readable line describing the non-date filters in force, if any. */
+    private function filterSummary(): ?string
+    {
+        $parts = [];
+
+        if ($this->donation_type_id) {
+            $parts[] = 'Type: '.(DonationType::find($this->donation_type_id)?->name ?? $this->donation_type_id);
+        }
+
+        if ($this->campaign_id === 'none') {
+            $parts[] = 'Campaign: No campaign (general donations)';
+        } elseif ($this->campaign_id) {
+            $campaign = DonationCampaign::find($this->campaign_id);
+            $parts[] = 'Campaign: '.($campaign ? ($campaign->title_en ?: $campaign->title_gu) : $this->campaign_id);
+        }
+
+        if ($this->financial_year) {
+            $parts[] = 'FY: '.$this->financial_year;
+        }
+
+        return $parts === [] ? null : implode(' | ', $parts);
     }
 }

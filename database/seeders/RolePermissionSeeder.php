@@ -119,6 +119,7 @@ class RolePermissionSeeder extends Seeder
      */
     private const WIDGETS = [
         'ActiveContentOverview',      // G4 — was missing
+        'BookingRevenueOverview',
         'ComingSoonToggleWidget',
         'DonationChart',
         'DonationStatsOverview',
@@ -449,6 +450,10 @@ class RolePermissionSeeder extends Seeder
                 [
                     'widget_DonationChart',
                     'widget_DonationStatsOverview',
+                    // Seva + hall money. The accountant already holds
+                    // read-only on both booking resources, so the tiles
+                    // link somewhere they can actually go.
+                    'widget_BookingRevenueOverview',
                     // G5: widget_RecentDonationsTable removed (class gone).
                     // G4: OperationsTodayOverview is the money-shaped
                     // replacement and was previously invisible to everyone.

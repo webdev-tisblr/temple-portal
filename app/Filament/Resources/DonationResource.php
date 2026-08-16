@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\DonationResource\Pages;
 use App\Models\Donation;
+use App\Models\DonationCampaign;
 use App\Models\DonationType;
 use Filament\Forms\Form;
 use Filament\Infolists;
@@ -154,6 +155,26 @@ class DonationResource extends Resource
                         ->get()
                         ->pluck('name', 'id')
                         ->all()),
+                // The table has shown WHICH campaign for a while, but there
+                // was no way to isolate one. 'none' is an explicit option
+                // because "what came in outside the campaigns" is asked as
+                // often as "what did this campaign raise".
+                Tables\Filters\SelectFilter::make('campaign_id')
+                    ->label('Campaign')
+                    ->searchable()
+                    ->options(fn (): array => ['none' => 'No campaign (general donations)']
+                        + DonationCampaign::query()
+                            ->orderByDesc('id')
+                            ->get()
+                            ->mapWithKeys(fn (DonationCampaign $c): array => [
+                                (string) $c->id => ($c->title_en ?: $c->title_gu),
+                            ])
+                            ->all())
+                    ->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
+                        null, '' => $query,
+                        'none' => $query->whereNull('campaign_id'),
+                        default => $query->where('campaign_id', $data['value']),
+                    }),
                 // Item 5.4 — lets staff pull the Gupt Daan register without
                 // exporting the whole table.
                 Tables\Filters\TernaryFilter::make('anonymous')

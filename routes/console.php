@@ -63,6 +63,20 @@ Schedule::command('bookings:clean-stale')
     ->everyFiveMinutes()
     ->withoutOverlapping(10);
 
+// …then delete them once they are safely past any late capture. clean-stale
+// above only flips the status, which left the admin lists full of ghost rows
+// for money never taken. 7 days is a deliberate floor, not a guess: Razorpay
+// can capture after our 30-minute cancel (webhook retry, delayed UPI collect,
+// late bank settlement) and PaymentCaptureService needs the row to still be
+// there to attach that capture to. Lower it with --days if the trust wants a
+// tighter table, but never to zero.
+Schedule::command('bookings:prune-abandoned')
+    ->dailyAt('04:20')
+    ->withoutOverlapping(30)
+    ->onFailure(function (): void {
+        Log::error('Scheduled task failed: bookings:prune-abandoned');
+    });
+
 // Seva reminders — every 5 min. Reminders are pre-computed into
 // temple_seva_reminder_schedules when a booking is confirmed (see
 // SevaReminderScheduler / SevaBookingObserver); this command simply

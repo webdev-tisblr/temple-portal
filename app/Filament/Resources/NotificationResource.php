@@ -111,35 +111,41 @@ class NotificationResource extends Resource
                     Forms\Components\Select::make('intent_target')
                         ->label(fn (Get $get): string => match ($get('intent')) {
                             'seva-detail' => 'Seva',
-                            'campaign-detail' => 'Campaign',
+                            'campaign-detail', 'donate-to-campaign' => 'Campaign',
                             'event-detail' => 'Event',
                             'guide-detail' => 'Guide',
+                            'web-page' => 'Page',
                             default => 'Target',
                         })
                         ->options(function (Get $get): array {
                             return match ($get('intent')) {
                                 'seva-detail' => Seva::query()->orderBy('name_gu')->pluck('name_gu', 'id')->all(),
-                                'campaign-detail' => DonationCampaign::query()->orderBy('title_gu')->pluck('title_gu', 'id')->all(),
+                                'campaign-detail', 'donate-to-campaign' => DonationCampaign::query()->orderBy('title_gu')->pluck('title_gu', 'id')->all(),
                                 'event-detail' => Event::query()->orderByDesc('start_date')->pluck('title_gu', 'id')->all(),
                                 'guide-detail' => \App\Models\Guide::query()
                                     ->where('is_active', true)
                                     ->orderBy('sort_order')
                                     ->pluck('title_gu', 'id')
                                     ->all(),
+                                // CMS pages are addressed by SLUG, not id —
+                                // the app's WebPageScreen loads /pages/{slug}.
+                                'web-page' => \App\Models\Page::query()
+                                    ->where('status', 'published')
+                                    ->orderBy('title_gu')
+                                    ->pluck('title_gu', 'slug')
+                                    ->all(),
                                 default => [],
                             };
                         })
                         ->searchable()
                         ->preload()
-                        ->required(fn (Get $get): bool => in_array(
-                            $get('intent'),
-                            ['seva-detail', 'campaign-detail', 'event-detail', 'guide-detail'],
-                            true,
+                        ->required(fn (Get $get): bool => array_key_exists(
+                            (string) $get('intent'),
+                            self::intentTargetKeys(),
                         ))
-                        ->visible(fn (Get $get): bool => in_array(
-                            $get('intent'),
-                            ['seva-detail', 'campaign-detail', 'event-detail', 'guide-detail'],
-                            true,
+                        ->visible(fn (Get $get): bool => array_key_exists(
+                            (string) $get('intent'),
+                            self::intentTargetKeys(),
                         )),
                 ]),
 
@@ -412,20 +418,67 @@ class NotificationResource extends Resource
      */
     private static function intentOptions(): array
     {
+        // Grouped so the list stays readable now that it covers nearly every
+        // screen the app has (2026-08-17). Every value here MUST have a
+        // matching case in the Flutter DeepLinkRouter — an unknown intent
+        // silently falls back to home, which reads to an admin as "the link
+        // is broken". Keep the two in step when adding a screen.
         return [
-            'home' => 'Home',
-            'campaigns' => 'Campaigns list',
-            'campaign-detail' => 'Specific campaign',
-            'seva-detail' => 'Specific seva',
-            'events' => 'Events list',
-            'event-detail' => 'Specific event',
-            'halls' => 'Halls list',
-            'store' => 'Store',
-            'profile' => 'Profile',
-            'contact' => 'Contact us',
-            'inbox' => 'Notification inbox',
-            'guides' => 'Guides list',
-            'guide-detail' => 'Specific guide',
+            'Main' => [
+                'home' => 'Home',
+                'sevas' => 'Seva list',
+                'seva-detail' => 'Specific seva',
+                'darshan' => 'Daily darshan',
+                'campaigns' => 'Campaigns list',
+                'campaign-detail' => 'Specific campaign',
+                'donate-to-campaign' => 'Donate to a campaign',
+                'store' => 'Store',
+                'halls' => 'Halls list',
+                'events' => 'Events list',
+                'event-detail' => 'Specific event',
+            ],
+            'Content' => [
+                'gallery' => 'Photo gallery',
+                'status-maker' => 'Status maker',
+                'guides' => 'Guides list',
+                'guide-detail' => 'Specific guide',
+                'about' => 'About the trust',
+                'temple-info' => 'Temple info & timings',
+                'trustees' => 'Trustees',
+                'history' => 'Temple history',
+                'web-page' => 'Specific page (CMS)',
+            ],
+            'My account' => [
+                'profile' => 'Profile',
+                'inbox' => 'Notification inbox',
+                'donation-history' => 'My donations',
+                'booking-history' => 'My seva bookings',
+                'hall-bookings' => 'My hall bookings',
+                'orders' => 'My store orders',
+                'receipts' => 'My 80G receipts',
+                'cart' => 'Shopping cart',
+                'contact' => 'Contact us',
+            ],
+        ];
+    }
+
+    /**
+     * Intents that need the admin to pick a specific record, mapped to the
+     * key their id lands under in intent_params. Single source of truth for
+     * the picker's visibility/required-ness AND for the Create/Edit pages'
+     * intent_params conversion, which used to repeat the list three times.
+     *
+     * @return array<string, string>
+     */
+    public static function intentTargetKeys(): array
+    {
+        return [
+            'seva-detail' => 'id',
+            'campaign-detail' => 'id',
+            'donate-to-campaign' => 'id',
+            'event-detail' => 'id',
+            'guide-detail' => 'id',
+            'web-page' => 'slug',
         ];
     }
 }

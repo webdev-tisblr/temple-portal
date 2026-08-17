@@ -68,14 +68,12 @@ class EditNotification extends EditRecord
         $intent = $data['intent'] ?? null;
         unset($data['intent_target']);
 
-        if ($target !== null && $target !== '' && $intent !== null) {
-            $data['intent_params'] = match ($intent) {
-                'seva-detail', 'campaign-detail', 'event-detail', 'guide-detail' => ['id' => $target],
-                default => null,
-            };
-        } else {
-            $data['intent_params'] = null;
-        }
+        // Same shared key map as CreateNotification — records persist under
+        // `id`, CMS pages under `slug`.
+        $key = NotificationResource::intentTargetKeys()[$intent] ?? null;
+        $data['intent_params'] = ($target !== null && $target !== '' && $key !== null)
+            ? [$key => $target]
+            : null;
 
         return $data;
     }

@@ -40,14 +40,13 @@ class CreateNotification extends CreateRecord
         $intent = $data['intent'] ?? null;
         unset($data['intent_target']);
 
-        if ($target !== null && $target !== '' && $intent !== null) {
-            $data['intent_params'] = match ($intent) {
-                'seva-detail', 'campaign-detail', 'event-detail', 'guide-detail' => ['id' => $target],
-                default => null,
-            };
-        } else {
-            $data['intent_params'] = null;
-        }
+        // The param KEY differs per intent (records use `id`, CMS pages use
+        // `slug`) — NotificationResource::intentTargetKeys() owns that map so
+        // this page, the Edit page and the form's picker can't drift apart.
+        $key = NotificationResource::intentTargetKeys()[$intent] ?? null;
+        $data['intent_params'] = ($target !== null && $target !== '' && $key !== null)
+            ? [$key => $target]
+            : null;
 
         $data['created_by'] = Auth::id();
 

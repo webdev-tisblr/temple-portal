@@ -119,6 +119,7 @@ class RolePermissionSeeder extends Seeder
      */
     private const WIDGETS = [
         'ActiveContentOverview',      // G4 — was missing
+        'AppVersionAdoption',         // 2026-08-17 — release reach
         'BookingRevenueOverview',
         'ComingSoonToggleWidget',
         'DonationChart',

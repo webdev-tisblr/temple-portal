@@ -149,7 +149,9 @@ class DarshanCardTemplateService
                 $image,
                 $overlay,
                 (string) $value,
-                ScriptFont::forText((string) $value) ?? $fontPath,
+                // Bold is a separate FILE for GD, so the weight has to be
+                // decided here, at font-resolution time.
+                ScriptFont::forText((string) $value, (bool) ($overlay['bold'] ?? false)) ?? $fontPath,
             );
         }
 
@@ -236,6 +238,8 @@ class DarshanCardTemplateService
         $x = (int) ($overlay['x'] ?? 0);
         $y = (int) ($overlay['y'] ?? 0);
         $fontSize = (float) ($overlay['font_size'] ?? 16);
+        // Overlays saved before the bold toggle existed have no key → normal.
+        $bold = (bool) ($overlay['bold'] ?? false);
         $colorHex = ltrim($overlay['color'] ?? '#000000', '#');
         if (strlen($colorHex) === 3) {
             $colorHex = $colorHex[0].$colorHex[0].$colorHex[1].$colorHex[1].$colorHex[2].$colorHex[2];
@@ -254,7 +258,7 @@ class DarshanCardTemplateService
             && ShapedText::needsShaping($text)
             && ShapedText::available()
         ) {
-            $png = ShapedText::render($text, $fontSize, $colorHex, $width > 0 ? $width : null);
+            $png = ShapedText::render($text, $fontSize, $colorHex, $width > 0 ? $width : null, null, $bold);
             if ($png instanceof \GdImage) {
                 $dx = $width > 0 ? $x + (int) round(max(0, ($width - imagesx($png)) / 2)) : $x;
                 imagealphablending($image, true);

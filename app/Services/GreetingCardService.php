@@ -358,7 +358,9 @@ class GreetingCardService
                 $image,
                 $overlay,
                 (string) $value,
-                ScriptFont::forText((string) $value) ?? $fontPath,
+                // Bold is a separate FILE for GD, so the weight has to be
+                // decided here, at font-resolution time.
+                ScriptFont::forText((string) $value, (bool) ($overlay['bold'] ?? false)) ?? $fontPath,
             );
         } elseif ($type === 'image') {
             $this->applyImageOverlay($image, $overlay, $isBlank ? null : (string) $value, $cardDate);
@@ -503,6 +505,8 @@ class GreetingCardService
         $fontSize = (float) ($overlay['font_size'] ?? 16);
         $colorHex = $overlay['color'] ?? '#000000';
         $angle = (float) ($overlay['angle'] ?? 0);
+        // Overlays saved before the bold toggle existed have no key → normal.
+        $bold = (bool) ($overlay['bold'] ?? false);
 
         [$r, $g, $b] = $this->hexToRgb($colorHex);
         $color = imagecolorallocate($image, $r, $g, $b);
@@ -519,7 +523,7 @@ class GreetingCardService
             && ShapedText::needsShaping($text)
             && ShapedText::available()
         ) {
-            $png = ShapedText::render($text, $fontSize, $colorHexForShaping, $width > 0 ? $width : null);
+            $png = ShapedText::render($text, $fontSize, $colorHexForShaping, $width > 0 ? $width : null, null, $bold);
             if ($png instanceof \GdImage) {
                 $dx = $width > 0 ? $x + (int) round(max(0, ($width - imagesx($png)) / 2)) : $x;
                 imagealphablending($image, true);

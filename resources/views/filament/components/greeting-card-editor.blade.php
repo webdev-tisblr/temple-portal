@@ -56,7 +56,11 @@
                  :class="selectedIdx === idx ? 'ring-2 ring-blue-500 ring-offset-1' : 'hover:ring-2 hover:ring-blue-300'"
                  @click.stop="selectedIdx = idx">
                 <template x-if="overlay.type === 'text'">
-                    <div :style="'width:' + ((overlay.width || 300) * scale) + 'px; font-size:' + Math.max(8, (overlay.font_size || 24) * scale) + 'px; color:' + (overlay.color || '#333') + '; font-weight:bold; text-align:center; white-space:normal; overflow-wrap:break-word; word-break:break-word; text-shadow: 0 1px 3px rgba(0,0,0,0.4); line-height:1.4;'"
+                    {{-- font-weight follows the overlay's own bold flag. It
+                         used to be hardcoded 'bold', so the preview lied:
+                         every overlay looked bold here and rendered normal
+                         on the real card (2026-08-17). --}}
+                    <div :style="'width:' + ((overlay.width || 300) * scale) + 'px; font-size:' + Math.max(8, (overlay.font_size || 24) * scale) + 'px; color:' + (overlay.color || '#333') + '; font-weight:' + (overlay.bold ? '700' : '400') + '; text-align:center; white-space:normal; overflow-wrap:break-word; word-break:break-word; text-shadow: 0 1px 3px rgba(0,0,0,0.4); line-height:1.4;'"
                          x-text="getSampleText(overlay.field_key)"></div>
                 </template>
                 <template x-if="overlay.type === 'image'">
@@ -124,6 +128,18 @@
                     <label class="text-xs font-medium text-gray-500">Color</label>
                     <input type="color" x-model="overlays[selectedIdx].color" @input="syncToForm()" class="w-full h-9 rounded-lg border-gray-300 dark:border-gray-600 cursor-pointer">
                 </div>
+                <div x-show="overlays[selectedIdx]?.type === 'text'">
+                    <label class="text-xs font-medium text-gray-500">Weight</label>
+                    <button type="button"
+                        @click="overlays[selectedIdx].bold = !overlays[selectedIdx].bold; syncToForm()"
+                        class="w-full h-9 rounded-lg border text-sm transition flex items-center justify-center gap-1.5"
+                        :class="overlays[selectedIdx].bold
+                            ? 'bg-primary-600 border-primary-600 text-white font-bold'
+                            : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300'">
+                        <span style="font-weight:800;">B</span>
+                        <span x-text="overlays[selectedIdx].bold ? 'Bold' : 'Normal'"></span>
+                    </button>
+                </div>
                 <div>
                     <label class="text-xs font-medium text-gray-500">Width (px)</label>
                     <input type="number" x-model.number="overlays[selectedIdx].width" @input="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
@@ -157,6 +173,11 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             // Text overlays wrap+center within a width; backfill a default for
             // templates saved before widths existed.
             width: (o.type === 'text' && !o.width) ? 300 : o.width,
+            // Templates saved before the bold toggle carry no flag. Normalise
+            // to FALSE, not true: the renderer has always drawn them at normal
+            // weight, so false is what they actually look like today — the old
+            // always-bold preview was the thing that was wrong.
+            bold: o.type === 'text' ? (o.bold ?? false) : o.bold,
             // Image slots gained a shape (square|circle); default older
             // templates to square so the <select> shows a value.
             shape: o.type === 'image' ? (o.shape || 'square') : o.shape,
@@ -234,6 +255,10 @@ function greetingCardEditor(initialOverlays, initialConfig) {
                 x: 50 + (this.overlays.length * 20),
                 y: 50 + (this.overlays.length * 20),
                 font_size: type === 'text' ? 32 : undefined,
+                // Bold by default for NEW overlays: that is what the preview
+                // has always shown, so it keeps freshly placed text looking
+                // the way admins already expect.
+                bold: type === 'text' ? true : undefined,
                 color: type === 'text' ? '#881337' : undefined,
                 width: type === 'image' ? 150 : 300,
                 height: type === 'image' ? 150 : undefined,
@@ -339,7 +364,9 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             let config = {
                 overlays: this.overlays.map(o => {
                     let c = { field_key: o.field_key, type: o.type, x: o.x, y: o.y };
-                    if (o.type === 'text') { c.font_size = o.font_size || 24; c.color = o.color || '#333'; c.width = o.width || 300; }
+                    // NOTE: this is a WHITELIST — a key not copied here is
+                    // dropped on save. Any new overlay property must be added.
+                    if (o.type === 'text') { c.font_size = o.font_size || 24; c.color = o.color || '#333'; c.width = o.width || 300; c.bold = !!o.bold; }
                     if (o.type === 'image') { c.width = o.width || 150; c.height = o.height || 150; c.shape = o.shape || 'square'; }
                     return c;
                 }),

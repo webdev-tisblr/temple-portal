@@ -60,9 +60,10 @@ final class ShapedText
      * @param  string|null  $fontFamily  Fontconfig family override (e.g. 'Noto Serif Gujarati')
      *                                   so callers can match their surface's typography;
      *                                   null keeps the script-detected sans default.
+     * @param  bool  $bold  Render at weight bold (card overlays' bold toggle).
      * @return \GdImage|null null on any failure — caller uses its GD fallback.
      */
-    public static function render(string $text, float $fontSizePx, string $hexColor, ?int $wrapWidthPx = null, ?string $fontFamily = null): ?\GdImage
+    public static function render(string $text, float $fontSizePx, string $hexColor, ?int $wrapWidthPx = null, ?string $fontFamily = null, bool $bold = false): ?\GdImage
     {
         if (! self::available() || trim($text) === '') {
             return null;
@@ -71,6 +72,12 @@ final class ShapedText
         $family = $fontFamily ?? (preg_match('/[\x{0A80}-\x{0AFF}]/u', $text)
             ? 'Noto Sans Gujarati'
             : 'Noto Sans Devanagari');
+
+        // Weight rides in the pango font DESCRIPTION ("Family Style Size"),
+        // which is how pango asks fontconfig for a real bold face — and it
+        // synthesises an emboldened one when the family ships none, so this
+        // never degrades to tofu the way a missing GD .ttf would.
+        $style = $bold ? ' Bold' : '';
 
         $tmp = tempnam(sys_get_temp_dir(), 'shaped-');
         if ($tmp === false) {
@@ -87,7 +94,7 @@ final class ShapedText
             'LC_ALL=C.UTF-8 pango-view -q --dpi=72 -o %s --background=transparent --foreground=%s --font=%s %s --align=center -t %s 2>&1',
             escapeshellarg($png),
             escapeshellarg('#'.ltrim($hexColor, '#')),
-            escapeshellarg($family.' '.round($fontSizePx, 1)),
+            escapeshellarg($family.$style.' '.round($fontSizePx, 1)),
             $wrapWidthPx !== null && $wrapWidthPx > 0 ? '--width='.(int) $wrapWidthPx.' --wrap=word-char' : '',
             escapeshellarg($text),
         );

@@ -147,6 +147,13 @@ class PaymentCaptureService
                 // Merged flow, 2026-08-04; the old separate seva.receipt
                 // trigger is retired.
                 $captured['booking'] = $booking;
+
+                // A seva that offers a prasad/vastra choice hands over a real
+                // item, so it consumes stock exactly as a store sale does
+                // (2026-08-17). Until now only store orders decremented, so a
+                // product could be booked through sevas indefinitely and the
+                // shelf count never moved.
+                $this->decrementSevaProductStock($booking);
             }
 
             // ---- Store order + stock decrement ---------------------
@@ -493,6 +500,63 @@ class PaymentCaptureService
      * A missing booking_date is treated as due now rather than never — losing
      * the card entirely would be worse than sending it early.
      */
+    /**
+     * Consume stock for the product chosen on a seva booking.
+     *
+     * Mirrors the store-order block above, including its failure posture: the
+     * money is already taken by this point, so a shortfall is logged loudly
+     * for an admin to reconcile rather than thrown, which would roll back a
+     * paid booking. Stock floors at 0 and never goes negative.
+     *
+     * Runs inside markCaptured's transaction, with the product row locked, so
+     * a store checkout and a seva booking racing for the last unit serialise.
+     */
+    private function decrementSevaProductStock(SevaBooking $booking): void
+    {
+        if (blank($booking->selected_product_id)) {
+            return;
+        }
+
+        $product = Product::whereKey($booking->selected_product_id)
+            ->lockForUpdate()
+            ->first();
+
+        if ($product === null) {
+            Log::warning('PaymentCapture: seva product missing during stock decrement', [
+                'booking_id' => $booking->getKey(),
+                'product_id' => $booking->selected_product_id,
+            ]);
+
+            return;
+        }
+
+        $quantity = max(1, (int) $booking->quantity);
+        $variant = trim((string) $booking->selected_variant_label);
+
+        if ($product->has_variants && $variant !== '') {
+            if (! $product->decrementVariantStock($variant, $quantity)) {
+                Log::critical('PaymentCapture: seva variant stock decrement failed (oversell/missing)', [
+                    'booking_id' => $booking->getKey(),
+                    'product_id' => $product->id,
+                    'variant_label' => $variant,
+                    'qty' => $quantity,
+                ]);
+            }
+
+            return;
+        }
+
+        $shortfall = $product->decrementStock($quantity);
+        if ($shortfall > 0) {
+            Log::critical('PaymentCapture: seva oversell — insufficient stock at capture', [
+                'booking_id' => $booking->getKey(),
+                'product_id' => $product->id,
+                'qty_booked' => $quantity,
+                'qty_short' => $shortfall,
+            ]);
+        }
+    }
+
     public function sevaCardIsDueNow(SevaBooking $booking): bool
     {
         if ($booking->booking_date === null) {

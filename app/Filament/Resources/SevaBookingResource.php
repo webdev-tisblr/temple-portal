@@ -190,6 +190,21 @@ class SevaBookingResource extends Resource
             ])
             ->defaultSort('booking_date', 'desc')
             ->filters([
+                // Paid-only, ON by default — the same treatment the donations
+                // list has had (2026-08-17). A booking sits at `pending` while
+                // the devotee is in Razorpay and is flipped to `cancelled` by
+                // bookings:clean-stale when they never finish, so the list was
+                // padded with abandoned checkouts that no one ever paid for
+                // and that the temple must not prepare anything for.
+                //
+                // `refunded` stays IN: the money genuinely moved, and hiding
+                // it would erase a real transaction from the day's view.
+                // Operators untick this to chase an abandoned booking.
+                Tables\Filters\Filter::make('paid_only')
+                    ->label('Paid bookings only')
+                    ->default()
+                    ->query(fn (Builder $query): Builder => $query
+                        ->whereIn('status', ['confirmed', 'completed', 'refunded'])),
                 // "Show me every booking for this seva" is the question this
                 // list gets asked most — the seva was visible as a column but
                 // there was no way to isolate one (2026-08-17).

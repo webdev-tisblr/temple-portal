@@ -225,15 +225,20 @@ class DashboardController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255',
+            'email' => 'nullable|email:rfc|max:255',
             'city' => 'nullable|string|max:100',
             'state' => 'nullable|string|max:100',
-            'pincode' => 'nullable|string|max:10',
+            // Optional here (this is the ongoing edit form, not signup), but
+            // when given it must be a real Indian pincode — a malformed one
+            // silently breaks prasad despatch.
+            'pincode' => ['nullable', 'regex:/^[1-9][0-9]{5}$/'],
             'date_of_birth' => 'nullable|date',
             'language' => 'nullable|in:gu,hi,en',
             'pan_number' => 'nullable|string|size:10',
             'clear_pan' => 'nullable|boolean',
             'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+        ], [
+            'pincode.regex' => __('dashboard.pincode_invalid'),
         ]);
 
         $updateData = collect($validated)->except(['pan_number', 'clear_pan', 'profile_photo'])->filter()->toArray();
@@ -293,14 +298,22 @@ class DashboardController extends Controller
     {
         $devotee = Auth::guard('devotee')->user();
 
+        // First-time signup: everything except PAN is compulsory (2026-08-17).
+        // This form is only ever reached once — showCompleteProfile() bounces
+        // a devotee whose name is already set — so requiring the full profile
+        // here costs an existing devotee nothing while giving the trust a
+        // complete record (address is what receipts and prasad despatch need).
+        // PAN stays optional by law/consent: 80G is opt-in.
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'address' => 'nullable|string|max:500',
-            'city' => 'nullable|string|max:100',
-            'state' => 'nullable|string|max:100',
-            'pincode' => 'nullable|string|max:10',
+            'email' => 'required|email:rfc|max:255',
+            'address' => 'required|string|max:500',
+            'city' => 'required|string|max:100',
+            'state' => 'required|string|max:100',
+            'pincode' => ['required', 'regex:/^[1-9][0-9]{5}$/'],
             'pan_number' => 'nullable|string|size:10',
+        ], [
+            'pincode.regex' => __('dashboard.pincode_invalid'),
         ]);
 
         $updateData = collect($validated)->except(['pan_number'])->filter()->toArray();

@@ -55,43 +55,46 @@
                        placeholder="{{ __('dashboard.full_name_placeholder') }}" class="dash-input">
             </div>
 
-            {{-- Email (optional) --}}
+            {{-- Everything below except PAN is required at signup
+                 (2026-08-17). `required` here only gives the browser's own
+                 prompt — saveCompleteProfile() is what actually enforces it. --}}
+
+            {{-- Email (required) --}}
             <div>
                 <label for="cp_email" class="dash-label">
-                    {{ __('common.email') }}
-                    <span class="text-xs font-normal" style="color: #8A7860;">{{ __('store.optional') }}</span>
+                    {{ __('common.email') }} <span style="color: #A83232;">*</span>
                 </label>
-                <input type="email" name="email" id="cp_email" value="{{ old('email') }}"
+                <input type="email" name="email" id="cp_email" value="{{ old('email') }}" required
                        placeholder="example@email.com" class="dash-input">
             </div>
 
-            {{-- Address --}}
+            {{-- Address (required) --}}
             <div>
                 <label for="cp_address" class="dash-label">
-                    {{ __('store.address') }}
-                    <span class="text-xs font-normal" style="color: #8A7860;">{{ __('store.optional') }}</span>
+                    {{ __('store.address') }} <span style="color: #A83232;">*</span>
                 </label>
-                <input type="text" name="address" id="cp_address" value="{{ old('address') }}"
+                <input type="text" name="address" id="cp_address" value="{{ old('address') }}" required
                        placeholder="{{ __('dashboard.address_placeholder') }}" class="dash-input">
             </div>
 
-            {{-- City & State --}}
+            {{-- City & State (required) --}}
             <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div>
-                    <label for="cp_city" class="dash-label">{{ __('store.city') }}</label>
-                    <input type="text" name="city" id="cp_city" value="{{ old('city') }}"
+                    <label for="cp_city" class="dash-label">{{ __('store.city') }} <span style="color: #A83232;">*</span></label>
+                    <input type="text" name="city" id="cp_city" value="{{ old('city') }}" required
                            placeholder="{{ __('dashboard.city_placeholder_ex') }}" class="dash-input">
                 </div>
                 <div>
-                    <label for="cp_state" class="dash-label">{{ __('store.state') }}</label>
-                    <input type="text" name="state" id="cp_state" value="{{ old('state', 'Gujarat') }}" class="dash-input">
+                    <label for="cp_state" class="dash-label">{{ __('store.state') }} <span style="color: #A83232;">*</span></label>
+                    <input type="text" name="state" id="cp_state" value="{{ old('state', 'Gujarat') }}" required class="dash-input">
                 </div>
             </div>
 
-            {{-- Pincode --}}
+            {{-- Pincode (required, 6 digits) --}}
             <div>
-                <label for="cp_pincode" class="dash-label">{{ __('store.pincode') }}</label>
-                <input type="text" name="pincode" id="cp_pincode" value="{{ old('pincode') }}" maxlength="6"
+                <label for="cp_pincode" class="dash-label">{{ __('store.pincode') }} <span style="color: #A83232;">*</span></label>
+                <input type="text" name="pincode" id="cp_pincode" value="{{ old('pincode') }}" maxlength="6" required
+                       inputmode="numeric" pattern="[1-9][0-9]{5}" title="{{ __('dashboard.pincode_invalid') }}"
                        placeholder="370201" class="dash-input">
             </div>
 

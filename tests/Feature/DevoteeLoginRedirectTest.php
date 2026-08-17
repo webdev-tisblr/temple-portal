@@ -192,7 +192,7 @@ class DevoteeLoginRedirectTest extends TestCase
 
         $this->assertSame(url('/dashboard/orders'), session('url.intended'));
 
-        $this->post('/profile/complete', ['name' => 'Bhakt Ji'])
+        $this->post('/profile/complete', self::completeProfilePayload())
             ->assertRedirect(url('/dashboard/orders'));
     }
 
@@ -201,7 +201,92 @@ class DevoteeLoginRedirectTest extends TestCase
         $devotee = $this->devotee(['name' => '', 'email' => null]);
 
         $this->actingAs($devotee, 'devotee')
-            ->post('/profile/complete', ['name' => 'Bhakt Ji'])
+            ->post('/profile/complete', self::completeProfilePayload())
             ->assertRedirect(route('dashboard.index'));
+    }
+
+    // ── signup requires a complete profile (2026-08-17) ────────────────
+
+    /**
+     * Everything except PAN is compulsory at first-time signup.
+     *
+     * @return array<string, string>
+     */
+    private static function completeProfilePayload(array $overrides = []): array
+    {
+        return array_merge([
+            'name' => 'Bhakt Ji',
+            'email' => 'bhakt@example.com',
+            'address' => '12 Mandir Road',
+            'city' => 'Bhuj',
+            'state' => 'Gujarat',
+            'pincode' => '370001',
+        ], $overrides);
+    }
+
+    /** @return array<string, array{string}> */
+    public static function compulsorySignupFieldProvider(): array
+    {
+        return [
+            'name' => ['name'],
+            'email' => ['email'],
+            'address' => ['address'],
+            'city' => ['city'],
+            'state' => ['state'],
+            'pincode' => ['pincode'],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('compulsorySignupFieldProvider')]
+    public function test_signup_refuses_a_missing_field(string $field): void
+    {
+        $devotee = $this->devotee(['name' => '', 'email' => null]);
+
+        $this->actingAs($devotee, 'devotee')
+            ->post('/profile/complete', self::completeProfilePayload([$field => '']))
+            ->assertSessionHasErrors($field);
+
+        $this->assertSame('', (string) $devotee->fresh()->name, 'nothing should have been saved');
+    }
+
+    public function test_pan_stays_optional_at_signup(): void
+    {
+        $devotee = $this->devotee(['name' => '', 'email' => null]);
+
+        $this->actingAs($devotee, 'devotee')
+            ->post('/profile/complete', self::completeProfilePayload())
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('Bhakt Ji', $devotee->fresh()->name);
+    }
+
+    /** @return array<string, array{string}> */
+    public static function badPincodeProvider(): array
+    {
+        return [
+            'too short' => ['37020'],
+            'too long' => ['3702011'],
+            'leading zero' => ['070201'],
+            'letters' => ['37020A'],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('badPincodeProvider')]
+    public function test_signup_refuses_a_malformed_pincode(string $pincode): void
+    {
+        $devotee = $this->devotee(['name' => '', 'email' => null]);
+
+        $this->actingAs($devotee, 'devotee')
+            ->post('/profile/complete', self::completeProfilePayload(['pincode' => $pincode]))
+            ->assertSessionHasErrors('pincode');
+    }
+
+    public function test_signup_refuses_a_malformed_email(): void
+    {
+        $devotee = $this->devotee(['name' => '', 'email' => null]);
+
+        $this->actingAs($devotee, 'devotee')
+            ->post('/profile/complete', self::completeProfilePayload(['email' => 'not-an-email']))
+            ->assertSessionHasErrors('email');
     }
 }

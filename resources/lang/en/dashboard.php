@@ -63,6 +63,7 @@ return [
     'clear_pan' => 'Remove the saved PAN',
     'clear_pan_hint' => 'Removes your PAN from your profile. Future donations will not get an 80G receipt.',
     'pan_needed_banner' => 'Add your PAN below to receive an 80G receipt, then save — we will take you back to your donation.',
+    'pincode_invalid' => 'Enter a valid 6-digit pincode.',
     'pan_invalid' => 'Invalid PAN format.',
     'pan_invalid_example' => 'Invalid PAN format. (ABCDE1234F)',
     'profile_updated' => 'Profile updated.',

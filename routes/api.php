@@ -139,9 +139,15 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::get('/blog/{slug}', fn () => response()->json(
         ['success' => false, 'message' => 'Post not found'], 404));
 
-    // Public: Contact & Donation Types
-    // Tighter throttle: contact form is a spam/abuse target.
-    Route::post('/contact', [ContentController::class, 'submitContact'])->middleware('throttle:10,1');
+    // Contact form — AUTHENTICATED since 2026-08-17. Identity (name/phone/
+    // email) is read from the token's devotee, so the request body carries
+    // only category/subject/message. App builds older than that release post
+    // unauthenticated and will get a 401; those builds predate the
+    // login-first requirement and are expected to update.
+    // The tight throttle stays — the form is still a spam/abuse target.
+    Route::post('/contact', [ContentController::class, 'submitContact'])
+        ->middleware(['auth:sanctum', 'throttle:10,1']);
+    Route::get('/contact-categories', [ContentController::class, 'contactCategories']);
     Route::get('/donation-types', [ContentController::class, 'donationTypes']);
 
     // Webhooks (no auth)

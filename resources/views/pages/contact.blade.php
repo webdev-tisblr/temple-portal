@@ -35,38 +35,53 @@
             <div class="card-sacred p-6 sm:p-8">
                 <h2 class="text-xl font-bold text-gold mb-6">{{ __('contact.send_message') }}</h2>
 
+                @guest('devotee')
+                    {{-- Sending requires a login (2026-08-17). The contact
+                         DETAILS beside this panel stay public — only the form
+                         is gated, matching the seva/hall booking pattern. --}}
+                    <p class="text-sm text-amber-100/60 mb-5">{{ __('contact.login_to_send') }}</p>
+                    <a href="{{ login_url() }}" class="btn-divine inline-flex items-center justify-center w-full sm:w-auto px-8 py-3">
+                        {{ __('contact.login_to_send_cta') }}
+                    </a>
+                @else
+                @php $devotee = auth('devotee')->user(); @endphp
                 <form method="POST" action="{{ route('contact.submit') }}" class="space-y-5">
                     @csrf
 
+                    {{-- Identity is read from the profile server-side; these
+                         are shown read-only so the devotee can see who the
+                         message will come from, and carry no name attribute
+                         so nothing here is submitted or trusted. --}}
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div>
-                            <label for="name" class="block text-sm font-medium text-amber-600 mb-1.5">
-                                {{ __('store.name') }} <span class="text-red-400">*</span>
-                            </label>
-                            <input type="text" name="name" id="name"
-                                   value="{{ old('name') }}"
-                                   placeholder="{{ __('contact.name_placeholder') }}"
-                                   class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20 @error('name') border-red-700/50 @enderror">
-                            @error('name')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+                            <label class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('store.name') }}</label>
+                            <input type="text" value="{{ $devotee->name }}" readonly disabled
+                                   class="w-full px-4 py-2.5 bg-amber-900/10 border border-amber-800/20 rounded-lg text-sm text-amber-100/60 cursor-not-allowed">
                         </div>
-
                         <div>
-                            <label for="phone" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('store.phone') }}</label>
-                            <input type="tel" name="phone" id="phone"
-                                   value="{{ old('phone') }}"
-                                   placeholder="+91 XXXXX XXXXX"
-                                   class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20 @error('phone') border-red-700/50 @enderror">
-                            @error('phone')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+                            <label class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('store.phone') }}</label>
+                            <input type="tel" value="{{ $devotee->phone }}" readonly disabled
+                                   class="w-full px-4 py-2.5 bg-amber-900/10 border border-amber-800/20 rounded-lg text-sm text-amber-100/60 cursor-not-allowed">
                         </div>
                     </div>
+                    <p class="dash-hint -mt-2">
+                        {{ __('contact.identity_from_profile') }}
+                        <a href="{{ route('dashboard.profile') }}" class="text-amber-500 hover:text-gold underline">{{ __('contact.edit_profile') }}</a>
+                    </p>
 
+                    {{-- What kind of message this is, so the trust can triage
+                         suggestions separately from queries and complaints. --}}
                     <div>
-                        <label for="email" class="block text-sm font-medium text-amber-600 mb-1.5">{{ __('common.email') }}</label>
-                        <input type="email" name="email" id="email"
-                               value="{{ old('email') }}"
-                               placeholder="email@example.com"
-                               class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20 @error('email') border-red-700/50 @enderror">
-                        @error('email')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
+                        <label for="category" class="block text-sm font-medium text-amber-600 mb-1.5">
+                            {{ __('contact.category') }} <span class="text-red-400">*</span>
+                        </label>
+                        <select name="category" id="category"
+                                class="w-full px-4 py-2.5 bg-transparent border border-amber-800/30 rounded-lg text-sm text-amber-100 focus:border-amber-600 focus:ring-1 focus:ring-amber-600/20 @error('category') border-red-700/50 @enderror">
+                            @foreach(\App\Enums\ContactCategory::options() as $value => $label)
+                                <option value="{{ $value }}" class="bg-stone-900" @selected(old('category') === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        @error('category')<p class="text-xs text-red-400 mt-1">{{ $message }}</p>@enderror
                     </div>
 
                     <div>
@@ -99,6 +114,7 @@
                     </button>
 
                 </form>
+                @endguest
             </div>
         </div>
 

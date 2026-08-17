@@ -39,13 +39,27 @@ class ContactSubmissionResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Sender')->schema([
-                Forms\Components\TextInput::make('name')->disabled(),
-                Forms\Components\TextInput::make('phone')->disabled(),
-                Forms\Components\TextInput::make('email')->disabled(),
-                Forms\Components\TextInput::make('ip_address')->label('IP')->disabled(),
-            ])->columns(2),
+            Forms\Components\Section::make('Sender')
+                ->description('Name and phone are copied from the devotee\'s profile at submission time — the form no longer lets anyone type them.')
+                ->schema([
+                    Forms\Components\TextInput::make('name')->disabled(),
+                    Forms\Components\TextInput::make('phone')->disabled(),
+                    Forms\Components\TextInput::make('email')->disabled(),
+                    Forms\Components\TextInput::make('ip_address')->label('IP')->disabled(),
+                    // Placeholder, not a relation TextInput — dot-notation on
+                    // a related model does not hydrate on an Edit page.
+                    Forms\Components\Placeholder::make('devotee_link')
+                        ->label('Devotee account')
+                        ->content(fn (?ContactSubmission $record): string => $record?->devotee
+                            ? $record->devotee->name.' ('.$record->devotee->phone.')'
+                            : '— submitted before login was required —'),
+                ])->columns(2),
             Forms\Components\Section::make('Message')->schema([
+                Forms\Components\TextInput::make('category')
+                    ->formatStateUsing(fn ($state): string => $state instanceof \App\Enums\ContactCategory
+                        ? $state->label()
+                        : (string) $state)
+                    ->disabled(),
                 Forms\Components\TextInput::make('subject')->disabled(),
                 Forms\Components\Textarea::make('message')->rows(6)->disabled(),
             ]),
@@ -70,6 +84,20 @@ class ContactSubmissionResource extends Resource
                     ->falseColor('warning'),
                 Tables\Columns\TextColumn::make('name')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('phone')->searchable(),
+                // "Which of these are suggestions?" is the question this
+                // inbox gets asked most, so it earns a column and a filter.
+                Tables\Columns\TextColumn::make('category')
+                    ->badge()
+                    ->formatStateUsing(fn ($state): string => $state instanceof \App\Enums\ContactCategory
+                        ? $state->label()
+                        : (string) $state)
+                    ->color(fn ($state): string => match ($state instanceof \App\Enums\ContactCategory ? $state->value : $state) {
+                        'suggestion' => 'success',
+                        'complaint' => 'danger',
+                        'feedback' => 'info',
+                        'seva_request' => 'warning',
+                        default => 'gray',
+                    }),
                 Tables\Columns\TextColumn::make('subject')->limit(40)->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime('d M Y H:i')
@@ -79,6 +107,9 @@ class ContactSubmissionResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_read')->label('Read status'),
+                Tables\Filters\SelectFilter::make('category')
+                    ->label('Type')
+                    ->options(fn (): array => \App\Enums\ContactCategory::options()),
             ])
             ->actions([
                 Tables\Actions\Action::make('markRead')

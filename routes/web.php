@@ -155,7 +155,12 @@ Route::redirect('/blog/{slug}', '/', 301);
 
 // Contact
 Route::get('/contact', [ContactController::class, 'index'])->name('contact');
-Route::post('/contact', [ContactController::class, 'submit'])->name('contact.submit')->middleware('turnstile');
+// Sending a message requires a login (2026-08-17): every submission is tied
+// to a devotee, and its name/phone come from that profile. The GET page stays
+// public — the trust's address/phone/email must remain readable by anyone.
+Route::post('/contact', [ContactController::class, 'submit'])
+    ->name('contact.submit')
+    ->middleware(['auth:devotee', 'turnstile']);
 
 // Permanent signed receipt/invoice links — embedded in confirmation
 // messages (WhatsApp document headers, email bodies). Signature is the

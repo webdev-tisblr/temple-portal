@@ -598,31 +598,58 @@ class ContentController extends BaseApiController
     /**
      * Handle contact form submission.
      */
+    /**
+     * The contact-form categories, localized via X-Locale, so the app renders
+     * the same list the website and admin use without hardcoding it.
+     */
+    public function contactCategories(): JsonResponse
+    {
+        $categories = \App\Support\LocalizedCache::remember('content.contact_categories.v1', 3600, function () {
+            return collect(\App\Enums\ContactCategory::cases())
+                ->map(fn (\App\Enums\ContactCategory $c) => [
+                    'value' => $c->value,
+                    'label' => $c->label(),
+                ])
+                ->all();
+        });
+
+        return $this->success($categories);
+    }
+
     public function submitContact(Request $request): JsonResponse
     {
-        $key = 'contact:' . ($request->ip() ?? 'unknown');
+        // Login required since 2026-08-17 — the route sits behind
+        // auth:sanctum, so a user is always present here.
+        $devotee = $request->user();
+        if ($devotee === null) {
+            return $this->error('કૃપા કરી પહેલા લોગિન કરો.', 401);
+        }
+
+        // Per-devotee rather than per-IP: everyone on one temple wifi used to
+        // share a single 3/hour budget.
+        $key = 'contact:' . $devotee->id;
         if (RateLimiter::tooManyAttempts($key, 3)) {
             return $this->error('ઘણા બધા પ્રયાસો. કૃપા કરી થોડા સમય પછી ફરી પ્રયાસ કરો.', 429);
         }
         RateLimiter::hit($key, 3600);
 
+        // name/phone/email deliberately absent — identity comes from the
+        // authenticated profile so a client cannot write someone else's.
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'phone' => 'required|string|max:15',
-            'email' => 'nullable|email|max:255',
+            'category' => ['nullable', \Illuminate\Validation\Rule::enum(\App\Enums\ContactCategory::class)],
             'subject' => 'required|string|max:255',
             'message' => 'required|string|max:2000',
         ]);
 
-        $submission = ContactSubmission::create(array_merge($validated, [
-            'ip_address' => $request->ip(),
-            'is_read' => false,
-        ]));
+        $submission = ContactSubmission::fromDevotee($devotee, $validated, $request->ip());
 
         app(\App\Services\Notifications\NotificationService::class)->dispatch(
             'contact.submitted',
             [
                 'submission' => $submission,
+                // Resolved label, not the enum — formatForDisplay would print
+                // the raw backing value ("seva_request") to the admin.
+                'category_label' => $submission->category->label(),
                 'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
             ],
             idempotencyKey: "contact-submission:{$submission->id}",

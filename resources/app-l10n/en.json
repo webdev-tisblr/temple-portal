@@ -636,5 +636,6 @@
   "contact.category_complaint": "Complaint",
   "contact.category_seva_request": "Seva / puja request",
   "contact.category_other": "Something else",
-  "contact.identity_from_profile": "Sent with the name and mobile number on your profile."
+  "contact.identity_from_profile": "Sent with the name and mobile number on your profile.",
+  "about.call_us": "Call us"
 }

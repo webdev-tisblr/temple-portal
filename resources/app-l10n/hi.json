@@ -624,5 +624,17 @@
   "guides.media": "फ़ोटो और वीडियो",
   "guides.load_error": "गाइड लोड नहीं हो सकी",
   "gallery.read_more": "और पढ़ें",
-  "gallery.read_less": "कम दिखाएँ"
+  "gallery.read_less": "कम दिखाएँ",
+  "validate.email_required": "ईमेल पता दर्ज करें",
+  "validate.pincode_required": "पिनकोड दर्ज करें",
+  "validate.pincode_invalid": "मान्य 6-अंकों का पिनकोड दर्ज करें",
+  "profile.complete_prompt": "आगे बढ़ने के लिए कृपया अपनी प्रोफ़ाइल पूरी करें। केवल PAN वैकल्पिक है।",
+  "contact.category": "यह किस बारे में है?",
+  "contact.category_query": "प्रश्न / पूछताछ",
+  "contact.category_suggestion": "सुझाव",
+  "contact.category_feedback": "प्रतिक्रिया",
+  "contact.category_complaint": "शिकायत",
+  "contact.category_seva_request": "सेवा / पूजा अनुरोध",
+  "contact.category_other": "कुछ और",
+  "contact.identity_from_profile": "आपकी प्रोफ़ाइल के नाम और मोबाइल नंबर के साथ भेजा जाएगा।"
 }

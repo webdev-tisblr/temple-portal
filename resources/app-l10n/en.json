@@ -221,7 +221,7 @@
   "seva.none_available": "No sevas available",
   "seva.no_dates_month": "No dates available this month",
   "seva.book_short": "Book",
-  "seva.from_amount": "From ₹{}",
+  "seva.from_amount": "Starting ₹{}",
   "seva.cat_all": "All",
   "seva.cat_shringar": "Shringar",
   "seva.cat_vastra": "Vastra",
@@ -624,5 +624,17 @@
   "guides.media": "Photos & Videos",
   "guides.load_error": "Could not load guides",
   "gallery.read_more": "Read more",
-  "gallery.read_less": "Show less"
+  "gallery.read_less": "Show less",
+  "validate.email_required": "Enter email address",
+  "validate.pincode_required": "Enter pincode",
+  "validate.pincode_invalid": "Enter a valid 6-digit pincode",
+  "profile.complete_prompt": "Please complete your profile to continue. Only PAN is optional.",
+  "contact.category": "What is this about?",
+  "contact.category_query": "Question / enquiry",
+  "contact.category_suggestion": "Suggestion",
+  "contact.category_feedback": "Feedback",
+  "contact.category_complaint": "Complaint",
+  "contact.category_seva_request": "Seva / puja request",
+  "contact.category_other": "Something else",
+  "contact.identity_from_profile": "Sent with the name and mobile number on your profile."
 }

@@ -45,7 +45,10 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
                 ),
                 'ios_store_url' => SystemSetting::getValue(
                     'app_ios_store_url',
-                    'https://apps.apple.com/app/patadiya-hanumanji',
+                    // The real listing (id 6795803756). The old default here
+                    // was a guessed slug with no app id, which 404s — and it
+                    // is what the app's "Update available" prompt opens.
+                    'https://apps.apple.com/in/app/shree-patadiya-hanumanji/id6795803756',
                 ),
                 // Advisory flag: the server can force an update for ALL
                 // current callers by setting app_update_required=1. The

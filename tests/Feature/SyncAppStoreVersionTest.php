@@ -100,6 +100,50 @@ class SyncAppStoreVersionTest extends TestCase
         $this->assertSame('1.4.8', SystemSetting::getValue('app_latest_version'));
     }
 
+    /**
+     * Apple returns this app's marketing version as the literal string
+     * "1.5.0 (35)" — the build number is part of it in App Store Connect.
+     * Storing that raw would make every devotee already on 1.5.0 see a
+     * permanent "update available", because the comparison strips non-digits
+     * and reads it as 1.5.35. This is the single most important case here.
+     */
+    public function test_it_strips_the_build_number_apple_returns(): void
+    {
+        SystemSetting::setValue('app_latest_version', '1.5.0');
+        $this->appleReturns('1.5.0 (35)');
+
+        $this->artisan('app:sync-store-version')->assertSuccessful();
+
+        $this->assertSame('1.5.0', SystemSetting::getValue('app_latest_version'),
+            'the parenthesised build must never reach the setting');
+        $this->assertSame('1.5.0', SystemSetting::getValue('app_latest_version_ios'));
+    }
+
+    public function test_a_parenthesised_build_is_not_mistaken_for_a_newer_release(): void
+    {
+        $this->assertFalse(SyncAppStoreVersion::isNewer('1.5.0 (35)', '1.5.0'));
+        $this->assertTrue(SyncAppStoreVersion::isNewer('1.5.1 (36)', '1.5.0 (35)'));
+    }
+
+    /** @return array<string, array{string, string}> */
+    public static function normaliseProvider(): array
+    {
+        return [
+            'apple build suffix' => ['1.5.0 (35)', '1.5.0'],
+            'plus suffix' => ['1.5.0+35', '1.5.0'],
+            'v prefix' => ['v2.0', '2.0'],
+            'plain' => ['1.10.3', '1.10.3'],
+            'trailing text' => ['3.1 beta', '3.1'],
+            'no digits at all' => ['unreleased', ''],
+        ];
+    }
+
+    #[DataProvider('normaliseProvider')]
+    public function test_normalise(string $raw, string $expected): void
+    {
+        $this->assertSame($expected, SyncAppStoreVersion::normalise($raw));
+    }
+
     /** @return array<string, array{string, string, bool}> */
     public static function versionProvider(): array
     {

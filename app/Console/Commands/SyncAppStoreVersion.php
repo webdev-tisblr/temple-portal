@@ -71,7 +71,13 @@ class SyncAppStoreVersion extends Command
             return self::SUCCESS;
         }
 
-        $storeVersion = trim((string) ($response->json('results.0.version') ?? ''));
+        // Apple returns the app's MARKETING version verbatim, and this app's
+        // is literally "1.5.0 (35)" — the build number is part of the string
+        // in App Store Connect. Storing that raw would be actively harmful:
+        // the app strips non-digits when comparing, reading it as 1.5.35, so
+        // every devotee already on 1.5.0 would be told an update exists,
+        // forever. Take the leading dotted-numeric run and nothing else.
+        $storeVersion = self::normalise((string) ($response->json('results.0.version') ?? ''));
 
         if ($storeVersion === '') {
             // An unpublished or region-restricted app returns resultCount 0.
@@ -109,16 +115,32 @@ class SyncAppStoreVersion extends Command
     }
 
     /**
+     * The leading dotted-numeric run of a version string, and nothing else.
+     *
+     * "1.5.0 (35)" → "1.5.0", "v2.0" → "2.0", "1.5.0+35" → "1.5.0". Anything
+     * with no numeric prefix at all → "". Naively stripping non-digits would
+     * glue the build number onto the patch segment and turn 1.5.0 (35) into
+     * 1.5.35, which is worse than useless — it reads as a NEWER version.
+     */
+    public static function normalise(string $version): string
+    {
+        return preg_match('/\d+(?:\.\d+)*/', $version, $m) === 1 ? $m[0] : '';
+    }
+
+    /**
      * Semver-ish "is $candidate newer than $current", comparing numeric parts
      * left to right. Mirrors AppConfigService.isNewer in the Flutter app —
      * a string compare would call 1.10.0 older than 1.9.0.
      */
     public static function isNewer(string $candidate, string $current): bool
     {
-        $parse = static fn (string $v): array => array_map(
-            'intval',
-            explode('.', preg_replace('/[^0-9.]/', '', $v) ?: '0')
-        );
+        $parse = static function (string $v): array {
+            $normalised = self::normalise($v);
+
+            return $normalised === ''
+                ? [0]
+                : array_map('intval', explode('.', $normalised));
+        };
 
         $a = $parse($candidate);
         $b = $parse($current);

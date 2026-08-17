@@ -340,6 +340,14 @@ class SevaController extends BaseApiController
         $variantLabel = null;
         if ($seva->hasProductSelection()) {
             $linked = $seva->getLinkedProductsList();
+            // Sold-out products are already filtered out of that list, so an
+            // empty list means nothing is in stock and the seva is unbookable
+            // right now. Older app builds don't know that state (they just see
+            // product_selection: null and send no selection), so answer with a
+            // clear message instead of "please choose a product".
+            if ($linked->isEmpty()) {
+                return $this->error(__('seva.products_unavailable'), 422);
+            }
             $selectedId = $validated['selected_product_id'] ?? null;
             if (empty($selectedId)) {
                 return $this->error('કૃપા કરી સેવા સાથેનું ઉત્પાદન પસંદ કરો.', 422);

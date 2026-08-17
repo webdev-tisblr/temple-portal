@@ -14,25 +14,11 @@ class SevaResource extends JsonResource
     {
         $selection = $this->buildProductSelection();
         // When a seva has product selection, its price is driven by whichever
-        // product the user chooses, so for display we surface a "starts from"
-        // = the cheapest in-stock linked product (variant prices count for
-        // variant products). Zero prices mean "this option doesn't set the
-        // price" — they are excluded, and when NO option carries a price,
-        // starts_from stays null so clients show the seva's own price.
-        $startsFrom = null;
-        if ($selection !== null) {
-            $candidates = fn ($products) => collect($products)
-                ->flatMap(fn ($p) => ! empty($p['variants'])
-                    ? collect($p['variants'])->pluck('price')
-                    : [$p['price']])
-                ->filter(fn ($price) => (float) $price > 0);
-
-            $inStock = collect($selection['products'])->where('in_stock', true);
-            $pool = $candidates($inStock->isNotEmpty() ? $inStock : $selection['products']);
-            if ($pool->isNotEmpty()) {
-                $startsFrom = (float) $pool->min();
-            }
-        }
+        // product the devotee chooses, so we surface a "starts from" instead.
+        // The rule lives on the model (Seva::startsFromPrice) so the website
+        // shows the identical number — it used to be inlined here, which is
+        // why the web kept showing the seva's own price.
+        $startsFrom = $selection === null ? null : $this->resource->startsFromPrice();
 
         return [
             'id' => $this->id,

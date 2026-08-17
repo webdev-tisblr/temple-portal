@@ -57,4 +57,10 @@ return [
     'book' => 'બુક કરો',
     // Step eyebrow above the product / date pickers when a seva offers both.
     'step' => 'પગલું :n',
+    // Every product linked to this seva is out of stock, so there is nothing
+    // to choose and the seva cannot be booked until stock is added back.
+    'products_unavailable' => 'આ સેવા માટેના તમામ વિકલ્પો હાલમાં સ્ટોકમાં નથી. કૃપા કરી થોડા સમય પછી પ્રયાસ કરો.',
+    // Headline price for sevas priced by a linked product. Mirrors the app's
+    // seva.from_amount string so both surfaces read identically.
+    'from_amount' => '₹:amount થી શરૂ',
 ];

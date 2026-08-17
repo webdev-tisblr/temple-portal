@@ -21,7 +21,15 @@
         @endif
         <div class="flex items-center justify-between mt-4 pt-4 border-t border-amber-900/20">
             <div>
-                @if($seva->is_variable_price)
+                @php
+                    // Sevas whose price comes from a linked product show the
+                    // cheapest bookable option, exactly as the app does — the
+                    // seva's own price is not what anyone pays for these.
+                    $startsFrom = $seva->startsFromPrice();
+                @endphp
+                @if($startsFrom !== null)
+                    <span class="text-xl font-black text-gold">{{ __('seva.from_amount', ['amount' => inr($startsFrom)]) }}</span>
+                @elseif($seva->is_variable_price)
                     <span class="text-[10px] text-amber-100/30">{{ __('common.minimum') }}</span><br>
                     <span class="text-xl font-black text-gold">₹{{ inr((float) $seva->min_price) }}</span>
                 @else

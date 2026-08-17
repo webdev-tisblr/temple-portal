@@ -122,6 +122,21 @@ class Seva extends Model
         return ! empty($config) && ! empty($config['type']);
     }
 
+    /**
+     * The products a devotee may pick from for this seva.
+     *
+     * Sold-out products are dropped here (2026-08-17) rather than in each
+     * view, so every surface agrees: the website tiles, the app's
+     * product_selection payload, and the booking validation on both the web
+     * and API paths all read this one list. A product with zero stock is not
+     * offerable, so it must not be selectable either — filtering only at the
+     * display layer would leave the POST/booking endpoints happy to accept it.
+     *
+     * Stock lives partly in the variants JSON, so the filter runs in PHP via
+     * Product::inStock() (untracked products count as always available; a
+     * variable product survives while ANY variant has stock, and the sold-out
+     * variants stay visible-but-disabled as they are in the store).
+     */
     public function getLinkedProductsList(): \Illuminate\Database\Eloquent\Collection
     {
         $config = $this->linked_products;
@@ -140,7 +155,44 @@ class Seva extends Model
             return Product::query()->where('id', 0)->get();
         }
 
-        return $query->orderBy('sort_order')->get();
+        return $query->orderBy('sort_order')
+            ->get()
+            ->filter(fn (Product $product) => $product->inStock())
+            ->values();
+    }
+
+    /**
+     * The "Starting ₹X" price for a seva whose price is driven by a product
+     * choice, or null when the seva's own price applies.
+     *
+     * Lifted out of SevaResource (2026-08-17) so the website renders the same
+     * number as the app instead of showing the seva's own price, which for
+     * these sevas is not what anyone actually pays.
+     *
+     * Only purchasable options count: sold-out products are already absent
+     * from getLinkedProductsList(), and a sold-out VARIANT is skipped here
+     * too — it stays visible on the page but advertising a starting price
+     * nobody can buy would be a lie. A zero price means "this option does not
+     * set the price", so those are excluded; when no option carries a price
+     * the result is null and callers fall back to the seva's own price.
+     */
+    public function startsFromPrice(): ?float
+    {
+        if (! $this->hasProductSelection()) {
+            return null;
+        }
+
+        $prices = $this->getLinkedProductsList()->flatMap(function (Product $product) {
+            if ($product->has_variants && ! empty($product->variants)) {
+                return collect($product->variants)
+                    ->filter(fn ($v) => ! $product->track_stock || (int) ($v['stock'] ?? 0) > 0)
+                    ->map(fn ($v) => (float) ($v['price'] ?? 0));
+            }
+
+            return [(float) $product->price];
+        })->filter(fn (float $price) => $price > 0);
+
+        return $prices->isEmpty() ? null : (float) $prices->min();
     }
 
     public function getProductSelectionLabel(): string

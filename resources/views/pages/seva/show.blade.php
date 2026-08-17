@@ -41,9 +41,14 @@
 
                 <h1 class="divine-heading text-2xl sm:text-3xl hidden lg:block">{{ $seva->name }}</h1>
 
-                {{-- Price --}}
+                {{-- Price. For a seva with linked products the headline is the
+                     cheapest bookable option ("Starting ₹X"), matching the
+                     app — the seva's own price never applies to these. --}}
+                @php $startsFrom = $seva->startsFromPrice(); @endphp
                 <div class="mt-3">
-                    @if($seva->is_variable_price)
+                    @if($startsFrom !== null)
+                        <span class="text-2xl font-bold text-gold">{{ __('seva.from_amount', ['amount' => inr($startsFrom)]) }}</span>
+                    @elseif($seva->is_variable_price)
                         <span class="text-sm text-amber-100/40">{{ __('seva.min_amount') }}</span>
                         <span class="text-2xl font-bold text-gold ml-1">₹{{ inr((float) $seva->min_price) }}</span>
                     @else
@@ -70,7 +75,19 @@
             <div class="lg:sticky lg:top-24">
 
                 {{-- Booking Section --}}
-                @if($seva->requires_booking)
+                @if($seva->requires_booking && $seva->hasProductSelection() && $linkedProducts->isEmpty())
+                    {{-- Every linked product is sold out (2026-08-17).
+                         getLinkedProductsList() drops zero-stock products, so
+                         an empty list on a seva that requires a product choice
+                         means there is nothing left to offer. Show the plain
+                         notice instead of the picker + form, which would let a
+                         devotee fill everything in only to be rejected on POST.
+                         Guests see it too — no point sending them to login. --}}
+                    <div class="card-sacred p-6">
+                        <h2 class="text-lg font-semibold text-gold mb-3">{{ __('seva.choose_date_time') }}</h2>
+                        <p class="text-sm text-amber-100/60">{{ __('seva.products_unavailable') }}</p>
+                    </div>
+                @elseif($seva->requires_booking)
                     @guest('devotee')
                         {{-- Guests see a login prompt instead of the booking
                              form (consistent site-wide; 2026-08-04). --}}

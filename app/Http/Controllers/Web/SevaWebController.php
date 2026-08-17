@@ -80,11 +80,19 @@ class SevaWebController extends Controller
         $unitPrice = (float) $seva->price;
         $variantLabel = null;
         if ($seva->hasProductSelection()) {
+            // getLinkedProductsList() hides sold-out products, so an empty list
+            // means every option is out of stock — the seva cannot be booked at
+            // all until stock returns. Answer that before the "please choose a
+            // product" error, which would be nonsense with nothing to choose.
+            $linkedProducts = $seva->getLinkedProductsList();
+            if ($linkedProducts->isEmpty()) {
+                return back()->withErrors(['selected_product_id' => __('seva.products_unavailable')]);
+            }
             $selectedId = $validated['selected_product_id'] ?? null;
             if (empty($selectedId)) {
                 return back()->withErrors(['selected_product_id' => 'કૃપા કરી સેવા સાથેનું ઉત્પાદન પસંદ કરો.']);
             }
-            $selectedProduct = $seva->getLinkedProductsList()->firstWhere('id', (int) $selectedId);
+            $selectedProduct = $linkedProducts->firstWhere('id', (int) $selectedId);
             if (! $selectedProduct) {
                 return back()->withErrors(['selected_product_id' => 'પસંદ કરેલું ઉત્પાદન આ સેવા માટે ઉપલબ્ધ નથી.']);
             }

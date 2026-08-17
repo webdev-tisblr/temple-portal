@@ -7,6 +7,7 @@ use App\Models\OtpCode;
 use App\Support\SafeRedirect;
 use Database\Factories\DevoteeFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -224,12 +225,16 @@ class DevoteeLoginRedirectTest extends TestCase
         ], $overrides);
     }
 
-    /** @return array<string, array{string}> */
+    /**
+     * Email is deliberately ABSENT — many devotees have no email address, so
+     * it is accepted blank (though the form does not advertise that).
+     *
+     * @return array<string, array{string}>
+     */
     public static function compulsorySignupFieldProvider(): array
     {
         return [
             'name' => ['name'],
-            'email' => ['email'],
             'address' => ['address'],
             'city' => ['city'],
             'state' => ['state'],
@@ -249,15 +254,30 @@ class DevoteeLoginRedirectTest extends TestCase
         $this->assertSame('', (string) $devotee->fresh()->name, 'nothing should have been saved');
     }
 
-    public function test_pan_stays_optional_at_signup(): void
+    public function test_pan_and_email_stay_optional_at_signup(): void
     {
         $devotee = $this->devotee(['name' => '', 'email' => null]);
 
+        // No PAN, and email left blank — both are accepted.
         $this->actingAs($devotee, 'devotee')
-            ->post('/profile/complete', self::completeProfilePayload())
+            ->post('/profile/complete', self::completeProfilePayload(['email' => '']))
             ->assertSessionHasNoErrors();
 
         $this->assertSame('Bhakt Ji', $devotee->fresh()->name);
+    }
+
+    public function test_the_signup_form_does_not_label_email_optional(): void
+    {
+        // Accepted blank, but never advertised as skippable — and no asterisk
+        // either, which would claim it is enforced.
+        $devotee = $this->devotee(['name' => '', 'email' => null]);
+
+        $html = $this->actingAs($devotee, 'devotee')
+            ->get('/profile/complete')->assertOk()->getContent();
+
+        $emailLabel = Str::before(Str::after($html, 'for="cp_email"'), '</label>');
+        $this->assertStringNotContainsString(__('store.optional'), $emailLabel);
+        $this->assertStringNotContainsString('*', $emailLabel);
     }
 
     /** @return array<string, array{string}> */

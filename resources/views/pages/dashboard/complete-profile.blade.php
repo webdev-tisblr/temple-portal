@@ -59,12 +59,13 @@
                  (2026-08-17). `required` here only gives the browser's own
                  prompt — saveCompleteProfile() is what actually enforces it. --}}
 
-            {{-- Email (required) --}}
+            {{-- Email — accepted blank, but deliberately NOT marked optional:
+                 many devotees here have no email at all, and labelling it
+                 optional invites everyone else to skip it too. No asterisk
+                 either, since that would claim it is enforced. --}}
             <div>
-                <label for="cp_email" class="dash-label">
-                    {{ __('common.email') }} <span style="color: #A83232;">*</span>
-                </label>
-                <input type="email" name="email" id="cp_email" value="{{ old('email') }}" required
+                <label for="cp_email" class="dash-label">{{ __('common.email') }}</label>
+                <input type="email" name="email" id="cp_email" value="{{ old('email') }}"
                        placeholder="example@email.com" class="dash-input">
             </div>
 

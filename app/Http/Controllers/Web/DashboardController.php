@@ -298,15 +298,18 @@ class DashboardController extends Controller
     {
         $devotee = Auth::guard('devotee')->user();
 
-        // First-time signup: everything except PAN is compulsory (2026-08-17).
-        // This form is only ever reached once — showCompleteProfile() bounces
-        // a devotee whose name is already set — so requiring the full profile
-        // here costs an existing devotee nothing while giving the trust a
-        // complete record (address is what receipts and prasad despatch need).
-        // PAN stays optional by law/consent: 80G is opt-in.
+        // First-time signup: everything except PAN and EMAIL is compulsory
+        // (2026-08-17). This form is only ever reached once —
+        // showCompleteProfile() bounces a devotee whose name is already set —
+        // so requiring the profile here costs an existing devotee nothing
+        // while giving the trust a complete record (address is what receipts
+        // and prasad despatch need). PAN stays optional by law/consent (80G is
+        // opt-in), and email because most devotees here have no email address
+        // at all — but neither is LABELLED optional on the form, so nobody is
+        // invited to skip them. A given email must still be a real one.
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email:rfc|max:255',
+            'email' => 'nullable|email:rfc|max:255',
             'address' => 'required|string|max:500',
             'city' => 'required|string|max:100',
             'state' => 'required|string|max:100',

@@ -596,6 +596,41 @@ class CounterEntryService
             ]);
         }
 
+        // Same product gate as SevaWebController::book() and the API. The form
+        // requires the picker, but a product can sell out between the clerk
+        // opening the form and taking the money — and without this,
+        // sevaUnitPrice() silently falls back to the seva's own price, so the
+        // devotee would be charged the wrong amount for an item that is gone.
+        if ($seva->hasProductSelection()) {
+            $linked = $seva->getLinkedProductsList();
+            if ($linked->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'selected_product_id' => 'Every option for this seva is out of stock — it cannot be booked right now.',
+                ]);
+            }
+
+            $product = $linked->firstWhere('id', (int) ($data['selected_product_id'] ?? 0));
+            if ($product === null) {
+                throw ValidationException::withMessages([
+                    'selected_product_id' => 'Choose one of this seva\'s options.',
+                ]);
+            }
+
+            if ($product->has_variants && ! empty($product->variants)) {
+                $label = trim((string) ($data['selected_variant_label'] ?? ''));
+                if ($label === '' || $product->getVariantPrice($label) === null) {
+                    throw ValidationException::withMessages([
+                        'selected_variant_label' => 'Choose an option for the selected product.',
+                    ]);
+                }
+                if ($product->track_stock && (int) ($product->getVariantStock($label) ?? 0) <= 0) {
+                    throw ValidationException::withMessages([
+                        'selected_variant_label' => 'That option has just sold out. Pick another.',
+                    ]);
+                }
+            }
+        }
+
         // status 'pending' — markCaptured() flips it to 'confirmed', which
         // is what fires SevaBookingObserver::updated() and therefore the
         // reminder schedule. Creating it confirmed would take the

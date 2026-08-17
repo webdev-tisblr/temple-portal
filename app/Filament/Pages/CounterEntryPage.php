@@ -19,6 +19,7 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -294,6 +295,117 @@ class CounterEntryPage extends Page implements HasForms
             ->columns(2);
     }
 
+    /** The seva currently chosen in the form, or null. */
+    private static function sevaFor(Get $get): ?Seva
+    {
+        return filled($get('seva_id')) ? Seva::find($get('seva_id')) : null;
+    }
+
+    /**
+     * Products this seva offers a choice of — already stock-filtered by the
+     * model, so the counter never lists something the shelf cannot supply.
+     *
+     * @return \Illuminate\Support\Collection<int, Product>
+     */
+    private static function linkedProducts(Get $get): \Illuminate\Support\Collection
+    {
+        $seva = self::sevaFor($get);
+
+        return $seva?->hasProductSelection() ? $seva->getLinkedProductsList() : collect();
+    }
+
+    /**
+     * How far ahead the counter's date picker looks when working out which
+     * dates to grey out. Bounded because the answer is computed per date; a
+     * seva with an open-ended acceptance window would otherwise be unbounded.
+     */
+    private const DATE_HORIZON_DAYS = 180;
+
+    /** @var array<int, list<string>> seva id => unavailable dates, per request */
+    private static array $unavailableDatesMemo = [];
+
+    /**
+     * Dates this seva cannot be booked on, for the picker to disable.
+     *
+     * Same source of truth the website and app calendars use, so a clerk sees
+     * exactly what a devotee would. Memoised per request: the picker re-reads
+     * this on every live form render and each call is a bulk query.
+     *
+     * @return list<string>
+     */
+    private static function unavailableDates(Get $get): array
+    {
+        $seva = self::sevaFor($get);
+        if ($seva === null) {
+            return [];
+        }
+
+        return self::$unavailableDatesMemo[$seva->id] ??= collect(
+            app(SevaSlotService::class)->getDateAvailabilityInRange(
+                $seva,
+                now()->startOfDay(),
+                now()->startOfDay()->addDays(self::DATE_HORIZON_DAYS),
+            )
+        )
+            ->reject(fn (array $day): bool => (bool) ($day['available'] ?? false))
+            ->pluck('date')
+            ->values()
+            ->all();
+    }
+
+    /** full_day | full_week | time for the chosen seva, or null if none picked. */
+    private static function slotTypeFor(Get $get): ?string
+    {
+        $seva = self::sevaFor($get);
+        if ($seva === null) {
+            return null;
+        }
+
+        $slots = app(SevaSlotService::class);
+
+        return $slots->slotType($slots->configFor($seva));
+    }
+
+    /**
+     * Bookable slot strings for the chosen seva AND date. Empty until a date
+     * is picked — availability is per-date, so there is genuinely nothing to
+     * offer before then.
+     *
+     * @return array<string, string>
+     */
+    private static function availableSlots(Get $get): array
+    {
+        $seva = self::sevaFor($get);
+        $date = $get('booking_date');
+        if ($seva === null || blank($date)) {
+            return [];
+        }
+
+        // `available` is a flat list of slot strings (the shape App 1.4.8+32
+        // reads) — not a list of maps.
+        $slots = app(SevaSlotService::class)->getSlotAvailability(
+            $seva,
+            Carbon::parse((string) $date)->toDateString(),
+        );
+
+        return collect($slots['available'] ?? [])
+            ->mapWithKeys(fn (string $slot): array => [$slot => $slot])
+            ->all();
+    }
+
+    /** The product picked in the form, resolved from the seva's own list. */
+    private static function selectedProduct(Get $get): ?Product
+    {
+        if (blank($get('selected_product_id'))) {
+            return null;
+        }
+
+        // Deliberately from the seva's list rather than Product::find(): a
+        // stale id (seva changed, product sold out) must resolve to null so
+        // the variant picker disappears instead of offering dead options.
+        return self::linkedProducts($get)->firstWhere('id', (int) $get('selected_product_id'));
+    }
+
     private function sevaFields(): Forms\Components\Section
     {
         return Forms\Components\Section::make('Seva booking details')
@@ -308,35 +420,114 @@ class CounterEntryPage extends Page implements HasForms
                         ->all())
                     ->searchable()
                     ->required()
-                    ->live(),
+                    ->live()
+                    // A product/variant/slot chosen for the previous seva is
+                    // not valid for this one.
+                    ->afterStateUpdated(function (Set $set): void {
+                        $set('selected_product_id', null);
+                        $set('selected_variant_label', null);
+                        $set('slot_time', null);
+                    }),
 
                 Forms\Components\DatePicker::make('booking_date')
                     ->label('Booking date')
                     ->native(false)
                     ->required()
+                    ->live()
+                    // Grey out every date this seva cannot take: blackouts,
+                    // the wrong weekday, outside the acceptance window, past
+                    // the cut-off, and — the one that matters here — already
+                    // full. A clerk could previously pick a fully-booked date,
+                    // and only the capacity re-check at submit stopped the
+                    // double booking, after the money conversation had already
+                    // happened (2026-08-17).
+                    //
+                    // native(false) is load-bearing: the browser's own date
+                    // input ignores disabledDates.
+                    ->minDate(now()->startOfDay())
+                    ->maxDate(now()->startOfDay()->addDays(self::DATE_HORIZON_DAYS))
+                    ->disabledDates(fn (Get $get): array => self::unavailableDates($get))
+                    // Slots are per-date, so yesterday's pick may not exist on
+                    // the new date — clear it rather than submit a stale one.
+                    ->afterStateUpdated(fn (Set $set) => $set('slot_time', null)),
+
+                // Sevas that carry a product choice (prasad, vastra, …). The
+                // service has always priced and persisted these two keys, but
+                // the counter had no picker for them — so a walk-in booking of
+                // a product-linked seva silently recorded no product and
+                // charged the seva's own price (2026-08-17).
+                //
+                // Sold-out products are already absent from
+                // getLinkedProductsList(), so the counter cannot sell what the
+                // website and app are refusing to offer.
+                Forms\Components\Select::make('selected_product_id')
+                    ->label(fn (Get $get): string => self::sevaFor($get)?->getProductSelectionLabel() ?? 'Product')
+                    ->options(fn (Get $get): array => self::linkedProducts($get)
+                        ->mapWithKeys(fn (Product $p): array => [
+                            $p->id => ($p->name_en ?: $p->name_gu).' — '.$p->getDisplayPrice(),
+                        ])
+                        ->all())
+                    ->visible(fn (Get $get): bool => self::linkedProducts($get)->isNotEmpty())
+                    ->required(fn (Get $get): bool => self::linkedProducts($get)->isNotEmpty())
+                    ->searchable()
+                    ->live()
+                    // A variant label from the previously chosen product would
+                    // not exist on the new one, and getVariantPrice() would
+                    // quietly fall back to the seva price.
+                    ->afterStateUpdated(fn (Set $set) => $set('selected_variant_label', null))
+                    ->helperText(fn (Get $get): ?string => self::sevaFor($get)?->hasProductSelection()
+                        && self::linkedProducts($get)->isEmpty()
+                            ? 'Every option for this seva is out of stock — it cannot be booked right now.'
+                            : null),
+
+                Forms\Components\Select::make('selected_variant_label')
+                    ->label('Option')
+                    ->options(fn (Get $get): array => collect(self::selectedProduct($get)?->variants ?? [])
+                        ->mapWithKeys(fn (array $v): array => [
+                            ($v['label'] ?? '') => ($v['label'] ?? '')
+                                .(((float) ($v['price'] ?? 0)) > 0 ? ' — ₹'.inr((float) $v['price']) : ''),
+                        ])
+                        ->all())
+                    // Shown-but-unselectable when sold out, matching how the
+                    // website and app present a spent variant.
+                    ->disableOptionWhen(function (string $value, Get $get): bool {
+                        $product = self::selectedProduct($get);
+
+                        return $product !== null
+                            && $product->track_stock
+                            && (int) ($product->getVariantStock($value) ?? 0) <= 0;
+                    })
+                    ->visible(fn (Get $get): bool => (bool) self::selectedProduct($get)?->has_variants)
+                    ->required(fn (Get $get): bool => (bool) self::selectedProduct($get)?->has_variants)
                     ->live(),
 
                 Forms\Components\Select::make('slot_time')
                     ->label('Slot')
-                    ->options(function (Get $get): array {
-                        $seva = filled($get('seva_id')) ? Seva::find($get('seva_id')) : null;
-                        $date = $get('booking_date');
-                        if ($seva === null || blank($date)) {
-                            return [];
+                    ->options(fn (Get $get): array => self::availableSlots($get))
+                    // Hidden entirely for a full-day / full-week seva: there
+                    // is no time slot to pick and the server sets the sentinel
+                    // itself. It used to render as a permanently empty
+                    // dropdown, which read as "the slots are broken".
+                    ->visible(fn (Get $get): bool => self::slotTypeFor($get) === SevaSlotService::SLOT_TYPE_TIME)
+                    // Slots depend on the DATE, so there is nothing to list
+                    // until one is chosen — say so rather than showing an
+                    // empty, enabled dropdown (2026-08-17).
+                    ->disabled(fn (Get $get): bool => blank($get('booking_date')))
+                    ->required(fn (Get $get): bool => self::slotTypeFor($get) === SevaSlotService::SLOT_TYPE_TIME
+                        && filled($get('booking_date')))
+                    ->live()
+                    ->helperText(function (Get $get): ?string {
+                        if (blank($get('seva_id'))) {
+                            return null;
+                        }
+                        if (blank($get('booking_date'))) {
+                            return 'Choose a booking date first — slots differ per date.';
                         }
 
-                        // `available` is a flat list of slot strings (the
-                        // shape App 1.4.8+32 reads) — not a list of maps.
-                        $slots = app(SevaSlotService::class)->getSlotAvailability(
-                            $seva,
-                            Carbon::parse((string) $date)->toDateString(),
-                        );
-
-                        return collect($slots['available'] ?? [])
-                            ->mapWithKeys(fn (string $slot): array => [$slot => $slot])
-                            ->all();
-                    })
-                    ->helperText('Empty for a full-day / full-week seva — the sentinel is set server-side.'),
+                        return self::availableSlots($get) === []
+                            ? 'No slots left on this date. Pick another date.'
+                            : null;
+                    }),
 
                 Forms\Components\TextInput::make('quantity')
                     ->label('Quantity')

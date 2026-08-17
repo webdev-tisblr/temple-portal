@@ -273,6 +273,12 @@ final class NotificationRegistry
                     'booking_id' => 'Internal 36-character UUID. Kept only for templates that already use it; it means nothing to a reader — prefer booking_reference (booking.booking_reference)',
                     'assignee_name' => 'Seva assignee (pujari/staff) name — empty when the seva has no assignee (booking.seva.assignee.name)',
                     'assignee_phone' => 'Seva assignee phone — empty when the seva has no assignee (booking.seva.assignee.phone)',
+                    // Sevas that offer a product/prasad choice. All three are
+                    // empty strings when the seva has no product selection, so
+                    // a template can carry them unconditionally.
+                    'product_name' => "Chosen product in the reader's language, with the variant appended (\"Chundadi — Large\") — empty when the seva has no product choice (product_name_gu)",
+                    'product_price' => 'Price of the chosen product/variant, ready to print — includes ₹ and Indian digit grouping (product_price)',
+                    'product_image_url' => 'Chosen product image — public CDN link, usable as a WhatsApp IMAGE header (product_image_url)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
             ],
@@ -438,11 +444,15 @@ final class NotificationRegistry
             // Context: submission (ContactSubmission model), trust_name.
             'contact.submitted' => [
                 'label' => 'Contact — form submission',
-                'description' => 'Fires when a visitor posts the contact form. Notify the trust admin.',
+                'description' => 'Fires when a devotee posts the contact form. Notify the trust admin. Since 2026-08-17 the form requires a login, so name/phone are always the sender\'s real profile details rather than free text.',
                 'placeholders' => [
-                    'name' => 'Submitter name (submission.name)',
-                    'phone' => 'Submitter phone (submission.phone)',
-                    'email' => 'Submitter email (submission.email)',
+                    'name' => 'Submitter name, from their profile (submission.name)',
+                    'phone' => 'Submitter phone, from their profile (submission.phone)',
+                    'email' => 'Submitter email — empty when they have not added one (submission.email)',
+                    // Pre-resolved by the dispatch site: the enum itself would
+                    // render as its raw value ("seva_request") through
+                    // NotificationContext::formatForDisplay.
+                    'category' => 'What the message is about — "Suggestion", "Complaint", "Question / enquiry" etc (category_label)',
                     'subject' => 'Subject (submission.subject)',
                     'message' => 'Message body (submission.message)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',

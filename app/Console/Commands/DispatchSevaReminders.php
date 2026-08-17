@@ -58,7 +58,10 @@ class DispatchSevaReminders extends Command
         $due = SevaReminderSchedule::query()
             ->where('status', SevaReminderSchedule::STATUS_PENDING)
             ->where('fire_at', '<=', $now)
-            ->with(['booking.devotee', 'booking.seva', 'rule.template'])
+            // selectedProduct: reminders for product-linked sevas name the
+            // prasad/item the devotee chose, so the pujari knows what to
+            // prepare (2026-08-17). Eager-loaded to keep this an N+0 loop.
+            ->with(['booking.devotee', 'booking.seva', 'booking.selectedProduct', 'rule.template'])
             ->orderBy('fire_at')
             ->limit($limit)
             ->get();
@@ -97,7 +100,7 @@ class DispatchSevaReminders extends Command
                     'devotee' => $booking->devotee,
                     'hours_remaining' => max(0, (int) round($offsetMinutes / 60)),
                     'trust_name' => $trustName,
-                ], DurationLabel::contextValues($offsetMinutes));
+                ], DurationLabel::contextValues($offsetMinutes), self::productValues($booking));
 
                 if ($row->rule !== null) {
                     $delivered = $this->dispatchRule($notifier, $row->rule, $booking, $context);
@@ -140,6 +143,58 @@ class DispatchSevaReminders extends Command
         Log::info('seva:dispatch-reminders', $stats);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Context values describing the product the devotee chose, for sevas that
+     * offer a product selection (2026-08-17).
+     *
+     * The three `_gu/_hi/_en` name keys follow the same convention as
+     * `booking.seva_name`: the placeholder map points at `product_name_gu`
+     * and NotificationContext::getLocalized() swaps in the reader's language
+     * automatically. The variant label is appended to the name because a bare
+     * "Chundadi" tells a pujari nothing when the booking was for the large one.
+     *
+     * Every key is present (empty string) even with no product, so a template
+     * that references them on a seva without products renders blanks rather
+     * than the literal {{ token }}.
+     *
+     * @return array<string, string>
+     */
+    private static function productValues(SevaBooking $booking): array
+    {
+        $product = $booking->selectedProduct;
+        $blank = [
+            'product_name_gu' => '',
+            'product_name_hi' => '',
+            'product_name_en' => '',
+            'product_price' => '',
+            'product_image_url' => '',
+        ];
+
+        if ($product === null) {
+            return $blank;
+        }
+
+        $variant = trim((string) $booking->selected_variant_label);
+        $suffix = $variant === '' ? '' : " — {$variant}";
+
+        // The variant's own price when one was chosen — that is what the
+        // devotee actually paid, not the product's base price.
+        $price = $variant !== '' ? $product->getVariantPrice($variant) : null;
+        $price ??= (float) $product->price;
+
+        return [
+            'product_name_gu' => ($product->name_gu ?? '').$suffix,
+            'product_name_hi' => ($product->name_hi ?? '') === '' ? '' : $product->name_hi.$suffix,
+            'product_name_en' => ($product->name_en ?? '') === '' ? '' : $product->name_en.$suffix,
+            // inr_money matches the `amount` placeholder elsewhere: ₹ sign,
+            // Indian digit grouping, paise only when non-zero.
+            'product_price' => $price > 0 ? inr_money($price) : '',
+            // Absolute CDN URL — a bare image_path is useless as a WhatsApp
+            // header link or an <img> src.
+            'product_image_url' => $product->image_path ? image_url($product->image_path) : '',
+        ];
     }
 
     /**

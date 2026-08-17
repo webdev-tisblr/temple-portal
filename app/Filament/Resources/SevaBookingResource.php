@@ -190,6 +190,20 @@ class SevaBookingResource extends Resource
             ])
             ->defaultSort('booking_date', 'desc')
             ->filters([
+                // "Show me every booking for this seva" is the question this
+                // list gets asked most — the seva was visible as a column but
+                // there was no way to isolate one (2026-08-17).
+                // ->get()->pluck() because `name` is a localized accessor: a
+                // raw pluck selects a column that does not exist.
+                Tables\Filters\SelectFilter::make('seva_id')
+                    ->label('Seva')
+                    ->options(fn (): array => \App\Models\Seva::query()
+                        ->orderBy('sort_order')
+                        ->get()
+                        ->pluck('name', 'id')
+                        ->all())
+                    ->searchable()
+                    ->preload(),
                 Tables\Filters\SelectFilter::make('status')->options([
                     'pending' => 'Pending',
                     'confirmed' => 'Confirmed',

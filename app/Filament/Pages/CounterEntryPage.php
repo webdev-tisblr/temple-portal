@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Seva;
 use App\Services\CounterEntryService;
+use App\Services\HallAvailabilityService;
 use App\Services\SevaSlotService;
 use App\Support\PhoneNumber;
 use Filament\Forms;
@@ -353,6 +354,36 @@ class CounterEntryPage extends Page implements HasForms
             ->all();
     }
 
+    /** @var array<int, list<string>> hall id => unavailable dates, per request */
+    private static array $unavailableHallDatesMemo = [];
+
+    /**
+     * Dates the chosen hall cannot be booked on — already let, blacked out by
+     * an admin, or past the cut-off. Same source the website's hall calendar
+     * reads, so the counter and the public site agree.
+     *
+     * @return list<string>
+     */
+    private static function unavailableHallDates(Get $get): array
+    {
+        $hall = filled($get('hall_id')) ? Hall::find($get('hall_id')) : null;
+        if ($hall === null) {
+            return [];
+        }
+
+        return self::$unavailableHallDatesMemo[$hall->id] ??= collect(
+            app(HallAvailabilityService::class)->rangeAvailability(
+                $hall,
+                now()->startOfDay(),
+                now()->startOfDay()->addDays(self::DATE_HORIZON_DAYS),
+            )
+        )
+            ->reject(fn (array $day): bool => (bool) ($day['available'] ?? false))
+            ->pluck('date')
+            ->values()
+            ->all();
+    }
+
     /** full_day | full_week | time for the chosen seva, or null if none picked. */
     private static function slotTypeFor(Get $get): ?string
     {
@@ -562,24 +593,55 @@ class CounterEntryPage extends Page implements HasForms
             ->schema([
                 Forms\Components\Select::make('hall_id')
                     ->label('Hall')
+                    // ->get()->pluck() and NOT a raw pluck, for the same
+                    // reason as the donation type above: `name` is a
+                    // localized ACCESSOR. temple_halls does still have a
+                    // legacy `name` COLUMN, so a raw pluck silently read that
+                    // stale pre-multilingual value instead of the name the
+                    // admin maintains — halls showed the wrong label, and one
+                    // renamed since the migration showed its old name
+                    // (2026-08-17). Ordering has to move off the column too.
                     ->options(fn (): array => Hall::query()
                         ->where('is_active', true)
-                        ->orderBy('name')
+                        ->orderBy('name_gu')
+                        ->get()
                         ->pluck('name', 'id')
                         ->all())
                     ->required()
-                    ->live(),
+                    ->searchable()
+                    ->live()
+                    // Availability is per hall, so a date picked for the
+                    // previous one means nothing here.
+                    ->afterStateUpdated(function (Set $set): void {
+                        $set('hall_booking_date', null);
+                        $set('hall_end_date', null);
+                    }),
 
                 Forms\Components\DatePicker::make('hall_booking_date')
                     ->label('From date')
                     ->native(false)
                     ->required()
-                    ->live(),
+                    ->live()
+                    // Dates already taken (or blacked out, or past the
+                    // cut-off) are greyed out, so the counter cannot
+                    // double-book a hall that the website has already let.
+                    ->minDate(now()->startOfDay())
+                    ->maxDate(now()->startOfDay()->addDays(self::DATE_HORIZON_DAYS))
+                    ->disabledDates(fn (Get $get): array => self::unavailableHallDates($get))
+                    ->afterStateUpdated(fn (Set $set) => $set('hall_end_date', null)),
 
                 Forms\Components\DatePicker::make('hall_end_date')
                     ->label('To date (leave blank for a single day)')
                     ->native(false)
                     ->live()
+                    // Same blocked set. The range is still re-checked
+                    // server-side, which is what catches a date taken while
+                    // this form was open.
+                    ->minDate(fn (Get $get) => filled($get('hall_booking_date'))
+                        ? Carbon::parse((string) $get('hall_booking_date'))
+                        : now()->startOfDay())
+                    ->maxDate(now()->startOfDay()->addDays(self::DATE_HORIZON_DAYS))
+                    ->disabledDates(fn (Get $get): array => self::unavailableHallDates($get))
                     ->helperText('Multi-day ranges are priced as flat rate × days and block every date in between.'),
 
                 Forms\Components\TextInput::make('hall_purpose')
@@ -616,15 +678,33 @@ class CounterEntryPage extends Page implements HasForms
                     ->schema([
                         Forms\Components\Select::make('product_id')
                             ->label('Product')
+                            // Two fixes, 2026-08-17:
+                            //  • name_en is optional — most products are named
+                            //    in Gujarati only, so plucking it produced a
+                            //    list of BLANK labels and the picker looked
+                            //    empty. `name` is the localized accessor, so
+                            //    this needs ->get()->pluck() (a raw pluck
+                            //    would read no column at all).
+                            //  • forStore() instead of a bare is_seva_only
+                            //    check: it also excludes products sitting in a
+                            //    seva-only CATEGORY, which is how most
+                            //    seva-only stock is actually marked. Those are
+                            //    not for sale over the counter.
                             ->options(fn (): array => Product::query()
-                                ->where('is_active', true)
-                                ->where('is_seva_only', false)
+                                ->active()
+                                ->forStore()
+                                ->orderBy('sort_order')
                                 ->get()
-                                ->pluck('name_en', 'id')
+                                ->mapWithKeys(fn (Product $p): array => [
+                                    $p->id => $p->name.' — '.$p->getDisplayPrice(),
+                                ])
                                 ->all())
                             ->searchable()
                             ->required()
-                            ->live(),
+                            ->live()
+                            // A variant from the previous product is not valid
+                            // for this one.
+                            ->afterStateUpdated(fn (Set $set) => $set('variant_label', null)),
 
                         Forms\Components\Select::make('variant_label')
                             ->label('Option')
@@ -641,6 +721,10 @@ class CounterEntryPage extends Page implements HasForms
                                     ->all();
                             })
                             ->live()
+                            // Required once the product has options, or the
+                            // sale records no variant and decrements the wrong
+                            // stock bucket.
+                            ->required(fn (Get $get): bool => (bool) (filled($get('product_id')) ? Product::find($get('product_id'))?->has_variants : false))
                             ->visible(fn (Get $get): bool => (bool) (filled($get('product_id')) ? Product::find($get('product_id'))?->has_variants : false)),
 
                         Forms\Components\TextInput::make('quantity')

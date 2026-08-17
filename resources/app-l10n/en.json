@@ -637,5 +637,10 @@
   "contact.category_seva_request": "Seva / puja request",
   "contact.category_other": "Something else",
   "contact.identity_from_profile": "Sent with the name and mobile number on your profile.",
-  "about.call_us": "Call us"
+  "about.call_us": "Call us",
+  "update.ready": "A new version is ready to install",
+  "update.restart_now": "Restart",
+  "update.available_title": "Update available",
+  "update.available_body": "Version {} is on the App Store. Updating keeps everything working smoothly.",
+  "update.later": "Later"
 }

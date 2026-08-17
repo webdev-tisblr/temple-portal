@@ -58,6 +58,18 @@ Schedule::call(function () {
     }
 })->everyMinute()->name('dispatch-scheduled-notifications')->withoutOverlapping(5);
 
+// Advance app_latest_version to whatever is actually live on the App Store,
+// so devotees are prompted the day a release ships rather than whenever
+// someone remembers to edit the setting. Moves FORWARD only, so a manual
+// override set ahead of Apple's review is never dragged back down. Android
+// has no public endpoint and stays manual.
+Schedule::command('app:sync-store-version')
+    ->dailyAt('06:10')
+    ->withoutOverlapping(30)
+    ->onFailure(function (): void {
+        Log::error('Scheduled task failed: app:sync-store-version');
+    });
+
 // Cancel stale pending bookings every 5 minutes
 Schedule::command('bookings:clean-stale')
     ->everyFiveMinutes()

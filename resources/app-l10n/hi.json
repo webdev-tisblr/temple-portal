@@ -637,5 +637,10 @@
   "contact.category_seva_request": "सेवा / पूजा अनुरोध",
   "contact.category_other": "कुछ और",
   "contact.identity_from_profile": "आपकी प्रोफ़ाइल के नाम और मोबाइल नंबर के साथ भेजा जाएगा।",
-  "about.call_us": "हमें कॉल करें"
+  "about.call_us": "हमें कॉल करें",
+  "update.ready": "नया वर्ज़न इंस्टॉल करने के लिए तैयार है",
+  "update.restart_now": "रीस्टार्ट",
+  "update.available_title": "अपडेट उपलब्ध है",
+  "update.available_body": "वर्ज़न {} ऐप स्टोर पर है। अपडेट करने से सब कुछ सुचारू रूप से चलता रहेगा।",
+  "update.later": "बाद में"
 }

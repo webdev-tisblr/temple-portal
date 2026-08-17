@@ -637,5 +637,10 @@
   "contact.category_seva_request": "સેવા / પૂજા વિનંતી",
   "contact.category_other": "અન્ય કંઈક",
   "contact.identity_from_profile": "તમારી પ્રોફાઇલમાંના નામ અને મોબાઈલ નંબર સાથે મોકલાશે.",
-  "about.call_us": "અમને કૉલ કરો"
+  "about.call_us": "અમને કૉલ કરો",
+  "update.ready": "નવું વર્ઝન ઇન્સ્ટોલ કરવા તૈયાર છે",
+  "update.restart_now": "રીસ્ટાર્ટ",
+  "update.available_title": "અપડેટ ઉપલબ્ધ છે",
+  "update.available_body": "વર્ઝન {} એપ સ્ટોર પર છે. અપડેટ કરવાથી બધું સરળતાથી ચાલતું રહેશે.",
+  "update.later": "પછી"
 }

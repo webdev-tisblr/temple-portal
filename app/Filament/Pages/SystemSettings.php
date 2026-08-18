@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Console\Commands\SyncAppStoreVersion;
 use App\Filament\Support\TranslatableTabs;
 use App\Models\Msg91WebhookEvent;
 use App\Models\SystemSetting;
@@ -17,6 +18,7 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Actions\Action;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\HtmlString;
 
@@ -52,6 +54,7 @@ class SystemSettings extends Page implements HasForms
      */
     private const DISPLAY_ONLY_KEYS = [
         'sms_msg91_webhook_url',
+        'app_store_version_readout',
     ];
 
     /**
@@ -369,6 +372,44 @@ class SystemSettings extends Page implements HasForms
                                             )
                                             : new HtmlString('<em style="font-size:.8rem;color:#9ca3af;">System default — plays each phone\'s own notification sound.</em>')),
                                 ]),
+                            ])->columns(2)->collapsible(),
+
+                        // The two numbers behind the "App version adoption"
+                        // dashboard widget AND the app's own update check.
+                        // Both were admin-editable only in the sense that they
+                        // were SystemSetting rows — there was no field for
+                        // either, so the only way to correct a stale value was
+                        // a SQL console (2026-08-18).
+                        Forms\Components\Section::make('App Version & Updates')
+                            ->icon('heroicon-o-arrow-up-circle')
+                            ->description('What counts as "the latest build". The Dashboard → App version adoption widget measures every reachable install against this number, and the app itself reads it to decide whether to show "Update available".')
+                            ->schema([
+                                Forms\Components\TextInput::make('app_latest_version')
+                                    ->label('Latest released version')
+                                    ->placeholder('1.5.1')
+                                    ->rule('regex:/^\d+(\.\d+)*$/')
+                                    ->validationMessages(['regex' => 'Digits and dots only — 1.5.1, not "1.5.1 (36)" or "v1.5.1".'])
+                                    ->helperText('Digits and dots ONLY. The app compares numerically, so a build number in this box ("1.5.1 (36)") reads as version 1.5.36 and tells every devotee to update forever. Bump this the moment a release is live on either store.'),
+
+                                Forms\Components\TextInput::make('app_min_version')
+                                    ->label('Minimum supported version')
+                                    ->placeholder('1.0.0')
+                                    ->rule('regex:/^\d+(\.\d+)*$/')
+                                    ->validationMessages(['regex' => 'Digits and dots only — 1.0.0, not "1.0.0 (12)" or "v1.0.0".'])
+                                    ->helperText('Anything OLDER than this is force-updated: the app blocks until the devotee installs a new build. Raise it only for a release that genuinely breaks old apps — everyone below it is locked out until they update, and an iPhone user cannot update until Apple approves. Blank means 1.0.0 (nobody is blocked).'),
+
+                                Forms\Components\Placeholder::make('app_store_version_readout')
+                                    ->label('What the App Store reports')
+                                    ->columnSpanFull()
+                                    ->content(fn (): HtmlString => $this->renderAppStoreVersionReadout()),
+
+                                Forms\Components\Actions::make([
+                                    Forms\Components\Actions\Action::make('sync_app_store_version')
+                                        ->label('Check the App Store now')
+                                        ->icon('heroicon-o-arrow-path')
+                                        ->color('primary')
+                                        ->action(fn () => $this->syncAppStoreVersion()),
+                                ])->columnSpanFull(),
                             ])->columns(2)->collapsible(),
 
                         Forms\Components\Section::make('iOS Donations — App Store Compliance')
@@ -725,6 +766,67 @@ class SystemSettings extends Page implements HasForms
         }
 
         Notification::make()->title('Settings saved successfully')->success()->send();
+    }
+
+    /**
+     * What Apple currently publishes, next to what this platform believes.
+     *
+     * The daily app:sync-store-version job only ever advances the value, so a
+     * manual bump ahead of an Apple review is never dragged back down — but
+     * that also means a stale reading here is invisible without being shown.
+     * Android has no public endpoint at all (the Play Developer API needs a
+     * service account), so a Play-only release must be typed in by hand and
+     * this readout will legitimately lag behind it.
+     */
+    public function renderAppStoreVersionReadout(): HtmlString
+    {
+        $apple = trim(SystemSetting::getValue('app_latest_version_ios', ''));
+        $configured = trim($this->data['app_latest_version'] ?? SystemSetting::getValue('app_latest_version', ''));
+
+        $row = SystemSetting::where('key', 'app_latest_version_ios')->first();
+        $when = $row?->updated_at?->diffForHumans() ?? 'never';
+
+        if ($apple === '') {
+            return new HtmlString(
+                '<p class="text-sm text-gray-600 dark:text-gray-400">The App Store has not been read yet. '
+                .'The check runs daily at 06:10, or press the button below.</p>'
+            );
+        }
+
+        // Apple BEHIND us is the normal state during a review, or after an
+        // Android-only release — not a fault, and it must not read as one.
+        $note = $configured === '' || $configured === $apple
+            ? ''
+            : (SyncAppStoreVersion::isNewer($configured, $apple)
+                ? '<span class="text-warning-600 dark:text-warning-400">Ahead of Apple — normal while a build is in review, or after a Play-only release. The daily check will not lower it.</span>'
+                : '<span class="text-danger-600 dark:text-danger-400">Apple is AHEAD of this setting — the adoption widget is measuring against an old build. Press the button below, or type the newer number in.</span>');
+
+        return new HtmlString(
+            '<p class="text-sm text-gray-600 dark:text-gray-400">App Store: <strong>'.e($apple).'</strong> '
+            .'(checked '.e($when).'). Set here: <strong>'.e($configured === '' ? 'unset' : $configured).'</strong>. '
+            .$note.'</p>'
+        );
+    }
+
+    /**
+     * Read the live App Store version on demand instead of waiting for 06:10.
+     *
+     * The command moves the value FORWARD only, so this can never undo a
+     * manual bump — pressing it when Apple is behind is a no-op.
+     */
+    public function syncAppStoreVersion(): void
+    {
+        Artisan::call('app:sync-store-version');
+        $output = trim(Artisan::output());
+
+        SystemSetting::forgetCache();
+        $this->data['app_latest_version'] = SystemSetting::getValue('app_latest_version', '');
+
+        Notification::make()
+            ->title('App Store checked')
+            ->body($output === '' ? 'No response from the lookup.' : $output)
+            ->success()
+            ->send();
     }
 
     public function testSmtp(?string $recipient = null): void

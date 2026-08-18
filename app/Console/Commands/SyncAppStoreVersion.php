@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\Log;
  * whenever someone remembers to update a setting (2026-08-17).
  *
  * Apple publishes the live version of any app through the public iTunes
- * Lookup API — no key, no account. Google has no equivalent public endpoint
+ * Lookup API — no key, no account, but heavily CDN-cached (see the cache
+ * buster in handle()). Google has no equivalent public endpoint
  * (the Play Developer API needs a service account), so ANDROID STAYS MANUAL.
  * In practice both stores carry the same version number from one pubspec, so
  * the iOS reading is a good proxy; where it is not, the admin sets the value
@@ -48,6 +49,15 @@ class SyncAppStoreVersion extends Command
                 // per-storefront — a lookup with no country can miss an app
                 // that is only published in some regions.
                 'country' => SystemSetting::getValue('app_ios_store_country', 'in'),
+                // Cache buster (2026-08-18). Apple serves this endpoint
+                // through a CDN that keys on the full URL and IGNORES
+                // Cache-Control/Pragma request headers — verified: the plain
+                // URL kept returning 1.5.0 (35) for days after 1.5.1 went
+                // live, while the same request with a varying param returned
+                // 1.5.1 every time. Without this the daily job can sit on a
+                // stale reading indefinitely, which is worse than not running
+                // at all: it looks like Apple has not shipped yet.
+                '_' => now()->timestamp,
             ]);
         } catch (\Throwable $e) {
             // Never fail the scheduler over a third-party outage; the value

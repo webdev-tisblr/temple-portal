@@ -44,6 +44,21 @@ class SyncAppStoreVersionTest extends TestCase
         $this->assertSame('1.5.0', SystemSetting::getValue('app_latest_version_ios'));
     }
 
+    public function test_the_lookup_is_cache_busted(): void
+    {
+        // Apple serves this endpoint through a CDN that keys on the full URL
+        // and ignores Cache-Control/Pragma on the request — verified against
+        // the live API, where the plain URL kept returning 1.5.0 for days
+        // after 1.5.1 shipped while a varying param returned 1.5.1 every
+        // time. A stale reading is worse than no reading: it looks like Apple
+        // simply has not published yet.
+        $this->appleReturns('1.5.0');
+
+        $this->artisan('app:sync-store-version')->assertSuccessful();
+
+        Http::assertSent(fn ($request) => ! empty($request->data()['_'] ?? null));
+    }
+
     public function test_it_never_moves_the_version_backwards(): void
     {
         // The admin bumped it ahead of Apple's review — perhaps Android is

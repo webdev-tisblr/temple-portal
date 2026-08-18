@@ -291,6 +291,19 @@ class SystemSettings extends Page implements HasForms
                         Forms\Components\Section::make('General')->schema([
                             Forms\Components\Select::make('default_language')->label('Default Language')
                                 ->options(['gu' => 'Gujarati', 'hi' => 'Hindi', 'en' => 'English'])->default('gu'),
+
+                            // Last link in the {{ image_url }} fallback chain
+                            // (SevaBookingContext::resolveImageUrl). A WhatsApp
+                            // IMAGE header with an empty link is rejected by
+                            // Meta outright — the whole message fails, not just
+                            // the picture — so this is what stops one seva
+                            // missing its featured image from silently killing
+                            // its own confirmations.
+                            Forms\Components\FileUpload::make('notification_default_image')
+                                ->label('Default notification image')
+                                ->image()->directory('settings')->maxSize(2048)
+                                ->helperText('Used when a message needs an image and neither the seva nor the chosen product has one. Keep it under 5 MB and JPG/PNG — WhatsApp will not fetch anything else. A temple photo or the trust logo works.')
+                                ->columnSpanFull(),
                         ])->columns(2),
 
                         Forms\Components\Section::make('Mobile App')

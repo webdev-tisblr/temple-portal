@@ -174,10 +174,13 @@ final class NotificationRegistry
             //   slot_label / slot_time_label / slot_time (all the label),
             //   total_amount_formatted, receipt_number), devotee,
             //   trust_name, receipt_number, receipt_pdf_url (permanent
-            //   signed link), _attachments (PDF — absent if render failed).
+            //   signed link), _attachments (PDF — absent if render failed),
+            //   plus SevaBookingContext::values() — product_name_*,
+            //   product_price, product_image_url, seva_image_url and the
+            //   resolved image_url.
             'seva.booking.confirmed' => [
                 'label' => 'Seva — booking confirmed (with receipt)',
-                'description' => 'Fires when a seva booking payment is captured and the receipt PDF is generated — one message carrying the receipt. For WhatsApp, point the Header (DOCUMENT) link at {{ receipt_pdf_url }} (permanent link, regenerates on demand); for email the PDF is attached automatically.',
+                'description' => 'Fires when a seva booking payment is captured and the receipt PDF is generated — one message carrying the receipt. For WhatsApp, point a Header (DOCUMENT) link at {{ receipt_pdf_url }} (permanent link, regenerates on demand) or a Header (IMAGE) link at {{ image_url }}; for email the PDF is attached automatically.',
                 'placeholders' => [
                     'devotee_name' => 'Devotee name (devotee.name)',
                     'devotee_phone' => 'Devotee phone number (devotee.phone)',
@@ -193,6 +196,19 @@ final class NotificationRegistry
                     'booking_id' => 'Internal 36-character UUID. Kept only for templates that already use it; it means nothing to a reader — prefer booking_reference (booking.booking_reference)',
                     'assignee_name' => 'Seva assignee (pujari/staff) name — empty when the seva has no assignee (booking.seva.assignee.name)',
                     'assignee_phone' => 'Seva assignee phone — empty when the seva has no assignee (booking.seva.assignee.phone)',
+                    // Sevas that offer a product/prasad choice. All three are
+                    // empty strings when the seva has no product selection, so
+                    // a template can carry them unconditionally.
+                    'product_name' => "Chosen product in the reader's language, with the variant appended (\"Chundadi — Large\") — empty when the seva has no product choice (product_name_gu)",
+                    'product_price' => 'Price of the chosen product/variant, ready to print — includes ₹ and Indian digit grouping (product_price)',
+                    'product_image_url' => 'The chosen product\'s image, ignoring the per-seva setting — empty when the seva has no product choice (product_image_url)',
+                    // Image (2026-08-18). One template serves every seva, so
+                    // the header maps {{ image_url }} and the per-seva
+                    // "Notification image" setting decides what it resolves
+                    // to. Never blank unless the seva opts out — an empty
+                    // IMAGE header link makes Meta reject the whole message.
+                    'image_url' => 'Image for this booking — the chosen product image or the seva image, per the seva\'s "Notification image" setting, with a trust-wide default as the last fallback. Point the WhatsApp Header (IMAGE) link at this (image_url)',
+                    'seva_image_url' => 'The seva\'s own featured image, ignoring the per-seva setting — empty when the seva has no image (seva_image_url)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
             ],
@@ -255,7 +271,7 @@ final class NotificationRegistry
             // render {{ admin.name }} for each.
             'seva.booking.reminder' => [
                 'label' => 'Seva — reminder before booking',
-                'description' => 'Fires N hours before each confirmed booking based on the per-seva reminder_offsets list. Every enabled template for this trigger fires (devotee, admin role, etc.).',
+                'description' => 'Fires N hours before each confirmed booking based on the per-seva reminder_offsets list. Every enabled template for this trigger fires (devotee, admin role, etc.). For WhatsApp, point the Header (IMAGE) link at {{ image_url }}.',
                 'placeholders' => [
                     'devotee_name' => 'Devotee name (devotee.name)',
                     // A staff/pujari reminder names the devotee but had no
@@ -278,7 +294,14 @@ final class NotificationRegistry
                     // a template can carry them unconditionally.
                     'product_name' => "Chosen product in the reader's language, with the variant appended (\"Chundadi — Large\") — empty when the seva has no product choice (product_name_gu)",
                     'product_price' => 'Price of the chosen product/variant, ready to print — includes ₹ and Indian digit grouping (product_price)',
-                    'product_image_url' => 'Chosen product image — public CDN link, usable as a WhatsApp IMAGE header (product_image_url)',
+                    'product_image_url' => 'The chosen product\'s image, ignoring the per-seva setting — empty when the seva has no product choice (product_image_url)',
+                    // Image (2026-08-18). One template serves every seva, so
+                    // the header maps {{ image_url }} and the per-seva
+                    // "Notification image" setting decides what it resolves
+                    // to. Never blank unless the seva opts out — an empty
+                    // IMAGE header link makes Meta reject the whole message.
+                    'image_url' => 'Image for this booking — the chosen product image or the seva image, per the seva\'s "Notification image" setting, with a trust-wide default as the last fallback. Point the WhatsApp Header (IMAGE) link at this (image_url)',
+                    'seva_image_url' => 'The seva\'s own featured image, ignoring the per-seva setting — empty when the seva has no image (seva_image_url)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
             ],

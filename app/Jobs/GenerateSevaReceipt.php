@@ -7,6 +7,7 @@ namespace App\Jobs;
 use App\Models\SevaBooking;
 use App\Models\SystemSetting;
 use App\Services\Notifications\NotificationService;
+use App\Services\Notifications\SevaBookingContext;
 use App\Services\SevaReceiptService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -76,7 +77,10 @@ class GenerateSevaReceipt implements ShouldQueue
         // seva.assignee too — booking goes into the context as an
         // ARRAY, so the assignee_name/phone placeholders only resolve
         // if the relation is loaded before toArray().
-        $this->booking->refresh()->loadMissing('devotee', 'seva.assignee');
+        // selectedProduct too (2026-08-18): the confirmation now carries the
+        // same product + image keys the reminder does, and an unloaded
+        // relation would resolve every one of them to a blank.
+        $this->booking->refresh()->loadMissing('devotee', 'seva.assignee', 'selectedProduct');
 
         $context = [
             'booking' => array_merge($this->booking->toArray(), [
@@ -108,6 +112,10 @@ class GenerateSevaReceipt implements ShouldQueue
             // outlives the 7-day r2_private sweep (unlike a presign).
             'receipt_pdf_url' => URL::signedRoute('seva.receipt.link', ['booking' => $this->booking->id]),
         ];
+
+        // product_* names/price/image plus the resolved {{ image_url }} —
+        // shared with the reminder so the two can never drift.
+        $context = array_merge($context, SevaBookingContext::values($this->booking));
 
         // Key must be ABSENT (not []) when there is no PDF: contexts with
         // an _attachments key always send inline, never via the outbox.

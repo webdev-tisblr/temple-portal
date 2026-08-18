@@ -18,6 +18,28 @@ class Seva extends Model
 
     protected $table = 'temple_sevas';
 
+    /**
+     * Which image the seva's booking/reminder messages carry — the value
+     * behind the single `{{ image_url }}` placeholder. Each one is a
+     * preference at the head of a fallback chain, never a hard branch; see
+     * SevaBookingContext::resolveImageUrl().
+     */
+    public const IMAGE_SOURCE_PRODUCT = 'product';
+
+    public const IMAGE_SOURCE_SEVA = 'seva';
+
+    public const IMAGE_SOURCE_NONE = 'none';
+
+    /** @return array<string, string> */
+    public static function imageSourceOptions(): array
+    {
+        return [
+            self::IMAGE_SOURCE_PRODUCT => 'Chosen product image (falls back to the seva image)',
+            self::IMAGE_SOURCE_SEVA => 'Seva featured image (falls back to the product image)',
+            self::IMAGE_SOURCE_NONE => 'No image',
+        ];
+    }
+
     protected function managedImages(): array
     {
         return [
@@ -51,6 +73,7 @@ class Seva extends Model
         'reminder_mode',
         'send_darshan_on_booking_date',
         'linked_products',
+        'notification_image_source',
         'greeting_card_template',
         'greeting_card_template_hi',
         'greeting_card_template_en',

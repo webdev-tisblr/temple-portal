@@ -202,6 +202,19 @@ class SevaResource extends Resource
                         ->visible(fn (Get $get) => (bool) $get('enable_product_selection')),
                 ])->columns(2),
 
+            Forms\Components\Section::make('Notification Image')
+                ->icon('heroicon-o-photo')
+                ->collapsed()
+                ->description('Which picture this seva\'s booking confirmation and reminder messages carry — the {{ image_url }} variable. One WhatsApp template serves every seva, so this setting is what makes the same template send a different image per seva.')
+                ->schema([
+                    Forms\Components\Radio::make('notification_image_source')
+                        ->label('Image to send')
+                        ->options(Seva::imageSourceOptions())
+                        ->default(Seva::IMAGE_SOURCE_PRODUCT)
+                        ->required()
+                        ->helperText('Each option falls back to the other if its image is missing, and to the trust-wide default image in System Settings → General if both are. Pick "No image" only for templates with no image header — WhatsApp rejects a message whose image header has no link.'),
+                ]),
+
             Forms\Components\Section::make('Extra Fields (asked at booking)')
                 ->icon('heroicon-o-clipboard-document-list')
                 ->description('Optional questions the devotee answers when booking this seva — a name, a date, a photo. Answers can be placed on the greeting card below.')

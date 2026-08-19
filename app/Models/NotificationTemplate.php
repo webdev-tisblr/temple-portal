@@ -44,6 +44,14 @@ class NotificationTemplate extends Model
     // without naming individual users.
     public const RECIPIENT_ADMIN_ROLE = 'admin_role';
 
+    // Send to the AdminUser assigned to the seva this dispatch is about
+    // (temple_sevas.assignee_id — "Seva Assignee" on the seva form).
+    // No recipient_value: the address is looked up from the dispatch
+    // context at send time (booking.seva.assignee), so ONE template row
+    // routes every seva to its own pujari/staff member. Only meaningful
+    // on seva.* triggers, whose context carries the booking's seva.
+    public const RECIPIENT_SEVA_ASSIGNEE = 'seva_assignee';
+
     protected $fillable = [
         'key',
         'label',

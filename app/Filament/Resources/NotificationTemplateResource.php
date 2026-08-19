@@ -216,7 +216,7 @@ class NotificationTemplateResource extends Resource
                 ]),
 
             Forms\Components\Section::make('Recipients')
-                ->description('Each row resolves independently — add more to send the same message to multiple recipients in one go.')
+                ->description('Each row resolves independently — add more to send the same message to multiple recipients in one go. Staff rows (trust admin, admin user, role, seva assignee) always send in Gujarati; devotees get their own language.')
                 ->visible(fn (Forms\Get $get) => $get('channel') !== NotificationTemplate::CHANNEL_PUSH
                     && ! array_key_exists((string) $get('key'), self::RULE_DRIVEN_RECIPIENTS))
                 ->schema([
@@ -235,6 +235,7 @@ class NotificationTemplateResource extends Resource
                                 NotificationTemplate::RECIPIENT_TRUST_ADMIN => 'Trust admin',
                                 NotificationTemplate::RECIPIENT_ADMIN_USER => 'Specific admin user',
                                 NotificationTemplate::RECIPIENT_ADMIN_ROLE => 'Admin role: '.($state['value'] ?: '—'),
+                                NotificationTemplate::RECIPIENT_SEVA_ASSIGNEE => 'Seva assignee',
                                 NotificationTemplate::RECIPIENT_FIXED_EMAIL => 'Fixed email: '.($state['value'] ?: '—'),
                                 NotificationTemplate::RECIPIENT_FIXED_PHONE => 'Fixed phone: '.($state['value'] ?: '—'),
                                 NotificationTemplate::RECIPIENT_CONTEXT_PATH => 'Context path: '.($state['value'] ?: '—'),
@@ -244,18 +245,39 @@ class NotificationTemplateResource extends Resource
                         ->schema([
                             Forms\Components\Select::make('strategy')
                                 ->label('Send to')
-                                ->options([
+                                // The seva-assignee option only makes sense on
+                                // seva.* triggers — their context is the one
+                                // carrying the booking's seva. Kept visible when
+                                // a row is already set to it so an existing
+                                // recipient never renders as a blank select.
+                                ->options(fn (Forms\Get $get): array => array_filter([
                                     NotificationTemplate::RECIPIENT_DEVOTEE => 'Devotee in the event (email or phone)',
+                                    NotificationTemplate::RECIPIENT_SEVA_ASSIGNEE => self::offersSevaAssignee($get)
+                                        ? 'Seva assignee (the staff member assigned to this seva)'
+                                        : null,
                                     NotificationTemplate::RECIPIENT_TRUST_ADMIN => 'Trust admin (trust_email / trust_phone)',
                                     NotificationTemplate::RECIPIENT_ADMIN_USER => 'A specific admin user',
                                     NotificationTemplate::RECIPIENT_ADMIN_ROLE => 'Every admin holding a role',
                                     NotificationTemplate::RECIPIENT_FIXED_EMAIL => 'A specific email address',
                                     NotificationTemplate::RECIPIENT_FIXED_PHONE => 'A specific phone number',
                                     NotificationTemplate::RECIPIENT_CONTEXT_PATH => 'Look up from the event data (advanced)',
-                                ])
+                                ]))
                                 ->default(NotificationTemplate::RECIPIENT_DEVOTEE)
                                 ->required()
                                 ->live(),
+
+                            // seva_assignee needs no value — the address is
+                            // looked up per booking at send time. Say so, or
+                            // the row reads as an unfinished form.
+                            Forms\Components\Placeholder::make('seva_assignee_note')
+                                ->hiddenLabel()
+                                ->content(new HtmlString(
+                                    'Goes to the admin set as <strong>Seva Assignee</strong> on the booked seva '
+                                    .'(Sevas &rarr; edit a seva). Email uses their admin email, WhatsApp / SMS their phone. '
+                                    .'Nothing to fill in here — each booking resolves to its own assignee. '
+                                    .'Use <code>{{ admin.name }}</code> in the message to name them. Sends in Gujarati.'
+                                ))
+                                ->visible(fn (Forms\Get $get) => $get('strategy') === NotificationTemplate::RECIPIENT_SEVA_ASSIGNEE),
 
                             // Admin-user picker (only when strategy = admin_user)
                             Forms\Components\Select::make('value')
@@ -323,6 +345,24 @@ class NotificationTemplateResource extends Resource
                         ->helperText('Push notifications only support the in-event devotee — admin users do not register FCM tokens. Use WhatsApp / SMS / Email for admin recipients.'),
                 ]),
         ]);
+    }
+
+    /**
+     * Whether this recipient row may pick "Seva assignee".
+     *
+     * Only seva.* triggers dispatch a context carrying the booked seva,
+     * so the option is hidden everywhere else — but a row already set to
+     * it keeps the option so an existing recipient never renders blank.
+     * `../../key` walks out of the repeater item to the form's trigger
+     * select.
+     */
+    private static function offersSevaAssignee(Forms\Get $get): bool
+    {
+        if ($get('strategy') === NotificationTemplate::RECIPIENT_SEVA_ASSIGNEE) {
+            return true;
+        }
+
+        return str_starts_with((string) $get('../../key'), 'seva.');
     }
 
     /**

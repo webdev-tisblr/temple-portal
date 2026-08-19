@@ -11,6 +11,7 @@ use App\Models\NotificationLog;
 use App\Models\NotificationOutbox;
 use App\Models\NotificationTemplate;
 use App\Services\Notifications\Contracts\NotificationDriver;
+use App\Support\DevoteeLocale;
 use App\Support\ReviewBypass;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -501,8 +502,30 @@ final class NotificationService
                     continue;
                 }
 
+                // seva_assignee resolves the recipient from the booking's
+                // seva (temple_sevas.assignee_id) rather than anything
+                // stored on the template, and injects that admin into the
+                // context so the body can render {{ admin.name }} — same
+                // shape the admin_role fan-out gives each delivery.
+                $deliveryCtx = $ctx;
+                if ($strategy === NotificationTemplate::RECIPIENT_SEVA_ASSIGNEE) {
+                    $assignee = RecipientResolver::sevaAssignee($ctx);
+                    if ($assignee === null) {
+                        Log::warning('Notification: seva_assignee recipient but the seva has no assignee in context', [
+                            'template_id' => $template->id, 'template_key' => $template->key,
+                        ]);
+
+                        continue;
+                    }
+
+                    $deliveryCtx = $ctx->with(['admin' => $assignee, 'assignee' => $assignee]);
+                    $perRecipientKey = $perRecipientKey !== null
+                        ? "{$perRecipientKey}:admin:{$assignee->getKey()}"
+                        : null;
+                }
+
                 try {
-                    if ($this->deliver($perRecipientTemplate, $ctx, $perRecipientKey)) {
+                    if ($this->deliver($perRecipientTemplate, $deliveryCtx, $perRecipientKey)) {
                         $delivered++;
                     }
                 } catch (\Throwable $e) {
@@ -524,6 +547,46 @@ final class NotificationService
     }
 
     /**
+     * Recipient strategies that resolve to trust STAFF rather than to the
+     * devotee the event is about.
+     */
+    private const STAFF_STRATEGIES = [
+        NotificationTemplate::RECIPIENT_TRUST_ADMIN,
+        NotificationTemplate::RECIPIENT_ADMIN_USER,
+        NotificationTemplate::RECIPIENT_ADMIN_ROLE,
+        NotificationTemplate::RECIPIENT_SEVA_ASSIGNEE,
+    ];
+
+    /**
+     * Force a staff delivery into Gujarati.
+     *
+     * A dispatch context carries ONE locale — the devotee's — because it
+     * was built around the devotee the event is about. Every recipient of
+     * that dispatch then rendered in the devotee's language, so a Hindi
+     * or English devotee's booking sent the pujari a Hindi message. The
+     * seva reminder rules already decided this the other way (see
+     * DispatchSevaReminders: devotee rules use the devotee's language,
+     * staff and custom recipients get Gujarati); this aligns the template
+     * recipients with that.
+     *
+     * Only the unambiguous staff strategies are switched. `fixed_email` /
+     * `fixed_phone` / `context_path` are left alone: a context path is how
+     * several seeded templates reach the DEVOTEE (donation.devotee.email
+     * and friends), and forcing those to Gujarati would undo the
+     * multilingual work rather than extend it.
+     */
+    private static function staffLocale(NotificationTemplate $template, NotificationContext $ctx): NotificationContext
+    {
+        if (! in_array($template->recipient_strategy, self::STAFF_STRATEGIES, true)) {
+            return $ctx;
+        }
+
+        return $ctx->locale() === DevoteeLocale::FALLBACK
+            ? $ctx
+            : $ctx->with(['locale' => DevoteeLocale::FALLBACK]);
+    }
+
+    /**
      * Resolve recipient → write pending log → call driver → finalize log.
      * Single point where every send-attempt's outcome gets recorded.
      */
@@ -532,6 +595,11 @@ final class NotificationService
         NotificationContext $ctx,
         ?string $idempotencyKey,
     ): bool {
+        // Staff read Gujarati — see STAFF_STRATEGIES. Applied here, at the
+        // single choke point every send passes through, so the fan-out, the
+        // admin "Send test" action and the reaper's retries all agree.
+        $ctx = self::staffLocale($template, $ctx);
+
         $driver = $this->drivers[$template->channel] ?? null;
         if ($driver === null) {
             Log::warning('Notification: no driver registered for channel', [

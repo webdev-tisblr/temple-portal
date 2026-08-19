@@ -40,6 +40,7 @@ final class RecipientResolver
                 $expectedType,
             ),
             NotificationTemplate::RECIPIENT_ADMIN_ROLE => $this->fromAdminInContext($template, $context, $expectedType),
+            NotificationTemplate::RECIPIENT_SEVA_ASSIGNEE => $this->fromSevaAssignee($template, $context, $expectedType),
             default => $this->warnUnknownStrategy($template),
         };
 
@@ -211,6 +212,91 @@ final class RecipientResolver
             return null;
         }
         return $value;
+    }
+
+    /**
+     * Resolve the admin assigned to the seva this dispatch is about
+     * (temple_sevas.assignee_id). Unlike admin_user, nothing is stored
+     * on the template — the assignee is read from the dispatch context,
+     * so one template row routes every seva to its own staff member.
+     *
+     * NotificationService injects `admin` (and `assignee`) into the
+     * context before delivery so the body can render {{ admin.name }};
+     * this method still walks the context itself so a direct
+     * resolve() call (drivers, Resend from the log) behaves the same.
+     */
+    private function fromSevaAssignee(NotificationTemplate $template, NotificationContext $context, string $expectedType): ?string
+    {
+        $assignee = self::sevaAssignee($context);
+
+        if (! $assignee instanceof AdminUser) {
+            Log::warning('Notification: seva_assignee strategy but no assignee in context', [
+                'template_key' => $template->key,
+                'channel' => $template->channel,
+            ]);
+
+            return null;
+        }
+
+        $field = $expectedType === 'email' ? 'email' : 'phone';
+        $value = $assignee->{$field};
+        if (! is_string($value) || trim($value) === '') {
+            Log::warning('Notification: seva assignee has no ' . $expectedType, [
+                'template_key' => $template->key,
+                'channel' => $template->channel,
+                'admin_user_id' => $assignee->getKey(),
+            ]);
+
+            return null;
+        }
+
+        return $value;
+    }
+
+    /**
+     * Dig the seva's assignee out of a dispatch context.
+     *
+     * Contexts carry the booking in whichever shape the dispatch site
+     * built it — a live model (counter entry), or the toArray() bag
+     * jobs merge (GenerateSevaReceipt loads `seva.assignee` precisely so
+     * the nested array survives). Both are handled, plus a plain
+     * `seva`/`assignee` key, and finally the raw assignee_id which is
+     * always present even when the relation was never eager-loaded.
+     *
+     * Inactive admins are NOT filtered out — same as the seva reminder
+     * rules, which look the assignee up by id regardless. Deactivating
+     * a pujari without reassigning their sevas should surface as a
+     * delivery, not a silent hole.
+     */
+    public static function sevaAssignee(NotificationContext $context): ?AdminUser
+    {
+        foreach (['assignee', 'booking.seva.assignee', 'seva.assignee'] as $path) {
+            $candidate = $context->get($path);
+
+            if ($candidate instanceof AdminUser) {
+                return $candidate;
+            }
+
+            if (is_array($candidate) && ($candidate['id'] ?? null) !== null) {
+                $user = AdminUser::find($candidate['id']);
+                if ($user) {
+                    return $user;
+                }
+            }
+        }
+
+        foreach (['booking.seva.assignee_id', 'seva.assignee_id', 'assignee_id'] as $path) {
+            $id = $context->get($path);
+
+            if (is_int($id) || (is_string($id) && trim($id) !== '')) {
+                $user = AdminUser::find($id);
+                if ($user) {
+                    return $user;
+                }
+            }
+        }
+
+        return null;
     }
 
     private function warnUnknownStrategy(NotificationTemplate $template): ?string

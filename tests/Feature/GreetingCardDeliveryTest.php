@@ -36,6 +36,12 @@ class GreetingCardDeliveryTest extends TestCase
     {
         parent::setUp();
         Storage::fake('r2_private');
+        // r2 (public) too: artwork() writes the template here, and an
+        // unfaked disk is the REAL bucket — these tests were uploading
+        // greeting-templates/test.png into production on every local run,
+        // and failing on CI, where there are no R2 credentials to reach it
+        // with, so the card never rendered and four assertions went red.
+        Storage::fake('r2');
     }
 
     /** A 1x1 PNG is enough: these tests assert routing, not pixels. */

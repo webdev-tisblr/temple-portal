@@ -92,6 +92,12 @@ class ImageDerivativeTest extends TestCase
         $this->assertSame([ImageDerivativeService::THUMBNAIL_EDGE, 267], [$tw, $th]);
     }
 
+    /**
+     * Only ever fails on a host WITH imagick (the VPS, the CI runner —
+     * not a Mac without the extension): the shrink-on-load `jpeg:size`
+     * hint is a request, and libjpeg-turbo will scale UP to 2x to satisfy
+     * it, so a 300x200 source asked for a 1000 px box decoded at 600x400.
+     */
     public function test_renditions_never_upscale_a_small_source(): void
     {
         $this->putJpeg('gallery/small.jpg', 300, 200);

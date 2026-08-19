@@ -227,7 +227,17 @@ class ImageDerivativeService
         // function of $targetEdge, NOT of the source, so there is no size
         // at which this path is unsafe and no ceiling is applied. This is
         // the path production takes (the VPS has imagick).
-        if ($this->usesImagick && $pixels > 0 && ($info['mime'] ?? '') === 'image/jpeg') {
+        //
+        // Only for a source BIGGER than the box: `jpeg:size` is a request
+        // for a size, not a ceiling, and libjpeg-turbo will scale UP to 2x
+        // to meet it. A 300x200 photo asked for a 1000 px box decoded at
+        // 600x400, scaleDown() then had nothing to trim, and the rendition
+        // shipped upscaled — bigger than the original and blurrier. There
+        // is nothing to shrink on a source that already fits, so the hint
+        // has no value there either.
+        $needsShrink = $width > $targetEdge || $height > $targetEdge;
+
+        if ($this->usesImagick && $pixels > 0 && $needsShrink && ($info['mime'] ?? '') === 'image/jpeg') {
             try {
                 $imagick = new \Imagick;
                 // libjpeg picks the smallest 1/1, 1/2, 1/4 or 1/8 DCT scale

@@ -6,17 +6,23 @@ on:
 
 jobs:
   # ───────────────────────────────────────────────────────────────
-  # Gate job — currently REPORTING-ONLY and runs IN PARALLEL with
-  # deploy (no `needs: test` on the deploy job): while both checks
-  # below are continue-on-error the gate can't block anything, so
-  # serializing behind it only added ~5 min to every deploy. When
-  # arming the gate (see steps below), restore `needs: test` on the
-  # deploy job so a red build blocks the deploy again.
-  # Runs the Pint style check (free, deterministic) and the PHPUnit
-  # suite against a throwaway MySQL 8 service container. The project
-  # is MySQL-only — there is no sqlite path — so the DB tests need a
-  # real MySQL. The service DB name matches phpunit.xml's
-  # DB_DATABASE=temple_portal_test.
+  # Gate job. Runs the Pint style check and the PHPUnit suite against
+  # a throwaway MySQL 8 service container. The project is MySQL-only —
+  # there is no sqlite path — so the DB tests need a real MySQL. The
+  # service DB name matches phpunit.xml's DB_DATABASE=temple_portal_test.
+  #
+  # ARMED for tests since 2026-08-19: the suite went fully green on CI
+  # (567 passed) once GreetingCardDeliveryTest stopped reaching for the
+  # real R2 bucket, so a failure here now turns the whole run RED
+  # instead of scrolling past. Pint stays reporting-only — 171 files
+  # predate it and reformatting them is a 700-file diff that changes no
+  # behaviour.
+  #
+  # Deliberately still runs IN PARALLEL with deploy (no `needs: test`):
+  # the suite takes ~10 min and the deploy ~15, so serializing would put
+  # every hotfix 25+ min away from production. The red run is the alarm;
+  # add `needs: test` if you would rather a failure physically block the
+  # deploy and can live with the wait.
   # ───────────────────────────────────────────────────────────────
   test:
     runs-on: ubuntu-latest
@@ -55,16 +61,11 @@ jobs:
       - name: Install Composer dependencies (with dev)
         run: composer install --optimize-autoloader --no-interaction
 
-      # ⚠️ REPORTING MODE (continue-on-error) — does NOT block deploy yet.
-      # The existing codebase predates Pint and ~180 files don't match its
-      # default ruleset, and the new PHPUnit suite has not yet had a green
-      # run against the CI MySQL service. Blocking on either right now would
-      # brick every deploy on day one. These steps report results so you can
-      # watch them go green, THEN arm the gate:
-      #   1. run `vendor/bin/pint` once locally + commit the formatting pass,
-      #   2. confirm `php artisan test` is green in a CI run,
-      #   3. remove the `continue-on-error: true` lines below AND restore
-      #      `needs: test` on the deploy job so a red build blocks deploy.
+      # REPORTING ONLY, on purpose. ~171 files predate Pint and do not
+      # match its default ruleset; a formatting pass over all of them
+      # would bury real diffs in whitespace for zero behaviour change.
+      # To arm it: run `vendor/bin/pint`, commit that pass on its own,
+      # then drop the continue-on-error below.
       - name: Check code style (Pint)
         continue-on-error: true
         run: ./vendor/bin/pint --test
@@ -74,8 +75,8 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
+      # ARMED — a failing test fails the run. Green as of 2026-08-19.
       - name: Run tests
-        continue-on-error: true
         env:
           DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1

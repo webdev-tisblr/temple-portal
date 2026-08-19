@@ -194,8 +194,8 @@ class GreetingCardDeliveryTest extends TestCase
     }
 
     /**
-     * A seva booked FOR TODAY is carded immediately — the 07:30 sweep has
-     * already run by the time someone books at noon.
+     * A seva booked FOR TODAY is carded immediately, whatever the hour —
+     * waiting for the next sweep would be a card a day late.
      */
     public function test_a_seva_booked_for_today_is_carded_at_payment(): void
     {
@@ -204,6 +204,45 @@ class GreetingCardDeliveryTest extends TestCase
         app(PaymentCaptureService::class)->markCaptured($booking->payment, null, 'cash');
 
         $this->assertNotNull($booking->fresh()->greeting_card_path);
+    }
+
+    /**
+     * ...and that booking must not be carded a SECOND time by the sweep.
+     *
+     * Live since the sweep moved to 10:00 (2026-08-19): a booking paid at
+     * 08:00 for a seva today cards at capture, and the sweep two hours later
+     * finds it again. The dispatch idempotency key only dedups for 30
+     * minutes, so the durable notification log is what has to stop it.
+     */
+    public function test_the_sweep_does_not_card_a_booking_that_already_carded_at_payment(): void
+    {
+        NotificationTemplate::create([
+            'key' => 'seva.greeting_card',
+            'channel' => NotificationTemplate::CHANNEL_EMAIL,
+            'label' => 'Seva greeting card',
+            'is_enabled' => true,
+            'subject' => 'Your card',
+            'body' => 'Jay Shree Ram',
+            'recipients' => [['strategy' => NotificationTemplate::RECIPIENT_DEVOTEE, 'value' => null]],
+        ]);
+
+        $date = now()->toDateString();
+        $booking = $this->sevaBooking($date);
+
+        app(PaymentCaptureService::class)->markCaptured($booking->payment, null, 'cash');
+
+        $sentAtCapture = \App\Models\NotificationLog::where('template_key', 'seva.greeting_card')->count();
+        $this->assertSame(1, $sentAtCapture, 'capture should card a same-day booking exactly once');
+
+        $this->artisan('seva:send-day-of-cards', ['--date' => $date])
+            ->expectsOutputToContain('already carded today')
+            ->assertExitCode(0);
+
+        $this->assertSame(
+            $sentAtCapture,
+            \App\Models\NotificationLog::where('template_key', 'seva.greeting_card')->count(),
+            'the sweep must not send the devotee a second card',
+        );
     }
 
     /** A cancelled booking simply stops matching — no special handling. */

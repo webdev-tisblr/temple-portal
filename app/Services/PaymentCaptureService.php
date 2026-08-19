@@ -300,7 +300,7 @@ class PaymentCaptureService
             //
             // Sent HERE only when the seva is today or already past. Everything
             // in the future is left to `seva:send-day-of-cards`, which sweeps
-            // each morning at 07:30 — the trust wants the card to arrive on the
+            // each morning at 10:00 — the trust wants the card to arrive on the
             // day of the seva, not weeks earlier when the booking was paid for.
             // Same-day bookings still card immediately (the sweep has already
             // run by then), as do backdated counter entries.

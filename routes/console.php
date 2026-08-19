@@ -102,8 +102,10 @@ Schedule::command('bookings:prune-abandoned')
 // Seva greeting cards go out on the MORNING OF THE SEVA, not when the booking
 // was paid for. withoutOverlapping carries an explicit short expiry: Laravel's
 // default lock is 24h, which on a daily task could silently skip a whole day.
+// 10:00 IST since 2026-08-19 (was 07:30): the trust wants the card landing
+// when devotees are actually awake and looking at their phone.
 Schedule::command('seva:send-day-of-cards')
-    ->dailyAt('07:30')
+    ->dailyAt('10:00')
     ->withoutOverlapping(10)
     ->runInBackground();
 

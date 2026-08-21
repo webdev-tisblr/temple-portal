@@ -628,7 +628,7 @@
   "validate.email_required": "ईमेल पता दर्ज करें",
   "validate.pincode_required": "पिनकोड दर्ज करें",
   "validate.pincode_invalid": "मान्य 6-अंकों का पिनकोड दर्ज करें",
-  "profile.complete_prompt": "आगे बढ़ने के लिए कृपया अपनी प्रोफ़ाइल पूरी करें। केवल PAN वैकल्पिक है।",
+  "profile.complete_prompt": "आगे बढ़ने के लिए कृपया अपना नाम जोड़ें। यह आपकी रसीद पर छपता है और हर पुष्टि संदेश में उपयोग होता है। बाकी सब वैकल्पिक है।",
   "contact.category": "यह किस बारे में है?",
   "contact.category_query": "प्रश्न / पूछताछ",
   "contact.category_suggestion": "सुझाव",

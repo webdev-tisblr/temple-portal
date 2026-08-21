@@ -628,7 +628,7 @@
   "validate.email_required": "ઈમેલ સરનામું દાખલ કરો",
   "validate.pincode_required": "પિનકોડ દાખલ કરો",
   "validate.pincode_invalid": "માન્ય 6-અંકનો પિનકોડ દાખલ કરો",
-  "profile.complete_prompt": "આગળ વધવા માટે કૃપા કરી તમારી પ્રોફાઇલ પૂર્ણ કરો. ફક્ત PAN વૈકલ્પિક છે.",
+  "profile.complete_prompt": "આગળ વધવા માટે કૃપા કરી તમારું નામ ઉમેરો. તે તમારી પહોંચ (રસીદ) પર છપાય છે અને દરેક પુષ્ટિ સંદેશમાં વપરાય છે. બાકીનું બધું વૈકલ્પિક છે.",
   "contact.category": "આ શા વિશે છે?",
   "contact.category_query": "પ્રશ્ન / પૂછપરછ",
   "contact.category_suggestion": "સૂચન",

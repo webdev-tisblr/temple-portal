@@ -628,7 +628,7 @@
   "validate.email_required": "Enter email address",
   "validate.pincode_required": "Enter pincode",
   "validate.pincode_invalid": "Enter a valid 6-digit pincode",
-  "profile.complete_prompt": "Please complete your profile to continue. Only PAN is optional.",
+  "profile.complete_prompt": "Please add your name to continue. It is printed on your receipts and used in every confirmation message. Everything else is optional.",
   "contact.category": "What is this about?",
   "contact.category_query": "Question / enquiry",
   "contact.category_suggestion": "Suggestion",

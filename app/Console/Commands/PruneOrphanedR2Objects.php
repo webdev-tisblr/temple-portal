@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\Concerns\HasManagedImages;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -216,75 +215,94 @@ class PruneOrphanedR2Objects extends Command
      * by path (a hash set — these lists run to thousands and we do a
      * membership test per bucket object).
      *
+     * Scans EVERY text-ish column of EVERY table, not just the columns
+     * models declare through HasManagedImages. That is deliberate, and it
+     * is the second version of this method: the first walked only the
+     * declared columns and would have deleted live content, because paths
+     * hide in places no model declares —
+     *
+     *   • temple_seva_bookings.extra_data — a JSON blob holding uploads
+     *     from a seva's custom fields (5 live paths on production)
+     *   • temple_notifications.image_url — a plain column on a model that
+     *     does not use the trait at all
+     *   • temple_system_settings.value — the hero image, the popup
+     *   • CMS page bodies — HTML with embedded cdn.… <img> sources
+     *
+     * temple-public is permanent, non-regenerable content. A false
+     * positive there is unrecoverable, so the scan errs heavily towards
+     * keeping: anything that LOOKS like an object path anywhere in the
+     * database protects that object, even if the row is unrelated.
+     *
      * @return array<string, array<string, true>>
      */
     private function referencedPaths(): array
     {
-        $out = ['r2' => [], 'r2_private' => []];
+        $seen = [];
 
-        foreach ($this->modelsWithManagedImages() as $class) {
-            /** @var \Illuminate\Database\Eloquent\Model $instance */
-            $instance = new $class;
+        // folder/filename.ext — optionally preceded by a CDN URL, which is
+        // how paths appear inside CMS HTML. The folder list is open on
+        // purpose: a new upload folder is protected without a code change.
+        $pattern = '#(?:https?://[^\s"\'<>]*/)?([a-z0-9][a-z0-9._-]*(?:/[a-z0-9][a-z0-9._-]*)+\.(?:png|jpe?g|webp|gif|svg|pdf|mp4|mov|ttf|otf))#i';
 
-            $method = new \ReflectionMethod($class, 'managedImages');
-            $method->setAccessible(true);
-            /** @var array<string, string> $columns */
-            $columns = $method->invoke($instance);
-
-            foreach ($columns as $column => $disk) {
-                if (! array_key_exists($disk, $out)) {
-                    continue;
-                }
-                // Straight to the query builder: no model hydration, no
-                // accessors, no global scopes hiding rows whose file is
-                // still very much on the bucket.
-                DB::table($instance->getTable())
+        foreach ($this->tableNames() as $table) {
+            foreach ($this->scannableColumns($table) as $column) {
+                DB::table($table)
                     ->whereNotNull($column)
-                    ->where($column, '<>', '')
                     ->orderBy($column)
                     ->pluck($column)
-                    ->each(function ($path) use (&$out, $disk) {
-                        $out[$disk][ltrim((string) $path, '/')] = true;
+                    ->each(function ($value) use (&$seen, $pattern) {
+                        $value = (string) $value;
+                        if ($value === '' || ! Str::contains($value, '/')) {
+                            return;
+                        }
+                        if (preg_match_all($pattern, $value, $m)) {
+                            foreach ($m[1] as $hit) {
+                                $seen[ltrim($hit, '/')] = true;
+                            }
+                        }
                     });
             }
         }
 
-        // Settings hold a couple of paths directly (hero image, popup,
-        // live-darshan placeholder). They belong to no model, so the walk
-        // above cannot see them.
-        foreach (DB::table('temple_system_settings')->pluck('value') as $value) {
-            $value = trim((string) $value);
-            if ($value !== '' && ! Str::contains($value, ' ') && Str::contains($value, '/')) {
-                $out['r2'][ltrim($value, '/')] = true;
-                $out['r2_private'][ltrim($value, '/')] = true;
+        // One set, applied to both disks. The two buckets do not share a
+        // namespace, so protecting a path on both costs nothing and means
+        // a file that moved between them is never orphaned by the move.
+        return ['r2' => $seen, 'r2_private' => $seen];
+    }
+
+    /**
+     * Every table in the current schema. SHOW TABLES rather than Doctrine,
+     * which this project does not install.
+     *
+     * @return list<string>
+     */
+    private function tableNames(): array
+    {
+        return array_map(
+            fn ($row) => (string) array_values((array) $row)[0],
+            DB::select('SHOW TABLES'),
+        );
+    }
+
+    /**
+     * Text-ish columns worth scanning. Numeric, date and boolean columns
+     * cannot hold a path, and skipping them keeps a full-database scan to
+     * something that finishes.
+     *
+     * @return list<string>
+     */
+    private function scannableColumns(string $table): array
+    {
+        $out = [];
+
+        foreach (DB::select("SHOW COLUMNS FROM `{$table}`") as $col) {
+            $type = strtolower((string) ($col->Type ?? ''));
+            if (Str::contains($type, ['char', 'text', 'json', 'blob', 'enum'])) {
+                $out[] = (string) $col->Field;
             }
         }
 
         return $out;
-    }
-
-    /**
-     * Every model class that opts into HasManagedImages. Discovered by
-     * scanning app/Models rather than hand-listed, so a model added later
-     * is protected automatically instead of having its files pruned.
-     *
-     * @return list<class-string>
-     */
-    private function modelsWithManagedImages(): array
-    {
-        $found = [];
-
-        foreach (glob(app_path('Models/*.php')) ?: [] as $file) {
-            $class = 'App\\Models\\'.basename($file, '.php');
-            if (! class_exists($class)) {
-                continue;
-            }
-            if (in_array(HasManagedImages::class, class_uses_recursive($class), true)) {
-                $found[] = $class;
-            }
-        }
-
-        return $found;
     }
 
     private function humanBytes(int $bytes): string

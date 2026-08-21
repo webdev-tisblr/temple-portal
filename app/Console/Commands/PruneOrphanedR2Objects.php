@@ -252,6 +252,18 @@ class PruneOrphanedR2Objects extends Command
                     ->pluck($column)
                     ->each(function ($value) use (&$seen, $pattern) {
                         $value = (string) $value;
+
+                        // MySQL JSON columns store a path with the slash
+                        // ESCAPED — "donation-extras\\/PKz….jpg" — and not
+                        // consistently: temple_donations escapes it while
+                        // temple_seva_bookings does not. Matching only the
+                        // literal form found the seva uploads and missed
+                        // every donation one, which flagged 61 real donor
+                        // photographs (a birthday child's among them) as
+                        // orphans in a bucket that has no undo. Normalise
+                        // first, then match.
+                        $value = str_replace('\\/', '/', $value);
+
                         if ($value === '' || ! Str::contains($value, '/')) {
                             return;
                         }

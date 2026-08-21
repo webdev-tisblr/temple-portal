@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class CleanStatusCards extends Command
 {
-    protected $signature = 'status-cards:clean {--days=30 : Cards older than this are deleted}';
+    protected $signature = 'status-cards:clean {--days=1 : Cards older than this are deleted}';
 
     protected $description = 'Delete generated status cards older than the retention window';
 

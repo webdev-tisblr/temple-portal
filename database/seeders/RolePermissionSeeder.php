@@ -128,6 +128,7 @@ class RolePermissionSeeder extends Seeder
         'OperationsTodayOverview',    // G4 — was missing
         'QueueHealthOverview',
         'SevaBookingsChart',          // G4 — was missing
+        'WhatsAppDeliveryHealth',     // 2026-08-21 — delivery reports were invisible
         // G5: 'RecentDonationsTable' and 'SevaBookingOverview' removed —
         // neither widget class exists any more. See OBSOLETE_PERMISSIONS.
     ];

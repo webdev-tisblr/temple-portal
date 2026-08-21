@@ -233,9 +233,28 @@ Schedule::command('sitemap:generate')
 // sweep). CDN edge-cache (30 days max-age) keeps already-shared
 // URLs working past R2 deletion until natural eviction. Minute :30
 // chosen to stagger off the queue:work pulse at *:00 and *:05.
-// Generated status cards are a 30-day regenerable cache on r2 public.
+// Generated status cards: 1-day retention, swept HOURLY at :00
+// (2026-08-21). They were a 30-day cache, and at ~6 MB a card that
+// came to 1.72 GB — 83% of everything the trust stores, from a single
+// folder. The retention now matches what the artefact is FOR: a
+// devotee makes a card, shares it to WhatsApp status, and WhatsApp
+// status itself expires in 24 hours. Anything older is storage nobody
+// will look at. The card also regenerates on demand, and the devotee
+// keeps their own copy in their gallery, so the only thing a shorter
+// window costs is a re-share of a day-old card.
 Schedule::command('status-cards:clean')
-    ->dailyAt('04:45')
+    ->hourlyAt(0)
+    ->withoutOverlapping(30);
+
+// Repair the "non-null path means the file is there" invariant that
+// every download endpoint relies on (they self-heal on NULL and skip
+// the R2 probe on purpose). Our sweepers NULL the column when they
+// delete; Cloudflare-side lifecycle rules do not, and on 2026-08-21
+// that had left 24 greeting-card rows pointing at deleted files —
+// which is the one case the download path turns into a broken link
+// instead of a regeneration. Runs after the document sweeps.
+Schedule::command('documents:reconcile-paths')
+    ->dailyAt('05:10')
     ->withoutOverlapping(30);
 
 Schedule::command('darshan:clean-share-cards')

@@ -51,40 +51,64 @@ class PruneOrphanedR2Objects extends Command
         {--delete : Actually delete. Without this the command only reports.}
         {--disk= : Limit to one disk (r2 or r2_private). Default: both.}
         {--list= : Print up to this many orphan paths per folder (default 5).}
-        {--older-than=2 : Only consider objects older than this many days.}';
+        {--older-than=2 : Only consider objects older than this many days.}
+        {--include-documents : Also clear unreferenced receipts, invoices and greeting cards (safe: nothing points at them, and downloads self-heal).}';
 
     protected $description = 'Remove R2 objects no database row references (test artifacts and dead cache entries)';
 
     /**
-     * Never delete anything under these prefixes, whatever the DB says.
+     * Never delete anything here, whatever the database says.
      *
-     * These are CACHES, not content. Nothing references them by design —
-     * they are addressed by a URL the platform hands out and regenerated
-     * on miss — so "no database row points here" is their normal state,
-     * not evidence of an orphan. Each already has a dedicated age-based
-     * sweeper (see routes/console.php), which is the correct way to expire
-     * them: by age, not by reachability.
+     * These caches are not referenced by any row BY DESIGN — the platform
+     * generates them, hands the devotee a CDN URL, and forgets. So "no row
+     * points at this" is their normal state, not evidence of an orphan, and
+     * reachability cannot tell a live one from a dead one. Worse, a status
+     * card a devotee has already shared to WhatsApp lives only at that URL:
+     * delete it and the share breaks permanently, with nothing to
+     * regenerate from.
      *
-     * Pruning them here would delete a status card a devotee generated
-     * minutes ago and shared to WhatsApp, and an invoice a devotee is
-     * about to open. Their own sweepers clear test junk within a day or
-     * two anyway.
+     * Their own age-based sweepers expire them correctly (CleanStatusCards
+     * at 30 days, CleanDarshanShareCards at 1), which is the right tool for
+     * a cache. Leave them to it.
      */
-    private const SELF_SWEPT_PREFIXES = [
+    private const NEVER_REFERENCED = [
         'status-cards/',        // CleanStatusCards, 30 days
         'daily-darshan-cards/', // CleanDarshanShareCards, 1 day
-        'greeting-cards/',      // CleanGeneratedGreetingCards, 1 day
-        'invoices/',            // CleanGeneratedInvoices, 7 days
-        'hall-invoices/',       // CleanGeneratedInvoices, 7 days
-        'seva-receipts/',       // CleanGeneratedInvoices, 7 days
-        'receipts/',            // CleanGeneratedReceipts, 7 days
         // Backups are addressed by listing, not by a stored path.
         'backups/',
+    ];
+
+    /**
+     * Generated documents that ARE referenced by a row whenever they are
+     * live: temple_orders.invoice_path, temple_seva_bookings.receipt_path
+     * and .greeting_card_path, temple_receipts_80g.pdf_path, and so on.
+     *
+     * An unreferenced file here is therefore genuinely dead — overwhelmingly
+     * a test artifact, because the suite generated a real PDF into the live
+     * bucket and then rolled its database row back (that is the leak this
+     * whole command exists to clean up).
+     *
+     * Deleting one cannot break a download. The endpoints self-heal on a
+     * NULL path, and the sweepers NULL the column when they delete a file —
+     * so "non-null means present" is the contract they rely on. An object
+     * with no row pointing at it has no column to contradict, and no
+     * devotee can reach it.
+     *
+     * Skipped by default anyway (their own 7-day sweeper would get there
+     * eventually); --include-documents opts in to clearing them now.
+     */
+    private const REGENERABLE_DOCUMENTS = [
+        'invoices/',
+        'hall-invoices/',
+        'seva-receipts/',
+        'receipts/',
+        'greeting-cards/',
     ];
 
     public function handle(): int
     {
         $delete = (bool) $this->option('delete');
+        $includeDocuments = (bool) $this->option('include-documents');
         $sample = (int) ($this->option('list') ?? 5);
 
         // An upload lands in R2 a moment BEFORE its database row is
@@ -138,7 +162,12 @@ class PruneOrphanedR2Objects extends Command
                 if (isset($keep[$path])) {
                     continue;
                 }
-                if (Str::startsWith($path, self::SELF_SWEPT_PREFIXES)) {
+                if (Str::startsWith($path, self::NEVER_REFERENCED)) {
+                    $skipped++;
+
+                    continue;
+                }
+                if (! $includeDocuments && Str::startsWith($path, self::REGENERABLE_DOCUMENTS)) {
                     $skipped++;
 
                     continue;

@@ -252,7 +252,20 @@ class AuthWebController extends Controller
 
         // redirect_to is the server-stored, allowlisted path from token
         // creation — never attacker-controllable via this URL.
-        return redirect()->to($token->redirect_to ?: route('donate'));
+        $destination = $token->redirect_to ?: route('donate');
+
+        // Same interstitial as the OTP login above. Without it a nameless
+        // devotee handed off from the iOS app lands on /donate, fills the
+        // whole form, and only meets EnsureProfileComplete when they
+        // press pay. Park the destination so profile completion returns
+        // them to it.
+        if (empty($devotee->name)) {
+            $request->session()->put('url.intended', $destination);
+
+            return redirect()->route('profile.complete');
+        }
+
+        return redirect()->to($destination);
     }
 
     public function logout(Request $request): RedirectResponse

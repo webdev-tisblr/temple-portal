@@ -206,10 +206,11 @@ class DevoteeLoginRedirectTest extends TestCase
             ->assertRedirect(route('dashboard.index'));
     }
 
-    // ── signup requires a complete profile (2026-08-17) ────────────────
+    // ── signup requires a NAME, and only a name (2026-08-21) ──────────
 
     /**
-     * Everything except PAN is compulsory at first-time signup.
+     * A full payload. Every field below is still SAVED when supplied; only
+     * `name` is refused when missing.
      *
      * @return array<string, string>
      */
@@ -226,15 +227,39 @@ class DevoteeLoginRedirectTest extends TestCase
     }
 
     /**
-     * Email is deliberately ABSENT — many devotees have no email address, so
-     * it is accepted blank (though the form does not advertise that).
+     * The name is the one field a devotee cannot skip: it prints on the 80G
+     * receipt and every WhatsApp template binds it — and Meta rejects an
+     * entire template message when a parameter is an empty string, so a
+     * nameless account received none of its messages at all.
+     */
+    public function test_signup_refuses_a_missing_name(): void
+    {
+        $devotee = $this->devotee(['name' => '', 'email' => null]);
+
+        $this->actingAs($devotee, 'devotee')
+            ->post('/profile/complete', self::completeProfilePayload(['name' => '']))
+            ->assertSessionHasErrors('name');
+
+        $this->assertSame('', (string) $devotee->fresh()->name, 'nothing should have been saved');
+    }
+
+    /**
+     * …and it is the ONLY one (2026-08-21).
+     *
+     * Between 2026-08-17 and 2026-08-21 the address block was compulsory
+     * here too. That was the wrong trade: an address is needed by the one
+     * flow that ships something, which collects it at checkout, while a long
+     * wall in front of someone who just wanted in is what got abandoned —
+     * and an abandoned signup is precisely how the nameless accounts
+     * happened. PAN is optional by consent (80G is opt-in) and email
+     * because most devotees here have none.
      *
      * @return array<string, array{string}>
      */
-    public static function compulsorySignupFieldProvider(): array
+    public static function optionalSignupFieldProvider(): array
     {
         return [
-            'name' => ['name'],
+            'email' => ['email'],
             'address' => ['address'],
             'city' => ['city'],
             'state' => ['state'],
@@ -242,16 +267,28 @@ class DevoteeLoginRedirectTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('compulsorySignupFieldProvider')]
-    public function test_signup_refuses_a_missing_field(string $field): void
+    #[\PHPUnit\Framework\Attributes\DataProvider('optionalSignupFieldProvider')]
+    public function test_signup_accepts_a_missing_optional_field(string $field): void
     {
         $devotee = $this->devotee(['name' => '', 'email' => null]);
 
         $this->actingAs($devotee, 'devotee')
             ->post('/profile/complete', self::completeProfilePayload([$field => '']))
-            ->assertSessionHasErrors($field);
+            ->assertSessionHasNoErrors();
 
-        $this->assertSame('', (string) $devotee->fresh()->name, 'nothing should have been saved');
+        $this->assertSame('Bhakt Ji', $devotee->fresh()->name);
+    }
+
+    /** The minimum a devotee can get away with: a name, nothing else. */
+    public function test_signup_accepts_a_name_with_nothing_else(): void
+    {
+        $devotee = $this->devotee(['name' => '', 'email' => null]);
+
+        $this->actingAs($devotee, 'devotee')
+            ->post('/profile/complete', ['name' => 'Bhakt Ji'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('Bhakt Ji', $devotee->fresh()->name);
     }
 
     public function test_pan_and_email_stay_optional_at_signup(): void

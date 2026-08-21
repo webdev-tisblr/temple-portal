@@ -26,6 +26,12 @@ class DevoteeResource extends JsonResource
             'has_pan' => !empty($this->pan_encrypted),
             'pan_last_four' => $this->pan_last_four,
             'phone_verified' => !is_null($this->phone_verified_at),
+            // Signup verifies a phone, not a person — the row is created
+            // with an empty name. The app gates its whole shell on this
+            // rather than re-deriving "is name blank" in several places,
+            // and the server refuses the transactional endpoints when it
+            // is false (EnsureApiProfileComplete).
+            'profile_complete' => $this->resource->hasCompleteProfile(),
             'profile_photo_url' => $this->profile_photo_path
                 ? image_url($this->profile_photo_path)
                 : null,

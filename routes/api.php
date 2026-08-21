@@ -149,7 +149,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     // login-first requirement and are expected to update.
     // The tight throttle stays — the form is still a spam/abuse target.
     Route::post('/contact', [ContentController::class, 'submitContact'])
-        ->middleware(['auth:sanctum', 'throttle:10,1']);
+        ->middleware(['auth:sanctum', 'api.profile.complete', 'throttle:10,1,contact']);
     Route::get('/contact-categories', [ContentController::class, 'contactCategories']);
     Route::get('/donation-types', [ContentController::class, 'donationTypes']);
 
@@ -179,6 +179,18 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         ->withoutMiddleware('throttle:60,1')
         ->middleware('throttle:msg91-webhook');
 
+    // ⚠ THE THIRD ARGUMENT IS LOAD-BEARING (2026-08-21).
+    //
+    // Laravel keys an unnamed `throttle:x,1` on sha1(user id) for an
+    // authenticated caller — with NO per-route component. So every tight
+    // per-route cap here shared ONE counter with the group's throttle:60,1,
+    // and each of them incremented it. A devotee who had made ten API calls
+    // in the past minute — which ordinary browsing does in seconds — got a
+    // 429 on donate / seva book / store order before the request reached
+    // the controller. The third argument is ThrottleRequests' $prefix; it
+    // gives each cap its own bucket. Never drop it from a route that
+    // carries a cap tighter than the group's.
+    //
     // Public auth routes. The REAL abuse protection is OtpService's per-phone
     // cap (1 send/minute, 5/hour, plus a 5-failure verify lockout) — that is
     // keyed on the phone number, so it holds however many devotees share an
@@ -190,22 +202,30 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     // rejecting real logins (851 sends + 640 verifies answered 429). Lowering
     // it again would not add protection the per-phone cap does not already
     // give.
-    Route::post('/auth/otp/send', [AuthController::class, 'sendOtp'])->middleware('throttle:40,1');
-    Route::post('/auth/otp/verify', [AuthController::class, 'verifyOtp'])->middleware('throttle:40,1');
+    Route::post('/auth/otp/send', [AuthController::class, 'sendOtp'])->middleware('throttle:40,1,otp-send');
+    Route::post('/auth/otp/verify', [AuthController::class, 'verifyOtp'])->middleware('throttle:40,1,otp-verify');
 
     // Device tokens — public registration so anonymous installs (no OTP
     // login yet) can still receive admin broadcasts. Auth-optional: if a
     // Sanctum token is present, the row is attached to that devotee.
     Route::post('/device-tokens', [DeviceTokenController::class, 'registerPublic']);
 
-    // Authenticated routes
+    // Authenticated routes.
+    //
+    // Routes that MOVE MONEY or send a devotee-facing message additionally
+    // carry 'api.profile.complete' (2026-08-21). Signup only verifies a
+    // phone — the devotee row is created with an empty name — and until
+    // that gate existed the app could transact from a nameless account,
+    // which meant every WhatsApp confirmation for it was rejected by Meta
+    // (empty template parameter) and never arrived. /payments/verify is
+    // deliberately NOT gated: money has already moved by then.
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::post('/auth/refresh', [AuthController::class, 'refreshToken']);
         // App→web login handoff (iOS donate flow) — returns a single-use
         // /auth/app-login URL. Tight throttle: one link per tap is plenty.
         Route::post('/auth/web-session-token', [AuthController::class, 'webSessionToken'])
-            ->middleware('throttle:10,1');
+            ->middleware(['api.profile.complete', 'throttle:10,1,web-handoff']);
 
         // Device tokens — legacy auth-required register (still used by the
         // older app version) and deactivate-on-logout.
@@ -311,7 +331,8 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
 
         // Seva booking (requires auth) — creates a Razorpay order, so it
         // gets the same tighter CREATE throttle as donations/store orders.
-        Route::post('/sevas/{seva}/book', [SevaController::class, 'book'])->middleware('throttle:10,1');
+        Route::post('/sevas/{seva}/book', [SevaController::class, 'book'])
+            ->middleware(['api.profile.complete', 'throttle:10,1,seva-book']);
         Route::get('/bookings', [SevaController::class, 'bookings']);
         Route::get('/bookings/{booking}/receipt', [SevaController::class, 'downloadReceipt']);
 
@@ -321,25 +342,28 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
 
         // Donations
         // Tighter throttle on order CREATE: limits Razorpay order spam.
-        Route::post('/donations', [DonationController::class, 'create'])->middleware('throttle:10,1');
+        Route::post('/donations', [DonationController::class, 'create'])
+            ->middleware(['api.profile.complete', 'throttle:10,1,donate']);
         Route::get('/donations/history', [DonationController::class, 'history']);
         Route::get('/donations/{donation}', [DonationController::class, 'show']);
         Route::get('/donations/{donation}/receipt', [DonationController::class, 'downloadReceipt']);
 
         // Store (auth)
         // Tighter throttle on order CREATE: limits Razorpay order spam.
-        Route::post('/store/orders', [StoreController::class, 'createOrder'])->middleware('throttle:10,1');
+        Route::post('/store/orders', [StoreController::class, 'createOrder'])
+            ->middleware(['api.profile.complete', 'throttle:10,1,store-order']);
         Route::get('/store/orders', [StoreController::class, 'orders']);
         Route::get('/store/orders/{order}/invoice', [StoreController::class, 'downloadInvoice']);
 
         // Halls (auth)
-        Route::post('/halls/{hall}/book', [HallController::class, 'book']);
+        Route::post('/halls/{hall}/book', [HallController::class, 'book'])
+            ->middleware('api.profile.complete');
         Route::get('/hall-bookings', [HallController::class, 'myBookings']);
         Route::get('/hall-bookings/{booking}/invoice', [HallController::class, 'downloadInvoice']);
         // A cancellation REQUEST — the trust approves it, nothing is
         // cancelled by this call. Throttled: it fires a notification.
         Route::post('/hall-bookings/{booking}/cancel-request', [HallController::class, 'requestCancellation'])
-            ->middleware('throttle:6,1');
+            ->middleware('throttle:6,1,hall-cancel');
     });
 });
 

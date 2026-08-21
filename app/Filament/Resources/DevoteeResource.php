@@ -9,6 +9,7 @@ use App\Models\Devotee;
 use App\Rules\ValidPhoneNumber;
 use App\Support\PhoneNumber;
 use Filament\Forms;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -68,7 +69,15 @@ class DevoteeResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('id')->label('ID')->limit(8)->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('name')->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('name')
+                    ->searchable()
+                    ->sortable()
+                    // Signup only verifies a phone, so a row CAN legitimately
+                    // exist with no name. Say so loudly rather than rendering
+                    // a blank cell that reads like a UI glitch — this devotee
+                    // gets no working WhatsApp message until it is filled in.
+                    ->formatStateUsing(fn (?string $state) => filled(trim((string) $state)) ? $state : '⚠ No name')
+                    ->color(fn (?string $state) => filled(trim((string) $state)) ? null : 'danger'),
                 Tables\Columns\TextColumn::make('phone')->searchable(),
                 Tables\Columns\TextColumn::make('city')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('language')->badge(),
@@ -79,6 +88,13 @@ class DevoteeResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('language')->options(['gu' => 'Gujarati', 'hi' => 'Hindi', 'en' => 'English']),
                 Tables\Filters\TernaryFilter::make('is_active')->label('Active'),
+                // The trust's worklist. A devotee with no name receives no
+                // WhatsApp confirmations at all (Meta rejects a template
+                // whose parameter is empty), so this filter is how you find
+                // the people to ring up and ask.
+                Tables\Filters\Filter::make('missing_name')
+                    ->label('Missing name')
+                    ->query(fn (Builder $query) => $query->whereRaw("COALESCE(TRIM(name), '') = ''")),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

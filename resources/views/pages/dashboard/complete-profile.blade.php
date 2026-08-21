@@ -55,9 +55,13 @@
                        placeholder="{{ __('dashboard.full_name_placeholder') }}" class="dash-input">
             </div>
 
-            {{-- Everything below except PAN is required at signup
-                 (2026-08-17). `required` here only gives the browser's own
-                 prompt — saveCompleteProfile() is what actually enforces it. --}}
+            {{-- Only the NAME above is compulsory (2026-08-21). Everything
+                 below is saved when filled and skipped when not: the name is
+                 what receipts and WhatsApp templates bind, the rest is
+                 collected by the flows that actually need it (checkout asks
+                 for a delivery address). A long interstitial is what made
+                 people abandon this form, and an abandoned form is how the
+                 nameless accounts happened in the first place. --}}
 
             {{-- Email — accepted blank, but deliberately NOT marked optional:
                  many devotees here have no email at all, and labelling it
@@ -69,32 +73,32 @@
                        placeholder="example@email.com" class="dash-input">
             </div>
 
-            {{-- Address (required) --}}
+            {{-- Address --}}
             <div>
-                <label for="cp_address" class="dash-label">
-                    {{ __('store.address') }} <span style="color: #A83232;">*</span>
-                </label>
-                <input type="text" name="address" id="cp_address" value="{{ old('address') }}" required
+                <label for="cp_address" class="dash-label">{{ __('store.address') }}</label>
+                <input type="text" name="address" id="cp_address" value="{{ old('address') }}"
                        placeholder="{{ __('dashboard.address_placeholder') }}" class="dash-input">
             </div>
 
-            {{-- City & State (required) --}}
+            {{-- City & State --}}
             <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div>
-                    <label for="cp_city" class="dash-label">{{ __('store.city') }} <span style="color: #A83232;">*</span></label>
-                    <input type="text" name="city" id="cp_city" value="{{ old('city') }}" required
+                    <label for="cp_city" class="dash-label">{{ __('store.city') }}</label>
+                    <input type="text" name="city" id="cp_city" value="{{ old('city') }}"
                            placeholder="{{ __('dashboard.city_placeholder_ex') }}" class="dash-input">
                 </div>
                 <div>
-                    <label for="cp_state" class="dash-label">{{ __('store.state') }} <span style="color: #A83232;">*</span></label>
-                    <input type="text" name="state" id="cp_state" value="{{ old('state', 'Gujarat') }}" required class="dash-input">
+                    <label for="cp_state" class="dash-label">{{ __('store.state') }}</label>
+                    <input type="text" name="state" id="cp_state" value="{{ old('state', 'Gujarat') }}" class="dash-input">
                 </div>
             </div>
 
-            {{-- Pincode (required, 6 digits) --}}
+            {{-- Pincode — blank is fine, but a WRONG one is worse than
+                 none (it breaks prasad despatch silently), so the pattern
+                 still applies to anything typed. --}}
             <div>
-                <label for="cp_pincode" class="dash-label">{{ __('store.pincode') }} <span style="color: #A83232;">*</span></label>
-                <input type="text" name="pincode" id="cp_pincode" value="{{ old('pincode') }}" maxlength="6" required
+                <label for="cp_pincode" class="dash-label">{{ __('store.pincode') }}</label>
+                <input type="text" name="pincode" id="cp_pincode" value="{{ old('pincode') }}" maxlength="6"
                        inputmode="numeric" pattern="[1-9][0-9]{5}" title="{{ __('dashboard.pincode_invalid') }}"
                        placeholder="370201" class="dash-input">
             </div>

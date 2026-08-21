@@ -298,22 +298,28 @@ class DashboardController extends Controller
     {
         $devotee = Auth::guard('devotee')->user();
 
-        // First-time signup: everything except PAN and EMAIL is compulsory
-        // (2026-08-17). This form is only ever reached once —
-        // showCompleteProfile() bounces a devotee whose name is already set —
-        // so requiring the profile here costs an existing devotee nothing
-        // while giving the trust a complete record (address is what receipts
-        // and prasad despatch need). PAN stays optional by law/consent (80G is
-        // opt-in), and email because most devotees here have no email address
-        // at all — but neither is LABELLED optional on the form, so nobody is
-        // invited to skip them. A given email must still be a real one.
+        // ONLY THE NAME IS COMPULSORY (2026-08-21).
+        //
+        // Between 2026-08-17 and now this form demanded the full address as
+        // well. That was the wrong trade: the name is the field that
+        // genuinely cannot be missing — it goes on the 80G receipt and into
+        // every WhatsApp template, and Meta rejects the whole message when a
+        // parameter is empty — while an address is only needed by the one
+        // flow that ships something, which collects it at checkout anyway.
+        // Making the interstitial long is what makes people abandon it, and
+        // an abandoned interstitial is exactly how the nameless accounts
+        // happened. Ask for the one thing, let them in.
+        //
+        // The fields are still on the form and still saved when filled;
+        // they are simply no longer a barrier. Anything supplied is still
+        // validated — a wrong pincode is worse than a blank one.
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'nullable|email:rfc|max:255',
-            'address' => 'required|string|max:500',
-            'city' => 'required|string|max:100',
-            'state' => 'required|string|max:100',
-            'pincode' => ['required', 'regex:/^[1-9][0-9]{5}$/'],
+            'address' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:100',
+            'pincode' => ['nullable', 'regex:/^[1-9][0-9]{5}$/'],
             'pan_number' => 'nullable|string|size:10',
         ], [
             'pincode.regex' => __('dashboard.pincode_invalid'),

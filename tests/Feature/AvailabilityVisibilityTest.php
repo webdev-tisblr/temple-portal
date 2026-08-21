@@ -466,7 +466,11 @@ class AvailabilityVisibilityTest extends TestCase
 
         $start = now()->addDays(8);
         $end = now()->addDays(10);
-        if ($end->month !== now()->month) {
+        // The assertion at the bottom reads the day AFTER the range, so
+        // that day has to be inside the queried month too — checking only
+        // $end left this failing for the last eleven days of every month
+        // (caught 2026-08-21, when end+1 was 1 September).
+        if ($end->copy()->addDay()->month !== now()->month) {
             $this->markTestSkipped('the range crosses into the next month');
         }
 

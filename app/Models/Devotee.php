@@ -135,6 +135,28 @@ class Devotee extends Authenticatable
         }
     }
 
+    /**
+     * Is this devotee's profile usable for the things that need it?
+     *
+     * The one field that is genuinely load-bearing is `name`: every
+     * receipt, greeting card and WhatsApp template binds it, and Meta
+     * REJECTS a template message whose parameter resolves to an empty
+     * string — so a nameless devotee doesn't get a degraded message,
+     * they get NO message (2026-08-21). It is also what an 80G receipt
+     * has to carry to be a valid document.
+     *
+     * Signup deliberately creates the row with `name => ''`
+     * (resolveForLogin) — the phone is verified before we have a name to
+     * ask for — so "logged in" and "has a name" are two different states
+     * and every surface has to gate on the second one, not the first.
+     * Web does it with EnsureProfileComplete, the API with
+     * EnsureApiProfileComplete, the app with the router's name gate.
+     */
+    public function hasCompleteProfile(): bool
+    {
+        return trim((string) $this->name) !== '';
+    }
+
     public function hallBookings(): HasMany
     {
         return $this->hasMany(HallBooking::class, 'devotee_id');

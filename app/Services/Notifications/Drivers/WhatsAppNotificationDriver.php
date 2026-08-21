@@ -75,7 +75,7 @@ final class WhatsAppNotificationDriver implements NotificationDriver
             return false;
         }
 
-        $components = $this->buildComponents(
+        $components = self::buildComponents(
             $variant['components'] ?? [],
             $template->placeholder_map ?? [],
             $context,
@@ -112,8 +112,12 @@ final class WhatsAppNotificationDriver implements NotificationDriver
      * array that Meta's Cloud API expects. Tokens are looked up against
      * the template's placeholder_map first, then against $context as a
      * raw dot-path.
+     *
+     * Static and public so the parameter rules — in particular the
+     * "never hand Meta an empty string" guard below — can be asserted
+     * directly, without standing up an HTTP double for the BSP.
      */
-    private function buildComponents(
+    public static function buildComponents(
         array $blueprint,
         array $placeholderMap,
         NotificationContext $context,
@@ -144,6 +148,7 @@ final class WhatsAppNotificationDriver implements NotificationDriver
                     // 2026-05-13 commit).
                     $token = $p['value_token'] ?? null;
                     $literal = $p['value'] ?? null;
+                    $mappedPath = $token !== null ? ($placeholderMap[$token] ?? $token) : null;
 
                     if ($token !== null) {
                         // Warn when admin forgot to map a token. Meta's API
@@ -156,13 +161,7 @@ final class WhatsAppNotificationDriver implements NotificationDriver
                                 'fallback_path' => $token,
                             ]);
                         }
-                        $resolved = $context->getForDisplay($placeholderMap[$token] ?? $token, '');
-                        if ($resolved === '') {
-                            Log::warning('Notification: WhatsApp text parameter resolved to empty string', [
-                                'token' => $token,
-                                'mapped_path' => $placeholderMap[$token] ?? $token,
-                            ]);
-                        }
+                        $resolved = $context->getForDisplay($mappedPath, '');
                     } else {
                         $resolved = $context->render((string) ($literal ?? ''), $placeholderMap);
                     }
@@ -174,7 +173,32 @@ final class WhatsAppNotificationDriver implements NotificationDriver
                     // multi-line value reaching here, so it is flattened at the
                     // boundary: a list placeholder degrades to one readable
                     // line instead of killing the message.
-                    $params[] = ['type' => 'text', 'text' => self::flattenForWhatsApp($resolved)];
+                    $text = self::flattenForWhatsApp($resolved);
+
+                    // LAST LINE OF DEFENCE (2026-08-21). Meta rejects the
+                    // WHOLE message if any template parameter is an empty
+                    // string — not the parameter, the message. Until now an
+                    // empty value was logged and sent anyway, so a devotee
+                    // whose name was blank (signup creates the row with
+                    // name => '') received no booking confirmation, no
+                    // receipt and no greeting card at all, and the only
+                    // trace was a warning in the log.
+                    //
+                    // The blank name itself is now prevented at every
+                    // entry point; this keeps ANY future blank — a
+                    // mis-mapped token, a null column, a context key a
+                    // dispatch site forgot — from silently costing the
+                    // devotee the entire message.
+                    if ($text === '') {
+                        $text = self::blankParamFallback($token, $context->locale());
+                        Log::warning('Notification: WhatsApp text parameter resolved to empty string — substituted fallback', [
+                            'token' => $token,
+                            'mapped_path' => $mappedPath,
+                            'fallback' => $text,
+                        ]);
+                    }
+
+                    $params[] = ['type' => 'text', 'text' => $text];
                 } elseif (in_array($type, ['image', 'document', 'video'], true)) {
                     // Media param — URLs / filenames are always strings,
                     // so no date-formatting concerns here, but they go
@@ -199,6 +223,40 @@ final class WhatsAppNotificationDriver implements NotificationDriver
             $out[] = $entry;
         }
         return $out;
+    }
+
+    /**
+     * Tokens that name a PERSON. A blank one reads badly as a dash, so
+     * these get the respectful generic word instead — "Dear devotee"
+     * rather than "Dear -". Matched exactly: `seva_name` and
+     * `campaign_name` also contain "name" and must NOT be caught.
+     */
+    private const PERSON_NAME_TOKENS = [
+        'name', 'devotee_name', 'donor_name', 'contact_name',
+        'customer_name', 'guest_name', 'booked_by', 'recipient_name',
+    ];
+
+    /** Generic stand-in for a missing person name, per recipient locale. */
+    private const PERSON_NAME_FALLBACK = [
+        'gu' => 'ભક્ત',
+        'hi' => 'भक्त',
+        'en' => 'Devotee',
+    ];
+
+    /**
+     * What to send in place of a parameter that resolved to nothing.
+     * Never returns an empty string — that is the whole point.
+     */
+    private static function blankParamFallback(?string $token, string $locale): string
+    {
+        if ($token !== null && in_array($token, self::PERSON_NAME_TOKENS, true)) {
+            return self::PERSON_NAME_FALLBACK[$locale] ?? self::PERSON_NAME_FALLBACK['gu'];
+        }
+
+        // Everything else: a single dash. Visible enough that a devotee
+        // can tell something is missing, harmless enough that the rest
+        // of the message still gets through.
+        return '-';
     }
 
     /**

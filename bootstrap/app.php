@@ -73,6 +73,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['locale']);
         $middleware->alias([
             'profile.complete' => \App\Http\Middleware\EnsureProfileComplete::class,
+            // API twin of the above — answers 422 instead of redirecting,
+            // because there is no browser to send anywhere. Guards the
+            // transactional /api/v1 routes; see routes/api.php.
+            'api.profile.complete' => \App\Http\Middleware\EnsureApiProfileComplete::class,
             // Cloudflare Turnstile server check — inert until the admin
             // sets the keys in System Settings → Cloudflare Turnstile.
             'turnstile' => \App\Http\Middleware\VerifyTurnstile::class,

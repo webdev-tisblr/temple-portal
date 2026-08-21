@@ -51,16 +51,34 @@ class PruneOrphanedR2Objects extends Command
     protected $signature = 'r2:prune-orphans
         {--delete : Actually delete. Without this the command only reports.}
         {--disk= : Limit to one disk (r2 or r2_private). Default: both.}
-        {--list= : Print up to this many orphan paths per folder (default 5).}';
+        {--list= : Print up to this many orphan paths per folder (default 5).}
+        {--older-than=2 : Only consider objects older than this many days.}';
 
     protected $description = 'Remove R2 objects no database row references (test artifacts and dead cache entries)';
 
     /**
      * Never delete anything under these prefixes, whatever the DB says.
-     * They are written and read by paths that do not go through a model
-     * column, so "unreferenced" would be a false positive.
+     *
+     * These are CACHES, not content. Nothing references them by design —
+     * they are addressed by a URL the platform hands out and regenerated
+     * on miss — so "no database row points here" is their normal state,
+     * not evidence of an orphan. Each already has a dedicated age-based
+     * sweeper (see routes/console.php), which is the correct way to expire
+     * them: by age, not by reachability.
+     *
+     * Pruning them here would delete a status card a devotee generated
+     * minutes ago and shared to WhatsApp, and an invoice a devotee is
+     * about to open. Their own sweepers clear test junk within a day or
+     * two anyway.
      */
-    private const PROTECTED_PREFIXES = [
+    private const SELF_SWEPT_PREFIXES = [
+        'status-cards/',        // CleanStatusCards, 30 days
+        'daily-darshan-cards/', // CleanDarshanShareCards, 1 day
+        'greeting-cards/',      // CleanGeneratedGreetingCards, 1 day
+        'invoices/',            // CleanGeneratedInvoices, 7 days
+        'hall-invoices/',       // CleanGeneratedInvoices, 7 days
+        'seva-receipts/',       // CleanGeneratedInvoices, 7 days
+        'receipts/',            // CleanGeneratedReceipts, 7 days
         // Backups are addressed by listing, not by a stored path.
         'backups/',
     ];
@@ -69,6 +87,13 @@ class PruneOrphanedR2Objects extends Command
     {
         $delete = (bool) $this->option('delete');
         $sample = (int) ($this->option('list') ?? 5);
+
+        // An upload lands in R2 a moment BEFORE its database row is
+        // committed. Without a floor, a prune running in that window
+        // deletes a perfectly good file the admin just uploaded, and the
+        // record points at nothing. Two days costs nothing and removes
+        // the race entirely.
+        $cutoff = now()->subDays(max(0, (int) $this->option('older-than')))->getTimestamp();
 
         $disks = $this->option('disk') !== null
             ? [(string) $this->option('disk')]
@@ -107,12 +132,21 @@ class PruneOrphanedR2Objects extends Command
 
             $orphansByFolder = [];
             $bytesByFolder = [];
+            $skipped = 0;
+            $tooNew = 0;
 
             foreach ($fs->allFiles() as $path) {
                 if (isset($keep[$path])) {
                     continue;
                 }
-                if (Str::startsWith($path, self::PROTECTED_PREFIXES)) {
+                if (Str::startsWith($path, self::SELF_SWEPT_PREFIXES)) {
+                    $skipped++;
+
+                    continue;
+                }
+                if ($fs->lastModified($path) > $cutoff) {
+                    $tooNew++;
+
                     continue;
                 }
 
@@ -127,6 +161,12 @@ class PruneOrphanedR2Objects extends Command
             $grandBytes += $bytes;
 
             $this->line("── {$disk} ".str_repeat('─', 46));
+            if ($skipped > 0) {
+                $this->line("  ({$skipped} objects left to their own age-based sweeper)");
+            }
+            if ($tooNew > 0) {
+                $this->line("  ({$tooNew} objects newer than the age floor, left alone)");
+            }
             if ($count === 0) {
                 $this->info('  nothing unreferenced');
                 $this->newLine();

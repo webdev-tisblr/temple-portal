@@ -28,6 +28,28 @@ class AvailabilityContractTest extends TestCase
         parent::tearDown();
     }
 
+    /**
+     * Freeze the clock mid-month for the tests that query `?month=` today's
+     * month but describe their fixtures as "now + N days".
+     *
+     * monthAvailability() clamps its window to today..end-of-month, so in
+     * the last week of any month those targets land in the NEXT month and
+     * simply are not in the response. That surfaced as a crash — looking up
+     * a neighbouring date that isn't there — but the quieter half is worse:
+     * assertArrayNotHasKey() against a date the endpoint was never asked
+     * about passes for entirely the wrong reason, so the blackout test
+     * stopped checking blackout filtering at all for a week out of every
+     * month while still reporting green.
+     *
+     * The 10th leaves at least eighteen days of headroom in every month,
+     * February included. Halls have no weekday rules and the factory sets
+     * no cut-off, so whichever weekday the 10th lands on changes nothing.
+     */
+    private function pinToMidMonth(): void
+    {
+        Carbon::setTestNow(Carbon::now()->startOfMonth()->addDays(9)->setTime(9, 0));
+    }
+
     private function timeSlotSeva(): Seva
     {
         return SevaFactory::new()->create([
@@ -169,6 +191,8 @@ class AvailabilityContractTest extends TestCase
 
     public function test_hall_booked_date_reports_unavailable_but_not_blocked(): void
     {
+        $this->pinToMidMonth();
+
         $hall = HallFactory::new()->create();
         $target = now()->addDays(5)->toDateString();
         HallBookingFactory::new()->forHall($hall)->range($target, $target)->create(['status' => 'confirmed']);
@@ -189,6 +213,8 @@ class AvailabilityContractTest extends TestCase
         // App\Enums\UnavailableReason::display). The keys are unchanged —
         // the list is simply shorter, which is exactly what the shipped
         // app build needs in order to stop showing greyed-out noise.
+        $this->pinToMidMonth();
+
         $target = now()->addDays(6)->toDateString();
         $hall = HallFactory::new()->create([
             'blackout_dates' => [['date' => $target, 'reason' => 'Trust event']],
@@ -197,6 +223,10 @@ class AvailabilityContractTest extends TestCase
         $dates = collect($this->getJson("/api/v1/halls/{$hall->id}/available-dates?month=".now()->format('Y-m'))->json('data.dates'))
             ->keyBy('date');
 
+        // The day BEFORE proves the endpoint really was asked about this
+        // part of the month, so the absence asserted next means "filtered
+        // out" rather than "never in range to begin with".
+        $this->assertArrayHasKey(now()->addDays(5)->toDateString(), $dates->all());
         $this->assertArrayNotHasKey($target, $dates->all());
         // Neighbouring dates are untouched.
         $this->assertTrue($dates[now()->addDays(7)->toDateString()]['full_day_available']);

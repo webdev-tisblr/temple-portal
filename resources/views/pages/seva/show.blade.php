@@ -374,7 +374,7 @@
                             {{-- multipart: extra fields can include a photo
                                  upload (2026-08-13). Without the enctype the
                                  file silently never reaches the server. --}}
-                            <form method="POST" action="{{ route('seva.book', $seva) }}" enctype="multipart/form-data">
+                            <form method="POST" action="{{ route('seva.book', $seva) }}" enctype="multipart/form-data" data-payment-form>
                                 @csrf
 
                                 {{-- Admin-defined extra fields for this seva.

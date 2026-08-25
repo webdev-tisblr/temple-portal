@@ -577,3 +577,96 @@ input[type="radio"]:focus {
     --tw-prose-bold: #2A1810;
     --tw-prose-quotes: #5E4F3D;
 }
+
+/* ── Submit feedback (resources/js/submit-lock.js) ───────────────
+   A payment button that has been pressed must LOOK pressed, instantly,
+   even while the POST is still travelling. Written unlayered at the end
+   of the file on purpose: it has to beat the `disabled:opacity-40`
+   utility that several of these buttons carry, so a busy button reads
+   as busy rather than as greyed-out-and-broken. */
+@keyframes submit-spin {
+    to { transform: rotate(360deg); }
+}
+
+.is-submitting {
+    pointer-events: none;
+    cursor: progress;
+    opacity: 0.85;
+}
+.is-submitting::before {
+    content: '';
+    display: inline-block;
+    flex: none;
+    width: 1.05em;
+    height: 1.05em;
+    margin-inline-end: 0.25em;
+    vertical-align: -0.15em;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 9999px;
+    animation: submit-spin 0.7s linear infinite;
+}
+
+/* Full-screen hold for payment handoffs only. Ordinary forms get the
+   button spinner; a form that is about to hand the devotee to Razorpay
+   gets an unmissable "don't touch anything" screen, because the failure
+   mode there costs money and slots, not just a re-render. */
+#payment-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: rgba(42, 24, 16, 0.72);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+#payment-overlay[hidden] {
+    display: none;
+}
+#payment-overlay .payment-overlay__card {
+    max-width: 22rem;
+    width: 100%;
+    text-align: center;
+    padding: 2rem 1.5rem;
+    border-radius: 1rem;
+    background: #FFFCF5;
+    border: 1px solid rgba(122, 30, 30, 0.12);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+}
+#payment-overlay .payment-overlay__spinner {
+    width: 2.5rem;
+    height: 2.5rem;
+    margin: 0 auto 1rem;
+    border: 3px solid rgba(232, 117, 26, 0.25);
+    border-top-color: #E8751A;
+    border-radius: 9999px;
+    animation: submit-spin 0.8s linear infinite;
+}
+#payment-overlay .payment-overlay__title {
+    font-weight: 700;
+    color: #7A1E1E;
+}
+#payment-overlay .payment-overlay__text {
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: #5E4F3D;
+}
+#payment-overlay .payment-overlay__slow {
+    margin-top: 0.75rem;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: #8A7860;
+}
+
+/* Devotees who ask for less motion still need to see that something is
+   happening — keep the spinners, just stop them whirling. */
+@media (prefers-reduced-motion: reduce) {
+    .is-submitting::before,
+    #payment-overlay .payment-overlay__spinner {
+        animation-duration: 2.4s;
+    }
+}

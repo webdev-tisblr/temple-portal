@@ -80,6 +80,10 @@ return Application::configure(basePath: dirname(__DIR__))
             // Cloudflare Turnstile server check — inert until the admin
             // sets the keys in System Settings → Cloudflare Turnstile.
             'turnstile' => \App\Http\Middleware\VerifyTurnstile::class,
+            // Double-press guard for the payment POSTs. A resent identical
+            // submission is served the FIRST one's checkout page instead of
+            // opening a second Razorpay order — see the middleware header.
+            'payment.once' => \App\Http\Middleware\IdempotentPaymentRequest::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

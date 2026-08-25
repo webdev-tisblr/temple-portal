@@ -143,7 +143,7 @@
 
             {{-- Submit --}}
             @auth('devotee')
-                <form method="POST" action="{{ route('donate.create') }}">
+                <form method="POST" action="{{ route('donate.create') }}" data-payment-form>
                     @csrf
                     <input type="hidden" name="amount" :value="amount">
                     <input type="hidden" name="donation_type" value="campaign">

@@ -283,7 +283,7 @@
                     <div class="border-t border-amber-900/20 my-6"></div>
 
                     {{-- Contact Details Form --}}
-                    <form method="POST" action="{{ route('hall.booking.book') }}" x-ref="bookingForm">
+                    <form method="POST" action="{{ route('hall.booking.book') }}" x-ref="bookingForm" data-payment-form>
                         @csrf
                         <input type="hidden" name="hall_id" value="{{ $hall->id }}">
                         <input type="hidden" name="booking_date" :value="selectedDate">

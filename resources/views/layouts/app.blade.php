@@ -44,6 +44,7 @@
 
     @include('partials.site-popup')
     @include('partials.social-links')
+    @include('partials.payment-overlay')
 
     @stack('scripts')
 </body>

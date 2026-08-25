@@ -201,7 +201,7 @@
 
         {{-- Submit --}}
         @auth('devotee')
-            <form method="POST" action="{{ route('donate.create') }}" enctype="multipart/form-data" x-ref="donationForm">
+            <form method="POST" action="{{ route('donate.create') }}" enctype="multipart/form-data" x-ref="donationForm" data-payment-form>
                 @csrf
                 <input type="hidden" name="amount" :value="amount">
                 <input type="hidden" name="donation_type" :value="donationType">

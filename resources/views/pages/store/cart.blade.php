@@ -121,7 +121,7 @@
             </div>
 
             {{-- Shipping & Checkout Form --}}
-            <form method="POST" action="{{ route('store.checkout') }}" id="checkoutForm" @submit="submitCheckout($event)">
+            <form method="POST" action="{{ route('store.checkout') }}" id="checkoutForm" data-payment-form @submit="submitCheckout($event)">
                 @csrf
 
                 <div class="card-sacred p-4 sm:p-6 inner-glow mb-8">
@@ -366,8 +366,13 @@ function cartManager() {
                 return;
             }
 
-            // All clear — fire the form for real.
-            evt.target.submit();
+            // All clear — fire the form for real. requestSubmit(), NOT
+            // submit(): submit() bypasses the submit event entirely, so the
+            // one-press guard in submit-lock.js would never see this pass and
+            // the devotee would get no spinner on the slow-cart path. The
+            // re-entry is safe — submitCheckout() returns immediately once
+            // pendingUpdates is 0, letting the browser take it from there.
+            evt.target.requestSubmit();
         },
     };
 }

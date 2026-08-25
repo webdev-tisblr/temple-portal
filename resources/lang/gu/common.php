@@ -22,4 +22,12 @@ return [
     // Bar shown to sessions handed off from the mobile app
     'return_to_app_text' => 'અહીંનું કામ પૂરું? એપમાં આગળ વધો.',
     'return_to_app_button' => 'એપ ખોલો',
+
+    // Payment handoff hold screen (partials/payment-overlay). Shown from
+    // the instant a payment button is pressed until the browser leaves
+    // this page, so a slow connection never looks like a dead button.
+    'payment_redirect_title' => 'સુરક્ષિત પેમેન્ટ પર લઈ જઈ રહ્યા છીએ…',
+    'payment_redirect_body' => 'કૃપા કરી બેક કે રિફ્રેશ ન કરો. ધીમા ઈન્ટરનેટ પર થોડી સેકન્ડ લાગી શકે છે.',
+    'payment_redirect_slow' => 'હજી પ્રક્રિયા ચાલુ છે — આ પેજ ખુલ્લું રાખો.',
+    'payment_open_failed' => 'પેમેન્ટ વિન્ડો ખૂલી શકી નથી. તમારું ઈન્ટરનેટ ચકાસીને ફરી પ્રયાસ કરો.',
 ];

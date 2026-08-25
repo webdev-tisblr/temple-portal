@@ -180,7 +180,7 @@
                     <h2 class="font-marcellus text-lg" style="color: #7A1E1E;">{{ __('login.login_register') }}</h2>
                     <p class="mt-1 text-sm" style="color: #5E4F3D;">{{ __('login.enter_mobile') }}</p>
 
-                    <form action="{{ route('login.otp.send') }}" method="POST" class="mt-5" @submit="loading = true">
+                    <form action="{{ route('login.otp.send') }}" method="POST" class="mt-5" data-no-spinner @submit="loading = true">
                         @csrf
                         <div>
                             <label for="phone" class="mb-1.5 block text-xs font-bold" style="color: #5E4F3D;">{{ __('login.mobile_number') }}</label>
@@ -247,7 +247,7 @@
                         <span class="font-semibold" x-text="displayPhone()"></span> {{ __('login.otp_sent_suffix') }}
                     </p>
 
-                    <form action="{{ route('login.otp.verify') }}" method="POST" class="mt-5" @submit="loading = true">
+                    <form action="{{ route('login.otp.verify') }}" method="POST" class="mt-5" data-no-spinner @submit="loading = true">
                         @csrf
                         <input type="hidden" name="phone" :value="phone">
                         <input type="hidden" name="code" :value="otpDigits.join('')">

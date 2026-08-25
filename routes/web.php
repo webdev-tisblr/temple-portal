@@ -224,9 +224,20 @@ Route::middleware('auth:devotee')->group(function () {
 
     // Everything below requires a complete profile
     Route::middleware('profile.complete')->group(function () {
-        Route::post('/donate', [DonationWebController::class, 'create'])->name('donate.create');
-        Route::post('/seva/{seva}/book', [SevaWebController::class, 'book'])->name('seva.book');
-        Route::post('/hall-booking/book', [HallBookingController::class, 'book'])->name('hall.booking.book');
+        // The four POSTs that open a Razorpay order. `payment.once` makes a
+        // resent identical submission replay the first one's checkout page
+        // rather than create a second order + orphan pending row — the
+        // server half of the double-press fix (the browser half is
+        // resources/js/submit-lock.js).
+        Route::post('/donate', [DonationWebController::class, 'create'])
+            ->middleware('payment.once')
+            ->name('donate.create');
+        Route::post('/seva/{seva}/book', [SevaWebController::class, 'book'])
+            ->middleware('payment.once')
+            ->name('seva.book');
+        Route::post('/hall-booking/book', [HallBookingController::class, 'book'])
+            ->middleware('payment.once')
+            ->name('hall.booking.book');
 
         // Store (authenticated)
         Route::get('/store/cart', [StoreWebController::class, 'cart'])->name('store.cart');
@@ -236,7 +247,9 @@ Route::middleware('auth:devotee')->group(function () {
         // with the on-page Alpine state.
         Route::post('/store/cart/update', [StoreWebController::class, 'updateCart'])->name('store.cart.update');
         Route::post('/store/cart/remove', [StoreWebController::class, 'removeFromCart'])->name('store.cart.remove');
-        Route::post('/store/checkout', [StoreWebController::class, 'checkout'])->name('store.checkout');
+        Route::post('/store/checkout', [StoreWebController::class, 'checkout'])
+            ->middleware('payment.once')
+            ->name('store.checkout');
         Route::get('/store/order/{order}/invoice', [StoreWebController::class, 'downloadInvoice'])->name('store.order.invoice');
         Route::get('/hall-booking/{booking}/invoice', [HallBookingController::class, 'downloadInvoice'])->name('hall.booking.invoice');
         // Devotee-initiated cancellation REQUEST — the trust decides.

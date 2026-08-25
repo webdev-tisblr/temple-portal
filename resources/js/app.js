@@ -1,6 +1,9 @@
 import Alpine from 'alpinejs';
 // Chromeless YouTube player (self-mounts on [data-yt-clean] elements).
 import './clean-youtube';
+// One-press guard + loading feedback for every POST form (payment buttons
+// especially — see the file header for the double-submit story).
+import './submit-lock';
 
 // Divine particles system
 Alpine.data('divineParticles', () => ({

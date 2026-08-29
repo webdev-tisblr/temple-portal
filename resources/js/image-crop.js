@@ -35,6 +35,22 @@ const CROPPABLE = /^image\/(jpeg|png|webp)$/i;
 let activeCropper = null;
 let activeModal = null;
 
+/**
+ * Inputs whose `change` WE fired, so the delegated listener below can ignore
+ * its own echo.
+ *
+ * replaceInputFile has to dispatch `change` — Alpine bindings and any
+ * validation listening on these inputs need to know the value moved. But this
+ * module listens for `change` on the document, so without this guard it
+ * catches its own event and opens a second cropper on the file it just
+ * cropped: the new modal collides with the still-open cropper, never
+ * initialises, and leaves a plain image with no crop box and buttons wired to
+ * stale state. That is the "not square, buttons dead" report.
+ *
+ * A WeakSet so an input removed from the DOM is not kept alive by this.
+ */
+const selfDispatched = new WeakSet();
+
 function closeModal() {
     if (activeCropper) {
         activeCropper.destroy();
@@ -62,7 +78,9 @@ function replaceInputFile(input, blob, originalName) {
     transfer.items.add(file);
     input.files = transfer.files;
 
-    // Alpine and any listening validation need to know the value changed.
+    // Alpine and any listening validation need to know the value changed —
+    // but this module must not re-crop its own result. @see selfDispatched
+    selfDispatched.add(input);
     input.dispatchEvent(new Event('change', { bubbles: true }));
     input.dispatchEvent(new Event('input', { bubbles: true }));
 }
@@ -101,6 +119,10 @@ function buildModal(imageUrl, { onConfirm, onCancel }) {
 }
 
 function openCropper(input, file) {
+    // One cropper at a time. A second pick while one is open replaces it
+    // rather than stacking an orphan modal nothing can close.
+    closeModal();
+
     const imageUrl = URL.createObjectURL(file);
 
     const { modal, image } = buildModal(imageUrl, {
@@ -144,8 +166,10 @@ function openCropper(input, file) {
 
     activeModal = modal;
 
+    let started = false;
     const start = () => {
-        if (activeCropper) return;
+        if (started) return;
+        started = true;
         activeCropper = new Cropper(image, {
             // Square, locked — the same shape the app crops to and the shape
             // every destination frames these photos in.
@@ -180,6 +204,13 @@ document.addEventListener('change', (event) => {
     const input = event.target;
     if (!(input instanceof HTMLInputElement)) return;
     if (input.type !== 'file' || !input.hasAttribute('data-crop')) return;
+
+    // Our own write-back, not a fresh pick by the devotee.
+    if (selfDispatched.has(input)) {
+        selfDispatched.delete(input);
+
+        return;
+    }
 
     const file = input.files && input.files[0];
     if (!file || !CROPPABLE.test(file.type)) return;

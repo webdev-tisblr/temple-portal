@@ -61,8 +61,16 @@ class SevaSlotService
      * Tunable without a deploy via the `seva_slot_hold_minutes` setting. Keep
      * it comfortably above the time a real checkout takes (~10-30s) and below
      * clean-stale's window, or the two disagree about live rows.
+     *
+     * Set to 5 on 2026-08-29, down from 15, and the production setting row
+     * matches. The trade is explicit: five minutes is still an order of
+     * magnitude longer than a real checkout, but a devotee genuinely stuck
+     * inside Razorpay on bad mobile data can now have their slot offered to
+     * someone else. If both then pay, PaymentCaptureService logs the oversell
+     * for an admin rather than failing a paid booking — that is the failure
+     * mode being accepted in exchange for slots freeing up quickly.
      */
-    public const DEFAULT_HOLD_MINUTES = 15;
+    public const DEFAULT_HOLD_MINUTES = 5;
 
     /** @var int|null Per-request memo — the setting is read on every count. */
     private ?int $holdMinutes = null;

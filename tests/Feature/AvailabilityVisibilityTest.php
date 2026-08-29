@@ -38,6 +38,25 @@ class AvailabilityVisibilityTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * Pin "today" to the 10th before anything else runs.
+     *
+     * These tests ask for a MONTH of availability and then assert about dates
+     * a few days out. Run in the last week of a month — 29 August was the day
+     * it bit — those dates land in the NEXT month and simply are not in the
+     * response, so the assertions fail (or, worse for the negative ones, pass
+     * because the endpoint was never asked about that date at all). The 10th
+     * leaves eighteen days of headroom in every month, February included.
+     *
+     * Same fix, same reasoning, as AvailabilityContractTest::pinToMidMonth.
+     * Every per-test pin below builds on Carbon::today(), which honours this.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Carbon::setTestNow(Carbon::now()->startOfMonth()->addDays(9)->setTime(9, 0));
+    }
+
     protected function tearDown(): void
     {
         Carbon::setTestNow();

@@ -385,6 +385,14 @@ class SevaController extends BaseApiController
             $validated['slot_time'] = $slotType;
         }
 
+        // A devotee who backed out of Razorpay left a `pending` row holding
+        // this exact slot. Re-submitting the same seva + date + slot is a
+        // retry, so release their own hold before asking whether the slot is
+        // free — otherwise their previous attempt refuses their next one.
+        $this->slotService->releaseOwnPendingHold(
+            $seva, (string) $devotee->id, $validated['booking_date'], $validated['slot_time'] ?? null
+        );
+
         // Validate slot via service
         $error = $this->slotService->validateBooking($seva, $validated['booking_date'], $validated['slot_time'] ?? null);
         if ($error) {

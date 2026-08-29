@@ -9,6 +9,7 @@ use App\Filament\Support\TranslatableTabs;
 use App\Models\Msg91WebhookEvent;
 use App\Models\SystemSetting;
 use App\Rules\ValidPhoneNumber;
+use App\Services\SevaSlotService;
 use App\Services\SmsService;
 use App\Services\WhatsAppService;
 use Filament\Forms;
@@ -309,6 +310,19 @@ class SystemSettings extends Page implements HasForms
                                 ->columnSpanFull(),
                         ])->columns(2),
 
+                        Forms\Components\Section::make('Seva Bookings')
+                            ->icon('heroicon-o-clock')
+                            ->description('A seva slot is held the moment a devotee is handed to Razorpay, so two people cannot pay for it at once. This is how long that hold survives an abandoned payment.')
+                            ->schema([
+                                Forms\Components\TextInput::make('seva_slot_hold_minutes')
+                                    ->label('Slot hold after payment starts (minutes)')
+                                    ->numeric()
+                                    ->minValue(1)
+                                    ->maxValue(30)
+                                    ->placeholder((string) SevaSlotService::DEFAULT_HOLD_MINUTES)
+                                    ->helperText('Blank uses '.SevaSlotService::DEFAULT_HOLD_MINUTES.'. Once this passes, an unpaid booking stops blocking its date/slot for everyone else — the devotee who abandoned it can always retry immediately regardless. Raising it above 30 has no effect: the unpaid row is cancelled outright at that point.'),
+                            ])->columns(2),
+
                         Forms\Components\Section::make('Mobile App')
                             ->icon('heroicon-o-device-phone-mobile')
                             ->description('Store links for the Patadiya Hanumanji app. These drive the "install our app" banner shown to mobile-web visitors (device-aware: iPhone → App Store, Android → Play Store) AND the force-update check the app itself reads. Leave a URL blank to hide that platform. The banner\'s on/off, frequency and schedule now live in Home Page Settings → App-Install Banner.')
@@ -397,6 +411,11 @@ class SystemSettings extends Page implements HasForms
                                     ->rule('regex:/^\d+(\.\d+)*$/')
                                     ->validationMessages(['regex' => 'Digits and dots only — 1.0.0, not "1.0.0 (12)" or "v1.0.0".'])
                                     ->helperText('Anything OLDER than this is force-updated: the app blocks until the devotee installs a new build. Raise it only for a release that genuinely breaks old apps — everyone below it is locked out until they update, and an iPhone user cannot update until Apple approves. Blank means 1.0.0 (nobody is blocked).'),
+
+                                Forms\Components\Toggle::make('app_force_latest_version')
+                                    ->label('Force everyone onto the latest version')
+                                    ->columnSpanFull()
+                                    ->helperText('ON = any app older than "Latest released version" above is blocked at launch until it updates, not just apps below the minimum. Only turn this on once the release is genuinely LIVE on both stores — while it is still in review, iPhone devotees have nothing to update to and are locked out of the app entirely. Turning it off unblocks them instantly, without an app update.'),
 
                                 Forms\Components\Placeholder::make('app_store_version_readout')
                                     ->label('What the App Store reports')

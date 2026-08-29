@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\DarshanCardTemplateResource\Pages;
+use App\Filament\Support\CardTemplateUpload;
 use App\Models\DarshanCardTemplate;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -48,29 +49,32 @@ class DarshanCardTemplateResource extends Resource
                         ->unique(ignoreRecord: true)
                         ->native(false),
 
-                    Forms\Components\FileUpload::make('greeting_card_template')
-                        ->label('Background Image (Gujarati / default)')
-                        ->directory('darshan-card-templates')
-                        ->image()
-                        ->maxSize(8192)
+                    CardTemplateUpload::make(
+                        'greeting_card_template',
+                        'darshan-card-templates',
+                        ['9:16', '1:1', null],
+                        'Background Image (Gujarati / default)',
+                        'Story: crop to 9:16 (1080×1920). Square: crop to 1:1 (1080×1080). Upload the full-resolution original — it is stored downscaled and re-encoded. The overlay layout below is positioned on THIS image and is shared by all languages.',
+                    )
                         ->required()
-                        ->helperText('Story: 1080×1920 px. Square: 1080×1080 px. The overlay layout below is positioned on THIS image and is shared by all languages.')
                         ->columnSpanFull()
                         ->live(),
 
                     Forms\Components\Grid::make(2)->schema([
-                        Forms\Components\FileUpload::make('greeting_card_template_hi')
-                            ->label('Background (Hindi)')
-                            ->directory('darshan-card-templates')
-                            ->image()
-                            ->maxSize(8192)
-                            ->helperText('Optional. MUST be the same dimensions as the Gujarati image — falls back to Gujarati when empty.'),
-                        Forms\Components\FileUpload::make('greeting_card_template_en')
-                            ->label('Background (English)')
-                            ->directory('darshan-card-templates')
-                            ->image()
-                            ->maxSize(8192)
-                            ->helperText('Optional. MUST be the same dimensions as the Gujarati image — falls back to Gujarati when empty.'),
+                        CardTemplateUpload::make(
+                            'greeting_card_template_hi',
+                            'darshan-card-templates',
+                            ['9:16', '1:1', null],
+                            'Background (Hindi)',
+                            'Optional. Crop it to the SAME shape as the Gujarati image — the overlay layout is shared. Falls back to Gujarati when empty.',
+                        ),
+                        CardTemplateUpload::make(
+                            'greeting_card_template_en',
+                            'darshan-card-templates',
+                            ['9:16', '1:1', null],
+                            'Background (English)',
+                            'Optional. Crop it to the SAME shape as the Gujarati image — the overlay layout is shared. Falls back to Gujarati when empty.',
+                        ),
                     ]),
                 ]),
 

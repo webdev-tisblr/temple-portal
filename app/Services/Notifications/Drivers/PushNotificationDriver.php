@@ -97,8 +97,21 @@ final class PushNotificationDriver implements NotificationDriver
             ? $context->render($template->push_deep_link, $template->placeholder_map ?? [])
             : null;
 
+        // `intent` + `intent_params` are what the app's DeepLinkRouter reads
+        // — the same pair a broadcast push carries. Trigger pushes used to
+        // send only `deep_link`, which nothing on the Flutter side handles,
+        // so tapping one always landed on the home screen (fixed 2026-08-29).
+        // intent_params travels as a JSON STRING because FCM data values must
+        // all be strings; the app decodes it.
+        $intent = $template->push_intent ?: null;
+        $intentParams = $intent !== null && ! empty($template->push_intent_params)
+            ? json_encode($template->push_intent_params)
+            : null;
+
         $payload = array_filter([
             'deep_link' => $deepLink,
+            'intent' => $intent,
+            'intent_params' => $intentParams,
             'notification_key' => $template->key,
         ]);
 

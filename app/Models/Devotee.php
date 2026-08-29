@@ -40,6 +40,9 @@ class Devotee extends Authenticatable
         'phone_verified_at',
         'last_login_at',
         'auth_epoch',
+        // Stamped the first time the app registers a device for this
+        // devotee — the gate on the once-only welcome push.
+        'welcomed_at',
     ];
 
     protected $casts = [
@@ -48,6 +51,7 @@ class Devotee extends Authenticatable
         'is_active' => 'boolean',
         'phone_verified_at' => 'datetime',
         'last_login_at' => 'datetime',
+        'welcomed_at' => 'datetime',
         'auth_epoch' => 'integer',
     ];
 

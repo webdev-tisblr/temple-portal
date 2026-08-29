@@ -31,7 +31,6 @@ class Donation extends Model
         'amount',
         'donation_type',
         'donation_type_id',
-        'purpose',
         'campaign_id',
         'sub_cause_id',
         'seva_booking_id',

@@ -1,6 +1,22 @@
 <?php
 
 return [
+    // Two-way contact threads (2026-08-29).
+    'my_messages' => 'मेरे संदेश',
+    'messages_sub' => 'ट्रस्ट के साथ आपकी बातचीत।',
+    'no_messages' => 'आपने अभी तक हमें नहीं लिखा है।',
+    'reply_sent' => 'आपका जवाब भेज दिया गया है।',
+    'write_reply' => 'जवाब लिखें…',
+    'send_reply' => 'जवाब भेजें',
+    'awaiting_reply' => 'जवाब की प्रतीक्षा है',
+    'replied' => 'जवाब मिला',
+    'new_reply' => 'नया जवाब',
+    'you' => 'आप',
+    'start_new_message' => 'हमें लिखें',
+
+    // Byline on a reply that has no named admin behind it.
+    'the_trust' => 'ट्रस्ट',
+
     'title' => 'संपर्क करें',
     'subtitle' => 'अपने प्रश्नों और संदेशों के लिए हमसे संपर्क करें',
     'send_message' => 'संदेश भेजें',

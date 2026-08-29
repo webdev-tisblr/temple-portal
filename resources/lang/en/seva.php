@@ -1,6 +1,10 @@
 <?php
 
 return [
+    // Shown when a devotee opens a card that was never configured for
+    // their seva/donation, or that belongs to somebody else.
+    'card_not_found' => 'This greeting card is not available.',
+
     'gallery' => 'Photos & Videos',
     'index_subtitle' => 'Take part in the Dham\'s sevas online and earn punya.',
     'cat_all' => 'All Sevas',

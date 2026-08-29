@@ -382,6 +382,15 @@
                                      the file input; answers land in the
                                      booking's extra_data and can be placed on
                                      the greeting card. --}}
+                                @php
+                                    // Answers the trust already has on file, so
+                                    // the devotee is not asked for them again.
+                                    // Block form, not @php(...): the inline
+                                    // directive mis-parses a call with nested
+                                    // parentheses and swallows the rest of the
+                                    // template.
+                                    $sevaPrefill = \App\Support\ProfilePrefill::values($seva->extra_fields, auth('devotee')->user());
+                                @endphp
                                 @foreach($seva->localizedExtraFields() as $field)
                                     <div class="mb-4 text-left">
                                         <label class="block text-sm font-medium text-amber-600 mb-1">
@@ -397,10 +406,11 @@
                                         @elseif(($field['type'] ?? 'text') === 'textarea')
                                             <textarea name="extra_data[{{ $field['key'] }}]" rows="2"
                                                 @if($field['required'] ?? false) required @endif
-                                                class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20"></textarea>
+                                                class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">{{ old('extra_data.'.$field['key'], $sevaPrefill[$field['key']] ?? '') }}</textarea>
                                         @else
                                             <input type="{{ in_array($field['type'] ?? 'text', ['number', 'date'], true) ? $field['type'] : 'text' }}"
                                                 name="extra_data[{{ $field['key'] }}]"
+                                                value="{{ old('extra_data.'.$field['key'], $sevaPrefill[$field['key']] ?? '') }}"
                                                 @if($field['required'] ?? false) required @endif
                                                 class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
                                         @endif
@@ -487,7 +497,10 @@ function slotPicker(sevaId) {
         slotDuration: config.slot_duration_minutes || 0,
         selectedProductId: null,
         selectedVariant: '',
-        devoteeName: '',
+        {{-- Seeded from the profile (2026-08-29): the name on the seva is
+             the devotee's own far more often than not, and a devotee booking
+             for a relative just types over it. --}}
+        devoteeName: @js(auth('devotee')->user()?->name ?? ''),
         sankalp: '',
 
         // ── Press-and-hold product preview ─────────────────────────────

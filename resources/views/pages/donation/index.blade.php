@@ -111,13 +111,6 @@
 
         {{-- Dynamic Extra Fields placeholder — actual fields rendered inside the form below --}}
 
-        {{-- Purpose --}}
-        <div class="mb-6">
-            <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('donation.purpose') }}</label>
-            <input type="text" x-model="purpose" placeholder="{{ __('donation.purpose_placeholder') }}"
-                class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
-        </div>
-
         {{-- Gupt Daan (anonymity).
              Corrected 2026-08-10: this is the ONLY thing that makes a
              donation anonymous. It is entirely independent of the 80G
@@ -178,7 +171,7 @@
                              records the return destination (SafeRedirect, the
                              same mechanism as post-login redirect, item 3.1),
                              and it rebuilds a /donate URL carrying the amount,
-                             type, purpose and campaign — so saving the PAN
+                             type and campaign — so saving the PAN
                              lands the donor back on a form that is already
                              filled in, not an empty one. Nothing is charged:
                              the guard returns before any Razorpay order. --}}
@@ -206,7 +199,6 @@
                 <input type="hidden" name="amount" :value="amount">
                 <input type="hidden" name="donation_type" :value="donationType">
                 <input type="hidden" name="donation_type_id" :value="selectedTypeId || ''">
-                <input type="hidden" name="purpose" :value="purpose">
                 <input type="hidden" name="anonymous" :value="anonymous ? 1 : 0">
                 <input type="hidden" name="wants_80g" :value="wants80g ? 1 : 0">
                 @if($selectedCampaign)
@@ -221,16 +213,22 @@
                         <template x-for="(field, index) in currentExtraFields" :key="field.key">
                             <div>
                                 <label class="block text-sm font-medium text-amber-600 mb-1" x-text="field.label || field.label_gu || field.label_en"></label>
+                                {{-- :value seeds the box from the devotee's profile
+                                     (ProfilePrefill) and never fights typing —
+                                     field.prefill is static for a given type. --}}
                                 <input x-show="field.type === 'text'" type="text"
                                     :name="field.type === 'text' ? 'extra_data[' + field.key + ']' : ''"
+                                    :value="field.prefill || ''"
                                     :required="field.type === 'text' && field.required"
                                     class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
                                 <input x-show="field.type === 'number'" type="number"
                                     :name="field.type === 'number' ? 'extra_data[' + field.key + ']' : ''"
+                                    :value="field.prefill || ''"
                                     :required="field.type === 'number' && field.required"
                                     class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
                                 <input x-show="field.type === 'date'" type="date"
                                     :name="field.type === 'date' ? 'extra_data[' + field.key + ']' : ''"
+                                    :value="field.prefill || ''"
                                     :required="field.type === 'date' && field.required"
                                     class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 focus:border-amber-600 focus:ring-amber-600/20">
                                 <input x-show="field.type === 'image'" type="file"
@@ -240,6 +238,7 @@
                                     class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-amber-900/40 file:text-amber-400">
                                 <textarea x-show="field.type === 'textarea'"
                                     :name="field.type === 'textarea' ? 'extra_data[' + field.key + ']' : ''"
+                                    :value="field.prefill || ''"
                                     :required="field.type === 'textarea' && field.required" rows="3"
                                     class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20"></textarea>
                             </div>
@@ -287,7 +286,6 @@ function donationForm() {
         selectedTypeId: prefill.donation_type_id || '',
         donationType: @json($selectedCampaign ? 'campaign' : 'general'),
         subCauseId: prefill.sub_cause_id || '',
-        purpose: prefill.purpose || '',
         anonymous: !!prefill.anonymous,
         wants80g: !!prefill.wants_80g,
         // Campaign mode has no type dropdown, so onTypeChange() never runs

@@ -58,7 +58,6 @@ class DonationResource extends Resource
                         ? ($record->campaign->title_en ?: $record->campaign->title_gu)
                         : null)
                     ->default('-'),
-                Infolists\Components\TextEntry::make('purpose')->label('Purpose')->default('-'),
                 Infolists\Components\TextEntry::make('financial_year')->label('Financial Year'),
                 // Item 5.4 — Gupt Daan is a PUBLIC-DISPLAY choice, never a
                 // data-collection one: the donor's name/phone/email/address

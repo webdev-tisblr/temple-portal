@@ -46,6 +46,11 @@ final class AppDeepLink
         'inbox',
         'guides',
         'guide-detail',
+        // Added with the two-way contact + in-app greeting cards work
+        // (2026-08-29). Older app builds fall through DeepLinkRouter's
+        // default: branch to home, so emitting them is safe.
+        'my-messages',
+        'greeting-cards',
     ];
 
     /**

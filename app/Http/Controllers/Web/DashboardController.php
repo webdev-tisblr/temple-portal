@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\ContactMessage;
+use App\Models\ContactSubmission;
 use App\Models\Donation;
 use App\Models\Order;
 use App\Models\Receipt80G;
 use App\Models\SevaBooking;
+use App\Services\ContactThreadService;
 use App\Services\PanValidationService;
 use App\Services\ReceiptService;
 use App\Services\SevaReceiptService;
@@ -131,6 +134,65 @@ class DashboardController extends Controller
         SEOMeta::setTitle('80G રસીદો');
 
         return view('pages.dashboard.receipts', compact('receipts'));
+    }
+
+    /**
+     * The devotee's contact conversations (2026-08-29).
+     *
+     * Same data the app reads over /api/v1/contact/threads. It lives here too
+     * because a devotee who wrote in from the website has no app to read the
+     * trust's answer in.
+     */
+    public function messages(): View
+    {
+        $devotee = Auth::guard('devotee')->user();
+
+        $threads = ContactSubmission::query()
+            ->where('devotee_id', $devotee->id)
+            ->withCount([
+                'messages as unread_count' => fn ($q) => $q->unreadByDevotee(),
+                'messages as reply_count' => fn ($q) => $q->where('author_type', ContactMessage::AUTHOR_ADMIN),
+            ])
+            // A thread with no reply yet has no last_message_at.
+            ->orderByRaw('COALESCE(last_message_at, created_at) DESC')
+            ->paginate(20);
+
+        SEOMeta::setTitle(__('contact.my_messages'));
+
+        return view('pages.dashboard.messages', compact('threads'));
+    }
+
+    public function showMessage(ContactSubmission $submission): View
+    {
+        $this->authorizeThread($submission);
+
+        app(ContactThreadService::class)->markReadByDevotee($submission);
+        $submission->load(['messages.adminUser']);
+
+        SEOMeta::setTitle($submission->subject);
+
+        return view('pages.dashboard.message', ['thread' => $submission]);
+    }
+
+    public function replyToMessage(Request $request, ContactSubmission $submission): RedirectResponse
+    {
+        $this->authorizeThread($submission);
+
+        $validated = $request->validate(['body' => 'required|string|max:2000']);
+
+        app(ContactThreadService::class)->replyAsDevotee($submission, $validated['body']);
+
+        return redirect()
+            ->route('dashboard.messages.show', $submission)
+            ->with('success', __('contact.reply_sent'));
+    }
+
+    /** A devotee may only ever see their own thread. */
+    private function authorizeThread(ContactSubmission $submission): void
+    {
+        $devotee = Auth::guard('devotee')->user();
+
+        abort_if($submission->devotee_id === null || $submission->devotee_id !== $devotee->id, 403);
     }
 
     public function downloadReceipt(Receipt80G $receipt): Response|RedirectResponse
@@ -271,7 +333,7 @@ class DashboardController extends Controller
 
         // Item 5.4 → 3.1: when the donor was sent here by the checkout 80G
         // prompt, SafeRedirect carries them back to the donation they were
-        // completing (with their amount/type/purpose restored) instead of
+        // completing (with their amount and type restored) instead of
         // stranding them on the profile page. With nothing remembered this
         // is exactly the old back()-to-profile behaviour.
         return redirect()

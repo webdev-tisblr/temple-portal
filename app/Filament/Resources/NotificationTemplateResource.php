@@ -16,7 +16,6 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
 use Spatie\Permission\Models\Role;
 
@@ -72,6 +71,11 @@ class NotificationTemplateResource extends Resource
                                 NotificationTemplate::CHANNEL_EMAIL => 'Email',
                                 NotificationTemplate::CHANNEL_WHATSAPP => 'WhatsApp',
                                 NotificationTemplate::CHANNEL_SMS => 'SMS',
+                                // Trigger pushes became admin-composable
+                                // 2026-08-29. Before that the push channel
+                                // existed in the driver and in reminder rules
+                                // but had no form, so nobody could write one.
+                                NotificationTemplate::CHANNEL_PUSH => 'Push notification (app)',
                             ])
                             ->required()
                             ->live()
@@ -183,6 +187,73 @@ class NotificationTemplateResource extends Resource
                         ->placeholder('65a1b2c3d4e5f6...')
                         ->helperText('Paste the DLT-approved template ID from MSG91. Leave blank to use the default OTP template id from System Settings → SMS. Variables are filled in {{n}} order from the placeholders available above.')
                         ->columnSpanFull(),
+                ]),
+
+            // ── Push ──────────────────────────────────────────────────
+            Forms\Components\Section::make('Push notification')
+                ->visible(fn (Forms\Get $get) => $get('channel') === NotificationTemplate::CHANNEL_PUSH)
+                ->description('Only devotees with the app installed AND a registered device receive these. A devotee who has never opened the app is silently skipped — use WhatsApp for them.')
+                ->schema([
+                    Forms\Components\Tabs::make('push_content')
+                        ->columnSpanFull()
+                        ->tabs(collect([
+                            'gu' => 'ગુજરાતી',
+                            'hi' => 'हिन्दी',
+                            'en' => 'English',
+                        ])->map(fn (string $label, string $locale) => Forms\Components\Tabs\Tab::make($label)->schema([
+                            Forms\Components\TextInput::make("push_title.{$locale}")
+                                ->label('Title')
+                                ->maxLength(65)
+                                // Android truncates around 65 chars in the
+                                // shade; anything past it is never read.
+                                ->helperText($locale === 'gu'
+                                    ? 'Required — the other two languages fall back to this one.'
+                                    : 'Optional. Falls back to Gujarati.')
+                                ->required($locale === 'gu'),
+                            Forms\Components\Textarea::make("push_body.{$locale}")
+                                ->label('Message')
+                                ->rows(3)
+                                ->maxLength(240),
+                        ]))->values()->all()),
+                ]),
+
+            // Same intent vocabulary as a broadcast push, and the same
+            // Flutter DeepLinkRouter handles both. The picker is borrowed
+            // from NotificationResource rather than re-listed here, so a
+            // screen added for broadcasts is offered here too.
+            Forms\Components\Section::make('Open in app on tap')
+                ->visible(fn (Forms\Get $get) => $get('channel') === NotificationTemplate::CHANNEL_PUSH)
+                ->description('Where the devotee lands when they tap it. Leave blank to just open the app.')
+                ->schema([
+                    Forms\Components\Select::make('push_intent')
+                        ->label('Open')
+                        ->options(NotificationResource::intentOptions())
+                        ->placeholder('— Just open the app (home) —')
+                        ->live()
+                        ->afterStateUpdated(fn (Forms\Set $set) => $set('push_intent_target', null))
+                        ->columnSpanFull(),
+
+                    // Synthetic: the persisted shape is the intent_params
+                    // JSON, built from this on save. Same pattern the
+                    // broadcast form uses.
+                    Forms\Components\Select::make('push_intent_target')
+                        ->label('Target')
+                        ->options(fn (Forms\Get $get): array => NotificationResource::intentTargetOptions((string) $get('push_intent')))
+                        ->searchable()
+                        ->preload()
+                        // NOT dehydrated(false): the value has to reach
+                        // $data so the save-time serialiser can turn it into
+                        // push_intent_params. `push_intent_target` is not
+                        // fillable on the model, so the stray key is inert
+                        // even though it is carried through.
+                        ->required(fn (Forms\Get $get): bool => array_key_exists(
+                            (string) $get('push_intent'),
+                            NotificationResource::intentTargetKeys(),
+                        ))
+                        ->visible(fn (Forms\Get $get): bool => array_key_exists(
+                            (string) $get('push_intent'),
+                            NotificationResource::intentTargetKeys(),
+                        )),
                 ]),
 
             // ── Recipients ────────────────────────────────────────────
@@ -516,14 +587,22 @@ class NotificationTemplateResource extends Resource
         return $fields;
     }
 
-    public static function getEloquentQuery(): Builder
+    /**
+     * Turn the admin's chosen target into the intent_params JSON the app
+     * reads. Mirrors the broadcast form's conversion; kept here as a static
+     * so the field closure and the Edit page's hydration share one rule.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function intentParamsFor(string $intent, mixed $target): ?array
     {
-        // Push rows are managed in the separate Push Notifications resource.
-        return parent::getEloquentQuery()->whereIn('channel', [
-            NotificationTemplate::CHANNEL_EMAIL,
-            NotificationTemplate::CHANNEL_WHATSAPP,
-            NotificationTemplate::CHANNEL_SMS,
-        ]);
+        $key = NotificationResource::intentTargetKeys()[$intent] ?? null;
+
+        if ($key === null || blank($target)) {
+            return null;
+        }
+
+        return [$key => (string) $target];
     }
 
     public static function table(Table $table): Table

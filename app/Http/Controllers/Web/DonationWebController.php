@@ -53,23 +53,27 @@ class DonationWebController extends Controller
         $prefill = [
             'amount' => $request->filled('amount') ? (int) $request->query('amount') : null,
             'donation_type_id' => $request->filled('type') ? (string) $request->query('type') : '',
-            'purpose' => (string) $request->query('purpose', ''),
             'anonymous' => $request->boolean('anonymous'),
-            // Default the 80G request ON — it is what most donors want, and
-            // the PAN gate (not this default) decides what is actually issued.
-            'wants_80g' => $request->has('wants_80g') ? $request->boolean('wants_80g') : true,
+            // Default the 80G request OFF (2026-08-29). A pre-ticked box asks
+            // for a PAN the donor may not have handy and bounces them out to
+            // their profile mid-donation; most gifts here are small and the
+            // receipt is not wanted. A donor who does want one ticks it, and
+            // the PAN gate then decides what is actually issued.
+            'wants_80g' => $request->boolean('wants_80g'),
             'sub_cause_id' => $request->filled('sub_cause') ? (string) $request->query('sub_cause') : '',
         ];
 
         $hasPan = app(\App\Services\ReceiptService::class)->devoteeHasValid80GPan($devotee);
 
         // Pre-build JS-ready data (avoid arrow functions in Blade @json)
-        $donationTypesJs = $donationTypes->map(function ($t) {
+        $donationTypesJs = $donationTypes->map(function ($t) use ($devotee) {
             return [
                 'id' => $t->id,
                 'slug' => $t->slug,
                 'name' => $t->name,
-                'extra_fields' => $t->localizedExtraFields(),
+                // Anything the trust already knows about this devotee arrives
+                // pre-filled (and still editable) — see ProfilePrefill.
+                'extra_fields' => \App\Support\ProfilePrefill::decorate($t->localizedExtraFields(), $devotee),
             ];
         })->values()->toArray();
 
@@ -78,7 +82,9 @@ class DonationWebController extends Controller
 
         // In campaign mode the type dropdown is hidden, so the CAMPAIGN's own
         // extra fields are the ones to ask (2026-08-13).
-        $campaignExtraFields = $selectedCampaign?->localizedExtraFields() ?? [];
+        $campaignExtraFields = \App\Support\ProfilePrefill::decorate(
+            $selectedCampaign?->localizedExtraFields() ?? [], $devotee
+        );
 
         return view('pages.donation.index', compact(
             'campaigns',
@@ -183,7 +189,6 @@ class DonationWebController extends Controller
                     'amount' => $amount,
                     'donation_type' => $validated['donation_type'],
                     'donation_type_id' => $validated['donation_type_id'] ?? null,
-                    'purpose' => $validated['purpose'] ?? null,
                     'campaign_id' => $validated['campaign_id'] ?? null,
                     'sub_cause_id' => $validated['sub_cause_id'] ?? null,
                     'extra_data' => $extraData,
@@ -238,7 +243,6 @@ class DonationWebController extends Controller
             'sub_cause' => $validated['sub_cause_id'] ?? null,
             'amount' => (int) $validated['amount'],
             'type' => $validated['donation_type_id'] ?? null,
-            'purpose' => $validated['purpose'] ?? null,
             'anonymous' => ! empty($validated['anonymous']) ? 1 : null,
             'wants_80g' => 1,
         ], fn ($value) => $value !== null && $value !== ''));

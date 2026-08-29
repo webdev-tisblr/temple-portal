@@ -17,7 +17,6 @@ class DonationResource extends JsonResource
             'donation_type' => $this->donation_type instanceof \BackedEnum
                 ? $this->donation_type->value
                 : ($this->donation_type !== null ? (string) $this->donation_type : null),
-            'purpose' => $this->purpose,
             'financial_year' => $this->financial_year,
             'is_80g_eligible' => (bool) $this->is_80g_eligible,
             // Surface PAN status from the canonical home (devotee profile)

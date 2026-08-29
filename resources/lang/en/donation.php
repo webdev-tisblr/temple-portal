@@ -6,8 +6,6 @@ return [
     'enter_amount' => 'Enter seva donation',
     'type' => 'Donation purpose',
     'choose_type' => '-- Choose donation purpose --',
-    'purpose' => 'Detailed purpose (optional)',
-    'purpose_placeholder' => 'e.g. for the family\'s wellbeing',
     'gupt_daan' => 'Gupt Daan — hide my name from public donor lists',
     'gupt_daan_hint' => 'Your donation shows as “રામ ભરોસે” on the website and app. The trust still records your full details, and this has no effect on your 80G receipt.',
     'extra_info' => 'Additional information',

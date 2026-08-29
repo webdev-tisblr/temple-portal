@@ -177,6 +177,12 @@
     }
     .dash-link:hover { color: #7A1E1E; }
 
+    /* A whole list row that is itself a link — the contact-thread list. Same
+       parchment hover the tables use, without borrowing the dark site's
+       amber utilities (see DashboardViewsTest's legacy-class guard). */
+    .dash-row-link { display: flex; }
+    .dash-row-link:hover { background: rgba(122, 30, 30, 0.04); }
+
     /* Form controls — stated explicitly rather than borrowed from the
        global input rule in the compatibility layer. */
     .dash-label { @apply mb-1.5 block text-sm font-medium; color: #7A1E1E; }

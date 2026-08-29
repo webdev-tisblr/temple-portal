@@ -654,13 +654,11 @@ class Strict80GTest extends TestCase
         $donation = $this->donationWithPan([
             'donation_type' => 'campaign',
             'campaign_id' => $campaign->id,
-            'purpose' => 'Cow shed roofing',
         ]);
 
         $receipt = $this->service()->generateReceipt($donation);
 
         $this->assertSame('Gaushala Construction', $receipt->campaign_title);
-        $this->assertSame('Cow shed roofing', $receipt->donation_purpose);
 
         // Admin renames the campaign a month later…
         $campaign->update(['title_en' => 'Gaushala Renovation Phase 2']);
@@ -774,7 +772,6 @@ class Strict80GTest extends TestCase
         $response = $this->actingAs($devotee, 'devotee')->post('/donate', [
             'amount' => 2100,
             'donation_type' => 'general',
-            'purpose' => 'Annadan seva',
             'wants_80g' => 1,
         ]);
 
@@ -790,7 +787,6 @@ class Strict80GTest extends TestCase
         $this->assertNotNull($intended, 'the donation must be remembered as the return destination');
         $this->assertStringContainsString('/donate', $intended);
         $this->assertStringContainsString('amount=2100', $intended);
-        $this->assertStringContainsString('Annadan', rawurldecode($intended));
     }
 
     public function test_saving_a_pan_returns_the_donor_to_their_donation(): void

@@ -181,7 +181,6 @@ class ManualCashEntryTest extends TestCase
             'phone' => '9876500001',
             'donation_type' => 'annadan',
             'amount' => 2100,
-            'purpose' => 'Annadan seva',
         ]), $this->superAdmin());
 
         $payment = $result['payment'];

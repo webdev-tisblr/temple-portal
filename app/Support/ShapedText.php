@@ -50,6 +50,94 @@ final class ShapedText
     }
 
     /**
+     * Render a PANGO MARKUP block — the rich-text card overlays (2026-08-29).
+     *
+     * Same pango invocation as render() below, with three differences that
+     * only the rich blocks need:
+     *
+     *   • `--markup`, so <b>/<i>/<u>/<span foreground=…> inside the string are
+     *     honoured instead of printed. The caller MUST have escaped every bit
+     *     of devotee-supplied text before it got here — see CardRichText.
+     *   • an explicit font FAMILY, which is how a Google font chosen in the
+     *     admin reaches the renderer at all.
+     *   • an explicit ALIGNMENT, because a text block is laid out inside a
+     *     box the admin drew rather than centred on a point.
+     *
+     * $fontConfigPath points pango at the generated fontconfig that includes
+     * our downloaded-fonts directory (GoogleFontService). Without it a
+     * downloaded family is invisible and fontconfig substitutes silently.
+     *
+     * @return \GdImage|null null on any failure — the caller falls back to
+     *                       plain unshaped text rather than losing the block.
+     */
+    public static function renderMarkup(
+        string $markup,
+        float $fontSizePx,
+        string $family,
+        ?int $wrapWidthPx = null,
+        string $align = 'center',
+        bool $bold = false,
+        ?string $fontConfigPath = null,
+    ): ?\GdImage {
+        if (! self::available() || trim(strip_tags($markup)) === '') {
+            return null;
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'richtext-');
+        if ($tmp === false) {
+            return null;
+        }
+        $png = $tmp.'.png';
+
+        $align = in_array($align, ['left', 'center', 'right'], true) ? $align : 'center';
+
+        // LC_ALL is load-bearing — see the note in render().
+        $env = 'LC_ALL=C.UTF-8';
+        if ($fontConfigPath !== null && is_file($fontConfigPath)) {
+            $env .= ' FONTCONFIG_FILE='.escapeshellarg($fontConfigPath);
+        }
+
+        $cmd = sprintf(
+            // --margin=0: a text block is composited at the exact x/y the
+            // admin dragged it to, so pango-view's default 10px padding would
+            // shift every block down and right of where the editor showed it.
+            '%s pango-view -q --dpi=72 --margin=0 -o %s --background=transparent --markup --font=%s %s --align=%s -t %s 2>&1',
+            $env,
+            escapeshellarg($png),
+            escapeshellarg(trim($family.($bold ? ' Bold' : '')).' '.round($fontSizePx, 1)),
+            $wrapWidthPx !== null && $wrapWidthPx > 0 ? '--width='.(int) $wrapWidthPx.' --wrap=word-char' : '',
+            escapeshellarg($align),
+            escapeshellarg($markup),
+        );
+
+        exec($cmd, $output, $code);
+        @unlink($tmp);
+
+        if ($code !== 0 || ! is_file($png)) {
+            @unlink($png);
+            Log::warning('ShapedText: pango markup render failed — caller falls back to plain text', [
+                'exit_code' => $code,
+                'family' => $family,
+                'output' => implode(' | ', array_slice($output, 0, 5)),
+            ]);
+
+            return null;
+        }
+
+        $image = @imagecreatefrompng($png);
+        @unlink($png);
+
+        if (! $image instanceof \GdImage) {
+            return null;
+        }
+
+        imagealphablending($image, false);
+        imagesavealpha($image, true);
+
+        return $image;
+    }
+
+    /**
      * Render one text block to a transparent-background GdImage, shaped
      * correctly. Font family follows the dominant Indic script; Latin
      * mixed into the run falls back via fontconfig automatically.

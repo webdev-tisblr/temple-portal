@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\CardTemplateUpload;
 use App\Filament\Resources\StatusTemplateResource\Pages;
 use App\Filament\Support\TranslatableTabs;
 use App\Models\StatusTemplate;
@@ -43,13 +44,14 @@ class StatusTemplateResource extends Resource
                         ->maxLength(1000)
                         ->helperText('Optional. Sent with the image when a devotee shares this status. Leave blank to share the image with no text.'),
                 ]),
-                Forms\Components\FileUpload::make('greeting_card_template')
-                    ->label('Background Template Image')
-                    ->directory('status-templates')
-                    ->image()
-                    ->maxSize(5120)
+                CardTemplateUpload::make(
+                    'greeting_card_template',
+                    'status-templates',
+                    ['9:16', null],
+                    'Background Template Image',
+                    'A WhatsApp status is 1080×1920 — crop to 9:16 here and it will fill the screen instead of being letterboxed. Upload the full-resolution original; it is stored downscaled and re-encoded.',
+                )
                     ->required()
-                    ->helperText('Recommended 1080×1920 (WhatsApp status) PNG or JPG.')
                     ->columnSpanFull()
                     ->live(),
             ]),

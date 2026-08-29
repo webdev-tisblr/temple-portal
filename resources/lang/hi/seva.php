@@ -1,6 +1,10 @@
 <?php
 
 return [
+    // Shown when a devotee opens a card that was never configured for
+    // their seva/donation, or that belongs to somebody else.
+    'card_not_found' => 'यह शुभकामना कार्ड उपलब्ध नहीं है.',
+
     'gallery' => 'फ़ोटो और वीडियो',
     'index_subtitle' => 'धाम की विविध सेवाओं में ऑनलाइन सहभागी बनकर पुण्य का लाभ प्राप्त करें।',
     'cat_all' => 'सभी सेवाएँ',

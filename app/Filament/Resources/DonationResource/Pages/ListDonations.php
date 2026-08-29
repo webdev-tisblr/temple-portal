@@ -69,7 +69,7 @@ class ListDonations extends ListRecords
 
         return response()->streamDownload(function () use ($donations) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Date', 'Receipt No.', 'Devotee', 'Phone', 'Amount (₹)', 'Type', 'Purpose', 'Financial Year', 'Payment Status']);
+            fputcsv($handle, ['Date', 'Receipt No.', 'Devotee', 'Phone', 'Amount (₹)', 'Type', 'Financial Year', 'Payment Status']);
 
             foreach ($donations as $d) {
                 fputcsv($handle, [
@@ -79,7 +79,6 @@ class ListDonations extends ListRecords
                     $d->devotee?->phone ?? '-',
                     number_format((float) $d->amount, 2),
                     ucfirst($d->getRawOriginal('donation_type')),
-                    $d->purpose ?? '-',
                     $d->financial_year,
                     $d->payment?->status?->value ?? '-',
                 ]);

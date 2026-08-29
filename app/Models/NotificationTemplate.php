@@ -70,6 +70,8 @@ class NotificationTemplate extends Model
         'push_title',
         'push_body',
         'push_deep_link',
+        'push_intent',
+        'push_intent_params',
         'recipient_strategy',
         'recipient_value',
         'recipients',
@@ -85,6 +87,9 @@ class NotificationTemplate extends Model
         'push_title' => 'array',
         'push_body' => 'array',
         'placeholder_map' => 'array',
+        // Deep-link target for a push, same vocabulary the broadcast pushes
+        // and the app's DeepLinkRouter use (2026-08-29).
+        'push_intent_params' => 'array',
         // Array of { strategy: string, value: string|null } entries.
         // Each entry independently resolves at dispatch; same row can
         // therefore fan out to devotee + admin_role + fixed_phone in

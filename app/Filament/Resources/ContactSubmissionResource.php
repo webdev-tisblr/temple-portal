@@ -63,6 +63,21 @@ class ContactSubmissionResource extends Resource
                 Forms\Components\TextInput::make('subject')->disabled(),
                 Forms\Components\Textarea::make('message')->rows(6)->disabled(),
             ]),
+            // The two-way half (2026-08-29). The transcript is read-only here;
+            // replying goes through the Reply action so every turn lands in
+            // ContactThreadService and the devotee actually gets told.
+            Forms\Components\Section::make('Conversation')
+                ->description('Everything said in this thread, oldest first. Use the Reply button above to answer — the devotee sees it in the app.')
+                ->schema([
+                    Forms\Components\Placeholder::make('thread')
+                        ->hiddenLabel()
+                        ->columnSpanFull()
+                        ->content(fn (?ContactSubmission $record) => view(
+                            'filament.components.contact-thread',
+                            ['record' => $record?->loadMissing('messages.adminUser')],
+                        )),
+                ]),
+
             Forms\Components\Section::make('Status')->schema([
                 Forms\Components\Toggle::make('is_read')->label('Marked as read'),
                 Forms\Components\DateTimePicker::make('read_at')->label('Read at')->disabled(),
@@ -99,10 +114,20 @@ class ContactSubmissionResource extends Resource
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('subject')->limit(40)->searchable(),
+                Tables\Columns\TextColumn::make('messages_count')
+                    ->counts('messages')
+                    ->label('Replies')
+                    ->badge()
+                    ->color(fn ($state): string => (int) $state > 0 ? 'success' : 'gray'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime('d M Y H:i')
                     ->sortable()
                     ->label('Received'),
+                Tables\Columns\TextColumn::make('last_message_at')
+                    ->dateTime('d M Y H:i')
+                    ->sortable()
+                    ->label('Last activity')
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
@@ -123,6 +148,7 @@ class ContactSubmissionResource extends Resource
                     ->action(function (ContactSubmission $record) {
                         $record->update(['is_read' => true, 'read_at' => now()]);
                     }),
+                static::replyAction(),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
@@ -144,6 +170,51 @@ class ContactSubmissionResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    /**
+     * Answer a devotee. Shared by the table row and the View page header so
+     * the two cannot drift in what they do or who is allowed to do it.
+     *
+     * `update_contact::submission` is the gate: replying on the trust's behalf
+     * is not a view-only act, and the same permission already guards marking
+     * a message read.
+     */
+    public static function replyAction(): Tables\Actions\Action
+    {
+        return Tables\Actions\Action::make('reply')
+            ->label('Reply')
+            ->icon('heroicon-o-chat-bubble-left-right')
+            ->color('primary')
+            ->modalHeading(fn (ContactSubmission $record): string => 'Reply to '.($record->name ?: 'devotee'))
+            ->modalDescription('The devotee sees this in the app under Messages. If a "Contact — trust replied" notification template is enabled, they are told about it too.')
+            ->modalSubmitActionLabel('Send reply')
+            ->visible(fn (ContactSubmission $record): bool => $record->devotee_id !== null
+                && (auth('admin')->user()?->can('update_contact::submission') ?? false))
+            ->form([
+                Forms\Components\Placeholder::make('original')
+                    ->label('Their message')
+                    ->content(fn (ContactSubmission $record): string => $record->message),
+                Forms\Components\Textarea::make('body')
+                    ->hiddenLabel()
+                    ->placeholder('Write your reply…')
+                    ->rows(6)
+                    ->required()
+                    ->maxLength(2000),
+            ])
+            ->action(function (ContactSubmission $record, array $data): void {
+                app(\App\Services\ContactThreadService::class)->replyAsAdmin(
+                    $record,
+                    (string) $data['body'],
+                    auth('admin')->user(),
+                );
+
+                \Filament\Notifications\Notification::make()
+                    ->success()
+                    ->title('Reply sent')
+                    ->body('It is now visible to the devotee in the app.')
+                    ->send();
+            });
     }
 
     public static function getPages(): array

@@ -190,7 +190,7 @@ class FinancialReports extends Page implements HasForms, HasTable
             // the export must say WHICH admin took it. That is the actual
             // question the trust asks of this report, and it is why
             // temple_payments carries created_by_admin_id at all.
-            fputcsv($handle, ['Date', 'Receipt No.', 'Devotee', 'Phone', 'Amount (₹)', 'Type', 'Campaign', 'Purpose', 'FY', 'Status', 'Mode', 'Collected by']);
+            fputcsv($handle, ['Date', 'Receipt No.', 'Devotee', 'Phone', 'Amount (₹)', 'Type', 'Campaign', 'FY', 'Status', 'Mode', 'Collected by']);
 
             foreach ($donations as $d) {
                 $offline = $d->payment?->isOffline() ?? false;
@@ -203,7 +203,6 @@ class FinancialReports extends Page implements HasForms, HasTable
                     number_format((float) $d->amount, 2),
                     $d->donationType?->name ?: ucfirst((string) $d->getRawOriginal('donation_type')),
                     $d->campaign ? ($d->campaign->title_en ?: $d->campaign->title_gu) : '-',
-                    $d->purpose ?? '-',
                     $d->financial_year,
                     $d->payment?->status?->value ?? '-',
                     $offline ? ($d->payment?->method ?? 'offline') : 'online',

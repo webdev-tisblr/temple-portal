@@ -9,6 +9,7 @@ use App\Models\Donation;
 use App\Models\DonationCampaign;
 use App\Models\SevaBooking;
 use App\Models\SystemSetting;
+use App\Support\CardTextBlock;
 use App\Support\DevoteeLocale;
 use App\Support\ScriptFont;
 use App\Support\ShapedText;
@@ -331,6 +332,16 @@ class GreetingCardService
     private function applyOverlay(\GdImage $image, array $overlay, callable $resolve, ?string $fontPath, ?\DateTimeInterface $cardDate = null): void
     {
         $type = $overlay['type'] ?? 'text';
+
+        // A rich TEXT BLOCK carries its own wording — literal sentence plus
+        // {{ variables }} — so it has no single field_key and must be handled
+        // before the guard below. @see CardTextBlock
+        if ($type === CardTextBlock::TYPE) {
+            CardTextBlock::draw($image, $overlay, $resolve, $fontPath);
+
+            return;
+        }
+
         $fieldKey = $overlay['field_key'] ?? null;
 
         if (! $fieldKey) {

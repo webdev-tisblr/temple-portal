@@ -266,6 +266,14 @@ Route::middleware('auth:devotee')->group(function () {
             Route::get('/orders', [DashboardController::class, 'orders'])->name('orders');
             Route::get('/receipts', [DashboardController::class, 'receipts'])->name('receipts');
             Route::get('/receipts/{receipt}/download', [DashboardController::class, 'downloadReceipt'])->name('receipts.download');
+            // Two-way contact (2026-08-29). A devotee who wrote in from the
+            // WEBSITE needs somewhere to read the trust's answer too — the
+            // app's Messages screen is the same data over the API.
+            Route::get('/messages', [DashboardController::class, 'messages'])->name('messages');
+            Route::get('/messages/{submission}', [DashboardController::class, 'showMessage'])->name('messages.show');
+            Route::post('/messages/{submission}/reply', [DashboardController::class, 'replyToMessage'])
+                ->middleware('throttle:10,60,contact-reply')
+                ->name('messages.reply');
             Route::get('/profile', [DashboardController::class, 'profile'])->name('profile');
             Route::put('/profile', [DashboardController::class, 'updateProfile'])->name('profile.update');
         });

@@ -50,7 +50,9 @@ namespace App\Services\Notifications;
  *   auth.otp               → app/Services/OtpService.php
  *   contact.submitted      → app/Http/Controllers/Web/ContactController.php
  *                            + app/Http/Controllers/Api/V1/ContentController.php
+ *   contact.replied        → app/Services/ContactThreadService.php
  *   devotee.registered     → app/Http/Controllers/{Web,Api/V1}/Auth*Controller.php
+ *   devotee.first_login    → app/Http/Controllers/Api/V1/DeviceTokenController.php
  *   devotee.birthday       → app/Console/Commands/SendBirthdayBlessings.php
  */
 final class NotificationRegistry
@@ -74,7 +76,6 @@ final class NotificationRegistry
                     'devotee_email' => 'Devotee email — empty when they have not added one (devotee.email)',
                     'amount' => "Donation amount, ready to print — includes \u{20B9} and Indian digit grouping (amount_formatted)",
                     'donation_type' => "Donation type label in the reader's language (donation.donationType.name_gu)",
-                    'purpose' => 'Donation purpose if provided by donor (donation.purpose)',
                     'campaign_title' => "Campaign title if any, in the reader's language (donation.campaign.title_gu)",
                     'date' => 'Donation date (donation.created_at)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
@@ -114,7 +115,6 @@ final class NotificationRegistry
                     'campaign_raised' => "Raised so far, ready to print — includes \u{20B9} (campaign_raised)",
                     'campaign_goal' => "Campaign goal, ready to print — includes \u{20B9} (campaign_goal)",
                     'donation_type' => "Donation type label in the reader's language (donation.donationType.name_gu)",
-                    'purpose' => 'Donation purpose if provided by donor (donation.purpose)',
                     'date' => 'Donation date (donation.created_at)',
                     'trust_name' => 'Trust name from System Settings (trust_name)',
                 ],
@@ -482,10 +482,37 @@ final class NotificationRegistry
                 ],
             ],
 
+            // Context: submission (ContactSubmission model), devotee,
+            //   reply (ContactMessage model), reply_body, trust_name.
+            'contact.replied' => [
+                'label' => 'Contact — trust replied',
+                'description' => 'Fires when an admin answers a devotee\'s contact message. Goes to the DEVOTEE, not the trust. Use recipient = "Devotee in the event". A push template here should deep-link to the Messages screen (intent: my-messages) so tapping it opens the conversation.',
+                'placeholders' => [
+                    'name' => 'Devotee name (submission.name)',
+                    'phone' => 'Devotee phone (submission.phone)',
+                    'email' => 'Devotee email — empty when they have not added one (submission.email)',
+                    'category' => 'What the original message was about (category_label)',
+                    'subject' => 'Subject of the conversation (submission.subject)',
+                    'reply' => 'What the trust wrote back (reply_body)',
+                    'trust_name' => 'Trust name from System Settings (trust_name)',
+                ],
+            ],
+
             // Context: devotee (Devotee model).
             'devotee.registered' => [
                 'label' => 'Devotee — first-time registration',
                 'description' => 'Fires the first time a devotee verifies their phone via OTP.',
+                'placeholders' => [
+                    'name' => 'Devotee name (devotee.name)',
+                    'phone' => 'Devotee phone (devotee.phone)',
+                    'trust_name' => 'Trust name from System Settings (trust_name)',
+                ],
+            ],
+
+            // Context: devotee (Devotee model), trust_name.
+            'devotee.first_login' => [
+                'label' => 'Devotee — first app open (welcome)',
+                'description' => 'Fires ONCE per devotee, the first time their app registers a device with us — i.e. the first time they open the app while logged in. Deliberately NOT the same moment as devotee.registered: that one fires the instant the OTP is verified, which is before the app has told us which device to push to, so a PUSH template there has nothing to send to. Use this trigger for the welcome push, and set "Open in app on tap" to send them wherever you want them to start.',
                 'placeholders' => [
                     'name' => 'Devotee name (devotee.name)',
                     'phone' => 'Devotee phone (devotee.phone)',

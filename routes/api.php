@@ -5,9 +5,11 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CampaignController;
+use App\Http\Controllers\Api\V1\ContactThreadController;
 use App\Http\Controllers\Api\V1\ContentController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\DonationController;
+use App\Http\Controllers\Api\V1\GreetingCardController;
 use App\Http\Controllers\Api\V1\GuideController;
 use App\Http\Controllers\Api\V1\HallController;
 use App\Http\Controllers\Api\V1\Msg91WebhookController;
@@ -55,6 +57,13 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
                 // app should still compare its own build against
                 // min_supported_version for the authoritative gate.
                 'update_required' => SystemSetting::getValue('app_update_required', '0') === '1',
+                // Force-to-latest (2026-08-29). With this on, the app blocks
+                // ANY build older than `latest_version`, not just ones below
+                // `min_supported_version` — every devotee is on the current
+                // release or on the update screen. Kept as a server flag, not
+                // a client constant, so the trust can lift the wall instantly
+                // if a release turns out not to be live on a store yet.
+                'force_latest_version' => SystemSetting::getValue('app_force_latest_version', '0') === '1',
                 // App Store guideline 3.2.2(iv): non-Benevity nonprofits may
                 // not collect donations in-app on iOS — the app must send
                 // devotees to the website instead. Default OFF; flip to 1
@@ -151,6 +160,25 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::post('/contact', [ContentController::class, 'submitContact'])
         ->middleware(['auth:sanctum', 'api.profile.complete', 'throttle:10,1,contact']);
     Route::get('/contact-categories', [ContentController::class, 'contactCategories']);
+
+    // The devotee's side of the conversation (2026-08-29). The trust replies
+    // from Filament; these are read + follow-up only, and every one of them is
+    // scoped to the caller's own submissions inside the controller.
+    Route::middleware(['auth:sanctum', 'api.profile.complete'])->group(function () {
+        // Greeting cards the devotee has earned (2026-08-29). Each row's
+        // `url` is the same permanent web link the WhatsApp message carries,
+        // which regenerates a swept card on demand — so this list is cheap
+        // however many cards it returns.
+        Route::get('/me/greeting-cards', [GreetingCardController::class, 'index']);
+        Route::get('/me/greeting-cards/{type}/{id}', [GreetingCardController::class, 'show'])
+            ->whereIn('type', ['donation', 'seva']);
+
+        Route::get('/contact/threads', [ContactThreadController::class, 'index']);
+        Route::get('/contact/threads/{submission}', [ContactThreadController::class, 'show'])
+            ->whereNumber('submission');
+        Route::post('/contact/threads/{submission}/reply', [ContactThreadController::class, 'reply'])
+            ->whereNumber('submission');
+    });
     Route::get('/donation-types', [ContentController::class, 'donationTypes']);
 
     // Webhooks (no auth)

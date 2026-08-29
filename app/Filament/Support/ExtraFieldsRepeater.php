@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Support;
 
+use App\Support\ProfilePrefill;
 use Filament\Forms;
 
 /**
@@ -55,6 +56,15 @@ class ExtraFieldsRepeater
                 Forms\Components\Toggle::make('required')
                     ->default(false)
                     ->helperText('A photo left optional falls back to the trust logo on the card.'),
+                // Stop asking devotees for what the trust already knows
+                // (2026-08-29). The filled value stays EDITABLE — someone
+                // booking in a relative's name types over it.
+                Forms\Components\Select::make('prefill_from')
+                    ->label('Fill from profile')
+                    ->options(ProfilePrefill::sources())
+                    ->placeholder('Ask every time')
+                    ->visible(fn (Forms\Get $get): bool => ($get('type') ?? 'text') !== 'image')
+                    ->helperText('Pre-fills this field from the logged-in devotee\'s profile. Guests, and devotees who have not saved that detail, still get a blank box.'),
             ])
             ->columns(3)
             ->defaultItems(0)

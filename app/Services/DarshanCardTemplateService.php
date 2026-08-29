@@ -8,6 +8,7 @@ use App\Models\DailyDarshanPhoto;
 use App\Models\DarshanCardTemplate;
 use App\Models\Devotee;
 use App\Models\SystemSetting;
+use App\Support\CardTextBlock;
 use App\Support\ScriptFont;
 use App\Support\ShapedText;
 use Illuminate\Support\Facades\Cache;
@@ -112,8 +113,30 @@ class DarshanCardTemplateService
 
         $fontPath = $this->resolveFontPath();
 
+        // One resolver, used by both the single-variable overlays and the
+        // rich text blocks, so the two can never disagree about what a
+        // variable means on this card.
+        $resolveField = fn (string $key): ?string => match ($key) {
+            '_donor_name' => $devotee?->name,
+            '_caption' => $this->captionForLocale($photo, $locale),
+            // The photo's darshan date, not now() — the latest photo may be
+            // from a previous day if an upload was missed.
+            '_date' => ($photo->captured_on ?? now()->setTimezone('Asia/Kolkata'))->format('d/m/Y'),
+            '_temple_name' => SystemSetting::getLocalized('trust_name', $locale, 'Shree Patadiya Hanumanji Seva Trust'),
+            default => null,
+        };
+
         foreach (($template->greeting_card_config['overlays'] ?? []) as $overlay) {
             $type = $overlay['type'] ?? 'text';
+
+            // A rich text block carries its own wording, so it has no
+            // field_key and is handled before the guard below.
+            if ($type === CardTextBlock::TYPE) {
+                CardTextBlock::draw($image, $overlay, $resolveField, $fontPath);
+
+                continue;
+            }
+
             $fieldKey = $overlay['field_key'] ?? null;
             if (! $fieldKey) {
                 continue;
@@ -132,15 +155,7 @@ class DarshanCardTemplateService
                 continue;
             }
 
-            $value = match ($fieldKey) {
-                '_donor_name' => $devotee?->name,
-                '_caption' => $this->captionForLocale($photo, $locale),
-                // The photo's darshan date, not now() — the latest photo
-                // may be from a previous day if an upload was missed.
-                '_date' => ($photo->captured_on ?? now()->setTimezone('Asia/Kolkata'))->format('d/m/Y'),
-                '_temple_name' => SystemSetting::getLocalized('trust_name', $locale, 'Shree Patadiya Hanumanji Seva Trust'),
-                default => null,
-            };
+            $value = $resolveField($fieldKey);
             if ($value === null || $value === '') {
                 continue;
             }

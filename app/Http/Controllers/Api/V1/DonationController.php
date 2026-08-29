@@ -97,7 +97,6 @@ class DonationController extends BaseApiController
                     'amount' => $amount,
                     'donation_type' => $validated['donation_type'],
                     'donation_type_id' => $validated['donation_type_id'] ?? null,
-                    'purpose' => $validated['purpose'] ?? null,
                     'campaign_id' => $validated['campaign_id'] ?? null,
                     'sub_cause_id' => $validated['sub_cause_id'] ?? null,
                     'wants_80g' => $wants80g,

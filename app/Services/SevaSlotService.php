@@ -9,6 +9,7 @@ use App\Models\Seva;
 use App\Models\SevaBooking;
 use App\Models\SystemSetting;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 
 class SevaSlotService
 {
@@ -40,6 +41,99 @@ class SevaSlotService
      * @var array<int, list<int>>
      */
     private array $poolMemberIds = [];
+
+    /**
+     * How long a `pending` booking keeps holding its slot.
+     *
+     * A booking is inserted as `pending` the moment the devotee is handed to
+     * Razorpay, so that two people cannot pay for the same slot at once. The
+     * hold only ever HAD to outlive the checkout window — but until 2026-08-29
+     * it had no expiry at all in the availability queries, so a devotee who
+     * closed the Razorpay sheet locked their own slot (and everyone else's
+     * shot at it, and the seva's linked products with it) until
+     * `bookings:clean-stale` swept the row half an hour later. The retry they
+     * immediately attempted was refused by their own abandoned attempt.
+     *
+     * Past this many minutes a pending booking stops counting toward capacity.
+     * The row itself is still cancelled by clean-stale on its own schedule —
+     * this is purely about who the slot is offered to in the meantime.
+     *
+     * Tunable without a deploy via the `seva_slot_hold_minutes` setting. Keep
+     * it comfortably above the time a real checkout takes (~10-30s) and below
+     * clean-stale's window, or the two disagree about live rows.
+     */
+    public const DEFAULT_HOLD_MINUTES = 15;
+
+    /** @var int|null Per-request memo — the setting is read on every count. */
+    private ?int $holdMinutes = null;
+
+    public function holdMinutes(): int
+    {
+        if ($this->holdMinutes === null) {
+            // getValue's $default is typed string — pass the number as one.
+            $configured = (int) SystemSetting::getValue('seva_slot_hold_minutes', (string) self::DEFAULT_HOLD_MINUTES);
+            $this->holdMinutes = $configured > 0 ? $configured : self::DEFAULT_HOLD_MINUTES;
+        }
+
+        return $this->holdMinutes;
+    }
+
+    /**
+     * Restrict a booking query to the rows that actually occupy a slot:
+     * everything confirmed or completed, plus pending bookings still inside
+     * their payment hold. @see DEFAULT_HOLD_MINUTES
+     *
+     * Every capacity count in this service goes through here, including the
+     * locked re-check, so the answer a devotee is shown and the answer the
+     * insert enforces can never drift apart.
+     *
+     * @param  Builder<SevaBooking>  $query
+     * @return Builder<SevaBooking>
+     */
+    public function scopeOccupied(Builder $query): Builder
+    {
+        $holdFrom = now()->subMinutes($this->holdMinutes());
+
+        return $query->where(function ($q) use ($holdFrom) {
+            $q->whereIn('status', ['confirmed', 'completed'])
+                ->orWhere(fn ($p) => $p->where('status', 'pending')->where('created_at', '>=', $holdFrom));
+        });
+    }
+
+    /**
+     * Drop this devotee's own abandoned attempt at the exact same slot before
+     * they try again.
+     *
+     * The hold above frees a slot for OTHER devotees after a few minutes; this
+     * is what lets the person who backed out of Razorpay retry immediately.
+     * Re-submitting the same seva + date + slot is unambiguously a retry, so
+     * the earlier pending row is cancelled rather than left to contend with
+     * the new one.
+     *
+     * Safe against a late capture: PaymentCaptureService::markCaptured
+     * confirms whatever booking its payment points at, whatever status the row
+     * is sitting in, so a payment that lands after this still produces a
+     * confirmed booking.
+     */
+    public function releaseOwnPendingHold(Seva $seva, string $devoteeId, string $date, ?string $slotTime): int
+    {
+        $query = SevaBooking::whereIn('seva_id', $this->memberIds($seva))
+            ->where('devotee_id', $devoteeId)
+            ->where('booking_date', $date)
+            ->where('status', 'pending');
+
+        if ($slotTime === null || $slotTime === '') {
+            $query->whereNull('slot_time');
+        } else {
+            $query->where('slot_time', $slotTime);
+        }
+
+        return $query->update([
+            'status' => 'cancelled',
+            'cancelled_at' => now(),
+            'cancellation_reason' => 'Superseded by a new booking attempt',
+        ]);
+    }
 
     /**
      * The slot config that actually governs a seva: its pool's config
@@ -258,8 +352,7 @@ class SevaSlotService
     private function countFullUnitBookings(Seva $seva, string $slotType, string $date, bool $lock = false): int
     {
         // Pool members share capacity — count bookings across the pool.
-        $q = SevaBooking::whereIn('seva_id', $this->memberIds($seva))
-            ->whereIn('status', ['pending', 'confirmed', 'completed'])
+        $q = $this->scopeOccupied(SevaBooking::whereIn('seva_id', $this->memberIds($seva)))
             ->where('slot_time', $slotType);
 
         if ($slotType === self::SLOT_TYPE_FULL_WEEK) {
@@ -498,13 +591,10 @@ class SevaSlotService
 
         // Count bookings per slot — across the pool when the seva shares one.
         $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
-        $bookingCounts = SevaBooking::whereIn('seva_id', $this->memberIds($seva))
-            ->where('booking_date', $date)
-            // `pending` holds the slot during the ~10-30s payment window
-            // so two devotees can't race-book the same slot while one
-            // is mid-Razorpay. PaymentCaptureService::markFailed flips
-            // failed payments to `cancelled`, releasing the hold.
-            ->whereIn('status', ['pending', 'confirmed', 'completed'])
+        $bookingCounts = $this->scopeOccupied(
+            SevaBooking::whereIn('seva_id', $this->memberIds($seva))
+                ->where('booking_date', $date)
+        )
             ->selectRaw('LEFT(slot_time, 5) as slot, COUNT(*) as cnt')
             ->groupBy('slot')
             ->pluck('cnt', 'slot')
@@ -667,13 +757,10 @@ class SevaSlotService
         // Bulk-fetch the booking counts for the window, then index by
         // date+slot. Pool members share capacity, so the count spans
         // every seva in the pool.
-        $rows = SevaBooking::whereIn('seva_id', $this->memberIds($seva))
-            ->whereBetween('booking_date', [$start->toDateString(), $end->toDateString()])
-            // `pending` holds the slot during the ~10-30s payment window
-            // so two devotees can't race-book the same slot while one
-            // is mid-Razorpay. PaymentCaptureService::markFailed flips
-            // failed payments to `cancelled`, releasing the hold.
-            ->whereIn('status', ['pending', 'confirmed', 'completed'])
+        $rows = $this->scopeOccupied(
+            SevaBooking::whereIn('seva_id', $this->memberIds($seva))
+                ->whereBetween('booking_date', [$start->toDateString(), $end->toDateString()])
+        )
             ->selectRaw('DATE(booking_date) as bdate, LEFT(slot_time, 5) as slot, COUNT(*) as cnt')
             ->groupBy('bdate', 'slot')
             ->get();
@@ -912,15 +999,11 @@ class SevaSlotService
         }
 
         $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
-        $currentBookings = SevaBooking::whereIn('seva_id', $this->memberIds($seva))
-            ->where('booking_date', $date)
-            ->where('slot_time', $slotTime)
-            // `pending` holds the slot during the ~10-30s payment window
-            // so two devotees can't race-book the same slot while one
-            // is mid-Razorpay. PaymentCaptureService::markFailed flips
-            // failed payments to `cancelled`, releasing the hold.
-            ->whereIn('status', ['pending', 'confirmed', 'completed'])
-            ->count();
+        $currentBookings = $this->scopeOccupied(
+            SevaBooking::whereIn('seva_id', $this->memberIds($seva))
+                ->where('booking_date', $date)
+                ->where('slot_time', $slotTime)
+        )->count();
 
         if ($currentBookings >= $maxPerSlot) {
             return 'This slot is fully booked. Please choose another.';
@@ -969,10 +1052,11 @@ class SevaSlotService
         // whereIn keeps InnoDB's locking-read semantics: concurrent
         // bookings for ANY pool member on this date+slot serialise on
         // the same row/gap locks, exactly as the single-seva case did.
-        $currentBookings = SevaBooking::whereIn('seva_id', $this->memberIds($seva))
-            ->where('booking_date', $date)
-            ->where('slot_time', $slotTime)
-            ->whereIn('status', ['pending', 'confirmed', 'completed'])
+        $currentBookings = $this->scopeOccupied(
+            SevaBooking::whereIn('seva_id', $this->memberIds($seva))
+                ->where('booking_date', $date)
+                ->where('slot_time', $slotTime)
+        )
             ->lockForUpdate()
             ->count();
 

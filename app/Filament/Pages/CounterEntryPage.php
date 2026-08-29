@@ -280,10 +280,6 @@ class CounterEntryPage extends Page implements HasForms
                     ->required()
                     ->live(onBlur: true),
 
-                Forms\Components\TextInput::make('purpose')
-                    ->label('Purpose (printed on the receipt)')
-                    ->maxLength(255),
-
                 Forms\Components\Toggle::make('wants_80g')
                     ->label('Donor wants an 80G receipt')
                     ->default(true)
@@ -809,7 +805,7 @@ class CounterEntryPage extends Page implements HasForms
     private function currentState(Get $get): array
     {
         $keys = [
-            'record_type', 'amount', 'purpose', 'seva_id', 'quantity', 'seva_amount',
+            'record_type', 'amount', 'seva_id', 'quantity', 'seva_amount',
             'selected_product_id', 'selected_variant_label', 'hall_id',
             'hall_booking_date', 'hall_end_date', 'items',
         ];

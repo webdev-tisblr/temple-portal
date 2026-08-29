@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\CardTemplateUpload;
 use App\Filament\Resources\DonationCampaignResource\Pages;
 use App\Models\DonationCampaign;
 use Filament\Forms;
@@ -127,28 +128,31 @@ class DonationCampaignResource extends Resource
                 ->description('Optional: donors to this campaign receive a greeting card image, rendered in their preferred language. Upload a background per language, then drag & drop variables on the canvas. Nothing is sent until the "Donation — campaign greeting card" notification template is created and enabled.')
                 ->collapsed()
                 ->schema([
-                    Forms\Components\FileUpload::make('greeting_card_template')
-                        ->label('Background Template Image (Gujarati / default)')
-                        ->directory('greeting-templates')
-                        ->image()
-                        ->maxSize(5120)
-                        ->helperText('Recommended: 1200x800px PNG or JPG. The overlay layout below is positioned on THIS image and is shared by all languages.')
+                    CardTemplateUpload::make(
+                        'greeting_card_template',
+                        'greeting-templates',
+                        ['3:2', '4:3', '1:1', '16:9', null],
+                        'Background Template Image (Gujarati / default)',
+                        'Recommended 1200x800px. Upload the full-resolution original and crop it here — it is stored downscaled and re-encoded. The overlay layout below is positioned on THIS image and is shared by all languages.',
+                    )
                         ->columnSpanFull()
                         ->live(),
 
                     Forms\Components\Grid::make(2)->schema([
-                        Forms\Components\FileUpload::make('greeting_card_template_hi')
-                            ->label('Background (Hindi)')
-                            ->directory('greeting-templates')
-                            ->image()
-                            ->maxSize(5120)
-                            ->helperText('Optional. MUST be the same dimensions as the Gujarati image — falls back to Gujarati when empty.'),
-                        Forms\Components\FileUpload::make('greeting_card_template_en')
-                            ->label('Background (English)')
-                            ->directory('greeting-templates')
-                            ->image()
-                            ->maxSize(5120)
-                            ->helperText('Optional. MUST be the same dimensions as the Gujarati image — falls back to Gujarati when empty.'),
+                        CardTemplateUpload::make(
+                            'greeting_card_template_hi',
+                            'greeting-templates',
+                            ['3:2', '4:3', '1:1', '16:9', null],
+                            'Background (Hindi)',
+                            'Optional. Crop it to the SAME shape as the Gujarati image — the overlay layout is shared, so a different aspect ratio moves every variable. Falls back to Gujarati when empty.',
+                        ),
+                        CardTemplateUpload::make(
+                            'greeting_card_template_en',
+                            'greeting-templates',
+                            ['3:2', '4:3', '1:1', '16:9', null],
+                            'Background (English)',
+                            'Optional. Crop it to the SAME shape as the Gujarati image — the overlay layout is shared, so a different aspect ratio moves every variable. Falls back to Gujarati when empty.',
+                        ),
                     ]),
 
                     Forms\Components\Placeholder::make('card_editor_ui')

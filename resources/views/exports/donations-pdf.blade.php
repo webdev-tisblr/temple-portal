@@ -46,7 +46,6 @@
                 <th>Amount (&#8377;)</th>
                 <th>Type</th>
                 <th>Campaign</th>
-                <th>Purpose</th>
                 <th>FY</th>
                 <th>Status</th>
             </tr>
@@ -62,7 +61,6 @@
                 <td style="text-align: right;">{{ inr((float) $d->amount, 2) }}</td>
                 <td>{{ ucfirst($d->getRawOriginal('donation_type')) }}</td>
                 <td>{{ $d->campaign ? ($d->campaign->title_en ?: $d->campaign->title_gu) : '-' }}</td>
-                <td>{{ $d->purpose ?? '-' }}</td>
                 <td>{{ $d->financial_year }}</td>
                 <td>{{ $d->payment?->status?->value ?? '-' }}</td>
             </tr>

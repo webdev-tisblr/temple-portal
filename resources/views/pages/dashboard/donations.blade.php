@@ -27,7 +27,6 @@
                         <th class="dash-th">{{ __('dashboard.col_date') }}</th>
                         <th class="dash-th">{{ __('dashboard.col_amount') }}</th>
                         <th class="dash-th">{{ __('dashboard.col_type') }}</th>
-                        <th class="dash-th">{{ __('dashboard.col_purpose') }}</th>
                         <th class="dash-th">{{ __('dashboard.col_receipt') }}</th>
                     </tr>
                 </thead>
@@ -44,10 +43,6 @@
 
                             <x-dashboard.cell :label="__('dashboard.col_type')">
                                 <span class="dash-chip dash-chip-info">{{ ucfirst((string) $donation->getRawOriginal('donation_type')) }}</span>
-                            </x-dashboard.cell>
-
-                            <x-dashboard.cell :label="__('dashboard.col_purpose')">
-                                <span class="block max-w-xs truncate md:max-w-sm">{{ $donation->purpose ?? '—' }}</span>
                             </x-dashboard.cell>
 
                             <x-dashboard.cell :label="__('dashboard.col_receipt')">

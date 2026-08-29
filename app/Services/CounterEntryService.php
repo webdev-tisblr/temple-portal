@@ -337,7 +337,7 @@ class CounterEntryService
         return [
             'total' => round((float) ($data['amount'] ?? 0), 2),
             'label' => 'Donation',
-            'detail' => filled($data['purpose'] ?? null) ? (string) $data['purpose'] : null,
+            'detail' => null,
         ];
     }
 
@@ -561,7 +561,6 @@ class CounterEntryService
             // type is carried by donation_type_id regardless.
             'donation_type' => $this->legacyCategoryFor($data),
             'donation_type_id' => $data['donation_type_id'] ?? null,
-            'purpose' => $data['purpose'] ?? null,
             'campaign_id' => $data['campaign_id'] ?? null,
             'sub_cause_id' => $data['sub_cause_id'] ?? null,
             'notes' => $data['notes'] ?? null,

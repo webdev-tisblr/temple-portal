@@ -78,6 +78,17 @@ class EditNotificationTemplate extends EditRecord
         if (($data['channel'] ?? null) === NotificationTemplate::CHANNEL_WHATSAPP) {
             $data = self::hydrateWaVariantState($data);
         }
+
+        // The deep-link picker is a synthetic field — reconstruct which
+        // record it was pointing at from the stored intent_params, or the
+        // Select renders blank on every edit and a save wipes the link.
+        if (($data['channel'] ?? null) === NotificationTemplate::CHANNEL_PUSH) {
+            $key = \App\Filament\Resources\NotificationResource::intentTargetKeys()[$data['push_intent'] ?? ''] ?? null;
+            $data['push_intent_target'] = $key !== null
+                ? ($data['push_intent_params'][$key] ?? null)
+                : null;
+        }
+
         return $data;
     }
 
@@ -185,8 +196,19 @@ class EditNotificationTemplate extends EditRecord
             $data['wa_components'] = $primary['components'];
         }
 
+        // A push with no intent has no params either — a stale pair left
+        // behind by an admin clearing the picker would deep-link the wrong
+        // way round on the next send.
+        if (($data['channel'] ?? null) === NotificationTemplate::CHANNEL_PUSH) {
+            $data['push_intent_params'] = NotificationTemplateResource::intentParamsFor(
+                (string) ($data['push_intent'] ?? ''),
+                $data['push_intent_target'] ?? null,
+            );
+        }
+
         // UI-only scratch fields — never persist them.
         unset(
+            $data['push_intent_target'],
             $data['wa_vars'],
             $data['wa_variant_pick'],
             $data['wa_vars_gu'],

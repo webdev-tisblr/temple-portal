@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Models\DeviceToken;
+use App\Models\Devotee;
+use App\Models\SystemSetting;
+use App\Services\Notifications\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -52,6 +55,8 @@ class DeviceTokenController extends BaseApiController
             ],
         );
 
+        $this->welcomeOnce($devotee);
+
         return $this->success(['id' => $row->id]);
     }
 
@@ -83,10 +88,53 @@ class DeviceTokenController extends BaseApiController
             ],
         );
 
+        if ($devoteeId !== null) {
+            $this->welcomeOnce(auth('sanctum')->user());
+        }
+
         return $this->success([
             'id' => $row->id,
             'attached_to_devotee' => (bool) $devoteeId,
         ]);
+    }
+
+    /**
+     * Fire the welcome notification the first time a devotee's app tells us
+     * which device to reach them on.
+     *
+     * WHY IT HANGS OFF TOKEN REGISTRATION, not OTP verification: the existing
+     * `devotee.registered` trigger fires the instant the OTP is accepted,
+     * which is BEFORE the app has posted its FCM token. A push template on
+     * that trigger therefore finds no active device and is dropped — the one
+     * message we most want a new devotee to see was the one that could never
+     * arrive.
+     *
+     * `welcomed_at` is what makes it once-only. The migration that added the
+     * column back-filled every existing devotee as already welcomed, so
+     * deploying this does not push a welcome message at the entire userbase
+     * the next time their app checks in.
+     *
+     * Nothing sends unless an admin has enabled a `devotee.first_login`
+     * template, exactly like every other trigger.
+     */
+    private function welcomeOnce(?Devotee $devotee): void
+    {
+        if ($devotee === null || $devotee->welcomed_at !== null) {
+            return;
+        }
+
+        // Stamp FIRST. A dispatch that throws must not leave the devotee
+        // eligible to be welcomed again on their next app open.
+        $devotee->forceFill(['welcomed_at' => now()])->save();
+
+        app(NotificationService::class)->dispatch(
+            'devotee.first_login',
+            [
+                'devotee' => $devotee,
+                'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
+            ],
+            idempotencyKey: "devotee:{$devotee->getKey()}:first-login",
+        );
     }
 
     /**

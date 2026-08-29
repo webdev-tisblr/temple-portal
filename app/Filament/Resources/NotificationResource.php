@@ -117,26 +117,7 @@ class NotificationResource extends Resource
                             'web-page' => 'Page',
                             default => 'Target',
                         })
-                        ->options(function (Get $get): array {
-                            return match ($get('intent')) {
-                                'seva-detail' => Seva::query()->orderBy('name_gu')->pluck('name_gu', 'id')->all(),
-                                'campaign-detail', 'donate-to-campaign' => DonationCampaign::query()->orderBy('title_gu')->pluck('title_gu', 'id')->all(),
-                                'event-detail' => Event::query()->orderByDesc('start_date')->pluck('title_gu', 'id')->all(),
-                                'guide-detail' => \App\Models\Guide::query()
-                                    ->where('is_active', true)
-                                    ->orderBy('sort_order')
-                                    ->pluck('title_gu', 'id')
-                                    ->all(),
-                                // CMS pages are addressed by SLUG, not id —
-                                // the app's WebPageScreen loads /pages/{slug}.
-                                'web-page' => \App\Models\Page::query()
-                                    ->where('status', 'published')
-                                    ->orderBy('title_gu')
-                                    ->pluck('title_gu', 'slug')
-                                    ->all(),
-                                default => [],
-                            };
-                        })
+                        ->options(fn (Get $get): array => self::intentTargetOptions((string) $get('intent')))
                         ->searchable()
                         ->preload()
                         ->required(fn (Get $get): bool => array_key_exists(
@@ -416,7 +397,7 @@ class NotificationResource extends Resource
      * instead. The router still handles `intent=donate` for backwards
      * compatibility with any already-sent rows.
      */
-    private static function intentOptions(): array
+    public static function intentOptions(): array
     {
         // Grouped so the list stays readable now that it covers nearly every
         // screen the app has (2026-08-17). Every value here MUST have a
@@ -456,10 +437,43 @@ class NotificationResource extends Resource
                 'hall-bookings' => 'My hall bookings',
                 'orders' => 'My store orders',
                 'receipts' => 'My 80G receipts',
+                'greeting-cards' => 'My greeting cards',
                 'cart' => 'Shopping cart',
                 'contact' => 'Contact us',
+                'my-messages' => 'My messages (contact replies)',
             ],
         ];
+    }
+
+    /**
+     * The records an admin can point a given intent at.
+     *
+     * Public and extracted from the picker closure (2026-08-29) so the
+     * TRIGGER notification templates offer the same list — one definition of
+     * "which sevas can a push open", not two that drift.
+     *
+     * @return array<int|string, string>
+     */
+    public static function intentTargetOptions(string $intent): array
+    {
+        return match ($intent) {
+            'seva-detail' => Seva::query()->orderBy('name_gu')->pluck('name_gu', 'id')->all(),
+            'campaign-detail', 'donate-to-campaign' => DonationCampaign::query()->orderBy('title_gu')->pluck('title_gu', 'id')->all(),
+            'event-detail' => Event::query()->orderByDesc('start_date')->pluck('title_gu', 'id')->all(),
+            'guide-detail' => \App\Models\Guide::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->pluck('title_gu', 'id')
+                ->all(),
+            // CMS pages are addressed by SLUG, not id — the app's
+            // WebPageScreen loads /pages/{slug}.
+            'web-page' => \App\Models\Page::query()
+                ->where('status', 'published')
+                ->orderBy('title_gu')
+                ->pluck('title_gu', 'slug')
+                ->all(),
+            default => [],
+        };
     }
 
     /**

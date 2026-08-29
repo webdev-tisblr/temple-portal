@@ -7,6 +7,14 @@
     $templateUrl = $templatePath ? image_url($templatePath) : null;
     $statePath = $statePath ?? 'data.greeting_card_config';
 
+    // Families offered to a text block. Indic-capable ones are listed first
+    // and labelled, because a Latin-only face cannot draw Gujarati at all —
+    // fontconfig substitutes per glyph and the card comes out in a face the
+    // admin never chose. @see App\Services\GoogleFontService
+    $fontFamilies = app(\App\Services\GoogleFontService::class)->families();
+    $indicFonts = array_values(array_filter($fontFamilies, fn ($f) => $f['indic']));
+    $latinFonts = array_values(array_filter($fontFamilies, fn ($f) => ! $f['indic']));
+
     // Callers (Seva / Darshan templates) may inject their own variable
     // buttons; the default set below is the donation-type one.
     if (! isset($availableVars) || ! is_array($availableVars)) {
@@ -63,6 +71,12 @@
                     <div :style="'width:' + ((overlay.width || 300) * scale) + 'px; font-size:' + Math.max(8, (overlay.font_size || 24) * scale) + 'px; color:' + (overlay.color || '#333') + '; font-weight:' + (overlay.bold ? '700' : '400') + '; text-align:center; white-space:normal; overflow-wrap:break-word; word-break:break-word; text-shadow: 0 1px 3px rgba(0,0,0,0.4); line-height:1.4;'"
                          x-text="getSampleText(overlay.field_key)"></div>
                 </template>
+                <template x-if="overlay.type === 'rich_text'">
+                    {{-- WYSIWYG preview. Variables show their sample values so
+                         the admin sees the real line length, which is the whole
+                         reason this block type exists. --}}
+                    <div :style="richPreviewStyle(overlay)" x-html="richPreviewHtml(overlay)"></div>
+                </template>
                 <template x-if="overlay.type === 'image'">
                     <div :style="'width:' + ((overlay.width || 100) * scale) + 'px; height:' + ((overlay.height || 100) * scale) + 'px;'"
                          class="bg-white/30 border-2 border-dashed border-gray-400 flex items-center justify-center backdrop-blur-sm"
@@ -85,6 +99,17 @@
     {{-- Add Overlay Toolbar --}}
     <div class="flex flex-wrap gap-2 items-center">
         <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add:</span>
+        {{-- The preferred way to put words on a card (2026-08-29): one block
+             holding the whole sentence, variables included, instead of a
+             single-variable overlay parked on wording painted into the
+             artwork. Listed first because it is what an admin should reach
+             for. --}}
+        <button type="button"
+            @click="addTextBlock()"
+            class="px-2.5 py-1 text-xs rounded-lg border transition font-semibold bg-primary-50 dark:bg-primary-900/20 border-primary-300 dark:border-primary-700 text-primary-700 dark:text-primary-300 hover:bg-primary-100">
+            + Text block
+        </button>
+        <span class="text-gray-300 dark:text-gray-600">|</span>
         @foreach($availableVars as $v)
             <button type="button"
                 @click="addOverlay('{{ $v['key'] }}', '{{ $v['type'] === 'image' ? 'image' : 'text' }}')"
@@ -111,6 +136,85 @@
                 </button>
             </div>
 
+            {{-- ── Rich text block editor ──────────────────────────────
+                 Everything the sentence needs, in one place: the words, the
+                 variables inside them, and the typography. Bold/italic/
+                 underline apply to the SELECTION; family, size, colour and
+                 alignment apply to the block. --}}
+            <template x-if="overlays[selectedIdx]?.type === 'rich_text'">
+                <div class="space-y-3">
+                    <div class="flex flex-wrap items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1.5">
+                        <button type="button" @click="fmt('bold')" title="Bold" class="rte-btn" style="font-weight:800;">B</button>
+                        <button type="button" @click="fmt('italic')" title="Italic" class="rte-btn" style="font-style:italic;">I</button>
+                        <button type="button" @click="fmt('underline')" title="Underline" class="rte-btn" style="text-decoration:underline;">U</button>
+                        <span class="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-600"></span>
+                        <label class="rte-btn cursor-pointer" title="Colour for the selected words">
+                            <span style="text-decoration:underline; text-decoration-thickness:3px;" :style="'text-decoration-color:' + inlineColor">A</span>
+                            <input type="color" x-model="inlineColor" @input="applyInlineColor()" class="sr-only">
+                        </label>
+                        <select @change="applyInlineSize($event.target.value); $event.target.value = ''" class="rte-select" title="Size for the selected words">
+                            <option value="">Size…</option>
+                            <template x-for="px in [16, 20, 24, 28, 32, 40, 48, 56, 64, 80]" :key="px">
+                                <option :value="px" x-text="px + ' px'"></option>
+                            </template>
+                        </select>
+                        <span class="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-600"></span>
+                        <button type="button" @click="fmt('removeFormat')" title="Clear formatting on the selection" class="rte-btn text-xs">Clear</button>
+                    </div>
+
+                    <div contenteditable="true"
+                         x-ref="rte"
+                         x-effect="loadRte(selectedIdx)"
+                         @input="onRteInput()"
+                         @blur="onRteInput()"
+                         class="min-h-[90px] w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800 px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary-500"
+                         style="white-space: pre-wrap;"></div>
+
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="text-xs font-medium text-gray-500">Insert:</span>
+                        @foreach($availableVars as $v)
+                            @if(($v['type'] ?? 'text') !== 'image')
+                                <button type="button" @click="insertVariable('{{ $v['key'] }}')"
+                                    class="px-2 py-0.5 text-[11px] rounded-md border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100">
+                                    {{ $v['label'] }}
+                                </button>
+                            @endif
+                        @endforeach
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div class="col-span-2">
+                            <label class="text-xs font-medium text-gray-500">Font (Google Fonts)</label>
+                            <select x-model="overlays[selectedIdx].font_family" @change="loadPreviewFont(overlays[selectedIdx].font_family); syncToForm()"
+                                class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
+                                <optgroup label="Covers Gujarati / Hindi">
+                                    @foreach($indicFonts as $f)
+                                        <option value="{{ $f['family'] }}">{{ $f['family'] }}</option>
+                                    @endforeach
+                                </optgroup>
+                                <optgroup label="Latin only — Gujarati text falls back to another face">
+                                    @foreach($latinFonts as $f)
+                                        <option value="{{ $f['family'] }}">{{ $f['family'] }}</option>
+                                    @endforeach
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-medium text-gray-500">Alignment</label>
+                            <select x-model="overlays[selectedIdx].align" @change="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
+                                <option value="left">Left</option>
+                                <option value="center">Center</option>
+                                <option value="right">Right</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-medium text-gray-500">Base size (px)</label>
+                            <input type="number" min="8" x-model.number="overlays[selectedIdx].font_size" @input="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
+                        </div>
+                    </div>
+                </div>
+            </template>
+
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                     <label class="text-xs font-medium text-gray-500">X (px)</label>
@@ -124,11 +228,11 @@
                     <label class="text-xs font-medium text-gray-500">Font Size</label>
                     <input type="number" x-model.number="overlays[selectedIdx].font_size" @input="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
                 </div>
-                <div x-show="overlays[selectedIdx]?.type === 'text'">
+                <div x-show="isTextish(overlays[selectedIdx])">
                     <label class="text-xs font-medium text-gray-500">Color</label>
                     <input type="color" x-model="overlays[selectedIdx].color" @input="syncToForm()" class="w-full h-9 rounded-lg border-gray-300 dark:border-gray-600 cursor-pointer">
                 </div>
-                <div x-show="overlays[selectedIdx]?.type === 'text'">
+                <div x-show="isTextish(overlays[selectedIdx])">
                     <label class="text-xs font-medium text-gray-500">Weight</label>
                     <button type="button"
                         @click="overlays[selectedIdx].bold = !overlays[selectedIdx].bold; syncToForm()"
@@ -143,7 +247,7 @@
                 <div>
                     <label class="text-xs font-medium text-gray-500">Width (px)</label>
                     <input type="number" x-model.number="overlays[selectedIdx].width" @input="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
-                    <span x-show="overlays[selectedIdx]?.type === 'text'" class="text-[10px] text-gray-400">Text wraps & centers in this width</span>
+                    <span x-show="isTextish(overlays[selectedIdx])" class="text-[10px] text-gray-400">Text wraps & aligns inside this width</span>
                 </div>
                 <div x-show="overlays[selectedIdx]?.type === 'image'">
                     <label class="text-xs font-medium text-gray-500">Height (px)</label>
@@ -160,8 +264,50 @@
         </div>
     </template>
 
-    <p class="text-xs text-gray-400 dark:text-gray-500">Drag an overlay to position it. Click to select, then drag the blue corner handle to resize (photo size / text size). Coordinates saved relative to original image size.</p>
+    <p class="text-xs text-gray-400 dark:text-gray-500">
+        Drag an overlay to position it. Click to select, then drag the blue corner handle to resize (photo size / text size). Coordinates saved relative to original image size.
+    </p>
+    <p class="text-xs text-gray-400 dark:text-gray-500">
+        <strong>Prefer a text block</strong> for anything with words in it. Leave the background artwork blank where the words go and write the whole sentence here, variables included &mdash; that way the wording, its weight and its alignment are one thing, instead of a variable balanced on top of text painted into the picture.
+    </p>
 </div>
+
+<style>
+    /* Toolbar buttons for the text-block editor. Plain CSS rather than
+       Tailwind classes: this partial is rendered inside the Filament panel,
+       whose build does not scan resources/views/filament for utilities. */
+    .rte-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.9rem;
+        height: 1.9rem;
+        padding: 0 .4rem;
+        border-radius: .375rem;
+        border: 1px solid rgb(209 213 219);
+        background: #fff;
+        font-size: .8rem;
+        line-height: 1;
+        color: rgb(55 65 81);
+        cursor: pointer;
+    }
+    .rte-btn:hover { background: rgb(243 244 246); }
+    .rte-select {
+        height: 1.9rem;
+        border-radius: .375rem;
+        border: 1px solid rgb(209 213 219);
+        background: #fff;
+        font-size: .75rem;
+        padding: 0 .4rem;
+        color: rgb(55 65 81);
+    }
+    .dark .rte-btn, .dark .rte-select {
+        background: rgb(31 41 55);
+        border-color: rgb(75 85 99);
+        color: rgb(229 231 235);
+    }
+    .dark .rte-btn:hover { background: rgb(55 65 81); }
+</style>
 
 <script>
 function greetingCardEditor(initialOverlays, initialConfig) {
@@ -178,6 +324,11 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             // weight, so false is what they actually look like today — the old
             // always-bold preview was the thing that was wrong.
             bold: o.type === 'text' ? (o.bold ?? false) : o.bold,
+            // Rich blocks saved before a property existed still need one, or
+            // the bound <select>/<input> renders blank and a save writes the
+            // blank back.
+            align: o.type === 'rich_text' ? (o.align || 'center') : o.align,
+            font_family: o.type === 'rich_text' ? (o.font_family || 'Noto Sans Gujarati') : o.font_family,
             // Image slots gained a shape (square|circle); default older
             // templates to square so the <select> shows a value.
             shape: o.type === 'image' ? (o.shape || 'square') : o.shape,
@@ -208,6 +359,16 @@ function greetingCardEditor(initialOverlays, initialConfig) {
 
         _uidSeq: 0,
 
+        // ── Rich text block state ────────────────────────────────────
+        // Which overlay the contenteditable currently holds. Reloading its
+        // innerHTML on every Alpine tick would move the caret to the start
+        // mid-typing, so it is only rewritten when the selection changes.
+        rteLoadedIdx: null,
+        inlineColor: '#881337',
+        // Families whose CSS has already been injected, so switching back
+        // and forth doesn't add a <link> per change.
+        loadedFonts: {},
+
         nextUid() {
             return 'ov_' + Date.now().toString(36) + '_' + (this._uidSeq++);
         },
@@ -216,7 +377,10 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             // Give every overlay a STABLE unique id. The x-for keys on this
             // (not the array index) so add/delete/reorder update the correct
             // DOM node — keying on the index made deletes hit the wrong row.
-            this.overlays.forEach((o) => { if (!o._uid) o._uid = this.nextUid(); });
+            this.overlays.forEach((o) => {
+                if (!o._uid) o._uid = this.nextUid();
+                if (o.type === 'rich_text') this.loadPreviewFont(o.font_family);
+            });
             document.addEventListener('mousemove', (e) => { this.onDrag(e); this.onResize(e); });
             document.addEventListener('mouseup', () => { this.stopDrag(); this.stopResize(); });
             document.addEventListener('touchmove', (e) => { this.onDrag(e); this.onResize(e); }, { passive: false });
@@ -268,9 +432,156 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             this.syncToForm();
         },
 
+        // A whole sentence, authored here rather than painted into the
+        // artwork with a gap left in it. Seeded with a real example so a new
+        // block shows what it is for instead of being an empty rectangle.
+        addTextBlock() {
+            const firstVar = @js($availableVars[0]['key'] ?? '_donor_name');
+            // Braces are assembled rather than written literally: a literal
+            // double-brace pair anywhere in this file is compiled by Blade as
+            // an echo, comments inside a <script> block included.
+            const token = (key) => '{' + '{ ' + key + ' }' + '}';
+            this.overlays.push({
+                _uid: this.nextUid(),
+                type: 'rich_text',
+                html: '<p>Jay Siyaram, <b>' + token(firstVar) + '</b></p>',
+                x: 60 + (this.overlays.length * 20),
+                y: 60 + (this.overlays.length * 20),
+                width: Math.max(200, Math.round(this.naturalW * 0.7)),
+                font_size: 32,
+                font_family: 'Noto Sans Gujarati',
+                color: '#881337',
+                align: 'center',
+                bold: false,
+            });
+            this.selectedIdx = this.overlays.length - 1;
+            this.rteLoadedIdx = null;
+            this.loadPreviewFont('Noto Sans Gujarati');
+            this.syncToForm();
+        },
+
+        /** Both overlay kinds that draw words — used by the shared controls. */
+        isTextish(overlay) {
+            return overlay && (overlay.type === 'text' || overlay.type === 'rich_text');
+        },
+
+        /** Put the selected block's HTML into the editable div, once. */
+        loadRte(idx) {
+            const overlay = this.overlays[idx];
+            if (!overlay || overlay.type !== 'rich_text') { this.rteLoadedIdx = null; return; }
+            if (this.rteLoadedIdx === idx) return;
+            const el = this.$refs.rte;
+            if (!el) return;
+            el.innerHTML = overlay.html || '';
+            this.rteLoadedIdx = idx;
+            this.loadPreviewFont(overlay.font_family);
+        },
+
+        onRteInput() {
+            const overlay = this.overlays[this.selectedIdx];
+            if (!overlay || overlay.type !== 'rich_text' || !this.$refs.rte) return;
+            overlay.html = this.$refs.rte.innerHTML;
+            this.syncToForm();
+        },
+
+        /**
+         * styleWithCSS makes execCommand emit <span style="…"> rather than
+         * the legacy <font> element — the renderer reads inline styles, so
+         * without it colours would be silently dropped on the card.
+         */
+        fmt(command) {
+            const el = this.$refs.rte;
+            if (!el) return;
+            el.focus();
+            try { document.execCommand('styleWithCSS', false, true); } catch (e) {}
+            document.execCommand(command, false, null);
+            this.onRteInput();
+        },
+
+        applyInlineColor() {
+            const el = this.$refs.rte;
+            if (!el) return;
+            el.focus();
+            try { document.execCommand('styleWithCSS', false, true); } catch (e) {}
+            document.execCommand('foreColor', false, this.inlineColor);
+            this.onRteInput();
+        },
+
+        /**
+         * execCommand has no px sizes — only the 1-7 legacy scale. Apply the
+         * largest of those as a marker, then rewrite those elements to the
+         * real px value. Crude, but it is the only cross-browser way to get
+         * an exact size out of contenteditable, and the renderer needs px.
+         */
+        applyInlineSize(px) {
+            if (!px) return;
+            const el = this.$refs.rte;
+            if (!el) return;
+            el.focus();
+            try { document.execCommand('styleWithCSS', false, false); } catch (e) {}
+            document.execCommand('fontSize', false, '7');
+            el.querySelectorAll('font[size="7"]').forEach((node) => {
+                const span = document.createElement('span');
+                span.style.fontSize = px + 'px';
+                span.innerHTML = node.innerHTML;
+                node.replaceWith(span);
+            });
+            // Also catch the CSS-mode output some browsers produce.
+            el.querySelectorAll('span[style*="xxx-large"], span[style*="x-large"]').forEach((node) => {
+                node.style.fontSize = px + 'px';
+            });
+            this.onRteInput();
+        },
+
+        insertVariable(key) {
+            const el = this.$refs.rte;
+            if (!el) return;
+            el.focus();
+            // Assembled, not literal — see addTextBlock().
+            document.execCommand('insertText', false, '{' + '{ ' + key + ' }' + '}');
+            this.onRteInput();
+        },
+
+        /**
+         * Pull the chosen family from Google so the CANVAS preview is set in
+         * the same face the server will render with. Admin-only page, so an
+         * external stylesheet here is fine.
+         */
+        loadPreviewFont(family) {
+            if (!family || this.loadedFonts[family]) return;
+            this.loadedFonts[family] = true;
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://fonts.googleapis.com/css2?family='
+                + encodeURIComponent(family).replace(/%20/g, '+')
+                + ':wght@400;700&display=swap';
+            document.head.appendChild(link);
+        },
+
+        /** Variables shown as their sample values, so line length is honest. */
+        richPreviewHtml(overlay) {
+            return String(overlay.html || '').replace(
+                /\{\{\s*([A-Za-z0-9_\-]+)\s*\}\}/g,
+                (_, key) => this.getSampleText(key),
+            );
+        },
+
+        richPreviewStyle(overlay) {
+            const size = Math.max(8, (overlay.font_size || 32) * this.scale);
+            return 'width:' + ((overlay.width || 300) * this.scale) + 'px;'
+                + 'font-size:' + size + 'px;'
+                + 'font-family:' + JSON.stringify(overlay.font_family || 'Noto Sans Gujarati') + ', serif;'
+                + 'color:' + (overlay.color || '#333') + ';'
+                + 'font-weight:' + (overlay.bold ? '700' : '400') + ';'
+                + 'text-align:' + (overlay.align || 'center') + ';'
+                + 'line-height:1.35; white-space:normal; overflow-wrap:break-word;'
+                + 'text-shadow: 0 1px 3px rgba(0,0,0,0.25);';
+        },
+
         removeOverlay(idx) {
             this.overlays.splice(idx, 1);
             this.selectedIdx = null;
+            this.rteLoadedIdx = null;
             this.syncToForm();
         },
 
@@ -368,6 +679,19 @@ function greetingCardEditor(initialOverlays, initialConfig) {
                     // dropped on save. Any new overlay property must be added.
                     if (o.type === 'text') { c.font_size = o.font_size || 24; c.color = o.color || '#333'; c.width = o.width || 300; c.bold = !!o.bold; }
                     if (o.type === 'image') { c.width = o.width || 150; c.height = o.height || 150; c.shape = o.shape || 'square'; }
+                    // A rich block has no single field_key — its variables
+                    // live inside the html. Everything it needs to render has
+                    // to be listed here; this map is a WHITELIST.
+                    if (o.type === 'rich_text') {
+                        delete c.field_key;
+                        c.html = o.html || '';
+                        c.width = o.width || 300;
+                        c.font_size = o.font_size || 32;
+                        c.font_family = o.font_family || 'Noto Sans Gujarati';
+                        c.color = o.color || '#333';
+                        c.align = o.align || 'center';
+                        c.bold = !!o.bold;
+                    }
                     return c;
                 }),
                 send_via_email: this._sendConfig.send_via_email,

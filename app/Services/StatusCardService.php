@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\Devotee;
 use App\Models\StatusTemplate;
 use App\Models\SystemSetting;
+use App\Support\CardTextBlock;
 use App\Support\ScriptFont;
 use App\Support\ShapedText;
 use Illuminate\Support\Facades\Cache;
@@ -109,6 +110,26 @@ class StatusCardService
 
         foreach ($overlays as $overlay) {
             $type = $overlay['type'] ?? 'text';
+
+            // Rich text blocks carry their own wording, so they have no
+            // field_key and are handled before the guard. Same overlay format
+            // and same renderer as the greeting cards use.
+            if ($type === CardTextBlock::TYPE) {
+                CardTextBlock::draw(
+                    $image,
+                    $overlay,
+                    fn (string $key): ?string => match ($key) {
+                        '_donor_name' => $devotee?->name,
+                        '_date' => now()->setTimezone('Asia/Kolkata')->format('d M Y'),
+                        '_temple_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
+                        default => null,
+                    },
+                    $fontPath,
+                );
+
+                continue;
+            }
+
             $fieldKey = $overlay['field_key'] ?? null;
             if (! $fieldKey) {
                 continue;

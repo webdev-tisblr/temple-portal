@@ -1,6 +1,22 @@
 <?php
 
 return [
+    // Two-way contact threads (2026-08-29).
+    'my_messages' => 'My Messages',
+    'messages_sub' => 'Your conversations with the trust.',
+    'no_messages' => 'You have not written to us yet.',
+    'reply_sent' => 'Your reply has been sent.',
+    'write_reply' => 'Write a reply…',
+    'send_reply' => 'Send reply',
+    'awaiting_reply' => 'Awaiting a reply',
+    'replied' => 'Replied',
+    'new_reply' => 'New reply',
+    'you' => 'You',
+    'start_new_message' => 'Write to us',
+
+    // Byline on a reply that has no named admin behind it.
+    'the_trust' => 'The trust',
+
     'title' => 'Contact Us',
     'subtitle' => 'Contact us with your questions and messages',
     'send_message' => 'Send Message',

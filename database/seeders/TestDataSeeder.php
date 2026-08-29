@@ -265,7 +265,6 @@ class TestDataSeeder extends Seeder
                     'payment_id' => $paymentId,
                     'amount' => $amount,
                     'donation_type' => $type,
-                    'purpose' => ['મંદિર વિકાસ', 'અન્નદાન', 'શ્રૃંગાર સેવા', 'ઉત્સવ દાન'][$i % 4],
                     'is_80g_eligible' => true,
                     'financial_year' => $fy,
                 ]

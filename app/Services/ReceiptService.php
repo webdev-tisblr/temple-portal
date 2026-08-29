@@ -179,7 +179,6 @@ class ReceiptService
                 // renaming a campaign or editing a purpose later cannot
                 // rewrite a receipt that has already been issued.
                 'campaign_title' => $this->liveCampaignTitle($donation),
-                'donation_purpose' => $donation->purpose ?: null,
                 'devotee_name' => $devotee->name ?: 'Devotee',
                 'devotee_address' => collect([$devotee->address, $devotee->city, $devotee->state, $devotee->pincode])
                     ->filter()->implode(', '),

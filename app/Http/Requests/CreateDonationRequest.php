@@ -119,7 +119,6 @@ class CreateDonationRequest extends FormRequest
             'amount' => ['required', 'numeric', 'min:1'],
             'donation_type' => ['required', 'string', 'in:general,seva,annadan,construction,festival,campaign,other'],
             'donation_type_id' => ['nullable', 'integer', 'exists:temple_donation_types,id'],
-            'purpose' => ['nullable', 'string', 'max:500'],
             'campaign_id' => ['nullable', 'integer', 'exists:temple_donation_campaigns,id'],
             // A sub-cause, if given, must belong to the selected campaign.
             'sub_cause_id' => [

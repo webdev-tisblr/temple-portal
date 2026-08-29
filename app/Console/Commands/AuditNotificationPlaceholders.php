@@ -41,6 +41,7 @@ use Illuminate\Console\Command;
  *   auth.otp               → { phone, otp, expires_in_minutes, ... }
  *   contact.submitted      → { submission, trust_name }
  *   devotee.registered     → { devotee, trust_name }
+ *   devotee.first_login    → { devotee, trust_name }
  *   devotee.birthday       → { devotee, name, language, trust_name }
  *
  * Each context uses the most recent matching real entity. If no row
@@ -340,6 +341,7 @@ class AuditNotificationPlaceholders extends Command
                 ];
 
             case 'devotee.registered':
+            case 'devotee.first_login':
                 $devotee = Devotee::latest('id')->first();
                 if (! $devotee) return ['__no_data' => true];
                 return [

@@ -268,7 +268,6 @@ class SevaResource extends Resource
                                 ['key' => '_booking_date', 'label' => 'Booking Date', 'type' => 'text', 'auto' => true],
                                 ['key' => '_slot', 'label' => 'Slot', 'type' => 'text', 'auto' => true],
                                 ['key' => '_amount', 'label' => 'Amount', 'type' => 'text', 'auto' => true],
-                                ['key' => '_sankalp', 'label' => 'Sankalp', 'type' => 'text', 'auto' => true],
                                 ['key' => '_date', 'label' => 'Date', 'type' => 'text', 'auto' => true],
                                 ['key' => '_temple_name', 'label' => 'Temple Name', 'type' => 'text', 'auto' => true],
                             ], \App\Filament\Support\ExtraFieldsRepeater::asCardVariables($record?->extra_fields)),

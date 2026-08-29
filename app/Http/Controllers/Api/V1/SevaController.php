@@ -267,7 +267,6 @@ class SevaController extends BaseApiController
             'total_amount' => (float) $booking->total_amount,
             'status' => $booking->status->value,
             'devotee_name_for_seva' => $booking->devotee_name_for_seva,
-            'sankalp' => $booking->sankalp,
             // Any confirmed/completed booking can serve a receipt — the
             // download endpoint regenerates the PDF on a NULL path, so
             // this flag must NOT depend on receipt_path being set.
@@ -449,7 +448,6 @@ class SevaController extends BaseApiController
                     'status' => 'pending',
                     'payment_id' => $payment->id,
                     'devotee_name_for_seva' => $validated['devotee_name_for_seva'] ?? $devotee->name,
-                    'sankalp' => $validated['sankalp'] ?? null,
                     'selected_product_id' => $validated['selected_product_id'] ?? null,
                     'selected_variant_label' => $variantLabel,
                     'extra_data' => $extraData,

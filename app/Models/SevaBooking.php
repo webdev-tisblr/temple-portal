@@ -43,7 +43,6 @@ class SevaBooking extends Model
         'status',
         'payment_id',
         'devotee_name_for_seva',
-        'sankalp',
         'extra_data',
         'selected_product_id',
         'selected_variant_label',

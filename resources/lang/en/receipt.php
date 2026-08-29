@@ -54,7 +54,6 @@ return [
     'label_phone' => 'Phone',
     'label_address' => 'Address',
     'label_seva_in_name_of' => 'Seva in the name of',
-    'label_sankalp' => 'Sankalp',
     'label_hall_name' => 'Hall Name',
     'label_capacity' => 'Capacity',
     'label_contact_name' => 'Contact Name',

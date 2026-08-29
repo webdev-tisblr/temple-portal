@@ -666,7 +666,6 @@ function greetingCardEditor(initialOverlays, initialConfig) {
                 '_seva_name': 'Sundarkand Path',
                 '_booking_date': '15/08/2026',
                 '_slot': '07:00 AM',
-                '_sankalp': 'For family wellbeing',
             };
             return samples[key] || key;
         },

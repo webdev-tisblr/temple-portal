@@ -41,7 +41,6 @@ return [
     'label_phone' => 'फ़ोन',
     'label_address' => 'पता',
     'label_seva_in_name_of' => 'सेवा इनके नाम से',
-    'label_sankalp' => 'संकल्प',
     'label_hall_name' => 'हॉल का नाम',
     'label_capacity' => 'क्षमता',
     'label_contact_name' => 'संपर्क नाम',

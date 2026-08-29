@@ -362,11 +362,6 @@
                                 <input type="text" x-model="devoteeName" placeholder="{{ __('seva.name_placeholder') }}"
                                     class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20">
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-amber-600 mb-1">{{ __('seva.sankalp_label') }}</label>
-                                <textarea x-model="sankalp" rows="2" placeholder="{{ __('seva.sankalp_placeholder') }}"
-                                    class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 placeholder:text-amber-100/20 focus:border-amber-600 focus:ring-amber-600/20"></textarea>
-                            </div>
                         </div>
 
                         {{-- Book Button (whole panel is auth-gated above) --}}
@@ -421,7 +416,6 @@
                                 <input type="hidden" name="slot_time" :value="selectedSlot">
                                 <input type="hidden" name="quantity" value="1">
                                 <input type="hidden" name="devotee_name_for_seva" :value="devoteeName">
-                                <input type="hidden" name="sankalp" :value="sankalp">
                                 <input type="hidden" name="selected_product_id" :value="selectedProductId">
                                 <input type="hidden" name="selected_variant_label" :value="selectedVariant">
                                 <button type="submit"
@@ -501,7 +495,6 @@ function slotPicker(sevaId) {
              the devotee's own far more often than not, and a devotee booking
              for a relative just types over it. --}}
         devoteeName: @js(auth('devotee')->user()?->name ?? ''),
-        sankalp: '',
 
         // ── Press-and-hold product preview ─────────────────────────────
         // 320ms is long enough that a normal tap still selects the product

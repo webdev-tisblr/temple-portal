@@ -37,12 +37,6 @@
                     <span class="font-medium text-amber-100/70">{{ $booking->devotee_name_for_seva }}</span>
                 </div>
                 @endif
-                @if($booking->sankalp)
-                <div class="flex justify-between py-2.5 border-b border-amber-900/20">
-                    <span class="text-amber-100/40">{{ __('seva.sankalp') }}</span>
-                    <span class="font-medium text-amber-100/70">{{ $booking->sankalp }}</span>
-                </div>
-                @endif
                 <div class="flex justify-between py-2.5">
                     <span class="text-amber-100/40">{{ __('common.amount') }}</span>
                     <span class="font-bold text-gold text-base">₹{{ inr((float) $booking->total_amount, 2) }}</span>

@@ -41,7 +41,6 @@ return [
     'label_phone' => 'ફોન',
     'label_address' => 'સરનામું',
     'label_seva_in_name_of' => 'સેવા આ નામે',
-    'label_sankalp' => 'સંકલ્પ',
     'label_hall_name' => 'હૉલનું નામ',
     'label_capacity' => 'ક્ષમતા',
     'label_contact_name' => 'સંપર્ક નામ',

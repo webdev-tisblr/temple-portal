@@ -148,12 +148,6 @@
                     <td class="value">{{ $booking->devotee_name_for_seva }}</td>
                 </tr>
                 @endif
-                @if($booking->sankalp)
-                <tr>
-                    <td class="label">{{ __('receipt.label_sankalp') }}</td>
-                    <td class="value">{{ $booking->sankalp }}</td>
-                </tr>
-                @endif
                 <tr>
                     <td class="label">{{ __('receipt.payment_mode') }}</td>
                     <td class="value">{{ $payment_mode_label }}</td>

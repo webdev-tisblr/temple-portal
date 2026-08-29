@@ -574,10 +574,6 @@ class CounterEntryPage extends Page implements HasForms
                     ->label('Name to be taken in the seva')
                     ->maxLength(255),
 
-                Forms\Components\Textarea::make('sankalp')
-                    ->label('Sankalp')
-                    ->rows(2)
-                    ->columnSpanFull(),
             ])
             ->columns(2);
     }

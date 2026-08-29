@@ -299,8 +299,7 @@ class TestDataSeeder extends Seeder
                         'status' => ['confirmed', 'confirmed', 'pending'][$i],
                         'payment_id' => $paymentId,
                         'devotee_name_for_seva' => 'રામ પટેલ',
-                        'sankalp' => 'પરિવારના કલ્યાણ માટે',
-                    ]
+                        ]
                 );
             }
         }

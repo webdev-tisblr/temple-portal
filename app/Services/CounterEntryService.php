@@ -644,7 +644,6 @@ class CounterEntryService
             'status' => 'pending',
             'payment_id' => $payment->id,
             'devotee_name_for_seva' => $data['devotee_name_for_seva'] ?? $devotee->name,
-            'sankalp' => $data['sankalp'] ?? null,
             'selected_product_id' => $data['selected_product_id'] ?? null,
             'selected_variant_label' => $data['selected_variant_label'] ?? null,
             'notes' => $data['notes'] ?? null,

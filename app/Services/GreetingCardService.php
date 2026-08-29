@@ -480,7 +480,6 @@ class GreetingCardService
             '_booking_date' => $booking->booking_date?->format('d/m/Y'),
             '_slot' => $booking->slot_time_label,
             '_amount' => "\u{20B9}".number_format((float) $booking->total_amount, 2),
-            '_sankalp' => $booking->sankalp,
             '_date' => now()->format('d/m/Y'),
             '_temple_name' => $this->templeName($locale),
             default => null,

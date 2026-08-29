@@ -23,7 +23,6 @@ class BookSevaRequest extends FormRequest
             'slot_time' => ['nullable', 'string', 'max:20'],
             'quantity' => ['integer', 'min:1', 'max:5'],
             'devotee_name_for_seva' => ['nullable', 'string', 'max:255'],
-            'sankalp' => ['nullable', 'string', 'max:1000'],
             'selected_product_id' => ['nullable', 'integer', 'exists:temple_products,id'],
             'selected_variant_label' => ['nullable', 'string', 'max:255'],
         ] + \App\Support\ExtraFieldValues::rules();

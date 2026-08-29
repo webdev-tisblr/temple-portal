@@ -113,7 +113,15 @@ function openCropper(input, file) {
             closeModal();
         },
         onConfirm: () => {
-            if (!activeCropper) return;
+            // No cropper means something went wrong initialising it. Keep the
+            // devotee's original file rather than swallowing the click and
+            // leaving them pressing a dead button.
+            if (!activeCropper) {
+                URL.revokeObjectURL(imageUrl);
+                closeModal();
+
+                return;
+            }
 
             activeCropper
                 .getCroppedCanvas({
@@ -136,7 +144,8 @@ function openCropper(input, file) {
 
     activeModal = modal;
 
-    image.addEventListener('load', () => {
+    const start = () => {
+        if (activeCropper) return;
         activeCropper = new Cropper(image, {
             // Square, locked — the same shape the app crops to and the shape
             // every destination frames these photos in.
@@ -150,7 +159,21 @@ function openCropper(input, file) {
             dragMode: 'move',
             toggleDragModeOnDblclick: false,
         });
-    }, { once: true });
+    };
+
+    // A blob URL can finish decoding before the listener is attached, and a
+    // cropper that never initialises makes "Use photo" do nothing at all —
+    // so handle the already-loaded case rather than relying on the event.
+    if (image.complete && image.naturalWidth > 0) {
+        start();
+    } else {
+        image.addEventListener('load', start, { once: true });
+        image.addEventListener('error', () => {
+            input.value = '';
+            URL.revokeObjectURL(imageUrl);
+            closeModal();
+        }, { once: true });
+    }
 }
 
 document.addEventListener('change', (event) => {

@@ -698,19 +698,42 @@ input[type="radio"]:focus {
     gap: 14px;
     width: 100%;
     max-width: 520px;
+    /* Never taller than the screen: the actions below must stay reachable. */
+    max-height: 92vh;
 }
 
-/* Bounded so a tall photo cannot push the buttons off a phone screen. */
 .crop-modal__stage {
-    max-height: 68vh;
-    overflow: hidden;
     background: #000;
     border-radius: 12px;
+    overflow: hidden;
+    /* Yields to the buttons rather than pushing them out of the panel. */
+    flex: 0 1 auto;
+    min-height: 0;
 }
 
+/* THE IMAGE is what has to be bounded, not just the stage around it.
+   Cropper.js measures the rendered <img> and sizes its own container to
+   match, so an unbounded portrait photo built a container far taller than
+   the viewport: the stage clipped it (so the crop box looked wrong and
+   off-square, because only part of it was visible) and the Cancel / Use
+   photo buttons were pushed below the fold with nothing to scroll. They
+   were never broken — they were off-screen. Bounding the img keeps
+   Cropper's own measurements inside the viewport. */
 .crop-modal__stage img {
     display: block;
     max-width: 100%;
+    max-height: 62vh;
+}
+
+/* Cropper replaces the <img> with its own container; that must stay bounded
+   too, or the same overflow returns by another route. */
+.crop-modal__stage .cropper-container {
+    max-height: 62vh;
+}
+
+.crop-modal__actions {
+    /* Never shrink: these are the only way out of the modal. */
+    flex: 0 0 auto;
 }
 
 .crop-modal__actions {

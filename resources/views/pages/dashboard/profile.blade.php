@@ -85,8 +85,12 @@
                                title="{{ __('nav.add_profile_photo') }}">
                             <x-dashboard.icon path="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" class="w-4 h-4" />
                             <span class="sr-only">{{ __('nav.add_profile_photo') }}</span>
-                            <input type="file" name="profile_photo" accept="image/*" class="hidden"
-                                   @change="preview = URL.createObjectURL($event.target.files[0])">
+                            {{-- data-crop opens the 1:1 cropper before this
+                                 ever reaches the server; the handler below
+                                 re-runs on the change it dispatches, so the
+                                 preview shows the CROPPED photo. --}}
+                            <input type="file" name="profile_photo" accept="image/*" class="hidden" data-crop
+                                   @change="$event.target.files[0] && (preview = URL.createObjectURL($event.target.files[0]))">
                         </label>
                     </div>
 

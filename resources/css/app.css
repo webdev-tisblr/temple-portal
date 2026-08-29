@@ -676,3 +676,65 @@ input[type="radio"]:focus {
         animation-duration: 2.4s;
     }
 }
+
+/* ── Crop-before-upload modal ─────────────────────────────────────────────
+   Chrome around Cropper.js for the website's photo inputs. Deliberately
+   plain and dark to match the public site rather than the parchment
+   dashboard, since it appears over both. @see resources/js/image-crop.js */
+.crop-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.85);
+}
+
+.crop-modal__panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    max-width: 520px;
+}
+
+/* Bounded so a tall photo cannot push the buttons off a phone screen. */
+.crop-modal__stage {
+    max-height: 68vh;
+    overflow: hidden;
+    background: #000;
+    border-radius: 12px;
+}
+
+.crop-modal__stage img {
+    display: block;
+    max-width: 100%;
+}
+
+.crop-modal__actions {
+    display: flex;
+    gap: 10px;
+}
+
+.crop-modal__btn {
+    flex: 1;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.crop-modal__btn--primary {
+    background: #C45F12;
+    color: #fff;
+}
+
+.crop-modal__btn--ghost {
+    background: transparent;
+    color: #E7D3B1;
+    border-color: rgba(231, 211, 177, 0.4);
+}

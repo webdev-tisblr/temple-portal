@@ -1,6 +1,11 @@
 <?php
 
 return [
+    // Buttons on the crop-before-upload modal (resources/js/image-crop.js),
+    // which builds its own chrome and so cannot use Blade directly.
+    'cancel' => 'रद्द करें',
+    'use_photo' => 'फ़ोटो इस्तेमाल करें',
+
     'temple_name' => 'श्री पातालिया हनुमानजी',
     'trust_subtitle' => 'सेवा ट्रस्ट • अंतरजाल',
     'language' => 'भाषा',

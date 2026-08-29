@@ -1,16 +1,19 @@
 {
   "resources/css/app.css": {
-    "file": "assets/app-CSIZQufM.css",
+    "file": "assets/app-xE3cXl4U.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-D_q62pBB.js",
+    "file": "assets/app-B9YmNjk0.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "imports": [
       "resources/js/clean-youtube.js"
+    ],
+    "css": [
+      "assets/app-C0nhQTrb.css"
     ]
   },
   "resources/js/clean-youtube.js": {

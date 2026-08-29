@@ -395,6 +395,7 @@
                                         @if(($field['type'] ?? 'text') === 'image')
                                             <input type="file"
                                                 name="extra_data[{{ $field['key'] }}]"
+                                                data-crop
                                                 accept="image/*"
                                                 @if($field['required'] ?? false) required @endif
                                                 class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-amber-900/40 file:text-amber-400">

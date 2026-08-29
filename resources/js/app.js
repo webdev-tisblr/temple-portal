@@ -4,6 +4,9 @@ import './clean-youtube';
 // One-press guard + loading feedback for every POST form (payment buttons
 // especially — see the file header for the double-submit story).
 import './submit-lock';
+// Crop-before-upload on every [data-crop] file input (donation + seva extra
+// field photos, the dashboard profile photo).
+import './image-crop';
 
 // Divine particles system
 Alpine.data('divineParticles', () => ({

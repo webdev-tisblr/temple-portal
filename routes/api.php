@@ -79,6 +79,12 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
                 // hidden when the toggle is off or the URL is empty.
                 'whatsapp_group_url' => SystemSetting::getValue('app_whatsapp_group_url', ''),
                 'whatsapp_group_enabled' => SystemSetting::getValue('app_whatsapp_group_enabled', '0') === '1',
+                // "Follow us on Instagram", directly under the WhatsApp row.
+                // Same shape and same rule: hidden when the toggle is off or
+                // the URL is empty, so a half-configured row is never a dead
+                // link (2026-08-29).
+                'instagram_url' => SystemSetting::getValue('app_instagram_url', ''),
+                'instagram_enabled' => SystemSetting::getValue('app_instagram_enabled', '0') === '1',
             ],
         ]);
     });

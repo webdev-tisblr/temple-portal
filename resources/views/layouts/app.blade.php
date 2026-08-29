@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="ltr">
+{{-- The crop modal's buttons are built in JS, so their labels ride on the
+     root element rather than being hardcoded English in the bundle. --}}
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="ltr"
+      data-crop-confirm="{{ __('common.use_photo') }}"
+      data-crop-cancel="{{ __('common.cancel') }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">

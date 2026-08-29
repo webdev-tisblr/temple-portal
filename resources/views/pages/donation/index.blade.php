@@ -234,6 +234,7 @@
                                 <input x-show="field.type === 'image'" type="file"
                                     :name="field.type === 'image' ? 'extra_data[' + field.key + ']' : ''"
                                     :required="field.type === 'image' && field.required"
+                                    data-crop
                                     accept="image/*"
                                     class="w-full bg-transparent border-amber-800/30 rounded-lg text-amber-100 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-amber-900/40 file:text-amber-400">
                                 <textarea x-show="field.type === 'textarea'"

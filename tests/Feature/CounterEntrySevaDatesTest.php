@@ -4,14 +4,21 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Filament\Pages\CounterEntryPage;
+use App\Models\AdminUser;
 use App\Models\Seva;
 use App\Models\SevaBooking;
+use App\Services\CounterEntryService;
 use App\Services\SevaSlotService;
 use Database\Factories\DevoteeFactory;
 use Database\Factories\SevaFactory;
+use Database\Seeders\RolePermissionSeeder;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Livewire\Livewire;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 /**
@@ -141,5 +148,115 @@ class CounterEntrySevaDatesTest extends TestCase
         ))->pluck('date');
 
         $this->assertFalse($dates->contains(Carbon::yesterday()->toDateString()));
+    }
+
+    /**
+     * The counter must be able to REACH the first bookable date.
+     *
+     * The Saturday-only annadan sevas carry a blackout on every Saturday for
+     * more than six months (the launch "Already booked" import), so with the
+     * old 180-day horizon every date the picker could show was greyed out and
+     * the clerk had no way to book at all — the calendar simply read as
+     * broken (2026-08-29).
+     */
+    public function test_the_counter_reaches_a_first_bookable_date_beyond_six_months(): void
+    {
+        // Saturday-only, with every Saturday for the next ~200 days taken.
+        $blackouts = [];
+        $cursor = now()->startOfDay();
+        $horizon = now()->startOfDay()->addDays(200);
+        while ($cursor->lte($horizon)) {
+            if ($cursor->isSaturday()) {
+                $blackouts[] = ['date' => $cursor->toDateString(), 'reason' => 'Already booked'];
+            }
+            $cursor->addDay();
+        }
+
+        $seva = SevaFactory::new()->create([
+            'requires_booking' => true,
+            'is_active' => true,
+            'slot_config' => self::fullDayConfig(1, $blackouts) + ['full_day_days' => ['saturday']],
+        ]);
+
+        $next = app(SevaSlotService::class)->nextAvailable($seva, null, CounterEntryPage::DATE_HORIZON_DAYS);
+
+        $this->assertNotNull($next, 'the seva does have a free Saturday — just past six months');
+        $this->assertTrue(
+            Carbon::parse($next['date'])->gt(now()->addDays(180)),
+            'this fixture is only meaningful if the free date sits beyond the old 180-day window'
+        );
+        $this->assertTrue(
+            Carbon::parse($next['date'])->lte(now()->startOfDay()->addDays(CounterEntryPage::DATE_HORIZON_DAYS)),
+            'the counter horizon must extend far enough to reach it'
+        );
+        $this->assertNotContains(
+            $next['date'],
+            $this->unavailableDates($seva, CounterEntryPage::DATE_HORIZON_DAYS),
+            'the first free Saturday must be selectable, not greyed out'
+        );
+    }
+
+    /**
+     * The rendered picker itself — the disabled-date list the browser gets
+     * must leave that date open, and maxDate must reach it. A service-level
+     * assertion cannot catch a picker capped short of the answer.
+     */
+    public function test_the_rendered_picker_leaves_the_first_free_saturday_open(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $admin = AdminUser::create([
+            'name' => 'Counter Clerk',
+            'email' => 'counter-'.Str::lower(Str::random(6)).'@example.test',
+            'password' => 'password',
+            'is_active' => true,
+        ]);
+        $admin->assignRole('super_admin');
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $this->actingAs($admin->fresh(), 'admin');
+
+        $blackouts = [];
+        $cursor = now()->startOfDay();
+        $horizon = now()->startOfDay()->addDays(200);
+        while ($cursor->lte($horizon)) {
+            if ($cursor->isSaturday()) {
+                $blackouts[] = ['date' => $cursor->toDateString(), 'reason' => 'Already booked'];
+            }
+            $cursor->addDay();
+        }
+
+        $seva = SevaFactory::new()->create([
+            'requires_booking' => true,
+            'is_active' => true,
+            'slot_config' => self::fullDayConfig(1, $blackouts) + ['full_day_days' => ['saturday']],
+        ]);
+
+        $free = app(SevaSlotService::class)->nextAvailable($seva, null, CounterEntryPage::DATE_HORIZON_DAYS)['date'];
+
+        $html = Livewire::test(CounterEntryPage::class)
+            ->set('data.record_type', CounterEntryService::TYPE_SEVA)
+            ->set('data.seva_id', $seva->id)
+            ->assertOk()
+            ->html();
+
+        $this->assertMatchesRegularExpression(
+            '/x-ref="disabledDates"\s*type="hidden"\s*value="([^"]*)"/',
+            $html,
+            'the booking-date picker must ship a disabled-date list'
+        );
+        preg_match_all('/x-ref="disabledDates"\s*type="hidden"\s*value="([^"]*)"/', $html, $m);
+        $lists = array_map(
+            static fn (string $v): array => json_decode(html_entity_decode($v), true) ?: [],
+            $m[1]
+        );
+        $sevaList = collect($lists)->first(fn (array $l): bool => $l !== []);
+
+        $this->assertNotNull($sevaList, 'the seva picker must actually grey out the blacked-out Saturdays');
+        $this->assertNotContains($free, $sevaList, 'the first free Saturday must stay selectable');
+        // And the clerk can navigate to it: maxDate has to cover it.
+        $this->assertTrue(
+            Carbon::parse($free)->lte(now()->startOfDay()->addDays(CounterEntryPage::DATE_HORIZON_DAYS))
+        );
     }
 }

@@ -315,8 +315,16 @@ class CounterEntryPage extends Page implements HasForms
      * How far ahead the counter's date picker looks when working out which
      * dates to grey out. Bounded because the answer is computed per date; a
      * seva with an open-ended acceptance window would otherwise be unbounded.
+     *
+     * A YEAR, not the 180 days this started at: the Saturday-only annadan
+     * sevas are blacked out every Saturday well past six months (the launch
+     * "Already booked" import), so their first bookable date sat OUTSIDE the
+     * old window. Every date the clerk could reach was greyed out and the
+     * picker read as broken (2026-08-29). 365 matches nextAvailable()'s own
+     * default horizon, so the counter can now reach anything the website and
+     * app can offer.
      */
-    private const DATE_HORIZON_DAYS = 180;
+    public const DATE_HORIZON_DAYS = 365;
 
     /** @var array<int, list<string>> seva id => unavailable dates, per request */
     private static array $unavailableDatesMemo = [];
@@ -348,6 +356,35 @@ class CounterEntryPage extends Page implements HasForms
             ->pluck('date')
             ->values()
             ->all();
+    }
+
+    /** @var array<int, string|null> seva id => first bookable date, per request */
+    private static array $nextAvailableMemo = [];
+
+    /**
+     * The first date this seva can actually take, or null if it has none
+     * inside the horizon.
+     *
+     * Drives both the calendar's opening month and the field's helper text:
+     * with every Saturday blacked out for months, a clerk would otherwise
+     * have to page forward blind through a wall of greyed-out dates.
+     */
+    private static function firstAvailableDate(Get $get): ?string
+    {
+        $seva = self::sevaFor($get);
+        if ($seva === null) {
+            return null;
+        }
+
+        // array_key_exists, not ??=: "no bookable date" is itself a null, and
+        // ??= would re-run the whole year-long scan on every re-render for
+        // exactly the seva that scan is most expensive for.
+        if (! array_key_exists($seva->id, self::$nextAvailableMemo)) {
+            self::$nextAvailableMemo[$seva->id] = app(SevaSlotService::class)
+                ->nextAvailable($seva, null, self::DATE_HORIZON_DAYS)['date'] ?? null;
+        }
+
+        return self::$nextAvailableMemo[$seva->id];
     }
 
     /** @var array<int, list<string>> hall id => unavailable dates, per request */
@@ -474,6 +511,30 @@ class CounterEntryPage extends Page implements HasForms
                     ->minDate(now()->startOfDay())
                     ->maxDate(now()->startOfDay()->addDays(self::DATE_HORIZON_DAYS))
                     ->disabledDates(fn (Get $get): array => self::unavailableDates($get))
+                    // Open on the first date the seva can take rather than on
+                    // today, which for a Saturday-only seva with months of
+                    // blackouts is seven months of greyed-out calendar away.
+                    ->defaultFocusedDate(fn (Get $get): ?string => self::firstAvailableDate($get))
+                    // Say out loud what the greyed-out calendar means. Without
+                    // this, "no date is selectable" and "the picker is broken"
+                    // look identical from the counter.
+                    ->helperText(function (Get $get): ?string {
+                        if (blank($get('seva_id'))) {
+                            return null;
+                        }
+
+                        $first = self::firstAvailableDate($get);
+
+                        if ($first === null) {
+                            return 'This seva has no bookable date in the next '
+                                .self::DATE_HORIZON_DAYS.' days — every date is blacked out, '
+                                .'full, closed on that weekday, or outside its acceptance period. '
+                                .'Free a date on the seva itself before taking the cash.';
+                        }
+
+                        return 'Greyed-out dates cannot be booked. First available: '
+                            .Carbon::parse($first)->format('D, d M Y').'.';
+                    })
                     // Slots are per-date, so yesterday's pick may not exist on
                     // the new date — clear it rather than submit a stale one.
                     ->afterStateUpdated(fn (Set $set) => $set('slot_time', null)),

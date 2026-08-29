@@ -769,18 +769,27 @@ class SevaSlotService
             SevaBooking::whereIn('seva_id', $this->memberIds($seva))
                 ->whereBetween('booking_date', [$start->toDateString(), $end->toDateString()])
         )
-            ->selectRaw('DATE(booking_date) as bdate, LEFT(slot_time, 5) as slot, COUNT(*) as cnt')
+            ->selectRaw('DATE(booking_date) as bdate, slot_time as slot, COUNT(*) as cnt')
             ->groupBy('bdate', 'slot')
             ->get();
 
         $counts = [];   // counts[date][slot] = n
         foreach ($rows as $row) {
+            // Time slots are stored as HH:MM:SS but configured as HH:MM, so
+            // only those are truncated — the full_day / full_week sentinels
+            // are kept whole. Truncating everything to 5 chars collapsed
+            // both sentinels into 'full_' and made the full-day count
+            // unusable, which is why that branch fell back to a COUNT query
+            // per date.
+            //
             // Legacy rows can still carry a NULL slot_time; using null as
             // an array key is deprecated in PHP 8.4 and was emitting a
             // notice on every availability request. Such rows never match
-            // a configured HH:MM slot, so bucketing them under '' is both
-            // silent and correct.
-            $counts[$row->bdate][(string) $row->slot] = (int) $row->cnt;
+            // a configured slot, so bucketing them under '' is both silent
+            // and correct.
+            $slot = (string) $row->slot;
+            $slot = preg_match('/^\d{2}:\d{2}/', $slot) === 1 ? substr($slot, 0, 5) : $slot;
+            $counts[$row->bdate][$slot] = ($counts[$row->bdate][$slot] ?? 0) + (int) $row->cnt;
         }
 
         $maxPerSlot = $config['max_bookings_per_slot'] ?? 1;
@@ -827,7 +836,14 @@ class SevaSlotService
                     ? implode('_', $this->weekRange($date))
                     : $date;
                 if (! array_key_exists($key, $fullUnitMemo)) {
-                    $fullUnitMemo[$key] = $this->countFullUnitBookings($seva, $slotType, $date);
+                    // full_day is answered straight from the bulk counts —
+                    // the day's own bookings are all that matter and they
+                    // are already in the window. full_week still needs its
+                    // own query: a week can start before $start, and the
+                    // bulk fetch would undercount it.
+                    $fullUnitMemo[$key] = $slotType === self::SLOT_TYPE_FULL_DAY
+                        ? ($counts[$date][self::SLOT_TYPE_FULL_DAY] ?? 0)
+                        : $this->countFullUnitBookings($seva, $slotType, $date);
                 }
                 $reason = $fullUnitMemo[$key] >= $maxPerSlot
                     ? UnavailableReason::Full

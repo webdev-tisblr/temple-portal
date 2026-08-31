@@ -215,7 +215,13 @@ class SevaBookingResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->defaultSort('booking_date', 'desc')
+            // Soonest FIRST, not newest first (2026-08-31). Paired with the
+            // Timeframe filter below, which defaults to Upcoming, this opens
+            // on "what is happening today, then tomorrow" — the order the
+            // trust actually works through the day in. Descending put the
+            // furthest-away booking at the top and buried today's below
+            // months of future ones.
+            ->defaultSort('booking_date', 'asc')
             ->filters([
                 // Paid-only, ON by default — the same treatment the donations
                 // list has had (2026-08-17). A booking sits at `pending` while
@@ -282,13 +288,44 @@ class SevaBookingResource extends Resource
                             $query->whereHas('payment', fn ($q) => $q->where('status', $data['value']));
                         }
                     }),
-                Tables\Filters\Filter::make('upcoming')
-                    ->label('Upcoming only')
-                    // Type-hint Builder so Filament's container can
-                    // inject the query — without it, Filament 3 tries
-                    // to resolve "$q" by name and throws
-                    // BindingResolutionException on the AJAX call.
-                    ->query(fn (Builder $query) => $query->where('booking_date', '>=', now()->toDateString())),
+                // Replaced the old "Upcoming only" checkbox (2026-08-31).
+                // One control with an explicit default beats a checkbox that
+                // is off until somebody notices it: the list now opens on
+                // today onwards, and past bookings are one dropdown away
+                // rather than mixed into the same page.
+                //
+                // Type-hint Builder so Filament's container can inject the
+                // query — without it, Filament 3 tries to resolve "$q" by
+                // name and throws BindingResolutionException on the AJAX call.
+                Tables\Filters\SelectFilter::make('timeframe')
+                    ->label('Timeframe')
+                    ->default('upcoming')
+                    ->options([
+                        'upcoming' => 'Upcoming (today onwards)',
+                        'past' => 'Past sevas',
+                        'all' => 'All dates',
+                    ])
+                    // selectablePlaceholder(false): with a placeholder the
+                    // admin can clear the filter to an empty value, which
+                    // reads as "all" and silently defeats the default.
+                    ->selectablePlaceholder(false)
+                    ->query(function (Builder $query, array $data): Builder {
+                        // Compare on the DATE, so a seva happening later
+                        // today still counts as upcoming rather than
+                        // dropping off the list at midnight-plus-one-second.
+                        $today = now()->toDateString();
+
+                        // Filtering only — NOT ordering. A ->reorder() here is
+                        // silently overridden: Filament applies defaultSort
+                        // after the filters, so the column order below always
+                        // wins. Past therefore reads oldest-first like every
+                        // other view; click the Date header to flip it.
+                        return match ($data['value'] ?? 'upcoming') {
+                            'past' => $query->where('booking_date', '<', $today),
+                            'all' => $query,
+                            default => $query->where('booking_date', '>=', $today),
+                        };
+                    }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

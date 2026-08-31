@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Exceptions\Donation80GNotEligibleException;
 use App\Models\SevaBooking;
 use App\Models\SystemSetting;
 use App\Services\Notifications\NotificationService;
 use App\Services\Notifications\SevaBookingContext;
+use App\Services\ReceiptService;
 use App\Services\SevaReceiptService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -39,6 +41,18 @@ use Illuminate\Support\Facades\URL;
  *
  * `$sendNotification = false` is used by self-heal regeneration paths
  * so re-downloading the PDF doesn't re-notify the devotee.
+ *
+ * ── 80G (2026-08-31) ────────────────────────────────────────────────
+ * A booking whose devotee ticked the 80G box gets the STATUTORY receipt
+ * INSTEAD of the plain one — one receipt per booking, never both. The
+ * confirmation trigger, its idempotency key and `receipt_pdf_url` are
+ * identical either way; only the document behind the link changes, so
+ * every template an admin has already configured keeps working.
+ *
+ * The strict PAN rule can refuse: no readable, format-valid PAN means no
+ * 80G receipt and NO statutory number burnt. That is a fall-back to the
+ * ordinary seva receipt, NOT a failure — a paid booking must never end up
+ * with no receipt at all.
  */
 class GenerateSevaReceipt implements ShouldQueue
 {
@@ -51,18 +65,56 @@ class GenerateSevaReceipt implements ShouldQueue
         public bool $sendNotification = true,
     ) {}
 
-    public function handle(SevaReceiptService $receipts, NotificationService $notifications): void
-    {
+    public function handle(
+        SevaReceiptService $receipts,
+        NotificationService $notifications,
+        ReceiptService $statutoryReceipts,
+    ): void {
         $pdfBytes = null;
+        $attachmentName = null;
+        $receiptNumber = null;
 
         try {
-            $path = $receipts->generateReceipt($this->booking);
-            $pdfBytes = Storage::disk('r2_private')->get($path);
+            // ── ALLOCATION SITE #5 ──────────────────────────────────
+            // The only seva path that can burn a statutory number. It is
+            // reached exactly once per booking (the job is dispatched from
+            // the post-commit side of PaymentCaptureService, and
+            // generateForSevaBooking short-circuits on an existing row).
+            if ($this->booking->wants_80g) {
+                try {
+                    $receipt = $statutoryReceipts->generateForSevaBooking($this->booking);
+                    $pdfBytes = Storage::disk('r2_private')->get($receipt->pdf_path);
+                    $receiptNumber = $receipt->receipt_number;
+                    $attachmentName = '80G_Receipt_'.str_replace('/', '-', (string) $receiptNumber).'.pdf';
 
-            Log::info('Seva receipt generated', [
-                'booking_id' => $this->booking->id,
-                'receipt_number' => $this->booking->receipt_number,
-            ]);
+                    Log::info('Seva 80G receipt generated', [
+                        'booking_id' => $this->booking->id,
+                        'receipt_number' => $receiptNumber,
+                    ]);
+                } catch (Donation80GNotEligibleException $e) {
+                    // Asked for, refused (almost always: no valid PAN).
+                    // generateForSevaBooking has already recorded the
+                    // verdict and burnt nothing. Fall through to the
+                    // ordinary receipt so the devotee still gets a
+                    // document for a payment they have already made.
+                    Log::info('Seva 80G declined — issuing the plain seva receipt', [
+                        'booking_id' => $this->booking->id,
+                        'reason' => $e->reason,
+                    ]);
+                }
+            }
+
+            if ($receiptNumber === null) {
+                $path = $receipts->generateReceipt($this->booking);
+                $pdfBytes = Storage::disk('r2_private')->get($path);
+                $receiptNumber = $this->booking->receipt_number;
+                $attachmentName = "Seva_Receipt_{$receiptNumber}.pdf";
+
+                Log::info('Seva receipt generated', [
+                    'booking_id' => $this->booking->id,
+                    'receipt_number' => $receiptNumber,
+                ]);
+            }
         } catch (\Throwable $e) {
             Log::error('Seva receipt PDF failed — confirming without attachment', [
                 'booking_id' => $this->booking->id,
@@ -107,9 +159,16 @@ class GenerateSevaReceipt implements ShouldQueue
             ]),
             'devotee' => $this->booking->devotee,
             'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
-            'receipt_number' => $this->booking->receipt_number,
+            // The 80G number when one was issued, else the plain
+            // SEVA-… one. Falls back to booking_reference rather than an
+            // empty string: a blank WhatsApp parameter makes Meta reject
+            // the entire message.
+            'receipt_number' => $receiptNumber ?: $this->booking->booking_reference,
             // Permanent signed link — regenerates the PDF on miss, so it
             // outlives the 7-day r2_private sweep (unlike a presign).
+            // UNCHANGED by the 80G work on purpose: the route resolves to
+            // whichever document this booking actually has, so every
+            // template already mapping {{ receipt_pdf_url }} keeps working.
             'receipt_pdf_url' => URL::signedRoute('seva.receipt.link', ['booking' => $this->booking->id]),
         ];
 
@@ -122,7 +181,7 @@ class GenerateSevaReceipt implements ShouldQueue
         if ($pdfBytes !== null) {
             $context['_attachments'] = [[
                 'data' => $pdfBytes,
-                'name' => "Seva_Receipt_{$this->booking->receipt_number}.pdf",
+                'name' => $attachmentName ?? "Seva_Receipt_{$this->booking->receipt_number}.pdf",
                 'mime' => 'application/pdf',
             ]];
         }
@@ -136,6 +195,7 @@ class GenerateSevaReceipt implements ShouldQueue
         Log::info('Seva booking confirmation dispatched via NotificationService', [
             'booking_id' => $this->booking->id,
             'has_pdf' => $pdfBytes !== null,
+            'is_80g' => $this->booking->is_80g_eligible,
         ]);
     }
 }

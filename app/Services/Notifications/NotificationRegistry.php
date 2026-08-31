@@ -174,13 +174,15 @@ final class NotificationRegistry
             //   slot_label / slot_time_label / slot_time (all the label),
             //   total_amount_formatted, receipt_number), devotee,
             //   trust_name, receipt_number, receipt_pdf_url (permanent
-            //   signed link), _attachments (PDF — absent if render failed),
+            //   signed link — resolves to the 80G receipt when the booking
+            //   opted in and qualified, else the ordinary seva receipt),
+            //   _attachments (PDF — absent if render failed),
             //   plus SevaBookingContext::values() — product_name_*,
             //   product_price, product_image_url, seva_image_url and the
             //   resolved image_url.
             'seva.booking.confirmed' => [
                 'label' => 'Seva — booking confirmed (with receipt)',
-                'description' => 'Fires when a seva booking payment is captured and the receipt PDF is generated — one message carrying the receipt. For WhatsApp, point a Header (DOCUMENT) link at {{ receipt_pdf_url }} (permanent link, regenerates on demand) or a Header (IMAGE) link at {{ image_url }}; for email the PDF is attached automatically.',
+                'description' => 'Fires when a seva booking payment is captured and the receipt PDF is generated — one message carrying the receipt. For WhatsApp, point a Header (DOCUMENT) link at {{ receipt_pdf_url }} (permanent link, regenerates on demand) or a Header (IMAGE) link at {{ image_url }}; for email the PDF is attached automatically. Since 2026-08-31 the attached document is the STATUTORY 80G receipt when the devotee ticked the 80G box at booking and holds a valid PAN, and the ordinary seva receipt otherwise — one template covers both, no second trigger needed.',
                 'placeholders' => [
                     'devotee_name' => 'Devotee name (devotee.name)',
                     'devotee_phone' => 'Devotee phone number (devotee.phone)',
@@ -190,8 +192,8 @@ final class NotificationRegistry
                     'slot_time' => 'Slot label — reads "Whole day"/"Whole week" for full-day sevas (booking.slot_time_label)',
                     'quantity' => 'Quantity booked (booking.quantity)',
                     'amount' => "Total amount, ready to print — includes \u{20B9} and Indian digit grouping (booking.total_amount_formatted)",
-                    'receipt_number' => 'Receipt number (receipt_number)',
-                    'receipt_pdf_url' => 'Receipt PDF link — permanent, regenerates on demand (receipt_pdf_url)',
+                    'receipt_number' => 'Receipt number — the statutory 80G number when the devotee opted in and holds a valid PAN, otherwise the plain SEVA-… one (receipt_number)',
+                    'receipt_pdf_url' => 'Receipt PDF link — permanent, regenerates on demand. Resolves to the 80G receipt for a booking that opted in, else the ordinary seva receipt (receipt_pdf_url)',
                     'booking_reference' => 'Receipt number when the receipt exists, otherwise a short quotable reference — use this, not booking_id (booking.booking_reference)',
                     'booking_id' => 'Internal 36-character UUID. Kept only for templates that already use it; it means nothing to a reader — prefer booking_reference (booking.booking_reference)',
                     'assignee_name' => 'Seva assignee (pujari/staff) name — empty when the seva has no assignee (booking.seva.assignee.name)',

@@ -9,6 +9,7 @@ use App\Helpers\NumberToWords;
 use App\Models\Devotee;
 use App\Models\Donation;
 use App\Models\Receipt80G;
+use App\Models\SevaBooking;
 use App\Models\SystemSetting;
 use App\Support\Pdf\GujaratiPdf;
 use Illuminate\Support\Facades\Crypt;
@@ -17,7 +18,13 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Builds the statutory 80G donation receipt.
+ * Builds the statutory 80G receipt.
+ *
+ * Serves TWO sources since 2026-08-31: direct donations, and seva
+ * bookings whose devotee ticked the 80G box at booking time. Both mint
+ * from the SAME per-financial-year counter, so the trust files one
+ * continuous statutory sequence (what Form 10BD expects) rather than two
+ * interleaved ones. See generateForSevaBooking().
  *
  * DELIBERATELY ENGLISH-ONLY. Unlike the seva receipt / hall + store
  * invoices (localized 2026-08-09 via App\Support\DevoteeLocale), this is a
@@ -33,8 +40,9 @@ class ReceiptService
 {
     /**
      * THE 80G GATE (item 5.4). Single definition of "may this donation be
-     * issued a statutory 80G receipt", called from every one of the four
-     * sites that can mint a receipt number.
+     * issued a statutory 80G receipt", called from every one of the
+     * donation sites that can mint a receipt number. The seva equivalent
+     * is sevaIneligibilityReason() below; both share the PAN half.
      *
      * The rule is strict and amount-independent: a donation whose donor
      * has no readable, format-valid PAN on their profile NEVER gets an
@@ -69,6 +77,36 @@ class ReceiptService
     public function isEligibleFor80G(Donation $donation): bool
     {
         return $this->ineligibilityReason($donation) === null;
+    }
+
+    /**
+     * THE 80G GATE, seva side. Same strict rule as donations, reading the
+     * booking's own opt-in flag instead of the donation's.
+     *
+     * Deliberately shares panIneligibilityReason() with the donation path:
+     * "what counts as a usable PAN" is a statutory question, and two
+     * answers to it is how one surface starts issuing receipts the other
+     * would refuse.
+     *
+     * Unlike donations, a seva booking's `wants_80g` defaults to FALSE, so
+     * a booking made before this feature existed (or by an older app build
+     * that does not send the flag) reads as "did not ask" and keeps its
+     * ordinary localized seva receipt.
+     */
+    public function sevaIneligibilityReason(SevaBooking $booking): ?string
+    {
+        if (! $booking->wants_80g) {
+            return Donation80GNotEligibleException::REASON_NOT_REQUESTED;
+        }
+
+        $booking->loadMissing('devotee');
+
+        return $this->panIneligibilityReason($booking->devotee);
+    }
+
+    public function sevaBookingIsEligibleFor80G(SevaBooking $booking): bool
+    {
+        return $this->sevaIneligibilityReason($booking) === null;
     }
 
     /**
@@ -135,6 +173,54 @@ class ReceiptService
     }
 
     /**
+     * Mint the next statutory receipt number for a financial year.
+     *
+     * The ONE place the "{prefix}/{fy}/{serial}" shape is assembled, so
+     * donations and seva bookings cannot drift into two formats. MUST be
+     * called inside a transaction — see allocateSerial().
+     */
+    private function mintReceiptNumber(string $financialYear): string
+    {
+        $prefix = SystemSetting::getValue('receipt_prefix', 'SPHST/80G');
+        $serial = str_pad((string) $this->allocateSerial($financialYear), 5, '0', STR_PAD_LEFT);
+
+        return "{$prefix}/{$financialYear}/{$serial}";
+    }
+
+    /**
+     * Trust-side snapshot columns, identical for both sources.
+     *
+     * @return array<string,mixed>
+     */
+    private function trustSnapshot(): array
+    {
+        return [
+            'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
+            'trust_address' => SystemSetting::getValue('trust_address', 'Antarjal, Gandhidham, Kutch - 370205'),
+            'trust_pan' => SystemSetting::getValue('trust_pan', ''),
+            'trust_80g_registration_no' => SystemSetting::getValue('trust_80g_reg_no', ''),
+            'trust_80g_validity_period' => SystemSetting::getValue('trust_80g_validity', ''),
+        ];
+    }
+
+    /**
+     * Devotee-side snapshot columns, identical for both sources.
+     *
+     * @return array<string,mixed>
+     */
+    private function devoteeSnapshot(Devotee $devotee, string $panNumber): array
+    {
+        return [
+            'devotee_name' => $devotee->name ?: 'Devotee',
+            'devotee_address' => collect([$devotee->address, $devotee->city, $devotee->state, $devotee->pincode])
+                ->filter()->implode(', '),
+            'devotee_phone' => $devotee->phone,
+            'devotee_email' => $devotee->email,
+            'pan_number' => $panNumber,
+        ];
+    }
+
+    /**
      * @throws Donation80GNotEligibleException when the strict PAN rule
      *                                         withholds the receipt
      */
@@ -167,35 +253,23 @@ class ReceiptService
         // create cannot leave the counter ahead of reality, and the
         // counter row lock serialises concurrent captures (defect A).
         $receipt = DB::transaction(function () use ($donation, $devotee, $panNumber) {
-            $prefix = SystemSetting::getValue('receipt_prefix', 'SPHST/80G');
             $fy = $donation->financial_year;
-            $serial = str_pad((string) $this->allocateSerial($fy), 5, '0', STR_PAD_LEFT);
 
             return Receipt80G::create([
                 'donation_id' => $donation->id,
-                'receipt_number' => "{$prefix}/{$fy}/{$serial}",
+                'source_type' => Receipt80G::SOURCE_DONATION,
+                'receipt_number' => $this->mintReceiptNumber($fy),
                 'financial_year' => $fy,
                 // Snapshots (defect B / item 5.2) — frozen at issue time so
                 // renaming a campaign or editing a purpose later cannot
                 // rewrite a receipt that has already been issued.
                 'campaign_title' => $this->liveCampaignTitle($donation),
-                'devotee_name' => $devotee->name ?: 'Devotee',
-                'devotee_address' => collect([$devotee->address, $devotee->city, $devotee->state, $devotee->pincode])
-                    ->filter()->implode(', '),
-                'devotee_phone' => $devotee->phone,
-                'devotee_email' => $devotee->email,
-                'pan_number' => $panNumber,
                 'amount' => $donation->amount,
                 'amount_in_words' => NumberToWords::convert((float) $donation->amount),
                 'donation_date' => $donation->created_at->toDateString(),
                 'payment_mode' => $donation->payment?->method ?? 'Online',
-                'trust_name' => SystemSetting::getValue('trust_name', 'Shree Patadiya Hanumanji Seva Trust'),
-                'trust_address' => SystemSetting::getValue('trust_address', 'Antarjal, Gandhidham, Kutch - 370205'),
-                'trust_pan' => SystemSetting::getValue('trust_pan', ''),
-                'trust_80g_registration_no' => SystemSetting::getValue('trust_80g_reg_no', ''),
-                'trust_80g_validity_period' => SystemSetting::getValue('trust_80g_validity', ''),
                 'generated_at' => now(),
-            ]);
+            ] + $this->devoteeSnapshot($devotee, $panNumber) + $this->trustSnapshot());
         });
 
         // The donation's own verdict column now agrees with reality.
@@ -207,6 +281,121 @@ class ReceiptService
         $receipt->update(['pdf_path' => $pdfPath]);
 
         return $receipt;
+    }
+
+    /**
+     * ALLOCATION SITE #5 — the statutory 80G receipt for a SEVA BOOKING.
+     *
+     * Mirrors generateReceipt(Donation) exactly, and deliberately reuses
+     * its gate, its counter and its snapshot helpers. The one structural
+     * difference is what gets snapshotted: a seva has particulars
+     * (which seva, which date, which slot, in whose name) where a donation
+     * has a campaign, so those go into their own frozen columns and the
+     * Blade branches on `source_type`.
+     *
+     * The caller is GenerateSevaReceipt, which treats the throw as
+     * "fall back to the ordinary seva receipt" rather than as a failure —
+     * a PAID booking must never end up with no receipt at all.
+     *
+     * @throws Donation80GNotEligibleException when the strict PAN rule
+     *                                         withholds the receipt
+     */
+    public function generateForSevaBooking(SevaBooking $booking): Receipt80G
+    {
+        $existing = Receipt80G::where('seva_booking_id', $booking->id)->first();
+        if ($existing) {
+            // Already-issued receipt: a PDF cache refresh, NOT an
+            // allocation, so the strict rule deliberately does not apply.
+            // Withdrawing a receipt already in a devotee's hands because
+            // they later cleared their PAN would be worse than keeping it.
+            return $this->ensurePdf($existing);
+        }
+
+        $booking->loadMissing('devotee', 'seva', 'payment', 'selectedProduct');
+
+        $reason = $this->sevaIneligibilityReason($booking);
+        if ($reason !== null) {
+            $this->recordSevaIneligible($booking, $reason);
+
+            throw Donation80GNotEligibleException::forSevaBooking($booking, $reason);
+        }
+
+        $devotee = $booking->devotee;
+        // Non-null by construction: sevaIneligibilityReason() just proved
+        // the PAN decrypts and matches the statutory format.
+        $panNumber = (string) $this->decryptPan($devotee);
+
+        $receipt = DB::transaction(function () use ($booking, $devotee, $panNumber) {
+            $fy = $booking->financial_year;
+
+            return Receipt80G::create([
+                'seva_booking_id' => $booking->id,
+                'source_type' => Receipt80G::SOURCE_SEVA,
+                'receipt_number' => $this->mintReceiptNumber($fy),
+                'financial_year' => $fy,
+                // Seva particulars, frozen at issue time for the same
+                // reason campaign_title is: renaming a seva must never
+                // rewrite a statutory document already issued.
+                'seva_name' => $this->sevaTitleFor($booking),
+                'seva_date' => $booking->booking_date?->toDateString(),
+                'seva_slot_label' => $booking->slot_time_label,
+                'seva_in_name_of' => $booking->devotee_name_for_seva,
+                'quantity' => $booking->quantity,
+                'amount' => $booking->total_amount,
+                'amount_in_words' => NumberToWords::convert((float) $booking->total_amount),
+                // The date the MONEY moved, matching the donation path.
+                // The seva itself may fall in a later year; the deduction
+                // is claimed for the year it was paid in.
+                'donation_date' => $booking->created_at->toDateString(),
+                'payment_mode' => $booking->payment?->method ?? 'Online',
+                'generated_at' => now(),
+            ] + $this->devoteeSnapshot($devotee, $panNumber) + $this->trustSnapshot());
+        });
+
+        if (! $booking->is_80g_eligible) {
+            $booking->update(['is_80g_eligible' => true]);
+        }
+
+        $receipt->update(['pdf_path' => $this->generatePdf($receipt)]);
+
+        return $receipt;
+    }
+
+    /**
+     * ENGLISH seva name on purpose — the 80G receipt is English-only, so
+     * prefer `name_en` and fall back to Gujarati only when the admin left
+     * the English column blank. Same rule as liveCampaignTitle().
+     */
+    private function sevaTitleFor(SevaBooking $booking): ?string
+    {
+        $seva = $booking->seva;
+
+        if (! $seva) {
+            return null;
+        }
+
+        $title = trim((string) ($seva->name_en ?: $seva->name_gu));
+
+        return $title !== '' ? $title : null;
+    }
+
+    /**
+     * Persist the verdict for a seva booking that will never get an 80G
+     * receipt. Touches `is_80g_eligible` and NOTHING ELSE — `wants_80g`
+     * records what the devotee asked for and must survive the refusal, or
+     * the admin loses the ability to see who asked and was turned down for
+     * want of a PAN.
+     */
+    private function recordSevaIneligible(SevaBooking $booking, string $reason): void
+    {
+        if ($booking->is_80g_eligible) {
+            $booking->update(['is_80g_eligible' => false]);
+        }
+
+        Log::info('Seva 80G receipt withheld — strict PAN rule', [
+            'booking_id' => $booking->id,
+            'reason' => $reason,
+        ]);
     }
 
     /**
@@ -240,8 +429,12 @@ class ReceiptService
      * PUBLIC only so the concurrency test can hammer it from genuinely
      * parallel PHP processes (an in-process loop would prove nothing
      * about row locking). Every production caller reaches it through
-     * generateReceipt() — do NOT call it directly, or you will burn a
-     * statutory receipt number with no receipt attached to it.
+     * mintReceiptNumber(), from generateReceipt() or
+     * generateForSevaBooking() — do NOT call it directly, or you will burn
+     * a statutory receipt number with no receipt attached to it.
+     *
+     * Shared by both sources on purpose: donations and seva bookings
+     * interleave in ONE per-year sequence, which is what the trust files.
      *
      * MUST be called inside a transaction: lockForUpdate() outside one
      * is released immediately and buys nothing.
@@ -333,7 +526,12 @@ class ReceiptService
         $output = GujaratiPdf::render('receipts.receipt-80g', [
             'receipt' => $receipt,
             'campaign_title' => $this->campaignTitleFor($receipt),
-        ], ['format' => 'A4', 'watermark' => '80G RECEIPT']);
+        ], [
+            'format' => 'A4',
+            // The watermark names what the document IS, so a seva 80G
+            // receipt must not read "80G RECEIPT" over seva particulars.
+            'watermark' => $receipt->isForSeva() ? 'SEVA 80G RECEIPT' : '80G RECEIPT',
+        ]);
 
         $directory = "receipts/{$receipt->financial_year}";
         $filename = str_replace('/', '-', $receipt->receipt_number).'.pdf';
@@ -368,6 +566,12 @@ class ReceiptService
      */
     public function campaignTitleFor(Receipt80G $receipt): ?string
     {
+        // A seva receipt has no campaign and no donation to fall back
+        // through — return early rather than dereferencing a null relation.
+        if ($receipt->isForSeva()) {
+            return null;
+        }
+
         $snapshot = trim((string) $receipt->campaign_title);
 
         if ($snapshot !== '') {

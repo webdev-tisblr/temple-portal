@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\Msg91WebhookController;
 use App\Http\Controllers\Api\V1\NotificationInboxController;
 use App\Http\Controllers\Api\V1\PaymentVerificationController;
 use App\Http\Controllers\Api\V1\PaymentWebhookController;
+use App\Http\Controllers\Api\V1\Receipt80GController;
 use App\Http\Controllers\Api\V1\SevaController;
 use App\Http\Controllers\Api\V1\StoreController;
 use App\Http\Controllers\Api\V1\WhatsAppWebhookController;
@@ -381,6 +382,13 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         Route::get('/donations/history', [DonationController::class, 'history']);
         Route::get('/donations/{donation}', [DonationController::class, 'show']);
         Route::get('/donations/{donation}/receipt', [DonationController::class, 'downloadReceipt']);
+
+        // 80G receipts — BOTH sources (direct donations and seva bookings
+        // that opted in). The app's receipts screen used to derive this
+        // list by filtering /donations/history client-side, which could
+        // never surface a seva receipt.
+        Route::get('/receipts/80g', [Receipt80GController::class, 'index']);
+        Route::get('/receipts/80g/{receipt}/download', [Receipt80GController::class, 'download']);
 
         // Store (auth)
         // Tighter throttle on order CREATE: limits Razorpay order spam.

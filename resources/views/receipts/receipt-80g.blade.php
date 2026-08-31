@@ -85,7 +85,10 @@
             <div class="trust-address">{{ $receipt->trust_address }}</div>
             <div class="trust-reg">Trust Reg. No: A/1497 Dated 26-04-1994 &nbsp;|&nbsp; 80G Reg. No: A.A/RG./80G/12/G.R./2011-12/3958 &nbsp;|&nbsp; PAN: AAKTS1478C</div>
             <div style="margin-top: 10px;">
-                <span class="receipt-title">Donation Receipt u/s 80G</span>
+                {{-- Same statutory document either way; only the noun
+                     changes, so an assessing officer reading a stack of
+                     these sees one consistent format. --}}
+                <span class="receipt-title">{{ $receipt->isForSeva() ? 'Seva Receipt u/s 80G' : 'Donation Receipt u/s 80G' }}</span>
             </div>
         </div>
 
@@ -97,7 +100,12 @@
                     <span class="meta-value">{{ $receipt->receipt_number }}</span>
                 </td>
                 <td>
-                    <span class="meta-label">Date of Donation</span>
+                    {{-- donation_date is the date the MONEY moved on both
+                         sources — for a seva that is the booking/payment
+                         date, not the date the seva is performed (which
+                         gets its own row below). The deduction is claimed
+                         for the year of payment. --}}
+                    <span class="meta-label">{{ $receipt->isForSeva() ? 'Date of Payment' : 'Date of Donation' }}</span>
                     <span class="meta-value">{{ \Carbon\Carbon::parse($receipt->donation_date)->format('d/m/Y') }}</span>
                 </td>
                 <td>
@@ -128,12 +136,37 @@
         </table>
         @endif
 
+        {{-- What a seva payment was FOR — one line, deliberately.
+             The trust asked (2026-08-31) to keep the statutory document
+             minimal: no seva date, slot, quantity or "in the name of". A
+             tax receipt only has to say what the money was for, and the
+             seva DATE in particular invites confusion, since a seva booked
+             in March for April is deducted in the year it was PAID.
+
+             Read from the SNAPSHOT column frozen at issue time by
+             generateForSevaBooking(), never from the live booking, so
+             renaming a seva cannot rewrite a receipt already in a
+             devotee's hands. English name, matching the rest of this
+             document. The other particulars are still snapshotted on the
+             row — they just are not printed, so restoring any of them is a
+             Blade edit and not a migration. --}}
+        @if($receipt->isForSeva())
+        <table class="meta-bar">
+            <tr>
+                <td>
+                    <span class="meta-label">Towards</span>
+                    <span class="meta-value">{{ $receipt->seva_name ? 'Seva — '.$receipt->seva_name : 'Seva' }}</span>
+                </td>
+            </tr>
+        </table>
+        @endif
+
         {{-- Donor & Donation Details --}}
         <table class="two-col">
             <tr>
                 <td>
                     <div class="section">
-                        <div class="section-title">Donor Details</div>
+                        <div class="section-title">{{ $receipt->isForSeva() ? 'Devotee Details' : 'Donor Details' }}</div>
                         <table class="data-table">
                             <tr>
                                 <td class="label">Name</td>
@@ -181,14 +214,14 @@
 
         {{-- Thank You --}}
         <div class="thank-you">
-            <p>Thank you for your generous donation!</p>
+            <p>{{ $receipt->isForSeva() ? 'Thank you for your generous contribution!' : 'Thank you for your generous donation!' }}</p>
             <p class="sub">May Shree Hanumanji bless you and your family with health, happiness and prosperity.</p>
         </div>
 
         {{-- Legal Notes --}}
         <div class="legal-notes">
             <p><span class="note-num">1.</span> Under Schedule 1, Article 53, Exemption (b) of the Indian Stamps Act, Charitable institutions are not required to issue any (revenue) stamped receipts for donations.</p>
-            <p><span class="note-num">2.</span> The donation is exempt under Section 80G(5) of the Income Tax Act, 1961, in view of the exemption certificate granted by the Director of Income Tax (Exemption).</p>
+            <p><span class="note-num">2.</span> The {{ $receipt->isForSeva() ? 'contribution' : 'donation' }} is exempt under Section 80G(5) of the Income Tax Act, 1961, in view of the exemption certificate granted by the Director of Income Tax (Exemption).</p>
         </div>
 
         {{-- Footer --}}

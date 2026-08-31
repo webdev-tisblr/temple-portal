@@ -17,8 +17,16 @@ use Illuminate\Support\Facades\Storage;
  * CleanGeneratedInvoices sweeps `seva-receipts/` and NULLs
  * receipt_path; download controllers regenerate on a NULL path.
  *
- * This is a plain booking receipt, NOT an 80G receipt — seva payments
- * are deliberately not 80G-eligible (see PaymentCaptureService).
+ * This is the PLAIN booking receipt. A booking whose devotee opted into
+ * 80G gets the statutory document from ReceiptService instead — one
+ * receipt per booking, never both — so nothing here should ever run for
+ * such a booking. GenerateSevaReceipt picks between the two, and
+ * SevaReceiptDelivery routes every download surface accordingly.
+ *
+ * ⚠ `receipt_number` on the booking row is THIS service's number space
+ * only. Never write a statutory (SPHST/80G/…) number into it: pathFor()
+ * derives the storage key from it, so doing so would file a plain PDF
+ * under a statutory number.
  *
  * Localized since 2026-08-09: the whole render runs under the devotee's
  * own language (temple_devotees.language) so labels come from

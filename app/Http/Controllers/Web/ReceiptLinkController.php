@@ -11,7 +11,7 @@ use App\Models\Order;
 use App\Models\SevaBooking;
 use App\Services\HallInvoiceService;
 use App\Services\InvoiceService;
-use App\Services\SevaReceiptService;
+use App\Support\SevaReceiptDelivery;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -23,6 +23,10 @@ use Illuminate\Support\Facades\Log;
  * PDFs on r2_private are a regenerable cache (swept after 7 days), so
  * every method regenerates before redirecting through
  * private_file_redirect() (10-minute presigned R2 URL).
+ *
+ * Seva receipts come in two kinds since 2026-08-31 — the ordinary
+ * localized one and the statutory 80G one — and SevaReceiptDelivery owns
+ * the choice between them so all four download surfaces agree.
  *
  * Regeneration is gated on the service's own needsRegeneration(), NOT on
  * a bare null check. Paths are locale-suffixed ("-gu.pdf"), so a devotee
@@ -42,22 +46,18 @@ class ReceiptLinkController extends Controller
             abort(404);
         }
 
-        if (app(SevaReceiptService::class)->needsRegeneration($booking)) {
-            try {
-                app(SevaReceiptService::class)->generateReceipt($booking);
-                $booking->refresh();
-            } catch (\Throwable $e) {
-                Log::error('Signed-link seva receipt regen failed', [
-                    'booking_id' => $booking->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-            abort_unless((bool) $booking->receipt_path, 404);
-        }
+        // Serves the STATUTORY 80G receipt when the booking has one, and
+        // the ordinary localized seva receipt otherwise. This is what lets
+        // {{ receipt_pdf_url }} stay a single placeholder across both
+        // kinds — the link an admin configured in a WhatsApp template
+        // resolves to whichever document the booking actually has.
+        $resolved = SevaReceiptDelivery::resolve($booking);
 
-        $filename = 'Seva_Receipt_'.str_replace('/', '-', (string) ($booking->receipt_number ?? $booking->id)).'.pdf';
+        abort_if($resolved === null, 404);
 
-        return private_file_redirect($booking->receipt_path, $filename);
+        [$path, $filename] = $resolved;
+
+        return private_file_redirect($path, $filename);
     }
 
     public function storeInvoice(Order $order)

@@ -25,9 +25,7 @@ class DonationController extends BaseApiController
         $devotee = $request->user();
         $amount = (float) $validated['amount'];
 
-        $fy = now()->month >= 4
-            ? now()->year . '-' . substr((string) (now()->year + 1), -2)
-            : (now()->year - 1) . '-' . substr((string) now()->year, -2);
+        $fy = \App\Support\FinancialYear::current();
 
         // Process extra_data image uploads — mirrors DonationWebController.
         // The app sends image extra-fields as multipart (extra_data[key] =

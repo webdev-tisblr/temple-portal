@@ -14,8 +14,9 @@ use App\Models\Seva;
 use App\Models\SevaBooking;
 use App\Models\SystemSetting;
 use App\Services\RazorpayService;
-use App\Services\SevaReceiptService;
+use App\Services\ReceiptService;
 use App\Services\SevaSlotService;
+use App\Support\SevaReceiptDelivery;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -248,7 +249,9 @@ class SevaController extends BaseApiController
 
     public function bookings(Request $request): JsonResponse
     {
-        $bookings = SevaBooking::with(['seva', 'selectedProduct'])
+        // receipt80G eager-loaded: without it, display_receipt_number
+        // and booking_reference would lazy-load once per row.
+        $bookings = SevaBooking::with(['seva', 'selectedProduct', 'receipt80G'])
             ->where('devotee_id', $request->user()->id)
             ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
             ->orderByDesc('created_at')
@@ -271,7 +274,15 @@ class SevaController extends BaseApiController
             // download endpoint regenerates the PDF on a NULL path, so
             // this flag must NOT depend on receipt_path being set.
             'receipt_available' => in_array($booking->status->value, ['confirmed', 'completed'], true),
-            'receipt_number' => $booking->receipt_number,
+            // The number the devotee will actually see on the PDF: the
+            // statutory one when this booking got an 80G receipt, else the
+            // plain SEVA-… one.
+            'receipt_number' => $booking->display_receipt_number,
+            // Lets the app label which kind of document the download
+            // button hands over. `wants_80g` is what they asked for;
+            // `is_80g` is what they actually got (the PAN gate can refuse).
+            'wants_80g' => (bool) $booking->wants_80g,
+            'is_80g' => $booking->receipt80G !== null,
             'selected_product' => $booking->selectedProduct ? [
                 'id' => $booking->selectedProduct->id,
                 'name' => $booking->selectedProduct->name,
@@ -302,28 +313,19 @@ class SevaController extends BaseApiController
             return $this->error('Receipt is available only after booking is confirmed.', 404);
         }
 
-        // No R2 ->exists() probe — S3 HEADs hang, and the sweep NULLs
-        // receipt_path when it deletes the object. Regenerate via the
-        // service (not the job) so the devotee isn't re-notified.
-        // needsRegeneration() also covers a stale-locale path.
-        if (app(SevaReceiptService::class)->needsRegeneration($booking)) {
-            try {
-                app(SevaReceiptService::class)->generateReceipt($booking);
-                $booking->refresh();
-            } catch (\Throwable $e) {
-                Log::error('On-demand seva receipt regen failed (api)', [
-                    'booking_id' => $booking->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-            if (! $booking->receipt_path) {
-                return $this->error('Receipt could not be generated. Try again shortly.', 500);
-            }
+        // Serves the statutory 80G receipt when the booking has one, else
+        // the ordinary localized seva receipt. Regenerates via the SERVICE
+        // (never the job) so the devotee isn't re-notified, and never
+        // allocates a statutory number — see SevaReceiptDelivery.
+        $resolved = SevaReceiptDelivery::resolve($booking);
+
+        if ($resolved === null) {
+            return $this->error('Receipt could not be generated. Try again shortly.', 500);
         }
 
-        $filename = 'Seva_Receipt_'.str_replace('/', '-', (string) ($booking->receipt_number ?? $booking->id)).'.pdf';
+        [$path, $filename] = $resolved;
 
-        return private_file_redirect($booking->receipt_path, $filename);
+        return private_file_redirect($path, $filename);
     }
 
     public function book(BookSevaRequest $request, Seva $seva): JsonResponse
@@ -331,6 +333,12 @@ class SevaController extends BaseApiController
         $validated = $request->validated();
         $devotee = $request->user();
         $quantity = $validated['quantity'] ?? 1;
+        // The devotee's 80G REQUEST. Unlike the web flow there is no
+        // redirect-to-profile guard here — the app collects the PAN inline
+        // (PUT /me) before it calls this, and blocking an authorised
+        // payment over a missing PAN would strand a booking mid-checkout.
+        // The strict gate still runs at capture time in ReceiptService.
+        $wants80g = (bool) ($validated['wants_80g'] ?? false);
 
         // If the seva is configured for product selection, the selection is
         // required, must be one of the linked products, and the seva price =
@@ -405,7 +413,7 @@ class SevaController extends BaseApiController
                 $request, $seva->extra_fields, $validated['extra_data'] ?? null, 'seva-extras'
             );
 
-            $result = DB::transaction(function () use ($seva, $validated, $devotee, $quantity, $totalAmount, $variantLabel, $extraData) {
+            $result = DB::transaction(function () use ($seva, $validated, $devotee, $quantity, $totalAmount, $variantLabel, $extraData, $wants80g) {
                 // Race-safe capacity re-check under a row lock (see
                 // SevaSlotService::hasSlotCapacityForUpdate). Closes the
                 // window between validateBooking() and the insert.
@@ -450,6 +458,13 @@ class SevaController extends BaseApiController
                     'devotee_name_for_seva' => $validated['devotee_name_for_seva'] ?? $devotee->name,
                     'selected_product_id' => $validated['selected_product_id'] ?? null,
                     'selected_variant_label' => $variantLabel,
+                    // What the devotee ASKED for. The app saves the PAN to
+                    // the profile (PUT /me) before it gets here, but this
+                    // is NOT a promise of a receipt: ReceiptService
+                    // re-applies the strict PAN gate at capture time and
+                    // falls back to the ordinary seva receipt if it fails.
+                    // Absent (older builds) reads as false.
+                    'wants_80g' => $wants80g,
                     'extra_data' => $extraData,
                 ]);
 
@@ -474,6 +489,13 @@ class SevaController extends BaseApiController
                 'amount_paise' => (int) round($totalAmount * 100),
                 'devotee_name' => $devotee->name,
                 'devotee_phone' => $devotee->phone,
+                // Mirrors the donation create response so an OLDER app
+                // build — one that sends wants_80g but has no inline PAN
+                // prompt — can still warn that the tick will not produce a
+                // receipt. Booking is NOT blocked: the payment is valid
+                // either way, only the kind of receipt changes.
+                'pan_required_for_80g' => $wants80g
+                    && ! app(ReceiptService::class)->devoteeHasValid80GPan($devotee),
             ], 'સેવા બુકિંગ બનાવ્યું. પેમેન્ટ પૂર્ણ કરો.');
 
         } catch (SlotUnavailableException $e) {

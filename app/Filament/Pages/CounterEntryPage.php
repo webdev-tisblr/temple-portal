@@ -635,6 +635,18 @@ class CounterEntryPage extends Page implements HasForms
                     ->label('Name to be taken in the seva')
                     ->maxLength(255),
 
+                // Named `seva_wants_80g`, NOT `wants_80g`: the donation
+                // section already owns that state path, and two components
+                // sharing one path in the same schema fight over it — the
+                // sections are only visually exclusive, both are registered.
+                //
+                // Defaults OFF, unlike the donation toggle. A walk-in seva
+                // is a service booking first, so the clerk has to ask.
+                Forms\Components\Toggle::make('seva_wants_80g')
+                    ->label('Devotee wants an 80G receipt')
+                    ->default(false)
+                    ->helperText('Same strict rule as donations: with no valid PAN on the devotee profile, NO 80G receipt is issued and no receipt number is burnt — they get the ordinary seva receipt instead. Ticking this replaces the seva receipt with the 80G one; a booking never gets both.'),
+
             ])
             ->columns(2);
     }

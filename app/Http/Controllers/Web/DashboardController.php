@@ -14,8 +14,8 @@ use App\Models\SevaBooking;
 use App\Services\ContactThreadService;
 use App\Services\PanValidationService;
 use App\Services\ReceiptService;
-use App\Services\SevaReceiptService;
 use App\Support\SafeRedirect;
+use App\Support\SevaReceiptDelivery;
 use Artesaos\SEOTools\Facades\SEOMeta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -122,13 +122,23 @@ class DashboardController extends Controller
     public function receipts(): View
     {
         $devotee = Auth::guard('devotee')->user();
-        // Only collect donation ids for captured payments — a receipt should
-        // never exist for an uncaptured donation, but the filter also future-
-        // proofs us if any stray Receipt80G rows are seeded by tests.
+        // Only collect ids for captured payments — a receipt should never
+        // exist for an uncaptured donation or booking, but the filter also
+        // future-proofs us if any stray Receipt80G rows are seeded by tests.
         $donationIds = Donation::where('devotee_id', $devotee->id)
             ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
             ->pluck('id');
-        $receipts = Receipt80G::whereIn('donation_id', $donationIds)
+
+        // Seva bookings that opted into 80G issue the SAME statutory
+        // receipt (2026-08-31), so this list covers both sources — the
+        // devotee has one 80G folder, not one per product.
+        $sevaBookingIds = SevaBooking::where('devotee_id', $devotee->id)
+            ->whereHas('payment', fn ($q) => $q->where('status', 'captured'))
+            ->pluck('id');
+
+        $receipts = Receipt80G::where(fn ($q) => $q
+            ->whereIn('donation_id', $donationIds)
+            ->orWhereIn('seva_booking_id', $sevaBookingIds))
             ->orderByDesc('created_at')->paginate(20);
 
         SEOMeta::setTitle('80G રસીદો');
@@ -198,13 +208,18 @@ class DashboardController extends Controller
     public function downloadReceipt(Receipt80G $receipt): Response|RedirectResponse
     {
         $devotee = Auth::guard('devotee')->user();
-        $donation = Donation::find($receipt->donation_id);
 
-        if (! $donation || $donation->devotee_id !== $devotee->id) {
+        // Ownership runs through whichever source issued the receipt.
+        // Exactly one of the two FKs is set — see the Receipt80G model.
+        $owner = $receipt->isForSeva()
+            ? SevaBooking::find($receipt->seva_booking_id)?->devotee_id
+            : Donation::find($receipt->donation_id)?->devotee_id;
+
+        if ($owner === null || $owner !== $devotee->id) {
             abort(403);
         }
 
-        // ALLOCATION SITE #4 of 4 (item 5.4) — and the one that must NEVER
+        // ALLOCATION SITE #4 (item 5.4) — and the one that must NEVER
         // allocate. It is reached only through an existing Receipt80G, so
         // it uses ensurePdf(), which takes an issued receipt and can only
         // refresh its cached file. Calling generateReceipt() here would
@@ -220,7 +235,7 @@ class DashboardController extends Controller
                 $receipt = app(ReceiptService::class)->ensurePdf($receipt);
             } catch (\Throwable $e) {
                 Log::error('Receipt regen failed', [
-                    'donation_id' => $donation->id,
+                    'receipt_number' => $receipt->receipt_number,
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -248,29 +263,19 @@ class DashboardController extends Controller
             abort(404, 'રસીદ બુકિંગ કન્ફર્મ થયા પછી જ ઉપલબ્ધ થશે.');
         }
 
-        // Self-heal: regenerate via the service (not the GenerateSevaReceipt
-        // job — that path also notifies the devotee). No R2 ->exists()
-        // probe — the sweep NULLs receipt_path, so non-null == present.
-        // needsRegeneration() also catches a path rendered in a language the
-        // devotee has since changed away from.
-        if (app(SevaReceiptService::class)->needsRegeneration($booking)) {
-            try {
-                app(SevaReceiptService::class)->generateReceipt($booking);
-                $booking->refresh();
-            } catch (\Throwable $e) {
-                Log::error('On-demand seva receipt regen failed (web)', [
-                    'booking_id' => $booking->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-            if (! $booking->receipt_path) {
-                return back()->withErrors(['receipt' => 'રસીદ PDF ઉપલબ્ધ નથી. કૃપા કરી થોડી વારે ફરી પ્રયાસ કરો.']);
-            }
+        // Self-heals via the SERVICE, never the GenerateSevaReceipt job —
+        // that path also notifies the devotee. Serves the statutory 80G
+        // receipt when this booking has one, else the ordinary localized
+        // seva receipt; never allocates a statutory number.
+        $resolved = SevaReceiptDelivery::resolve($booking);
+
+        if ($resolved === null) {
+            return back()->withErrors(['receipt' => 'રસીદ PDF ઉપલબ્ધ નથી. કૃપા કરી થોડી વારે ફરી પ્રયાસ કરો.']);
         }
 
-        $filename = 'Seva_Receipt_'.str_replace('/', '-', (string) ($booking->receipt_number ?? $booking->id)).'.pdf';
+        [$path, $filename] = $resolved;
 
-        return private_file_redirect($booking->receipt_path, $filename);
+        return private_file_redirect($path, $filename);
     }
 
     public function profile(): View

@@ -10,7 +10,9 @@ use App\Models\Payment;
 use App\Models\Seva;
 use App\Models\SevaBooking;
 use App\Services\RazorpayService;
+use App\Services\ReceiptService;
 use App\Services\SevaSlotService;
+use App\Support\SafeRedirect;
 use Artesaos\SEOTools\Facades\SEOMeta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -64,7 +66,14 @@ class SevaWebController extends Controller
 
         $linkedProducts = $seva->hasProductSelection() ? $seva->getLinkedProductsList() : collect();
 
-        return view('pages.seva.show', compact('seva', 'linkedProducts'));
+        // Drives the 80G block on the booking form: with a PAN already on
+        // file the devotee just ticks the box, without one they get the
+        // "add your PAN" panel. Guests see neither — the whole booking
+        // panel is auth-gated.
+        $hasPan = app(ReceiptService::class)
+            ->devoteeHasValid80GPan(Auth::guard('devotee')->user());
+
+        return view('pages.seva.show', compact('seva', 'linkedProducts', 'hasPan'));
     }
 
     public function book(BookSevaRequest $request, Seva $seva): View|RedirectResponse
@@ -139,6 +148,28 @@ class SevaWebController extends Controller
             return back()->withErrors(['slot_time' => $slotError]);
         }
 
+        // ── The 80G prompt (mirrors DonationWebController::create) ──
+        // MANDATORY on the web, not merely nice: on iOS the donate flow IS
+        // this website, and a prompt built only in Flutter would let half
+        // the userbase past the rule. The Alpine panel on the booking form
+        // is the friendly version; this is the one that actually holds, and
+        // it also covers no-JS.
+        //
+        // Returns BEFORE any Razorpay order and before the slot is held —
+        // nothing is charged and no capacity is consumed. SafeRedirect
+        // remembers a fully-restored /seva/{slug} URL so saving the PAN
+        // lands them back on a form that is already filled in.
+        $wants80g = (bool) ($validated['wants_80g'] ?? false);
+
+        if ($wants80g && ! app(ReceiptService::class)->devoteeHasValid80GPan($devotee)) {
+            SafeRedirect::remember($this->sevaReturnUrl($seva, $validated));
+
+            return redirect()
+                ->route('dashboard.profile')
+                ->with('pan_required_for_80g', true)
+                ->with('warning', __('seva.pan_required_body'));
+        }
+
         // Extra-field answers, with any photo uploaded to R2 first. Done
         // BEFORE the transaction: an upload is slow network I/O and must not
         // be holding a row lock (2026-08-13).
@@ -199,6 +230,13 @@ class SevaWebController extends Controller
                     'devotee_name_for_seva' => $validated['devotee_name_for_seva'] ?? $devotee->name,
                     'selected_product_id' => $validated['selected_product_id'] ?? null,
                     'selected_variant_label' => $validated['selected_variant_label'] ?? null,
+                    // What the devotee ASKED for. The guard above already
+                    // proved they hold a valid PAN if this is true; the
+                    // VERDICT (is_80g_eligible) is written at capture time
+                    // by ReceiptService, which re-checks — a PAN cleared
+                    // between booking and payment must still withhold the
+                    // statutory receipt.
+                    'wants_80g' => (bool) ($validated['wants_80g'] ?? false),
                     'extra_data' => $extraData,
                 ]);
 
@@ -226,6 +264,36 @@ class SevaWebController extends Controller
             Log::error('Web seva booking failed', ['error' => $e->getMessage()]);
             return back()->withErrors(['booking' => 'બુકિંગ બનાવવામાં નિષ્ફળ. કૃપા કરીને ફરી પ્રયાસ કરો.']);
         }
+    }
+
+    /**
+     * The /seva/{seva} URL to send a devotee back to after they add the
+     * PAN their 80G tick requires — same mechanism as
+     * DonationWebController::donateReturnUrl (item 3.1 / SafeRedirect).
+     *
+     * Restores the choices that are expensive to re-make: date, slot,
+     * quantity, product + variant, and the 80G tick itself. Deliberately
+     * NOT restored: `devotee_name_for_seva` (re-prefilled from the profile
+     * anyway) and any uploaded extra_data photo, which cannot survive a
+     * redirect and is re-picked by the devotee.
+     *
+     * Absolute (route() output) on purpose: SafeRedirect::normalize accepts
+     * an own-host URL and reduces it to a path, which is the same shape
+     * Redirector::guest() stores.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function sevaReturnUrl(Seva $seva, array $validated): string
+    {
+        return route('seva.show', array_filter([
+            'seva' => $seva,
+            'booking_date' => $validated['booking_date'] ?? null,
+            'slot_time' => $validated['slot_time'] ?? null,
+            'quantity' => ($validated['quantity'] ?? 1) > 1 ? (int) $validated['quantity'] : null,
+            'selected_product_id' => $validated['selected_product_id'] ?? null,
+            'selected_variant_label' => $validated['selected_variant_label'] ?? null,
+            'wants_80g' => 1,
+        ], fn ($value) => $value !== null && $value !== ''));
     }
 
     private function bookTestMode(Seva $seva, array $validated, $devotee, int $quantity, float $totalAmount, ?array $extraData = null): View|RedirectResponse
@@ -266,11 +334,21 @@ class SevaWebController extends Controller
                     'devotee_name_for_seva' => $validated['devotee_name_for_seva'] ?? $devotee->name,
                     'selected_product_id' => $validated['selected_product_id'] ?? null,
                     'selected_variant_label' => $validated['selected_variant_label'] ?? null,
+                    // What the devotee ASKED for. The guard above already
+                    // proved they hold a valid PAN if this is true; the
+                    // VERDICT (is_80g_eligible) is written at capture time
+                    // by ReceiptService, which re-checks — a PAN cleared
+                    // between booking and payment must still withhold the
+                    // statutory receipt.
+                    'wants_80g' => (bool) ($validated['wants_80g'] ?? false),
                     'extra_data' => $extraData,
                 ]);
 
-                // No Donation row for seva bookings — seva payments are
-                // not 80G eligible. See PaymentCaptureService doc-comment.
+                // No Donation row for seva bookings — that synthesis was
+                // removed 2026-05-13 because it double-counted every seva
+                // payment as a donation. An 80G receipt for a seva now
+                // hangs off the BOOKING (Receipt80G.seva_booking_id); it
+                // does not need, and must not create, a Donation row.
                 return ['booking' => $booking, 'payment' => $payment];
             });
 

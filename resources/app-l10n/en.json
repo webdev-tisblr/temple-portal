@@ -666,5 +666,10 @@
   "update.restart_now": "Restart",
   "update.available_title": "Update available",
   "update.available_body": "Version {} is on the App Store. Updating keeps everything working smoothly.",
-  "update.later": "Later"
+  "update.later": "Later",
+  "seva.want_80g": "I want an 80G tax-exemption receipt for this seva",
+  "seva.want_80g_hint": "Requires a valid PAN. Without a PAN no 80G receipt is issued — you still receive your usual seva receipt.",
+  "seva.no_pan_body": "You asked for an 80G receipt but have not entered a PAN. Enter one now, or continue — the booking goes ahead either way, you will simply get the usual seva receipt instead.",
+  "receipt.source_seva": "Seva",
+  "receipt.source_donation": "Donation"
 }

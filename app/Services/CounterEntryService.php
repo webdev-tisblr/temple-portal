@@ -647,6 +647,19 @@ class CounterEntryService
             'selected_product_id' => $data['selected_product_id'] ?? null,
             'selected_variant_label' => $data['selected_variant_label'] ?? null,
             'notes' => $data['notes'] ?? null,
+            // ── STRICT 80G (2026-08-31) — identical rule to web + app ──
+            // Defaults FALSE (donations default true): a walk-in seva
+            // booking is a service first, so the clerk has to ask.
+            // As with donations this only records the verdict up front —
+            // the minting decision is retaken inside GenerateSevaReceipt →
+            // generateForSevaBooking() → sevaIneligibilityReason(), so a
+            // counter booking cannot route around the gate.
+            // `seva_wants_80g`, not `wants_80g` — the counter form keeps
+            // the two toggles on separate state paths so the donation and
+            // seva sections cannot clobber each other. See CounterEntryPage.
+            'wants_80g' => (bool) ($data['seva_wants_80g'] ?? false),
+            'is_80g_eligible' => (bool) ($data['seva_wants_80g'] ?? false)
+                && $this->receipts->devoteeHasValid80GPan($devotee),
         ], $paidAt);
     }
 
@@ -811,13 +824,13 @@ class CounterEntryService
     /**
      * Indian financial year (April–March) as "YYYY-YY".
      * Public + static so the counter form, the tests and any future
-     * back-dating caller all agree on one definition.
+     * back-dating caller all agree on one definition. Kept as a named
+     * entry point (callers and tests reference it) but delegating to
+     * App\Support\FinancialYear, which is now the single definition.
      */
     public static function financialYearFor(CarbonInterface $moment): string
     {
-        return $moment->month >= 4
-            ? $moment->year.'-'.substr((string) ($moment->year + 1), -2)
-            : ($moment->year - 1).'-'.substr((string) $moment->year, -2);
+        return \App\Support\FinancialYear::for($moment);
     }
 
     /**

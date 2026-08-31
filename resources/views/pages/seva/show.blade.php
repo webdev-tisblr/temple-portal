@@ -413,12 +413,65 @@
                                     </div>
                                 @endforeach
 
+                                {{-- ── 80G receipt opt-in ─────────────────────
+                                     Default UNCHECKED: a seva is a service
+                                     booking first, so an untouched box means
+                                     the ordinary seva receipt. Ticking it
+                                     swaps the document for the statutory 80G
+                                     one — never both.
+
+                                     The panel below is the friendly half of
+                                     the PAN rule; SevaWebController::book()
+                                     holds the binding half (and covers no-JS).
+                                     Same mechanism as the donate form. --}}
+                                <div class="mb-4 text-left">
+                                    <label class="flex items-start gap-3 cursor-pointer">
+                                        <input type="checkbox" x-model="wants80g" class="mt-1 rounded border-amber-800/40 bg-transparent text-amber-500 focus:ring-amber-600/20">
+                                        <span>
+                                            <span class="text-sm text-amber-100/60">{{ __('seva.want_80g') }}</span>
+                                            @if($hasPan)
+                                                <span class="ml-2 text-xs text-emerald-400">✓ {{ __('donation.pan_on_file') }}</span>
+                                            @endif
+                                            <span class="block text-xs text-amber-100/30 mt-0.5">{{ __('seva.want_80g_hint') }}</span>
+                                        </span>
+                                    </label>
+
+                                    @unless($hasPan)
+                                        <div x-show="wants80g" x-cloak
+                                            class="mt-3 rounded-lg border border-amber-700/40 bg-amber-900/20 px-4 py-3">
+                                            <p class="text-sm font-semibold text-amber-300">{{ __('donation.pan_required_title') }}</p>
+                                            <p class="text-xs text-amber-100/50 mt-1">{{ __('seva.pan_required_body') }}</p>
+                                            <div class="mt-3 flex flex-wrap gap-2">
+                                                {{-- Submits the form rather than linking
+                                                     straight to /dashboard/profile: the
+                                                     server-side guard is what records the
+                                                     return destination (SafeRedirect), and
+                                                     it rebuilds a /seva/{slug} URL carrying
+                                                     the date, slot and product — so saving
+                                                     the PAN lands them back on a form that
+                                                     is already filled in. Nothing is
+                                                     charged and no slot is held: the guard
+                                                     returns before any Razorpay order. --}}
+                                                <button type="submit"
+                                                    class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold bg-amber-600 text-stone-900 hover:bg-amber-500 transition">
+                                                    {{ __('donation.add_pan_now') }}
+                                                </button>
+                                                <button type="button" @click="wants80g = false"
+                                                    class="inline-flex items-center px-4 py-2 rounded-lg text-sm border border-amber-800/40 text-amber-100/60 hover:border-amber-600 transition">
+                                                    {{ __('donation.continue_without_80g') }}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    @endunless
+                                </div>
+
                                 <input type="hidden" name="booking_date" :value="selectedDate">
                                 <input type="hidden" name="slot_time" :value="selectedSlot">
                                 <input type="hidden" name="quantity" value="1">
                                 <input type="hidden" name="devotee_name_for_seva" :value="devoteeName">
                                 <input type="hidden" name="selected_product_id" :value="selectedProductId">
                                 <input type="hidden" name="selected_variant_label" :value="selectedVariant">
+                                <input type="hidden" name="wants_80g" :value="wants80g ? 1 : 0">
                                 <button type="submit"
                                     :disabled="!canBook()"
                                     class="w-full px-8 py-3 btn-divine disabled:opacity-40 disabled:cursor-not-allowed">
@@ -496,6 +549,11 @@ function slotPicker(sevaId) {
              the devotee's own far more often than not, and a devotee booking
              for a relative just types over it. --}}
         devoteeName: @js(auth('devotee')->user()?->name ?? ''),
+
+        {{-- Default UNCHECKED. Re-seeded from the query string so a devotee
+             bounced to /dashboard/profile to add a PAN comes back with the
+             box still ticked (SevaWebController::sevaReturnUrl). --}}
+        wants80g: @js((bool) request()->boolean('wants_80g')),
 
         // ── Press-and-hold product preview ─────────────────────────────
         // 320ms is long enough that a normal tap still selects the product

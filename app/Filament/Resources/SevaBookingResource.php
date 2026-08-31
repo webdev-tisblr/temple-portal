@@ -80,6 +80,26 @@ class SevaBookingResource extends Resource
                     ->content(fn ($record) => $record?->devotee_name_for_seva ?? '—'),
             ])->columns(2),
 
+            // Read-only: neither flag is an admin decision. `wants_80g` is
+            // what the devotee ticked at booking, and `is_80g_eligible` is
+            // the strict PAN gate's verdict at capture. Editing either here
+            // would let a statutory receipt be issued (or withdrawn)
+            // without the rule that governs it ever running.
+            Forms\Components\Section::make('80G')->schema([
+                Forms\Components\Placeholder::make('wants_80g_label')
+                    ->label('Devotee asked for 80G')
+                    ->content(fn ($record) => $record?->wants_80g ? 'Yes' : 'No'),
+                Forms\Components\Placeholder::make('receipt_80g_label')
+                    ->label('80G Receipt No.')
+                    ->content(fn ($record) => $record?->receipt80G?->receipt_number
+                        ?? ($record?->wants_80g
+                            ? 'Not issued — no valid PAN on the devotee profile'
+                            : '—')),
+                Forms\Components\Placeholder::make('seva_receipt_label')
+                    ->label('Seva Receipt No.')
+                    ->content(fn ($record) => $record?->receipt_number ?? '—'),
+            ])->columns(3),
+
             Forms\Components\Section::make('Payment')->schema([
                 Forms\Components\Placeholder::make('razorpay_payment_id_label')
                     ->label('Razorpay Payment ID')
@@ -154,6 +174,17 @@ class SevaBookingResource extends Resource
                 Tables\Columns\TextColumn::make('total_amount')
                     ->prefix('₹')
                     ->sortable(),
+                // Shows what the devotee GOT, not what they asked for: the
+                // tick alone means nothing if the PAN gate refused.
+                Tables\Columns\IconColumn::make('receipt80G')
+                    ->label('80G')
+                    ->boolean()
+                    ->getStateUsing(fn ($record) => $record->receipt80G !== null)
+                    ->trueIcon('heroicon-o-document-check')
+                    ->falseIcon('heroicon-o-minus-small')
+                    ->trueColor('success')
+                    ->falseColor('gray')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('payment.status')
                     ->label('Payment')
                     ->badge()
@@ -206,6 +237,21 @@ class SevaBookingResource extends Resource
                 // there was no way to isolate one (2026-08-17).
                 // ->get()->pluck() because `name` is a localized accessor: a
                 // raw pluck selects a column that does not exist.
+                // Two DIFFERENT questions, so two filters rather than one
+                // tri-state: "who asked" is the demand signal the trust
+                // wants, "who was refused" is the follow-up list — those
+                // devotees can still be issued a receipt by adding their
+                // PAN and regenerating.
+                Tables\Filters\TernaryFilter::make('wants_80g')
+                    ->label('Asked for 80G')
+                    ->placeholder('All bookings')
+                    ->trueLabel('Asked for an 80G receipt')
+                    ->falseLabel('Did not ask'),
+                Tables\Filters\Filter::make('missing_80g_receipt')
+                    ->label('Asked for 80G but got none')
+                    ->query(fn (Builder $query) => $query
+                        ->where('wants_80g', true)
+                        ->whereDoesntHave('receipt80G')),
                 Tables\Filters\SelectFilter::make('seva_id')
                     ->label('Seva')
                     ->options(fn (): array => \App\Models\Seva::query()
@@ -268,7 +314,9 @@ class SevaBookingResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return parent::getEloquentQuery()->with(['seva', 'devotee', 'payment', 'selectedProduct']);
+        // receipt80G eager-loaded for the 80G column and the display
+        // receipt number — without it the table lazy-loads once per row.
+        return parent::getEloquentQuery()->with(['seva', 'devotee', 'payment', 'selectedProduct', 'receipt80G']);
     }
 
     public static function getPages(): array

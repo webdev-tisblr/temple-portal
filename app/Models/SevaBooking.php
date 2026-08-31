@@ -7,10 +7,12 @@ namespace App\Models;
 use App\Enums\BookingStatus;
 use App\Models\Concerns\HasManagedImages;
 use App\Services\SevaSlotService;
+use App\Support\FinancialYear;
 use App\Traits\HasUuid;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -25,7 +27,13 @@ class SevaBooking extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['status', 'total_amount', 'booking_date', 'slot_time', 'quantity', 'receipt_number'])
+            ->logOnly([
+                'status', 'total_amount', 'booking_date', 'slot_time', 'quantity',
+                // Both 80G columns are on the money log: is_80g_eligible
+                // decides whether a STATUTORY receipt number gets burnt,
+                // so a change to it has to be auditable.
+                'receipt_number', 'wants_80g', 'is_80g_eligible',
+            ])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
             ->useLogName('money');
@@ -51,6 +59,13 @@ class SevaBooking extends Model
         'cancellation_reason',
         'receipt_number',
         'receipt_path',
+        // Two INDEPENDENT flags, exactly as on temple_donations:
+        //   wants_80g       — what the devotee ASKED for (the checkbox).
+        //   is_80g_eligible — the system's VERDICT after the PAN gate.
+        // Never collapse them: a devotee who asked and was refused for
+        // want of a PAN must still read as having asked.
+        'wants_80g',
+        'is_80g_eligible',
         'greeting_card_path',
     ];
 
@@ -70,6 +85,8 @@ class SevaBooking extends Model
         'total_amount' => 'decimal:2',
         'quantity' => 'integer',
         'cancelled_at' => 'datetime',
+        'wants_80g' => 'boolean',
+        'is_80g_eligible' => 'boolean',
     ];
 
     /**
@@ -99,6 +116,20 @@ class SevaBooking extends Model
      */
     public function getBookingReferenceAttribute(): string
     {
+        // An 80G booking has NO `receipt_number` of its own — the
+        // statutory number lives on the Receipt80G row, deliberately kept
+        // out of this column so SevaReceiptService can never file a plain
+        // PDF under a statutory number. Prefer it when the caller has
+        // already eager-loaded the relation; never lazy-load here, this
+        // accessor runs once per row in the reminder sweep.
+        if ($this->relationLoaded('receipt80G')) {
+            $statutory = trim((string) ($this->receipt80G?->receipt_number ?? ''));
+
+            if ($statutory !== '') {
+                return $statutory;
+            }
+        }
+
         $receiptNumber = trim((string) ($this->receipt_number ?? ''));
 
         if ($receiptNumber !== '') {
@@ -155,5 +186,35 @@ class SevaBooking extends Model
     public function selectedProduct(): BelongsTo
     {
         return $this->belongsTo(Product::class, 'selected_product_id');
+    }
+
+    /**
+     * The number to SHOW for whichever receipt this booking actually has.
+     *
+     * Lazy-loads the relation, so use it on single records and eager-load
+     * `receipt80G` on lists.
+     */
+    public function getDisplayReceiptNumberAttribute(): ?string
+    {
+        return $this->receipt80G?->receipt_number ?? $this->receipt_number;
+    }
+
+    /** The statutory 80G receipt, when this booking opted in and qualified. */
+    public function receipt80G(): HasOne
+    {
+        return $this->hasOne(Receipt80G::class, 'seva_booking_id');
+    }
+
+    /**
+     * Financial year of the booking, matching `temple_donations.financial_year`.
+     *
+     * Keyed off `created_at` (when the money moved), NOT `booking_date` —
+     * a seva booked in March for a date in April belongs to the year it
+     * was PAID in, which is the year the donor claims the deduction in and
+     * the year the trust reports it in.
+     */
+    public function getFinancialYearAttribute(): string
+    {
+        return FinancialYear::for($this->created_at ?? now());
     }
 }

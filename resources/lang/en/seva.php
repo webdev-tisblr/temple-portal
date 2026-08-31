@@ -66,4 +66,14 @@ return [
     // Headline price for sevas priced by a linked product. Mirrors the app's
     // seva.from_amount string so both surfaces read identically.
     'from_amount' => 'Starting ₹:amount',
+    // ── 80G opt-in on the booking form (2026-08-31) ──────────────────
+    // Default UNCHECKED. Ticking it swaps the ordinary seva receipt for
+    // the statutory 80G one — a booking gets one receipt, never both.
+    // The PAN prompt strings are shared with the donate form
+    // (donation.pan_required_title / add_pan_now / continue_without_80g /
+    // pan_on_file); only these three are seva-specific, because the
+    // donation wording says "donation" where this must say "seva".
+    'want_80g' => 'I want an 80G tax-exemption receipt for this seva',
+    'want_80g_hint' => 'Requires a valid PAN on your profile. Without a PAN no 80G receipt is issued — you still receive your usual seva receipt.',
+    'pan_required_body' => 'Add your PAN to your profile and we will bring you straight back here to finish this booking.',
 ];

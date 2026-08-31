@@ -251,7 +251,7 @@ class AuditNotificationPlaceholders extends Command
                 // booking as ARRAY + explicit label keys + receipt fields.
                 $booking = SevaBooking::query()
                     ->where('status', 'confirmed')
-                    ->with('devotee', 'seva.assignee')
+                    ->with('devotee', 'seva.assignee', 'receipt80G')
                     ->orderByRaw('receipt_number IS NULL')
                     ->latest('created_at')->first();
                 if (! $booking) return ['__no_data' => true];
@@ -270,7 +270,13 @@ class AuditNotificationPlaceholders extends Command
                     ]),
                     'devotee' => $booking->devotee,
                     'trust_name' => $trustName,
-                    'receipt_number' => $booking->receipt_number ?? 'SEVA-00000000-XXXXXXXXXX',
+                    // The job resolves this to the STATUTORY 80G number
+                    // for a booking that opted in and qualified, and to the
+                    // plain SEVA-… one otherwise — with booking_reference
+                    // as the last resort, because an empty WhatsApp
+                    // parameter makes Meta reject the whole message.
+                    'receipt_number' => $booking->display_receipt_number
+                        ?: ($booking->booking_reference ?: 'SEVA-00000000-XXXXXXXXXX'),
                     'receipt_pdf_url' => '(signed URL — generated at dispatch)',
                 ];
 

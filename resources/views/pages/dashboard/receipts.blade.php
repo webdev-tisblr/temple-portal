@@ -42,9 +42,16 @@
                         <tr class="dash-tr">
                             <x-dashboard.cell :label="__('dashboard.col_receipt_no')">
                                 <span class="font-mono text-sm font-semibold" style="color: #2A1810;">{{ $receipt->receipt_number }}</span>
+                                {{-- The list now mixes donation and seva 80G
+                                     receipts, so name what each one is for. --}}
+                                @if($receipt->source_label)
+                                    <span class="block text-xs mt-0.5" style="color: #8A7560;">{{ $receipt->source_label }}</span>
+                                @endif
                             </x-dashboard.cell>
 
                             <x-dashboard.cell :label="__('dashboard.col_donation_date')">
+                                {{-- donation_date is the date the MONEY moved
+                                     on both sources. --}}
                                 {{ optional($receipt->donation_date)->format('d/m/Y') ?? optional($receipt->created_at)->format('d/m/Y') }}
                             </x-dashboard.cell>
 

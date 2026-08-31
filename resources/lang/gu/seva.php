@@ -64,4 +64,9 @@ return [
     // Headline price for sevas priced by a linked product. Mirrors the app's
     // seva.from_amount string so both surfaces read identically.
     'from_amount' => '₹:amount થી શરૂ',
+    // ── 80G opt-in on the booking form (2026-08-31) ──────────────────
+    // See the English file for why only these three are seva-specific.
+    'want_80g' => 'મને આ સેવા માટે 80G કર-મુક્તિ રસીદ જોઈએ છે',
+    'want_80g_hint' => 'તમારી પ્રોફાઇલમાં માન્ય PAN હોવો જરૂરી છે. PAN વગર 80G રસીદ આપવામાં આવતી નથી — તમને તમારી સામાન્ય સેવા રસીદ મળશે જ.',
+    'pan_required_body' => 'તમારી પ્રોફાઇલમાં PAN ઉમેરો — અમે તમને સીધા અહીં પાછા લાવીશું જેથી આ બુકિંગ પૂરું કરી શકાય.',
 ];

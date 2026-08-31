@@ -25,6 +25,11 @@ class BookSevaRequest extends FormRequest
             'devotee_name_for_seva' => ['nullable', 'string', 'max:255'],
             'selected_product_id' => ['nullable', 'integer', 'exists:temple_products,id'],
             'selected_variant_label' => ['nullable', 'string', 'max:255'],
+            // 80G opt-in (2026-08-31). `nullable` so older app builds that
+            // never send it keep working — absent reads as FALSE via the
+            // column default, which is the safe direction: an untouched
+            // checkbox must mean "plain seva receipt".
+            'wants_80g' => ['nullable', 'boolean'],
         ] + \App\Support\ExtraFieldValues::rules();
     }
 }

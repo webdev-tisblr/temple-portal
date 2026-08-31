@@ -141,9 +141,7 @@ class DonationWebController extends Controller
         $is80gEligible = $wants80g && $hasValidPan;
         $anonymous = (bool) ($validated['anonymous'] ?? false);
 
-        $fy = now()->month >= 4
-            ? now()->year . '-' . substr((string) (now()->year + 1), -2)
-            : (now()->year - 1) . '-' . substr((string) now()->year, -2);
+        $fy = \App\Support\FinancialYear::current();
 
         // Process extra_data — handle image uploads
         // Field definitions come from the donation TYPE, or — in campaign mode,

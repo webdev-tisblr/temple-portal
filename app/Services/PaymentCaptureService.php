@@ -241,12 +241,18 @@ class PaymentCaptureService
             }
 
             // ---- Donation + PAN sync -------------------------------
-            // 80G receipts are STRICTLY for direct donations (daan), not
-            // for seva / hall / store payments. Earlier this block also
-            // synthesised a Donation from a SevaBooking with
-            // is_80g_eligible=true and fired Generate80GReceipt, which is
-            // why test seva bookings were emailing 80G PDFs. Removed —
-            // seva payments now fire only seva.booking.confirmed above.
+            // This block is for DIRECT donations only. It used to also
+            // synthesise a Donation row from a SevaBooking, which
+            // double-counted every seva payment in the donation totals,
+            // the dashboards and the financial reports — removed 2026-05-13.
+            //
+            // Seva bookings CAN carry an 80G receipt again since
+            // 2026-08-31, per booking, when the devotee ticked the box and
+            // holds a valid PAN. They still do NOT come through here: the
+            // receipt hangs off the booking itself
+            // (Receipt80G.seva_booking_id) and is minted inside
+            // GenerateSevaReceipt below. Do not reintroduce a synthetic
+            // Donation — that is the double-counting bug, not the feature.
             $donation = Donation::where('payment_id', $payment->id)
                 ->lockForUpdate()
                 ->first();

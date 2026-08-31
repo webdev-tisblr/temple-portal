@@ -12,6 +12,8 @@ use App\Rules\ValidPhoneNumber;
 use App\Services\SevaSlotService;
 use App\Services\SmsService;
 use App\Services\WhatsAppService;
+use App\Support\AppVersion;
+use App\Support\AppVersionGate;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -20,6 +22,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Actions\Action;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\HtmlString;
 
@@ -56,6 +59,10 @@ class SystemSettings extends Page implements HasForms
     private const DISPLAY_ONLY_KEYS = [
         'sms_msg91_webhook_url',
         'app_store_version_readout',
+        // A live count of who each minimum would block. Computed from the
+        // device-token table on render; persisting it would freeze a number
+        // that is only useful because it is current.
+        'app_min_version_effect',
     ];
 
     /**
@@ -414,16 +421,40 @@ class SystemSettings extends Page implements HasForms
                                     ->helperText('Digits and dots ONLY. The app compares numerically, so a build number in this box ("1.5.1 (36)") reads as version 1.5.36 and tells every devotee to update forever. Bump this the moment a release is live on either store.'),
 
                                 Forms\Components\TextInput::make('app_min_version')
-                                    ->label('Minimum supported version')
-                                    ->placeholder('1.0.0')
+                                    ->label('Minimum supported version (both platforms)')
+                                    ->placeholder('leave blank to set each platform separately')
                                     ->rule('regex:/^\d+(\.\d+)*$/')
                                     ->validationMessages(['regex' => 'Digits and dots only — 1.0.0, not "1.0.0 (12)" or "v1.0.0".'])
-                                    ->helperText('Anything OLDER than this is force-updated: the app blocks until the devotee installs a new build. Raise it only for a release that genuinely breaks old apps — everyone below it is locked out until they update, and an iPhone user cannot update until Apple approves. Blank means 1.0.0 (nobody is blocked).'),
+                                    ->helperText('Anything OLDER than this is force-updated: the app blocks until the devotee installs a new build. Used only where the per-platform box below is blank. BLANK MEANS NOBODY IS BLOCKED — the gate is off until you fill something in.'),
+
+                                Forms\Components\TextInput::make('app_min_version_android')
+                                    ->label('Minimum — Android only')
+                                    ->placeholder('overrides the box above')
+                                    ->rule('regex:/^\d+(\.\d+)*$/')
+                                    ->validationMessages(['regex' => 'Digits and dots only — 1.5.4, not "1.5.4 (38)" or "v1.5.4".'])
+                                    ->helperText('Set this the day a release goes live on Play, which is usually hours after upload.'),
+
+                                Forms\Components\TextInput::make('app_min_version_ios')
+                                    ->label('Minimum — iPhone only')
+                                    ->placeholder('overrides the box above')
+                                    ->rule('regex:/^\d+(\.\d+)*$/')
+                                    ->validationMessages(['regex' => 'Digits and dots only — 1.5.4, not "1.5.4 (38)" or "v1.5.4".'])
+                                    ->helperText('Set this only AFTER Apple has approved the release and it is downloadable. Raising it while a build is still in review locks every iPhone devotee out of the app with nothing to update to.'),
+
+                                Forms\Components\Placeholder::make('app_min_version_effect')
+                                    ->label('Who this blocks right now')
+                                    ->columnSpanFull()
+                                    ->content(fn (): HtmlString => $this->renderMinVersionImpact()),
 
                                 Forms\Components\Toggle::make('app_force_latest_version')
                                     ->label('Force everyone onto the latest version')
                                     ->columnSpanFull()
                                     ->helperText('ON = any app older than "Latest released version" above is blocked at launch until it updates, not just apps below the minimum. Only turn this on once the release is genuinely LIVE on both stores — while it is still in review, iPhone devotees have nothing to update to and are locked out of the app entirely. Turning it off unblocks them instantly, without an app update.'),
+
+                                Forms\Components\Toggle::make('app_update_required')
+                                    ->label('Block EVERY version (emergency stop)')
+                                    ->columnSpanFull()
+                                    ->helperText('ON = every devotee on every build is blocked at launch, whatever the numbers above say. This is the panic switch for a release that is actively causing harm — a broken payment path, a data bug. It blocks people who have nothing newer to install, so it is a way to take the app down, not a way to move people forward. Turn it off to release everyone instantly.'),
 
                                 Forms\Components\Placeholder::make('app_store_version_readout')
                                     ->label('What the App Store reports')
@@ -805,6 +836,78 @@ class SystemSettings extends Page implements HasForms
      * service account), so a Play-only release must be typed in by hand and
      * this readout will legitimately lag behind it.
      */
+    /**
+     * How many reachable installs each minimum would lock out, right now.
+     *
+     * The whole hazard of a force-update gate is that it is invisible until
+     * it is too late: an admin types "1.5.4", saves, and finds out from
+     * angry devotees that two thirds of the userbase is staring at a wall.
+     * This puts the blast radius on screen next to the box, reading from the
+     * form's CURRENT values, so it updates as they type rather than after
+     * they commit.
+     *
+     * Counts device tokens, which is what the trust can actually reach — the
+     * same source the adoption widget uses. Devotees who never enabled push
+     * are not represented; the number is a floor, not a census.
+     */
+    public function renderMinVersionImpact(): HtmlString
+    {
+        $shared = trim((string) ($this->data['app_min_version'] ?? ''));
+
+        $rows = [];
+        foreach ([AppVersionGate::PLATFORM_ANDROID, AppVersionGate::PLATFORM_IOS] as $platform) {
+            $configured = trim((string) ($this->data["app_min_version_{$platform}"] ?? ''));
+            $minimum = AppVersion::normalise($configured !== '' ? $configured : $shared);
+
+            $tokens = DB::table('temple_device_tokens')
+                ->where('platform', $platform)
+                ->whereNotNull('app_version')
+                ->pluck('app_version');
+
+            $total = $tokens->count();
+
+            if ($minimum === '') {
+                $rows[] = [$platform, $total, null, 'no minimum set — nobody is blocked'];
+
+                continue;
+            }
+
+            // "Below the minimum" is the same test the app applies to
+            // itself, via the same comparison class, so this cannot say one
+            // thing and the gate do another.
+            $blocked = $tokens->filter(
+                fn ($version) => AppVersion::isNewer($minimum, (string) $version)
+            )->count();
+
+            $rows[] = [$platform, $total, $blocked, $minimum];
+        }
+
+        $html = '<div style="font-size:0.85rem;line-height:1.6">';
+        foreach ($rows as [$platform, $total, $blocked, $note]) {
+            $label = $platform === AppVersionGate::PLATFORM_IOS ? 'iPhone' : 'Android';
+
+            if ($blocked === null) {
+                $html .= '<div><strong>'.$label.'</strong> — '.e($note)
+                    .' <span style="opacity:.6">('.number_format($total).' reachable)</span></div>';
+
+                continue;
+            }
+
+            $share = $total > 0 ? round($blocked / $total * 100) : 0;
+            $colour = $blocked === 0 ? '#16a34a' : ($share >= 25 ? '#dc2626' : '#d97706');
+
+            $html .= '<div><strong>'.$label.'</strong> — minimum '.e($note).': '
+                .'<span style="color:'.$colour.';font-weight:600">'
+                .number_format($blocked).' of '.number_format($total).' blocked ('.$share.'%)'
+                .'</span></div>';
+        }
+        $html .= '<div style="opacity:.6;margin-top:.35rem">Counts devices that have registered for'
+            .' notifications. Save the page to apply — the gate reaches backgrounded apps within 30 minutes.</div>';
+        $html .= '</div>';
+
+        return new HtmlString($html);
+    }
+
     public function renderAppStoreVersionReadout(): HtmlString
     {
         $apple = trim(SystemSetting::getValue('app_latest_version_ios', ''));

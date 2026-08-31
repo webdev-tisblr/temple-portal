@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\WhatsAppWebhookController;
 use App\Http\Resources\DevoteeResource;
 use App\Models\SystemSetting;
 use App\Services\PanValidationService;
+use App\Support\AppVersionGate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Route;
@@ -33,26 +34,47 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     // Values are admin-editable via SystemSetting; sensible defaults apply
     // when unset so an unconfigured install never reports update_required.
     Route::get('/app-config', function () {
-        $minVersion = SystemSetting::getValue('app_min_version', '1.0.0');
-        $latestVersion = SystemSetting::getValue('app_latest_version', $minVersion);
+        // Per-platform minimums (2026-08-31). Android ships in hours, Apple
+        // review takes days — one shared minimum means forcing a version
+        // Apple has not approved walls every iOS devotee behind an Update
+        // button that cannot help them. See App\Support\AppVersionGate.
+        $androidMin = AppVersionGate::minFor(AppVersionGate::PLATFORM_ANDROID);
+        $iosMin = AppVersionGate::minFor(AppVersionGate::PLATFORM_IOS);
+        // Every build shipped before the split reads only this key and
+        // cannot tell us its platform, so it gets the LOWER of the two —
+        // a tightening meant for one platform must not wall the other.
+        $minVersion = AppVersionGate::sharedMin();
+        // Blank when unset, NOT the minimum. It used to default to the
+        // minimum, which was harmless while that defaulted to '1.0.0' but is
+        // now just a confusing echo — and blank is the honest answer: the
+        // app treats it as "no latest known" and shows no update nudge,
+        // rather than reporting 1.0.0 as the current release on the About
+        // screen. The wall itself never reads this key.
+        $latestVersion = (string) SystemSetting::getValue('app_latest_version', '');
 
         return response()->json([
             'success' => true,
             'message' => 'Success',
             'data' => [
+                // Legacy key — keep. ~2,500 devices in the field read it.
                 'min_supported_version' => $minVersion,
+                // New builds prefer these and fall back to the key above.
+                'min_supported_version_android' => $androidMin,
+                'min_supported_version_ios' => $iosMin,
                 'latest_version' => $latestVersion,
-                'android_store_url' => SystemSetting::getValue(
-                    'app_android_store_url',
-                    'https://play.google.com/store/apps/details?id=com.patadiyahanumanji.app',
-                ),
-                'ios_store_url' => SystemSetting::getValue(
-                    'app_ios_store_url',
-                    // The real listing (id 6795803756). The old default here
+                // ?: not the getValue default — the seeder writes these rows
+                // as '', and getValue returns a BLANK ROW rather than the
+                // default it was handed. That produced the worst possible
+                // combination: a force-update wall whose Update button has
+                // no URL to open, i.e. no way out of the app at all. Blank
+                // now falls through to the real listing.
+                'android_store_url' => SystemSetting::getValue('app_android_store_url')
+                    ?: 'https://play.google.com/store/apps/details?id=com.patadiyahanumanji.app',
+                'ios_store_url' => SystemSetting::getValue('app_ios_store_url')
+                    // The real listing (id 6795803756). An older default here
                     // was a guessed slug with no app id, which 404s — and it
                     // is what the app's "Update available" prompt opens.
-                    'https://apps.apple.com/in/app/shree-patadiya-hanumanji/id6795803756',
-                ),
+                    ?: 'https://apps.apple.com/in/app/shree-patadiya-hanumanji/id6795803756',
                 // Advisory flag: the server can force an update for ALL
                 // current callers by setting app_update_required=1. The
                 // app should still compare its own build against

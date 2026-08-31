@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\SystemSetting;
+use App\Support\AppVersion;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -132,38 +133,19 @@ class SyncAppStoreVersion extends Command
      * glue the build number onto the patch segment and turn 1.5.0 (35) into
      * 1.5.35, which is worse than useless — it reads as a NEWER version.
      */
+    /**
+     * Kept as named entry points — callers and tests reference them — but
+     * delegating to App\Support\AppVersion, which is now the single
+     * definition. It also governs the force-update lockout, so the server
+     * and the app must not be comparing versions two different ways.
+     */
     public static function normalise(string $version): string
     {
-        return preg_match('/\d+(?:\.\d+)*/', $version, $m) === 1 ? $m[0] : '';
+        return AppVersion::normalise($version);
     }
 
-    /**
-     * Semver-ish "is $candidate newer than $current", comparing numeric parts
-     * left to right. Mirrors AppConfigService.isNewer in the Flutter app —
-     * a string compare would call 1.10.0 older than 1.9.0.
-     */
     public static function isNewer(string $candidate, string $current): bool
     {
-        $parse = static function (string $v): array {
-            $normalised = self::normalise($v);
-
-            return $normalised === ''
-                ? [0]
-                : array_map('intval', explode('.', $normalised));
-        };
-
-        $a = $parse($candidate);
-        $b = $parse($current);
-        $length = max(count($a), count($b));
-
-        for ($i = 0; $i < $length; $i++) {
-            $left = $a[$i] ?? 0;
-            $right = $b[$i] ?? 0;
-            if ($left !== $right) {
-                return $left > $right;
-            }
-        }
-
-        return false;
+        return AppVersion::isNewer($candidate, $current);
     }
 }

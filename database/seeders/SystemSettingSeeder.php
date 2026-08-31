@@ -32,6 +32,16 @@ class SystemSettingSeeder extends Seeder
             // Mobile app store links + install-banner toggle. Also read by the
             // /api/v1/app-config force-update endpoint.
             ['key' => 'app_install_banner_enabled', 'value' => '1', 'group' => 'app', 'description' => 'Show the "install our app" banner on the mobile website'],
+            // Force-update gate. Seeded BLANK on purpose, and blank means OFF:
+            // a fresh install must never lock anyone out of the app before an
+            // admin has decided to. They exist as rows only so the settings
+            // page has something to hydrate — before this, the whole gate was
+            // invisible in the admin panel until somebody happened to save.
+            ['key' => 'app_min_version', 'value' => '', 'group' => 'app', 'description' => 'Minimum app version, both platforms. Blank = nobody is blocked. Overridden per platform by the two keys below.'],
+            ['key' => 'app_min_version_android', 'value' => '', 'group' => 'app', 'description' => 'Minimum app version on Android only. Set the day a release is live on Play.'],
+            ['key' => 'app_min_version_ios', 'value' => '', 'group' => 'app', 'description' => 'Minimum app version on iPhone only. Set ONLY after Apple has approved the release — raising it during review locks every iPhone devotee out with nothing to install.'],
+            ['key' => 'app_force_latest_version', 'value' => '0', 'group' => 'app', 'description' => 'Block any build older than app_latest_version, not just those below the minimum'],
+            ['key' => 'app_update_required', 'value' => '0', 'group' => 'app', 'description' => 'EMERGENCY STOP: block every build on every platform, whatever the version numbers say'],
             ['key' => 'app_ios_store_url', 'value' => '', 'group' => 'app', 'description' => 'Apple App Store listing URL'],
             ['key' => 'app_android_store_url', 'value' => '', 'group' => 'app', 'description' => 'Google Play Store listing URL'],
             // One link that sends iPhones to the App Store and Android

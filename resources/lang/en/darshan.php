@@ -6,6 +6,7 @@ return [
     'tomorrow' => 'tomorrow',
     'subtitle' => 'Shree Patadiya Hanumanji Temple — darshan, aarti and timings',
     'live_caption' => '॥ Jay Siya Ram ॥ — Live Darshan, Shree Patadiya Hanumanji',
+    'live_watch_on_youtube' => 'Watch live on YouTube',
     'default_caption' => '॥ Jay Siya Ram ॥ 🙏',
     'live_coming' => 'Live Darshan coming soon',
     'live_coming_sub' => 'Live darshan of the temple will soon be available on this screen. Please wait.',

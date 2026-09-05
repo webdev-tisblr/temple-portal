@@ -39,6 +39,7 @@ class ListDailyDarshanPhotos extends ListRecords
                 ->fillForm(fn () => [
                     'youtube_live_url' => SystemSetting::getValue('youtube_live_url', ''),
                     'youtube_channel_id' => SystemSetting::getValue('youtube_channel_id', ''),
+                    'youtube_api_key' => SystemSetting::getValue('youtube_api_key', ''),
                     'live_darshan_placeholder_image' => SystemSetting::getValue('live_darshan_placeholder_image', '') ?: null,
                 ])
                 ->form([
@@ -50,7 +51,19 @@ class ListDailyDarshanPhotos extends ListRecords
                     Forms\Components\TextInput::make('youtube_channel_id')
                         ->label('YouTube Channel ID')
                         ->placeholder('UCxxxxxxxxxxxxxxxxxxxxxx')
-                        ->helperText('Optional fallback used to find the current live video.'),
+                        ->rule('regex:/^(UC[A-Za-z0-9_-]{22})?$/')
+                        // Anything that isn't a real UC… id is ignored by the
+                        // resolver, so reject it here rather than let it look
+                        // configured (a bare handle sat in this field for
+                        // months, quietly resolving nothing).
+                        ->validationMessages(['regex' => 'Must be a channel ID starting with UC (not a @handle or a URL).'])
+                        ->helperText('Optional. Leave blank and the @handle in the URL above is used.'),
+                    Forms\Components\TextInput::make('youtube_api_key')
+                        ->label('YouTube Data API key')
+                        ->password()
+                        ->revealable()
+                        ->autocomplete(false)
+                        ->helperText('Required for /@handle/live links: YouTube blocks the server from reading the channel page, so the current live video is looked up through this key. Google Cloud → APIs & Services → enable "YouTube Data API v3" → create an API key. Free.'),
                     Forms\Components\FileUpload::make('live_darshan_placeholder_image')
                         ->label('Offline image (closed hours)')
                         ->image()

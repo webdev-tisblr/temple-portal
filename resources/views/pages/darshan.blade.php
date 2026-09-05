@@ -36,20 +36,26 @@
                                         class="absolute inset-0 w-full h-full"
                                         title="{{ __('common.temple_name') }} — {{ __('home.live_darshan') }}" />
                         @else
-                            {{-- Unparseable URL form (e.g. /@channel/live) — plain embed fallback. --}}
-                            @php
-                                $embedUrl = preg_replace('/watch\?v=/', 'embed/', $youtubeUrl);
-                                $embedUrl = preg_replace('/youtu\.be\//', 'www.youtube.com/embed/', $embedUrl);
-                                $embedUrl = preg_replace('#youtube\.com/live/#', 'youtube.com/embed/', $embedUrl);
-                            @endphp
-                            <iframe
-                                src="{{ $embedUrl }}"
-                                class="absolute inset-0 w-full h-full"
-                                frameborder="0"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                allowfullscreen
-                                title="{{ __('common.temple_name') }} — {{ __('home.live_darshan') }}">
-                            </iframe>
+                            {{-- A channel-style /@handle/live URL the server
+                                 couldn't resolve to a video id. YouTube refuses
+                                 to frame that URL, so an iframe here renders a
+                                 dead grey box — send people to the stream
+                                 instead. Fix the cause in Daily Darshan → Live
+                                 darshan settings (the Data API key). --}}
+                            @if(!empty($livePlaceholderUrl))
+                                <img src="{{ $livePlaceholderUrl }}"
+                                     alt="{{ __('home.live_darshan') }}"
+                                     class="absolute inset-0 w-full h-full object-cover">
+                            @endif
+                            <div class="absolute inset-0 bg-black/55 flex items-center justify-center">
+                                <a href="{{ $youtubeUrl }}" target="_blank" rel="noopener"
+                                   class="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8ZM9.6 15.6V8.4l6.2 3.6-6.2 3.6Z"/>
+                                    </svg>
+                                    {{ __('darshan.live_watch_on_youtube') }}
+                                </a>
+                            </div>
                         @endif
                     </div>
                     <div class="px-5 py-3 bg-amber-900/20 border-t border-amber-800/30">

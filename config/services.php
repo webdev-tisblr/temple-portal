@@ -34,6 +34,13 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    // Resolves the CURRENT live video for a channel-style /@handle/live
+    // URL. Normally set in the admin (Daily Darshan → Live darshan
+    // settings); this env value is only the fallback for CLI/dev.
+    'youtube' => [
+        'key' => env('YOUTUBE_API_KEY'),
+    ],
+
     // Used only by `site:launch`, to purge the edge cache the moment
     // coming-soon mode goes off. Without it the site is open at origin and
     // still looks shut to the world — see the note on LaunchSite.

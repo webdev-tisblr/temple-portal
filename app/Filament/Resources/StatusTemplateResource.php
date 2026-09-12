@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
-use App\Filament\Support\CardTemplateUpload;
 use App\Filament\Resources\StatusTemplateResource\Pages;
+use App\Filament\Support\CardTemplateUpload;
 use App\Filament\Support\TranslatableTabs;
 use App\Models\StatusTemplate;
 use Filament\Forms;
@@ -24,9 +24,13 @@ class StatusTemplateResource extends Resource
     protected static ?string $model = StatusTemplate::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-sparkles';
+
     protected static ?string $navigationGroup = 'Content Management';
+
     protected static ?string $navigationLabel = 'Status Templates';
+
     protected static ?string $modelLabel = 'Status Template';
+
     protected static ?int $navigationSort = 20;
 
     public static function form(Form $form): Form
@@ -57,13 +61,23 @@ class StatusTemplateResource extends Resource
             ]),
 
             Forms\Components\Section::make('Personalisation Slots')
-                ->description('Drag the devotee\'s name / photo slots onto the design. Save after uploading the image to enable the canvas.')
+                ->description('Drag the devotee\'s name / photo slots onto the design, or write the wording in a text block (per language). Save after uploading the image to enable the canvas; use Preview to see the real render.')
                 ->schema([
                     Forms\Components\Placeholder::make('card_editor_ui')
                         ->hiddenLabel()
                         ->content(fn ($record) => view('filament.components.greeting-card-editor', [
                             'record' => $record,
                             'statePath' => 'data.greeting_card_config',
+                            // Only what StatusCardService can resolve. The
+                            // editor's default set is the donation one, which
+                            // offered an "Amount" a status card has no value
+                            // for (fixed 2026-09-12).
+                            'availableVars' => [
+                                ['key' => '_donor_name', 'label' => 'Devotee Name', 'type' => 'text', 'auto' => true],
+                                ['key' => '_date', 'label' => 'Date', 'type' => 'text', 'auto' => true],
+                                ['key' => '_temple_name', 'label' => 'Temple Name', 'type' => 'text', 'auto' => true],
+                                ['key' => 'user_photo', 'label' => 'Devotee Photo', 'type' => 'image', 'auto' => true],
+                            ],
                         ]))
                         ->columnSpanFull(),
                     Forms\Components\Hidden::make('greeting_card_config')

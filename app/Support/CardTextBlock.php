@@ -28,16 +28,42 @@ final class CardTextBlock
     private const DEFAULT_SIZE = 28.0;
 
     /**
+     * The wording a block draws in a language.
+     *
+     * A block is authored once per language (2026-09-12): `html` is the
+     * Gujarati/default text — the key every block saved before that date
+     * has — and `html_hi` / `html_en` are optional. A language whose text
+     * was left blank falls back to the default, so a card never goes out
+     * with an empty sentence just because the admin has not translated it
+     * yet. Same fallback rule the per-language BACKGROUNDS follow.
+     *
+     * @param  array<string, mixed>  $overlay
+     */
+    public static function htmlForLocale(array $overlay, string $locale): string
+    {
+        $default = (string) ($overlay['html'] ?? $overlay['html_gu'] ?? '');
+
+        if ($locale === 'gu' || $locale === '') {
+            return $default;
+        }
+
+        $localised = (string) ($overlay['html_'.$locale] ?? '');
+
+        return trim(strip_tags($localised)) === '' ? $default : $localised;
+    }
+
+    /**
      * Composite one block. Returns false when nothing was drawn — an empty
      * block, or a renderer that could not run — so the caller can decide
      * whether that matters.
      *
      * @param  array<string, mixed>  $overlay
      * @param  callable(string): ?string  $resolve  variable key → its value
+     * @param  string  $locale  which language's wording to draw (gu|hi|en)
      */
-    public static function draw(\GdImage $image, array $overlay, callable $resolve, ?string $fallbackFontPath = null): bool
+    public static function draw(\GdImage $image, array $overlay, callable $resolve, ?string $fallbackFontPath = null, string $locale = 'gu'): bool
     {
-        $html = (string) ($overlay['html'] ?? '');
+        $html = self::htmlForLocale($overlay, $locale);
 
         if (trim(strip_tags($html)) === '') {
             return false;
@@ -57,6 +83,9 @@ final class CardTextBlock
         $width = (int) ($overlay['width'] ?? 0);
         $fontSize = (float) ($overlay['font_size'] ?? self::DEFAULT_SIZE);
         $align = (string) ($overlay['align'] ?? 'center');
+        if (! in_array($align, ['left', 'center', 'right', 'justify'], true)) {
+            $align = 'center';
+        }
         $bold = (bool) ($overlay['bold'] ?? false);
         $colour = (string) ($overlay['color'] ?? '#000000');
         $family = trim((string) ($overlay['font_family'] ?? '')) ?: self::DEFAULT_FAMILY;
@@ -164,7 +193,8 @@ final class CardTextBlock
         foreach (self::wrap($text, $fontSize, $fontPath, $width) as $line) {
             $lineX = $x;
 
-            if ($width > 0 && $align !== 'left') {
+            // GD cannot stretch a line, so 'justify' degrades to left.
+            if ($width > 0 && $align !== 'left' && $align !== 'justify') {
                 $box = imagettfbbox($fontSize, 0, $fontPath, $line);
                 $lineWidth = abs($box[2] - $box[0]);
                 $lineX = $align === 'right'

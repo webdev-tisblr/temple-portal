@@ -59,7 +59,7 @@ class DonationTypeResource extends Resource
 
             Forms\Components\Section::make('Greeting Card')
                 ->icon('heroicon-o-photo')
-                ->description('Upload a background, then drag & drop text/image overlays on the visual canvas.')
+                ->description('Upload a background per language, then write the wording in a text block (ગુજરાતી / हिन्दी / English tabs) and drag it into place. Use Preview to see the real render before saving.')
                 ->schema([
                     CardTemplateUpload::make(
                         'greeting_card_template',

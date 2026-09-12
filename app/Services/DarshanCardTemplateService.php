@@ -8,9 +8,7 @@ use App\Models\DailyDarshanPhoto;
 use App\Models\DarshanCardTemplate;
 use App\Models\Devotee;
 use App\Models\SystemSetting;
-use App\Support\CardTextBlock;
-use App\Support\ScriptFont;
-use App\Support\ShapedText;
+use App\Support\CardOverlayPainter;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -111,12 +109,10 @@ class DarshanCardTemplateService
             return null;
         }
 
-        $fontPath = $this->resolveFontPath();
-
         // One resolver, used by both the single-variable overlays and the
         // rich text blocks, so the two can never disagree about what a
         // variable means on this card.
-        $resolveField = fn (string $key): ?string => match ($key) {
+        $resolveText = fn (string $key): ?string => match ($key) {
             '_donor_name' => $devotee?->name,
             '_caption' => $this->captionForLocale($photo, $locale),
             // The photo's darshan date, not now() — the latest photo may be
@@ -126,49 +122,30 @@ class DarshanCardTemplateService
             default => null,
         };
 
-        foreach (($template->greeting_card_config['overlays'] ?? []) as $overlay) {
-            $type = $overlay['type'] ?? 'text';
-
-            // A rich text block carries its own wording, so it has no
-            // field_key and is handled before the guard below.
-            if ($type === CardTextBlock::TYPE) {
-                CardTextBlock::draw($image, $overlay, $resolveField, $fontPath);
-
-                continue;
+        $resolveImage = function (string $key) use ($photo, $devotee): ?string {
+            $path = match ($key) {
+                'darshan_photo' => $photo->image_path,
+                'user_photo' => $devotee?->profile_photo_path,
+                default => null,
+            };
+            if (! $path) {
+                return null;
             }
 
-            $fieldKey = $overlay['field_key'] ?? null;
-            if (! $fieldKey) {
-                continue;
+            try {
+                return Storage::disk('r2')->get($path) ?: null;
+            } catch (\Throwable) {
+                return null;
             }
+        };
 
-            if ($type === 'image') {
-                $path = match ($fieldKey) {
-                    'darshan_photo' => $photo->image_path,
-                    'user_photo' => $devotee?->profile_photo_path,
-                    default => null,
-                };
-                if ($path) {
-                    $this->applyImageOverlay($image, $overlay, $path);
-                }
-
-                continue;
-            }
-
-            $value = $resolveField($fieldKey);
-            if ($value === null || $value === '') {
-                continue;
-            }
-
-            $this->applyTextOverlay(
-                $image,
-                $overlay,
-                (string) $value,
-                // Bold is a separate FILE for GD, so the weight has to be
-                // decided here, at font-resolution time.
-                ScriptFont::forText((string) $value, (bool) ($overlay['bold'] ?? false)) ?? $fontPath,
-            );
-        }
+        CardOverlayPainter::compose(
+            $image,
+            $template->greeting_card_config['overlays'] ?? [],
+            $resolveText,
+            $resolveImage,
+            $locale,
+        );
 
         $width = imagesx($image);
         $height = imagesy($image);
@@ -211,10 +188,11 @@ class DarshanCardTemplateService
     {
         $date = optional($photo->captured_on)->toDateString() ?: now()->toDateString();
 
-        // 'tpl-v2': footer date = photo captured_on (was now()) — bumped so
-        // cards cached with a wrong date regenerate.
+        // 'tpl-v3': shared CardOverlayPainter — shaped overlays lost pango's
+        // 10px margin and rich blocks became per-language, so cached renders
+        // must not be reused. 'tpl-v2': footer date = photo captured_on.
         $seed = implode('|', [
-            'tpl-v2',
+            'tpl-v3',
             $template->id,
             optional($template->updated_at)->timestamp,
             $photo->id,
@@ -231,260 +209,5 @@ class DarshanCardTemplateService
         $devoteeSegment = $devotee ? 'd'.substr(sha1((string) $devotee->getKey()), 0, 8) : 'guest';
 
         return "daily-darshan-cards/{$date}/tpl-{$devoteeSegment}-{$template->format}-{$locale}-".substr(sha1($seed), 0, 12).'.jpg';
-    }
-
-    private function resolveFontPath(): ?string
-    {
-        foreach ([
-            resource_path('fonts/DejaVuSans.ttf'),
-            base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans.ttf'),
-            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-        ] as $font) {
-            if (file_exists($font)) {
-                return $font;
-            }
-        }
-
-        return null;
-    }
-
-    private function applyTextOverlay(\GdImage $image, array $overlay, string $text, ?string $fontPath): void
-    {
-        $x = (int) ($overlay['x'] ?? 0);
-        $y = (int) ($overlay['y'] ?? 0);
-        $fontSize = (float) ($overlay['font_size'] ?? 16);
-        // Overlays saved before the bold toggle existed have no key → normal.
-        $bold = (bool) ($overlay['bold'] ?? false);
-        $colorHex = ltrim($overlay['color'] ?? '#000000', '#');
-        if (strlen($colorHex) === 3) {
-            $colorHex = $colorHex[0].$colorHex[0].$colorHex[1].$colorHex[1].$colorHex[2].$colorHex[2];
-        }
-        $r = $g = $b = 0;
-        sscanf($colorHex, '%02x%02x%02x', $r, $g, $b);
-        $color = imagecolorallocate($image, (int) $r, (int) $g, (int) $b);
-
-        $width = (int) ($overlay['width'] ?? 0);
-        $angleForShaping = (float) ($overlay['angle'] ?? 0);
-
-        // Indic text (Gujarati/Devanagari): GD cannot shape it — render via
-        // pango (ShapedText) and composite; the GD path below stays as the
-        // fallback for Latin, rotated overlays, and hosts without pango.
-        if ($angleForShaping === 0.0
-            && ShapedText::needsShaping($text)
-            && ShapedText::available()
-        ) {
-            $png = ShapedText::render($text, $fontSize, $colorHex, $width > 0 ? $width : null, null, $bold);
-            if ($png instanceof \GdImage) {
-                $dx = $width > 0 ? $x + (int) round(max(0, ($width - imagesx($png)) / 2)) : $x;
-                imagealphablending($image, true);
-                imagecopy($image, $png, $dx, $y, 0, 0, imagesx($png), imagesy($png));
-                imagedestroy($png);
-
-                return;
-            }
-        }
-
-        if ($fontPath && $width > 0) {
-            $lines = $this->wrapText($text, $fontSize, $fontPath, $width);
-            $lineHeight = $fontSize * 1.4;
-            $ly = $y + $fontSize; // first baseline
-            foreach ($lines as $line) {
-                $bbox = imagettfbbox($fontSize, 0, $fontPath, $line);
-                $lineW = abs($bbox[2] - $bbox[0]);
-                $lx = $x + (int) round(($width - $lineW) / 2);
-                imagettftext($image, $fontSize, 0, $lx, (int) round($ly), $color, $fontPath, $line);
-                $ly += $lineHeight;
-            }
-        } elseif ($fontPath) {
-            imagettftext($image, $fontSize, (float) ($overlay['angle'] ?? 0), $x, $y + (int) round($fontSize * 1.2), $color, $fontPath, $text);
-        } else {
-            imagestring($image, min(5, max(1, (int) round($fontSize / 4))), $x, $y, $text, $color);
-        }
-    }
-
-    /**
-     * Greedy word-wrap: split $text into lines that each fit within
-     * $maxWidth px at the given font size.
-     *
-     * @return list<string>
-     */
-    private function wrapText(string $text, float $fontSize, string $fontPath, int $maxWidth): array
-    {
-        $words = preg_split('/\s+/', trim($text)) ?: [];
-        $lines = [];
-        $current = '';
-
-        foreach ($words as $word) {
-            $trial = $current === '' ? $word : $current.' '.$word;
-            $bbox = imagettfbbox($fontSize, 0, $fontPath, $trial);
-            $trialWidth = abs($bbox[2] - $bbox[0]);
-            if ($trialWidth > $maxWidth && $current !== '') {
-                $lines[] = $current;
-                $current = $word;
-            } else {
-                $current = $trial;
-            }
-        }
-        if ($current !== '') {
-            $lines[] = $current;
-        }
-
-        return $lines ?: [$text];
-    }
-
-    private function applyImageOverlay(\GdImage $image, array $overlay, string $storagePath): void
-    {
-        try {
-            $bytes = Storage::disk('r2')->get($storagePath);
-        } catch (\Throwable) {
-            return;
-        }
-        if (! $bytes) {
-            return;
-        }
-
-        $photo = imagecreatefromstring($bytes);
-        if (! $photo) {
-            return;
-        }
-
-        $photo = $this->applyExifOrientation($photo, $bytes);
-
-        $x = (int) ($overlay['x'] ?? 0);
-        $y = (int) ($overlay['y'] ?? 0);
-        $srcW = imagesx($photo);
-        $srcH = imagesy($photo);
-        $w = (int) ($overlay['width'] ?? $srcW);
-        $h = (int) ($overlay['height'] ?? $srcH);
-
-        if (($overlay['shape'] ?? 'square') === 'circle') {
-            $this->coverIntoCircle($image, $photo, $x, $y, $w, $h, $srcW, $srcH);
-        } else {
-            $this->coverInto($image, $photo, $x, $y, $w, $h, $srcW, $srcH);
-        }
-        imagedestroy($photo);
-    }
-
-    /**
-     * "Cover" composite: fill the box, preserve aspect, center-crop overflow.
-     */
-    private function coverInto(\GdImage $dst, \GdImage $src, int $x, int $y, int $w, int $h, int $srcW, int $srcH): void
-    {
-        if ($w <= 0 || $h <= 0 || $srcW <= 0 || $srcH <= 0) {
-            return;
-        }
-
-        $targetRatio = $w / $h;
-        $srcRatio = $srcW / $srcH;
-
-        if ($srcRatio > $targetRatio) {
-            $cropH = $srcH;
-            $cropW = (int) round($srcH * $targetRatio);
-            $srcX = (int) round(($srcW - $cropW) / 2);
-            $srcY = 0;
-        } else {
-            $cropW = $srcW;
-            $cropH = (int) round($srcW / $targetRatio);
-            $srcX = 0;
-            $srcY = (int) round(($srcH - $cropH) / 2);
-        }
-
-        imagecopyresampled($dst, $src, $x, $y, $srcX, $srcY, $w, $h, max(1, $cropW), max(1, $cropH));
-    }
-
-    /**
-     * coverInto() clipped to an inscribed ellipse with a feathered edge.
-     */
-    private function coverIntoCircle(\GdImage $dst, \GdImage $src, int $x, int $y, int $w, int $h, int $srcW, int $srcH): void
-    {
-        if ($w <= 0 || $h <= 0 || $srcW <= 0 || $srcH <= 0) {
-            return;
-        }
-
-        $temp = imagecreatetruecolor($w, $h);
-        imagealphablending($temp, false);
-        imagesavealpha($temp, true);
-        $transparent = imagecolorallocatealpha($temp, 0, 0, 0, 127);
-        imagefilledrectangle($temp, 0, 0, $w, $h, $transparent);
-
-        $targetRatio = $w / $h;
-        $srcRatio = $srcW / $srcH;
-        if ($srcRatio > $targetRatio) {
-            $cropH = $srcH;
-            $cropW = (int) round($srcH * $targetRatio);
-            $srcX = (int) round(($srcW - $cropW) / 2);
-            $srcY = 0;
-        } else {
-            $cropW = $srcW;
-            $cropH = (int) round($srcW / $targetRatio);
-            $srcX = 0;
-            $srcY = (int) round(($srcH - $cropH) / 2);
-        }
-        imagecopyresampled($temp, $src, 0, 0, $srcX, $srcY, $w, $h, max(1, $cropW), max(1, $cropH));
-
-        $rx = $w / 2.0;
-        $ry = $h / 2.0;
-        $feather = 1.5 / min($rx, $ry);
-        for ($py = 0; $py < $h; $py++) {
-            for ($px = 0; $px < $w; $px++) {
-                $nx = ($px + 0.5 - $rx) / $rx;
-                $ny = ($py + 0.5 - $ry) / $ry;
-                $d = sqrt($nx * $nx + $ny * $ny);
-                $coverage = max(0.0, min(1.0, (1.0 - $d) / $feather + 0.5));
-                if ($coverage >= 1.0) {
-                    continue;
-                }
-                $rgba = imagecolorat($temp, $px, $py);
-                $alpha = (int) round((1.0 - $coverage) * 127);
-                imagesetpixel($temp, $px, $py, ($alpha << 24) | ($rgba & 0xFFFFFF));
-            }
-        }
-
-        imagealphablending($dst, true);
-        imagecopy($dst, $temp, $x, $y, 0, 0, $w, $h);
-        imagedestroy($temp);
-    }
-
-    /**
-     * Re-orient a GD image per its source EXIF Orientation tag.
-     */
-    private function applyExifOrientation(\GdImage $photo, string $bytes): \GdImage
-    {
-        if (! function_exists('exif_read_data')) {
-            return $photo;
-        }
-
-        try {
-            $exif = @exif_read_data('data://image/jpeg;base64,'.base64_encode($bytes));
-        } catch (\Throwable) {
-            return $photo;
-        }
-
-        $orientation = (int) ($exif['Orientation'] ?? 0);
-        if ($orientation <= 1) {
-            return $photo;
-        }
-
-        if (in_array($orientation, [2, 4, 5, 7], true) && function_exists('imageflip')) {
-            imageflip($photo, IMG_FLIP_HORIZONTAL);
-        }
-
-        $angle = match ($orientation) {
-            3, 4 => 180,
-            5, 6 => -90,
-            7, 8 => 90,
-            default => 0,
-        };
-
-        if ($angle !== 0) {
-            $rotated = imagerotate($photo, $angle, 0);
-            if ($rotated instanceof \GdImage) {
-                imagedestroy($photo);
-
-                return $rotated;
-            }
-        }
-
-        return $photo;
     }
 }

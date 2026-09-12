@@ -9,10 +9,8 @@ use App\Models\Donation;
 use App\Models\DonationCampaign;
 use App\Models\SevaBooking;
 use App\Models\SystemSetting;
-use App\Support\CardTextBlock;
+use App\Support\CardOverlayPainter;
 use App\Support\DevoteeLocale;
-use App\Support\ScriptFont;
-use App\Support\ShapedText;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -110,6 +108,7 @@ class GreetingCardService
             // The day the gift was made — so an empty photo slot carries THAT
             // day's darshan, and still does when the card is regenerated later.
             $donation->created_at,
+            $locale,
         );
         if ($pngBytes === null) {
             return null;
@@ -146,6 +145,7 @@ class GreetingCardService
                 // of the seva being performed, so it carries that morning's
                 // darshan even when it was booked a month earlier.
                 $booking->booking_date ?? $booking->created_at,
+                $locale,
             );
         } finally {
             app()->setLocale($previousLocale);
@@ -230,7 +230,7 @@ class GreetingCardService
      * admin hasn't uploaded one. All variants share ONE overlay layout,
      * so locale images must have the same dimensions.
      */
-    private function templateForLocale(Model $owner, string $locale): ?string
+    public function templateForLocale(Model $owner, string $locale): ?string
     {
         $path = match ($locale) {
             'hi' => $owner->getAttribute('greeting_card_template_hi'),
@@ -245,8 +245,12 @@ class GreetingCardService
      * Shared compositing pipeline: fetch the template from R2 public,
      * apply every overlay through the caller's field resolver, return
      * the finished PNG bytes (null on any unrecoverable problem).
+     *
+     * The painting itself is CardOverlayPainter — the same code the admin's
+     * preview and the status/darshan renderers use, so a card cannot differ
+     * from what the editor showed.
      */
-    private function composeCard(?string $templatePath, array $overlays, callable $resolve, ?\DateTimeInterface $cardDate = null): ?string
+    private function composeCard(?string $templatePath, array $overlays, callable $resolve, ?\DateTimeInterface $cardDate = null, string $locale = 'gu'): ?string
     {
         if (! $templatePath || empty($overlays)) {
             return null;
@@ -275,11 +279,13 @@ class GreetingCardService
             return null;
         }
 
-        $fontPath = $this->resolveFontPath();
-
-        foreach ($overlays as $overlay) {
-            $this->applyOverlay($image, $overlay, $resolve, $fontPath, $cardDate);
-        }
+        CardOverlayPainter::compose(
+            $image,
+            $overlays,
+            $resolve,
+            fn (string $fieldKey): ?string => $this->imageBytesFor($resolve($fieldKey), $cardDate),
+            $locale,
+        );
 
         ob_start();
         imagepng($image);
@@ -290,92 +296,28 @@ class GreetingCardService
     }
 
     /**
-     * Load a GD image resource from raw bytes. imagecreatefromstring auto-
-     * detects PNG/JPG/GIF/WEBP/BMP so we no longer need per-extension dispatch.
+     * Bytes for an image overlay. $storagePath is the devotee's upload (an R2
+     * key in extra_data) — or NULL when they did not upload one, in which case
+     * the fallback ladder (that day's darshan photo → configured artwork →
+     * trust logo) fills the slot so the card never ships with a hole in it.
      */
-    private function loadImageFromBytes(string $bytes): \GdImage|false
+    private function imageBytesFor(?string $storagePath, ?\DateTimeInterface $cardDate): ?string
     {
-        return imagecreatefromstring($bytes);
+        if ($storagePath === null || $storagePath === '') {
+            return $this->fallbackOverlayBytes($cardDate);
+        }
+
+        return $this->overlayBytesFromR2($storagePath) ?? $this->fallbackOverlayBytes($cardDate);
     }
 
     /**
-     * Resolve the best available font path for imagettftext.
+     * The photo an EMPTY image slot would receive on a card dated $cardDate —
+     * exposed for the admin preview so a sample card shows the same darshan
+     * photo a real one would.
      */
-    private function resolveFontPath(): ?string
+    public function samplePhotoBytes(?\DateTimeInterface $cardDate = null): ?string
     {
-        // Priority 1: Project resources/fonts directory
-        $resourceFont = resource_path('fonts/DejaVuSans.ttf');
-        if (file_exists($resourceFont)) {
-            return $resourceFont;
-        }
-
-        // Priority 2: Vendor dompdf bundled font
-        $vendorFont = base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans.ttf');
-        if (file_exists($vendorFont)) {
-            return $vendorFont;
-        }
-
-        // Priority 3: System font (Linux)
-        $systemFont = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
-        if (file_exists($systemFont)) {
-            return $systemFont;
-        }
-
-        // No TTF font available — will fallback to GD built-in
-        return null;
-    }
-
-    /**
-     * Apply a single overlay (text or image) onto the card. $resolve maps
-     * a field key to its rendered value (donation vs seva resolver).
-     */
-    private function applyOverlay(\GdImage $image, array $overlay, callable $resolve, ?string $fontPath, ?\DateTimeInterface $cardDate = null): void
-    {
-        $type = $overlay['type'] ?? 'text';
-
-        // A rich TEXT BLOCK carries its own wording — literal sentence plus
-        // {{ variables }} — so it has no single field_key and must be handled
-        // before the guard below. @see CardTextBlock
-        if ($type === CardTextBlock::TYPE) {
-            CardTextBlock::draw($image, $overlay, $resolve, $fontPath);
-
-            return;
-        }
-
-        $fieldKey = $overlay['field_key'] ?? null;
-
-        if (! $fieldKey) {
-            return;
-        }
-
-        $value = $resolve($fieldKey);
-        $isBlank = ($value === null || $value === '');
-
-        // A blank TEXT overlay draws nothing — an empty caption is correct,
-        // and a placeholder where a donor's name should be would be worse
-        // than the gap. A blank IMAGE overlay is different: an admin can
-        // define a photo-upload extra field and leave it optional, and a
-        // donor who skips it used to get a card with a hole in it. That
-        // falls through to the day's darshan photo instead (2026-08-13,
-        // logo; darshan since 2026-08-16).
-        if ($isBlank && $type !== 'image') {
-            return;
-        }
-
-        if ($type === 'text') {
-            // Route Gujarati/Hindi values (devotee names!) to a font with
-            // their glyphs — DejaVu renders Indic text as tofu boxes.
-            $this->applyTextOverlay(
-                $image,
-                $overlay,
-                (string) $value,
-                // Bold is a separate FILE for GD, so the weight has to be
-                // decided here, at font-resolution time.
-                ScriptFont::forText((string) $value, (bool) ($overlay['bold'] ?? false)) ?? $fontPath,
-            );
-        } elseif ($type === 'image') {
-            $this->applyImageOverlay($image, $overlay, $isBlank ? null : (string) $value, $cardDate);
-        }
+        return $this->fallbackOverlayBytes($cardDate);
     }
 
     /**
@@ -388,7 +330,7 @@ class GreetingCardService
             return match ($fieldKey) {
                 '_donor_name' => $donation->devotee?->name,
                 '_amount' => "\u{20B9}".number_format((float) $donation->amount, 2),
-                '_date' => now()->format('d/m/Y'),
+                '_date' => $this->cardDate($donation->created_at),
                 '_temple_name' => $this->templeName($locale),
                 default => null,
             };
@@ -400,8 +342,17 @@ class GreetingCardService
     }
 
     /**
-     * Resolve the value for a seva-booking field key.
+     * The `{{ _date }}` on a card: the day of the gift or booking, NOT the day
+     * of rendering. r2_private is a regenerable cache, so a card is often
+     * re-rendered weeks later when a devotee re-opens it — with now() the
+     * date on their keepsake silently changed on every regeneration
+     * (fixed 2026-09-12).
      */
+    private function cardDate(?\DateTimeInterface $when): string
+    {
+        return ($when ?? now())->format('d/m/Y');
+    }
+
     /**
      * The model whose artwork this donation's card is rendered from, or NULL
      * when neither the donation type nor the campaign has one configured.
@@ -449,7 +400,7 @@ class GreetingCardService
                 '_campaign_title' => $donation->campaign?->title,
                 '_sub_cause' => $donation->subCause?->title,
                 '_amount' => "\u{20B9}".number_format((float) $donation->amount, 2),
-                '_date' => now()->format('d/m/Y'),
+                '_date' => $this->cardDate($donation->created_at),
                 '_temple_name' => $this->templeName($locale),
                 default => null,
             };
@@ -480,7 +431,7 @@ class GreetingCardService
             '_booking_date' => $booking->booking_date?->format('d/m/Y'),
             '_slot' => $booking->slot_time_label,
             '_amount' => "\u{20B9}".number_format((float) $booking->total_amount, 2),
-            '_date' => now()->format('d/m/Y'),
+            '_date' => $this->cardDate($booking->created_at),
             '_temple_name' => $this->templeName($locale),
             default => null,
         };
@@ -503,297 +454,6 @@ class GreetingCardService
     private function templeName(string $locale): string
     {
         return SystemSetting::getLocalized('trust_name', $locale, 'Shree Patadiya Hanumanji Seva Trust');
-    }
-
-    /**
-     * Render a text overlay onto the image.
-     */
-    private function applyTextOverlay(\GdImage $image, array $overlay, string $text, ?string $fontPath): void
-    {
-        $x = (int) ($overlay['x'] ?? 0);
-        $y = (int) ($overlay['y'] ?? 0);
-        $fontSize = (float) ($overlay['font_size'] ?? 16);
-        $colorHex = $overlay['color'] ?? '#000000';
-        $angle = (float) ($overlay['angle'] ?? 0);
-        // Overlays saved before the bold toggle existed have no key → normal.
-        $bold = (bool) ($overlay['bold'] ?? false);
-
-        [$r, $g, $b] = $this->hexToRgb($colorHex);
-        $color = imagecolorallocate($image, $r, $g, $b);
-
-        $width = (int) ($overlay['width'] ?? 0);
-        $angleForShaping = $angle;
-        $colorHexForShaping = ltrim($colorHex, '#');
-
-        // Indic text (Gujarati/Devanagari): GD cannot shape it — matras and
-        // conjuncts garble (user-visible 2026-07-26). Render the whole block
-        // via pango (ShapedText) and composite; the GD path below stays as
-        // the fallback for Latin, rotated overlays, and hosts without pango.
-        if ($angleForShaping === 0.0
-            && ShapedText::needsShaping($text)
-            && ShapedText::available()
-        ) {
-            $png = ShapedText::render($text, $fontSize, $colorHexForShaping, $width > 0 ? $width : null, null, $bold);
-            if ($png instanceof \GdImage) {
-                $dx = $width > 0 ? $x + (int) round(max(0, ($width - imagesx($png)) / 2)) : $x;
-                imagealphablending($image, true);
-                imagecopy($image, $png, $dx, $y, 0, 0, imagesx($png), imagesy($png));
-                imagedestroy($png);
-
-                return;
-            }
-        }
-
-        if ($fontPath && file_exists($fontPath) && $width > 0) {
-            // Centre each line within the overlay's width box, wrapping long
-            // text onto new lines.
-            $lines = $this->wrapText($text, $fontSize, $fontPath, $width);
-            $lineHeight = $fontSize * 1.4;
-            $ly = $y + $fontSize;
-            foreach ($lines as $line) {
-                $bbox = imagettfbbox($fontSize, 0, $fontPath, $line);
-                $lineW = abs($bbox[2] - $bbox[0]);
-                $lx = $x + (int) round(($width - $lineW) / 2);
-                imagettftext($image, $fontSize, 0, $lx, (int) round($ly), $color, $fontPath, $line);
-                $ly += $lineHeight;
-            }
-        } elseif ($fontPath && file_exists($fontPath)) {
-            // GD's imagettftext Y is the text BASELINE (bottom of text),
-            // but CSS top positions from the TOP of the element.
-            // Add fontSize to Y to convert from top-left to baseline positioning.
-            $baselineY = $y + (int) round($fontSize * 1.2);
-            imagettftext($image, $fontSize, $angle, $x, $baselineY, $color, $fontPath, $text);
-        } else {
-            $builtinFont = min(5, max(1, (int) round($fontSize / 4)));
-            imagestring($image, $builtinFont, $x, $y, $text, $color);
-        }
-    }
-
-    /**
-     * Greedy word-wrap: split $text into lines that each fit within $maxWidth
-     * px at the given font size. Very long single words are left intact.
-     *
-     * @return list<string>
-     */
-    private function wrapText(string $text, float $fontSize, string $fontPath, int $maxWidth): array
-    {
-        $words = preg_split('/\s+/', trim($text)) ?: [];
-        $lines = [];
-        $current = '';
-
-        foreach ($words as $word) {
-            $trial = $current === '' ? $word : $current.' '.$word;
-            $bbox = imagettfbbox($fontSize, 0, $fontPath, $trial);
-            $trialWidth = abs($bbox[2] - $bbox[0]);
-            if ($trialWidth > $maxWidth && $current !== '') {
-                $lines[] = $current;
-                $current = $word;
-            } else {
-                $current = $trial;
-            }
-        }
-        if ($current !== '') {
-            $lines[] = $current;
-        }
-
-        return $lines ?: [$text];
-    }
-
-    /**
-     * Place an image overlay (e.g. a photo from extra_data uploaded via the
-     * donation form — those land in R2 public bucket since Phase 3a).
-     */
-    /**
-     * @param  string|null  $storagePath  R2 key of the donor's upload, or NULL
-     *                                    when they did not upload one — in which case the trust logo is drawn so
-     *                                    the card never ships with an empty box.
-     */
-    private function applyImageOverlay(\GdImage $image, array $overlay, ?string $storagePath, ?\DateTimeInterface $cardDate = null): void
-    {
-        $bytes = $storagePath === null
-            ? $this->fallbackOverlayBytes($cardDate)
-            : $this->overlayBytesFromR2($storagePath) ?? $this->fallbackOverlayBytes($cardDate);
-
-        if (! $bytes) {
-            // Even the fallback is unreadable. A card with a gap still beats
-            // no card at all, so draw nothing and carry on.
-            return;
-        }
-
-        $overlayImage = $this->loadImageFromBytes($bytes);
-        if (! $overlayImage) {
-            return;
-        }
-
-        // Overlay images can be devotee-uploaded phone photos (donation extra
-        // fields); GD drops EXIF orientation, so re-orient before compositing.
-        $overlayImage = $this->applyExifOrientation($overlayImage, $bytes);
-
-        $x = (int) ($overlay['x'] ?? 0);
-        $y = (int) ($overlay['y'] ?? 0);
-        $width = (int) ($overlay['width'] ?? imagesx($overlayImage));
-        $height = (int) ($overlay['height'] ?? imagesy($overlayImage));
-
-        $srcWidth = imagesx($overlayImage);
-        $srcHeight = imagesy($overlayImage);
-
-        if (($overlay['shape'] ?? 'square') === 'circle') {
-            $this->coverIntoCircle($image, $overlayImage, $x, $y, $width, $height, $srcWidth, $srcHeight);
-        } else {
-            $this->coverInto($image, $overlayImage, $x, $y, $width, $height, $srcWidth, $srcHeight);
-        }
-        imagedestroy($overlayImage);
-    }
-
-    /**
-     * Composite $src into the $w×$h box at ($x,$y) using "cover" scaling: fill
-     * the box while preserving aspect ratio, center-cropping the overflow, so
-     * a user photo is never squeezed when the box shape differs from the photo.
-     */
-    private function coverInto(\GdImage $dst, \GdImage $src, int $x, int $y, int $w, int $h, int $srcW, int $srcH): void
-    {
-        if ($w <= 0 || $h <= 0 || $srcW <= 0 || $srcH <= 0) {
-            return;
-        }
-
-        $targetRatio = $w / $h;
-        $srcRatio = $srcW / $srcH;
-
-        if ($srcRatio > $targetRatio) {
-            $cropH = $srcH;
-            $cropW = (int) round($srcH * $targetRatio);
-            $srcX = (int) round(($srcW - $cropW) / 2);
-            $srcY = 0;
-        } else {
-            $cropW = $srcW;
-            $cropH = (int) round($srcW / $targetRatio);
-            $srcX = 0;
-            $srcY = (int) round(($srcH - $cropH) / 2);
-        }
-
-        imagecopyresampled($dst, $src, $x, $y, $srcX, $srcY, $w, $h, max(1, $cropW), max(1, $cropH));
-    }
-
-    /**
-     * Like coverInto(), but clips the photo to a circle/ellipse inscribed in
-     * the $w×$h box (admin picked shape=circle in the overlay editor). The
-     * photo is cover-scaled into an alpha-enabled temp canvas, pixels outside
-     * the ellipse are made transparent (with a ~1.5px anti-aliased edge), and
-     * the result is alpha-composited onto the card.
-     */
-    private function coverIntoCircle(\GdImage $dst, \GdImage $src, int $x, int $y, int $w, int $h, int $srcW, int $srcH): void
-    {
-        if ($w <= 0 || $h <= 0 || $srcW <= 0 || $srcH <= 0) {
-            return;
-        }
-
-        $temp = imagecreatetruecolor($w, $h);
-        imagealphablending($temp, false);
-        imagesavealpha($temp, true);
-        $transparent = imagecolorallocatealpha($temp, 0, 0, 0, 127);
-        imagefilledrectangle($temp, 0, 0, $w, $h, $transparent);
-
-        // Same cover-crop math as coverInto(), targeted at the temp canvas.
-        $targetRatio = $w / $h;
-        $srcRatio = $srcW / $srcH;
-        if ($srcRatio > $targetRatio) {
-            $cropH = $srcH;
-            $cropW = (int) round($srcH * $targetRatio);
-            $srcX = (int) round(($srcW - $cropW) / 2);
-            $srcY = 0;
-        } else {
-            $cropW = $srcW;
-            $cropH = (int) round($srcW / $targetRatio);
-            $srcX = 0;
-            $srcY = (int) round(($srcH - $cropH) / 2);
-        }
-        imagecopyresampled($temp, $src, 0, 0, $srcX, $srcY, $w, $h, max(1, $cropW), max(1, $cropH));
-
-        // Alpha-mask everything outside the inscribed ellipse. Feather the
-        // edge over ~1.5px so the circle isn't jagged.
-        $rx = $w / 2.0;
-        $ry = $h / 2.0;
-        $feather = 1.5 / min($rx, $ry);
-        for ($py = 0; $py < $h; $py++) {
-            for ($px = 0; $px < $w; $px++) {
-                $nx = ($px + 0.5 - $rx) / $rx;
-                $ny = ($py + 0.5 - $ry) / $ry;
-                $d = sqrt($nx * $nx + $ny * $ny);
-                $coverage = max(0.0, min(1.0, (1.0 - $d) / $feather + 0.5));
-                if ($coverage >= 1.0) {
-                    continue; // fully inside — keep the opaque photo pixel
-                }
-                $rgba = imagecolorat($temp, $px, $py);
-                $alpha = (int) round((1.0 - $coverage) * 127);
-                imagesetpixel($temp, $px, $py, ($alpha << 24) | ($rgba & 0xFFFFFF));
-            }
-        }
-
-        imagealphablending($dst, true);
-        imagecopy($dst, $temp, $x, $y, 0, 0, $w, $h);
-        imagedestroy($temp);
-    }
-
-    /**
-     * Convert a hex color string to RGB values.
-     */
-    private function hexToRgb(string $hex): array
-    {
-        $hex = ltrim($hex, '#');
-
-        if (strlen($hex) === 3) {
-            $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
-        }
-
-        $r = $g = $b = 0;
-        sscanf($hex, '%02x%02x%02x', $r, $g, $b);
-
-        return [(int) $r, (int) $g, (int) $b];
-    }
-
-    /**
-     * Re-orient a GD image per its source EXIF Orientation tag. GD drops EXIF
-     * on load, so phone photos otherwise composite rotated/mirrored. Safe
-     * no-op for images without an orientation tag (PNGs, already-upright JPEGs).
-     */
-    private function applyExifOrientation(\GdImage $photo, string $bytes): \GdImage
-    {
-        if (! function_exists('exif_read_data')) {
-            return $photo;
-        }
-
-        try {
-            $exif = @exif_read_data('data://image/jpeg;base64,'.base64_encode($bytes));
-        } catch (\Throwable) {
-            return $photo;
-        }
-
-        $orientation = (int) ($exif['Orientation'] ?? 0);
-        if ($orientation <= 1) {
-            return $photo;
-        }
-
-        if (in_array($orientation, [2, 4, 5, 7], true) && function_exists('imageflip')) {
-            imageflip($photo, IMG_FLIP_HORIZONTAL);
-        }
-
-        $angle = match ($orientation) {
-            3, 4 => 180,
-            5, 6 => -90,
-            7, 8 => 90,
-            default => 0,
-        };
-
-        if ($angle !== 0) {
-            $rotated = imagerotate($photo, $angle, 0);
-            if ($rotated instanceof \GdImage) {
-                imagedestroy($photo);
-
-                return $rotated;
-            }
-        }
-
-        return $photo;
     }
 
     /** The donor's uploaded image, or NULL when it cannot be read. */

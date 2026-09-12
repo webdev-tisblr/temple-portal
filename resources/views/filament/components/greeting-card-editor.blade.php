@@ -3,9 +3,24 @@
     $extraFields = $record?->extra_fields ?? [];
     $config = $record?->greeting_card_config ?? [];
     $overlays = $config['overlays'] ?? [];
-    $templatePath = $record?->greeting_card_template;
-    $templateUrl = $templatePath ? image_url($templatePath) : null;
     $statePath = $statePath ?? 'data.greeting_card_config';
+
+    // One background per language. The bare column is Gujarati/default and
+    // hi/en fall back to it — the same rule the renderer applies — so the
+    // canvas can show the exact artwork a Hindi or English card will use.
+    $templatePath = $record?->greeting_card_template;
+    $templateUrls = [
+        'gu' => $templatePath ? image_url($templatePath) : null,
+        'hi' => ($record?->getAttribute('greeting_card_template_hi') ?: $templatePath) ? image_url($record?->getAttribute('greeting_card_template_hi') ?: $templatePath) : null,
+        'en' => ($record?->getAttribute('greeting_card_template_en') ?: $templatePath) ? image_url($record?->getAttribute('greeting_card_template_en') ?: $templatePath) : null,
+    ];
+    $templateUrl = $templateUrls['gu'];
+
+    // The server-side "Preview" needs to know which record's backgrounds to
+    // draw on. Null on a Create page (nothing saved yet), which hides the
+    // button — the canvas is empty there too.
+    $previewOwner = $record ? \App\Services\CardPreviewService::aliasFor($record) : null;
+    $previewId = $record?->getKey();
 
     // Families offered to a text block. Indic-capable ones are listed first
     // and labelled, because a Latin-only face cannot draw Gujarati at all —
@@ -37,20 +52,47 @@
             }
         }
     }
+
+    $varLabels = collect($availableVars)->pluck('label', 'key')->all();
 @endphp
 
-<div wire:ignore x-data="greetingCardEditor(@js($overlays), @js($config))" x-init="init()" class="space-y-4">
+<div wire:ignore x-data="greetingCardEditor(@js($overlays), @js($config), @js($templateUrls))" x-init="init()" class="gce space-y-4">
+
+    {{-- Language + preview bar. The language chosen here drives EVERYTHING
+         below: which background is shown, which wording a text block shows,
+         which sample values the variables take, and which language the
+         server-side Preview renders. --}}
+    <div class="gce-bar">
+        <div class="gce-bar-group">
+            <span class="gce-label">Language:</span>
+            <template x-for="l in langs" :key="l.code">
+                <button type="button" class="gce-tab" :class="lang === l.code ? 'is-active' : ''" @click="setLang(l.code)" x-text="l.title"></button>
+            </template>
+        </div>
+        @if($previewOwner && $previewId)
+            <div class="gce-bar-group">
+                <button type="button" class="gce-btn gce-btn-primary" @click="openPreview()" title="Renders the card on the server, exactly as a devotee receives it, with sample values — opens in a new tab, nothing is saved">
+                    <svg style="width:14px;height:14px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    <span>Preview <span x-text="currentLang().short"></span> card</span>
+                </button>
+                <span class="gce-hint">Real render, new tab, not saved anywhere.</span>
+            </div>
+        @endif
+    </div>
 
     {{-- Canvas Area --}}
     <div class="relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800" style="min-height: 300px;">
         @if($templateUrl)
-            <img src="{{ $templateUrl }}" alt="Template" class="w-full h-auto block" x-ref="bgImage"
+            <img :src="templateUrls[lang] || templateUrls.gu" alt="Template" class="w-full h-auto block" x-ref="bgImage"
                  @load="onBgLoad($event)">
+            <div x-show="lang !== 'gu' && !hasOwnTemplate(lang)" class="gce-badge" style="position:absolute; top:.5rem; left:.5rem;">
+                No <span x-text="currentLang().title"></span> background — using the Gujarati one
+            </div>
         @else
             <div class="flex items-center justify-center h-64 text-gray-400 dark:text-gray-500">
                 <div class="text-center">
                     <svg class="w-12 h-12 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                    <p>Upload a background template image above first.</p>
+                    <p>Upload a background template image above and save first.</p>
                 </div>
             </div>
         @endif
@@ -64,24 +106,24 @@
                  :class="selectedIdx === idx ? 'ring-2 ring-blue-500 ring-offset-1' : 'hover:ring-2 hover:ring-blue-300'"
                  @click.stop="selectedIdx = idx">
                 <template x-if="overlay.type === 'text'">
-                    {{-- font-weight follows the overlay's own bold flag. It
-                         used to be hardcoded 'bold', so the preview lied:
-                         every overlay looked bold here and rendered normal
-                         on the real card (2026-08-17). --}}
-                    <div :style="'width:' + ((overlay.width || 300) * scale) + 'px; font-size:' + Math.max(8, (overlay.font_size || 24) * scale) + 'px; color:' + (overlay.color || '#333') + '; font-weight:' + (overlay.bold ? '700' : '400') + '; text-align:center; white-space:normal; overflow-wrap:break-word; word-break:break-word; text-shadow: 0 1px 3px rgba(0,0,0,0.4); line-height:1.4;'"
-                         x-text="getSampleText(overlay.field_key)"></div>
+                    {{-- Drawn the way the server draws it: the value centred
+                         inside the width box, top edge at y, in the same
+                         family pango will be asked for, no shadow, the font's
+                         own line height. Anything prettier here is a lie. --}}
+                    <div :style="textPreviewStyle(overlay)" x-text="getSampleText(overlay.field_key)"></div>
                 </template>
                 <template x-if="overlay.type === 'rich_text'">
-                    {{-- WYSIWYG preview. Variables show their sample values so
-                         the admin sees the real line length, which is the whole
-                         reason this block type exists. --}}
+                    {{-- WYSIWYG preview in the selected language. Variables
+                         show their sample values so the admin sees the real
+                         line length, which is the whole reason this block
+                         type exists. --}}
                     <div :style="richPreviewStyle(overlay)" x-html="richPreviewHtml(overlay)"></div>
                 </template>
                 <template x-if="overlay.type === 'image'">
                     <div :style="'width:' + ((overlay.width || 100) * scale) + 'px; height:' + ((overlay.height || 100) * scale) + 'px;'"
                          class="bg-white/30 border-2 border-dashed border-gray-400 flex items-center justify-center backdrop-blur-sm"
                          :class="overlay.shape === 'circle' ? 'rounded-full' : 'rounded-lg'">
-                        <span class="text-xs text-gray-600 font-medium" x-text="overlay.field_key"></span>
+                        <span class="text-xs text-gray-600 font-medium" x-text="labelFor(overlay.field_key)"></span>
                     </div>
                 </template>
 
@@ -97,24 +139,19 @@
     </div>
 
     {{-- Add Overlay Toolbar --}}
-    <div class="flex flex-wrap gap-2 items-center">
-        <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add:</span>
+    <div class="gce-bar" style="justify-content:flex-start;">
+        <span class="gce-label">Add:</span>
         {{-- The preferred way to put words on a card (2026-08-29): one block
              holding the whole sentence, variables included, instead of a
              single-variable overlay parked on wording painted into the
              artwork. Listed first because it is what an admin should reach
              for. --}}
-        <button type="button"
-            @click="addTextBlock()"
-            class="px-2.5 py-1 text-xs rounded-lg border transition font-semibold bg-primary-50 dark:bg-primary-900/20 border-primary-300 dark:border-primary-700 text-primary-700 dark:text-primary-300 hover:bg-primary-100">
-            + Text block
-        </button>
-        <span class="text-gray-300 dark:text-gray-600">|</span>
+        <button type="button" @click="addTextBlock()" class="gce-chip gce-chip-primary">+ Text block</button>
+        <span class="gce-sep"></span>
         @foreach($availableVars as $v)
             <button type="button"
                 @click="addOverlay('{{ $v['key'] }}', '{{ $v['type'] === 'image' ? 'image' : 'text' }}')"
-                class="px-2.5 py-1 text-xs rounded-lg border transition font-medium
-                    {{ $v['auto'] ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 hover:bg-blue-100' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100' }}">
+                class="gce-chip {{ $v['auto'] ? 'gce-chip-blue' : 'gce-chip-green' }}">
                 + {{ $v['label'] }}
             </button>
         @endforeach
@@ -125,68 +162,94 @@
         <div class="p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 space-y-3" x-transition>
             <div class="flex items-center justify-between">
                 <h4 class="text-sm font-bold text-gray-700 dark:text-gray-300">
-                    Editing: <span class="text-primary-600" x-text="overlays[selectedIdx]?.field_key"></span>
-                    <span class="text-xs text-gray-400 ml-1" x-text="'(' + overlays[selectedIdx]?.type + ')'"></span>
+                    Editing: <span class="text-primary-600" x-text="editingTitle(overlays[selectedIdx])"></span>
                 </h4>
-                <button type="button" @click="removeOverlay(selectedIdx)"
-                    style="background-color:#dc2626;color:#ffffff;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;border:none;cursor:pointer;line-height:1;"
-                    onmouseover="this.style.backgroundColor='#b91c1c'" onmouseout="this.style.backgroundColor='#dc2626'">
+                <button type="button" @click="removeOverlay(selectedIdx)" class="gce-btn gce-btn-danger">
                     <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                     Delete
                 </button>
             </div>
 
             {{-- ── Rich text block editor ──────────────────────────────
-                 Everything the sentence needs, in one place: the words, the
-                 variables inside them, and the typography. Bold/italic/
-                 underline apply to the SELECTION; family, size, colour and
-                 alignment apply to the block. --}}
+                 Everything the sentence needs, in one place: the words in
+                 each language, the variables inside them, and the typography.
+                 Bold/italic/underline/colour/size apply to the SELECTION;
+                 family, base size, alignment and block colour apply to the
+                 whole block, in every language. --}}
             <template x-if="overlays[selectedIdx]?.type === 'rich_text'">
                 <div class="space-y-3">
-                    <div class="flex flex-wrap items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1.5">
-                        <button type="button" @click="fmt('bold')" title="Bold" class="rte-btn" style="font-weight:800;">B</button>
-                        <button type="button" @click="fmt('italic')" title="Italic" class="rte-btn" style="font-style:italic;">I</button>
-                        <button type="button" @click="fmt('underline')" title="Underline" class="rte-btn" style="text-decoration:underline;">U</button>
-                        <span class="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-600"></span>
+                    {{-- Language tabs — the same three the rest of the admin
+                         uses. Switching here also switches the canvas. --}}
+                    <div class="gce-tabs">
+                        <template x-for="l in langs" :key="'rte-' + l.code">
+                            <button type="button" class="gce-tab" :class="lang === l.code ? 'is-active' : ''" @click="setLang(l.code)">
+                                <span x-text="l.title"></span>
+                                <span x-show="l.code !== 'gu' && !hasOwnHtml(overlays[selectedIdx], l.code)" class="gce-tab-dot" title="No text in this language yet — the Gujarati text is used"></span>
+                            </button>
+                        </template>
+                    </div>
+
+                    <div class="gce-toolbar">
+                        <button type="button" @click="fmt('bold')" title="Bold (selection)" class="rte-btn" style="font-weight:800;">B</button>
+                        <button type="button" @click="fmt('italic')" title="Italic (selection)" class="rte-btn" style="font-style:italic;">I</button>
+                        <button type="button" @click="fmt('underline')" title="Underline (selection)" class="rte-btn" style="text-decoration:underline;">U</button>
+                        <span class="gce-sep"></span>
                         <label class="rte-btn cursor-pointer" title="Colour for the selected words">
                             <span style="text-decoration:underline; text-decoration-thickness:3px;" :style="'text-decoration-color:' + inlineColor">A</span>
                             <input type="color" x-model="inlineColor" @input="applyInlineColor()" class="sr-only">
                         </label>
-                        <select @change="applyInlineSize($event.target.value); $event.target.value = ''" class="rte-select" title="Size for the selected words">
+                        <select @change="applyInlineSize($event.target.value); $event.target.value = ''" class="rte-select" title="Size for the selected words (px on the card)">
                             <option value="">Size…</option>
-                            <template x-for="px in [16, 20, 24, 28, 32, 40, 48, 56, 64, 80]" :key="px">
+                            <template x-for="px in [16, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72, 80, 96]" :key="px">
                                 <option :value="px" x-text="px + ' px'"></option>
                             </template>
                         </select>
-                        <span class="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-600"></span>
-                        <button type="button" @click="fmt('removeFormat')" title="Clear formatting on the selection" class="rte-btn text-xs">Clear</button>
+                        <span class="gce-sep"></span>
+                        {{-- Alignment is a property of the BLOCK (pango lays
+                             the whole box out one way), so these are not
+                             selection commands. --}}
+                        <template x-for="a in aligns" :key="a.value">
+                            <button type="button" class="rte-btn" :class="(overlays[selectedIdx].align || 'center') === a.value ? 'is-active' : ''"
+                                :title="a.title" @click="overlays[selectedIdx].align = a.value; syncToForm()">
+                                <svg style="width:14px;height:14px" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <template x-if="a.value === 'left'"><g><path d="M4 6h16M4 12h10M4 18h14"/></g></template>
+                                    <template x-if="a.value === 'center'"><g><path d="M4 6h16M7 12h10M5 18h14"/></g></template>
+                                    <template x-if="a.value === 'right'"><g><path d="M4 6h16M10 12h10M6 18h14"/></g></template>
+                                    <template x-if="a.value === 'justify'"><g><path d="M4 6h16M4 12h16M4 18h16"/></g></template>
+                                </svg>
+                            </button>
+                        </template>
+                        <span class="gce-sep"></span>
+                        <button type="button" @click="fmt('removeFormat')" title="Clear formatting on the selection" class="rte-btn">Clear</button>
                     </div>
 
+                    {{-- Shown at the card's REAL pixel size, in the chosen
+                         family: 32 px here is 32 px on the finished card. --}}
                     <div contenteditable="true"
                          x-ref="rte"
-                         x-effect="loadRte(selectedIdx)"
+                         x-effect="loadRte(selectedIdx, lang)"
                          @input="onRteInput()"
                          @blur="onRteInput()"
-                         class="min-h-[90px] w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800 px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary-500"
-                         style="white-space: pre-wrap;"></div>
+                         :style="rteStyle(overlays[selectedIdx])"
+                         :placeholder="lang === 'gu' ? 'Type the card wording…' : 'Type the ' + currentLang().title + ' wording — blank means the Gujarati text is used'"
+                         class="gce-rte"></div>
+                    <p x-show="lang !== 'gu' && !hasOwnHtml(overlays[selectedIdx], lang)" class="gce-hint">
+                        No <span x-text="currentLang().title"></span> text yet — cards in this language will carry the Gujarati wording until you type a translation here.
+                    </p>
 
-                    <div class="flex flex-wrap items-center gap-1.5">
-                        <span class="text-xs font-medium text-gray-500">Insert:</span>
+                    <div class="gce-bar" style="justify-content:flex-start;">
+                        <span class="gce-label">Insert:</span>
                         @foreach($availableVars as $v)
                             @if(($v['type'] ?? 'text') !== 'image')
-                                <button type="button" @click="insertVariable('{{ $v['key'] }}')"
-                                    class="px-2 py-0.5 text-[11px] rounded-md border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100">
-                                    {{ $v['label'] }}
-                                </button>
+                                <button type="button" @click="insertVariable('{{ $v['key'] }}')" class="gce-chip gce-chip-green">{{ $v['label'] }}</button>
                             @endif
                         @endforeach
                     </div>
 
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div class="col-span-2">
-                            <label class="text-xs font-medium text-gray-500">Font (Google Fonts)</label>
-                            <select x-model="overlays[selectedIdx].font_family" @change="loadPreviewFont(overlays[selectedIdx].font_family); syncToForm()"
-                                class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
+                            <label class="gce-field-label">Font (Google Fonts) — shared by all languages</label>
+                            <select x-model="overlays[selectedIdx].font_family" @change="loadPreviewFont(overlays[selectedIdx].font_family); syncToForm()" class="gce-input">
                                 <optgroup label="Covers Gujarati / Hindi">
                                     @foreach($indicFonts as $f)
                                         <option value="{{ $f['family'] }}">{{ $f['family'] }}</option>
@@ -200,16 +263,16 @@
                             </select>
                         </div>
                         <div>
-                            <label class="text-xs font-medium text-gray-500">Alignment</label>
-                            <select x-model="overlays[selectedIdx].align" @change="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
-                                <option value="left">Left</option>
-                                <option value="center">Center</option>
-                                <option value="right">Right</option>
-                            </select>
+                            <label class="gce-field-label">Base size (px)</label>
+                            <input type="number" min="8" x-model.number="overlays[selectedIdx].font_size" @input="syncToForm()" class="gce-input">
                         </div>
                         <div>
-                            <label class="text-xs font-medium text-gray-500">Base size (px)</label>
-                            <input type="number" min="8" x-model.number="overlays[selectedIdx].font_size" @input="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
+                            <label class="gce-field-label">Alignment</label>
+                            <select x-model="overlays[selectedIdx].align" @change="syncToForm()" class="gce-input">
+                                <template x-for="a in aligns" :key="'sel-' + a.value">
+                                    <option :value="a.value" x-text="a.title"></option>
+                                </template>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -217,45 +280,42 @@
 
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
-                    <label class="text-xs font-medium text-gray-500">X (px)</label>
-                    <input type="number" x-model.number="overlays[selectedIdx].x" @input="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
+                    <label class="gce-field-label">X (px)</label>
+                    <input type="number" x-model.number="overlays[selectedIdx].x" @input="syncToForm()" class="gce-input">
                 </div>
                 <div>
-                    <label class="text-xs font-medium text-gray-500">Y (px)</label>
-                    <input type="number" x-model.number="overlays[selectedIdx].y" @input="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
+                    <label class="gce-field-label">Y (px)</label>
+                    <input type="number" x-model.number="overlays[selectedIdx].y" @input="syncToForm()" class="gce-input">
                 </div>
                 <div x-show="overlays[selectedIdx]?.type === 'text'">
-                    <label class="text-xs font-medium text-gray-500">Font Size</label>
-                    <input type="number" x-model.number="overlays[selectedIdx].font_size" @input="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
+                    <label class="gce-field-label">Font Size (px)</label>
+                    <input type="number" x-model.number="overlays[selectedIdx].font_size" @input="syncToForm()" class="gce-input">
                 </div>
                 <div x-show="isTextish(overlays[selectedIdx])">
-                    <label class="text-xs font-medium text-gray-500">Color</label>
-                    <input type="color" x-model="overlays[selectedIdx].color" @input="syncToForm()" class="w-full h-9 rounded-lg border-gray-300 dark:border-gray-600 cursor-pointer">
+                    <label class="gce-field-label">Color</label>
+                    <input type="color" x-model="overlays[selectedIdx].color" @input="syncToForm()" class="gce-input" style="height:2.25rem; padding:2px; cursor:pointer;">
                 </div>
                 <div x-show="isTextish(overlays[selectedIdx])">
-                    <label class="text-xs font-medium text-gray-500">Weight</label>
+                    <label class="gce-field-label">Weight</label>
                     <button type="button"
                         @click="overlays[selectedIdx].bold = !overlays[selectedIdx].bold; syncToForm()"
-                        class="w-full h-9 rounded-lg border text-sm transition flex items-center justify-center gap-1.5"
-                        :class="overlays[selectedIdx].bold
-                            ? 'bg-primary-600 border-primary-600 text-white font-bold'
-                            : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300'">
+                        class="gce-input gce-toggle" :class="overlays[selectedIdx].bold ? 'is-active' : ''">
                         <span style="font-weight:800;">B</span>
                         <span x-text="overlays[selectedIdx].bold ? 'Bold' : 'Normal'"></span>
                     </button>
                 </div>
                 <div>
-                    <label class="text-xs font-medium text-gray-500">Width (px)</label>
-                    <input type="number" x-model.number="overlays[selectedIdx].width" @input="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
-                    <span x-show="isTextish(overlays[selectedIdx])" class="text-[10px] text-gray-400">Text wraps & aligns inside this width</span>
+                    <label class="gce-field-label">Width (px)</label>
+                    <input type="number" x-model.number="overlays[selectedIdx].width" @input="syncToForm()" class="gce-input">
+                    <span x-show="isTextish(overlays[selectedIdx])" class="gce-hint">Text wraps &amp; aligns inside this width</span>
                 </div>
                 <div x-show="overlays[selectedIdx]?.type === 'image'">
-                    <label class="text-xs font-medium text-gray-500">Height (px)</label>
-                    <input type="number" x-model.number="overlays[selectedIdx].height" @input="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
+                    <label class="gce-field-label">Height (px)</label>
+                    <input type="number" x-model.number="overlays[selectedIdx].height" @input="syncToForm()" class="gce-input">
                 </div>
                 <div x-show="overlays[selectedIdx]?.type === 'image'">
-                    <label class="text-xs font-medium text-gray-500">Shape</label>
-                    <select x-model="overlays[selectedIdx].shape" @change="syncToForm()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm px-2 py-1.5">
+                    <label class="gce-field-label">Shape</label>
+                    <select x-model="overlays[selectedIdx].shape" @change="syncToForm()" class="gce-input">
                         <option value="square">Square</option>
                         <option value="circle">Circle</option>
                     </select>
@@ -264,53 +324,108 @@
         </div>
     </template>
 
-    <p class="text-xs text-gray-400 dark:text-gray-500">
-        Drag an overlay to position it. Click to select, then drag the blue corner handle to resize (photo size / text size). Coordinates saved relative to original image size.
+    <p class="gce-hint">
+        Drag an overlay to position it. Click to select, then drag the blue corner handle to resize (photo size / text size). Coordinates are saved in the background image's own pixels, so what you see here is where it lands on the card.
     </p>
-    <p class="text-xs text-gray-400 dark:text-gray-500">
-        <strong>Prefer a text block</strong> for anything with words in it. Leave the background artwork blank where the words go and write the whole sentence here, variables included &mdash; that way the wording, its weight and its alignment are one thing, instead of a variable balanced on top of text painted into the picture.
+    <p class="gce-hint">
+        <strong>Prefer a text block</strong> for anything with words in it. Leave the background artwork blank where the words go and write the whole sentence here, in each language, variables included &mdash; that way the wording, its weight and its alignment are one thing, instead of a variable balanced on top of text painted into the picture. Use <strong>Preview</strong> before saving: it is the real card, rendered on the server.
     </p>
 </div>
 
 <style>
-    /* Toolbar buttons for the text-block editor. Plain CSS rather than
-       Tailwind classes: this partial is rendered inside the Filament panel,
-       whose build does not scan resources/views/filament for utilities. */
+    /* Plain CSS rather than Tailwind utilities: this partial is rendered
+       inside the Filament panel, whose build does not scan
+       resources/views/filament — so any utility not already in Filament's
+       own bundle silently does nothing (that is how the "Insert" chips
+       ended up white-on-white, 2026-09-12). */
+    .gce-bar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.5rem .75rem; }
+    .gce-bar-group { display:inline-flex; flex-wrap:wrap; align-items:center; gap:.375rem; }
+    .gce-label { font-size:.7rem; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:rgb(107 114 128); }
+    .gce-sep { display:inline-block; width:1px; height:1rem; margin:0 .25rem; background:rgb(209 213 219); }
+    .dark .gce-sep { background:rgb(75 85 99); }
+    .gce-hint { font-size:.72rem; color:rgb(107 114 128); }
+    .dark .gce-hint { color:rgb(156 163 175); }
+    .gce-field-label { display:block; font-size:.72rem; font-weight:500; color:rgb(107 114 128); margin-bottom:.15rem; }
+    .dark .gce-field-label { color:rgb(156 163 175); }
+
+    .gce-input {
+        display:block; width:100%; height:2.25rem; padding:0 .5rem; font-size:.875rem;
+        border-radius:.5rem; border:1px solid rgb(209 213 219); background:#fff; color:rgb(31 41 55);
+    }
+    .dark .gce-input { background:rgb(31 41 55); border-color:rgb(75 85 99); color:rgb(229 231 235); }
+    .gce-toggle { display:inline-flex; align-items:center; justify-content:center; gap:.375rem; cursor:pointer; }
+    .gce-toggle.is-active { background:#C45F12; border-color:#C45F12; color:#fff; font-weight:700; }
+
+    .gce-btn {
+        display:inline-flex; align-items:center; gap:.375rem; height:2rem; padding:0 .75rem; border-radius:.5rem;
+        font-size:.78rem; font-weight:600; line-height:1; border:1px solid transparent; cursor:pointer;
+    }
+    .gce-btn-primary { background:#C45F12; color:#fff; }
+    .gce-btn-primary:hover { background:#9C480B; }
+    .gce-btn-danger { background:#dc2626; color:#fff; }
+    .gce-btn-danger:hover { background:#b91c1c; }
+
+    .gce-chip {
+        display:inline-flex; align-items:center; height:1.75rem; padding:0 .625rem; border-radius:.5rem;
+        font-size:.75rem; font-weight:500; line-height:1; border:1px solid; cursor:pointer; white-space:nowrap;
+    }
+    .gce-chip-blue { background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
+    .gce-chip-blue:hover { background:#dbeafe; }
+    .gce-chip-green { background:#ecfdf5; border-color:#a7f3d0; color:#047857; }
+    .gce-chip-green:hover { background:#d1fae5; }
+    .gce-chip-primary { background:#FDF3E8; border-color:#F4C994; color:#9C480B; font-weight:600; }
+    .gce-chip-primary:hover { background:#FAE1C3; }
+    .dark .gce-chip-blue { background:rgba(30,58,138,.25); border-color:#1e40af; color:#93c5fd; }
+    .dark .gce-chip-green { background:rgba(6,78,59,.25); border-color:#065f46; color:#6ee7b7; }
+    .dark .gce-chip-primary { background:rgba(156,72,11,.25); border-color:#9C480B; color:#F4C994; }
+
+    .gce-tabs { display:flex; gap:.25rem; border-bottom:1px solid rgb(229 231 235); padding-bottom:.25rem; }
+    .dark .gce-tabs { border-color:rgb(55 65 81); }
+    .gce-tab {
+        display:inline-flex; align-items:center; gap:.375rem; height:1.9rem; padding:0 .75rem; border-radius:.5rem;
+        font-size:.8rem; font-weight:500; border:1px solid rgb(209 213 219); background:#fff; color:rgb(55 65 81); cursor:pointer;
+    }
+    .gce-tab:hover { background:rgb(243 244 246); }
+    .gce-tab.is-active { background:#C45F12; border-color:#C45F12; color:#fff; font-weight:600; }
+    .dark .gce-tab { background:rgb(31 41 55); border-color:rgb(75 85 99); color:rgb(229 231 235); }
+    .dark .gce-tab:hover { background:rgb(55 65 81); }
+    .dark .gce-tab.is-active { background:#C45F12; border-color:#C45F12; color:#fff; }
+    .gce-tab-dot { width:.4rem; height:.4rem; border-radius:9999px; background:#f59e0b; display:inline-block; }
+
+    .gce-badge {
+        font-size:.7rem; font-weight:600; padding:.2rem .5rem; border-radius:.375rem;
+        background:rgba(17,24,39,.75); color:#fff; pointer-events:none;
+    }
+
+    .gce-toolbar {
+        display:flex; flex-wrap:wrap; align-items:center; gap:.375rem; padding:.375rem; border-radius:.5rem;
+        border:1px solid rgb(229 231 235); background:#fff;
+    }
+    .dark .gce-toolbar { background:rgb(31 41 55); border-color:rgb(55 65 81); }
+
     .rte-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 1.9rem;
-        height: 1.9rem;
-        padding: 0 .4rem;
-        border-radius: .375rem;
-        border: 1px solid rgb(209 213 219);
-        background: #fff;
-        font-size: .8rem;
-        line-height: 1;
-        color: rgb(55 65 81);
-        cursor: pointer;
+        display:inline-flex; align-items:center; justify-content:center; min-width:1.9rem; height:1.9rem; padding:0 .4rem;
+        border-radius:.375rem; border:1px solid rgb(209 213 219); background:#fff; font-size:.8rem; line-height:1; color:rgb(55 65 81); cursor:pointer;
     }
-    .rte-btn:hover { background: rgb(243 244 246); }
-    .rte-select {
-        height: 1.9rem;
-        border-radius: .375rem;
-        border: 1px solid rgb(209 213 219);
-        background: #fff;
-        font-size: .75rem;
-        padding: 0 .4rem;
-        color: rgb(55 65 81);
+    .rte-btn:hover { background:rgb(243 244 246); }
+    .rte-btn.is-active { background:#C45F12; border-color:#C45F12; color:#fff; }
+    .rte-select { height:1.9rem; border-radius:.375rem; border:1px solid rgb(209 213 219); background:#fff; font-size:.75rem; padding:0 .4rem; color:rgb(55 65 81); }
+    .dark .rte-btn, .dark .rte-select { background:rgb(31 41 55); border-color:rgb(75 85 99); color:rgb(229 231 235); }
+    .dark .rte-btn:hover { background:rgb(55 65 81); }
+    .dark .rte-btn.is-active { background:#C45F12; border-color:#C45F12; color:#fff; }
+
+    .gce-rte {
+        min-height:110px; width:100%; padding:.5rem .75rem; border-radius:.5rem; outline:none;
+        border:1px solid rgb(209 213 219); background:#fff; color:rgb(31 41 55); white-space:pre-wrap; overflow-wrap:break-word;
+        line-height:normal;
     }
-    .dark .rte-btn, .dark .rte-select {
-        background: rgb(31 41 55);
-        border-color: rgb(75 85 99);
-        color: rgb(229 231 235);
-    }
-    .dark .rte-btn:hover { background: rgb(55 65 81); }
+    .gce-rte:focus { box-shadow:0 0 0 2px rgba(196,95,18,.35); }
+    .gce-rte:empty::before { content:attr(placeholder); color:rgb(156 163 175); font-size:.875rem; font-family:ui-sans-serif, system-ui, sans-serif; }
+    .dark .gce-rte { background:rgb(31 41 55); border-color:rgb(75 85 99); color:rgb(229 231 235); }
 </style>
 
 <script>
-function greetingCardEditor(initialOverlays, initialConfig) {
+function greetingCardEditor(initialOverlays, initialConfig, templateUrls) {
     return {
         // Stamp a stable _uid on every overlay up-front (before first render)
         // so the x-for :key is always unique — undefined keys collapse rows.
@@ -326,9 +441,14 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             bold: o.type === 'text' ? (o.bold ?? false) : o.bold,
             // Rich blocks saved before a property existed still need one, or
             // the bound <select>/<input> renders blank and a save writes the
-            // blank back.
+            // blank back. `html` is the Gujarati/default wording; the other
+            // two languages were added 2026-09-12 and default to empty, which
+            // the renderer treats as "use the Gujarati text".
             align: o.type === 'rich_text' ? (o.align || 'center') : o.align,
             font_family: o.type === 'rich_text' ? (o.font_family || 'Noto Sans Gujarati') : o.font_family,
+            html: o.type === 'rich_text' ? (o.html || '') : o.html,
+            html_hi: o.type === 'rich_text' ? (o.html_hi || '') : o.html_hi,
+            html_en: o.type === 'rich_text' ? (o.html_en || '') : o.html_en,
             // Image slots gained a shape (square|circle); default older
             // templates to square so the <select> shows a value.
             shape: o.type === 'image' ? (o.shape || 'square') : o.shape,
@@ -359,11 +479,27 @@ function greetingCardEditor(initialOverlays, initialConfig) {
 
         _uidSeq: 0,
 
+        // ── Language ─────────────────────────────────────────────────
+        lang: 'gu',
+        langs: [
+            { code: 'gu', title: 'ગુજરાતી', short: 'ગુ' },
+            { code: 'hi', title: 'हिन्दी', short: 'हि' },
+            { code: 'en', title: 'English', short: 'En' },
+        ],
+        templateUrls: templateUrls || {},
+        aligns: [
+            { value: 'left', title: 'Left' },
+            { value: 'center', title: 'Center' },
+            { value: 'right', title: 'Right' },
+            { value: 'justify', title: 'Justify' },
+        ],
+
         // ── Rich text block state ────────────────────────────────────
-        // Which overlay the contenteditable currently holds. Reloading its
-        // innerHTML on every Alpine tick would move the caret to the start
-        // mid-typing, so it is only rewritten when the selection changes.
-        rteLoadedIdx: null,
+        // Which overlay + language the contenteditable currently holds.
+        // Reloading its innerHTML on every Alpine tick would move the caret
+        // to the start mid-typing, so it is only rewritten when the
+        // selection or the language changes.
+        rteLoadedKey: null,
         inlineColor: '#881337',
         // Families whose CSS has already been injected, so switching back
         // and forth doesn't add a <link> per change.
@@ -381,6 +517,12 @@ function greetingCardEditor(initialOverlays, initialConfig) {
                 if (!o._uid) o._uid = this.nextUid();
                 if (o.type === 'rich_text') this.loadPreviewFont(o.font_family);
             });
+            // The faces pango uses for single-variable overlays, so the
+            // canvas measures Gujarati/Hindi text in the same font the card
+            // will. (Latin goes through DejaVu Sans, which Google does not
+            // host; Verdana is its metric twin and is used as the stand-in.)
+            this.loadPreviewFont('Noto Sans Gujarati');
+            this.loadPreviewFont('Noto Sans Devanagari');
             document.addEventListener('mousemove', (e) => { this.onDrag(e); this.onResize(e); });
             document.addEventListener('mouseup', () => { this.stopDrag(); this.stopResize(); });
             document.addEventListener('touchmove', (e) => { this.onDrag(e); this.onResize(e); }, { passive: false });
@@ -393,6 +535,37 @@ function greetingCardEditor(initialOverlays, initialConfig) {
                 this.recomputeScale();
                 this.syncToForm();
             });
+        },
+
+        currentLang() {
+            return this.langs.find((l) => l.code === this.lang) || this.langs[0];
+        },
+
+        setLang(code) {
+            // Flush any pending edit under the OLD language before the
+            // editable is reloaded with the new one.
+            this.onRteInput();
+            this.lang = code;
+        },
+
+        hasOwnTemplate(code) {
+            return !!this.templateUrls[code] && this.templateUrls[code] !== this.templateUrls.gu;
+        },
+
+        htmlKey(code) {
+            return code === 'gu' ? 'html' : 'html_' + code;
+        },
+
+        /** Does the block have its own wording in this language? */
+        hasOwnHtml(overlay, code) {
+            if (!overlay) return false;
+            const html = overlay[this.htmlKey(code)] || '';
+            return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() !== '';
+        },
+
+        /** The wording the RENDERER would use for this language — own text, else Gujarati. */
+        htmlForLang(overlay, code) {
+            return this.hasOwnHtml(overlay, code) ? overlay[this.htmlKey(code)] : (overlay.html || '');
         },
 
         recomputeScale() {
@@ -444,7 +617,9 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             this.overlays.push({
                 _uid: this.nextUid(),
                 type: 'rich_text',
-                html: '<p>Jay Siyaram, <b>' + token(firstVar) + '</b></p>',
+                html: '<p>જય સિયારામ, <b>' + token(firstVar) + '</b></p>',
+                html_hi: '',
+                html_en: '',
                 x: 60 + (this.overlays.length * 20),
                 y: 60 + (this.overlays.length * 20),
                 width: Math.max(200, Math.round(this.naturalW * 0.7)),
@@ -455,7 +630,7 @@ function greetingCardEditor(initialOverlays, initialConfig) {
                 bold: false,
             });
             this.selectedIdx = this.overlays.length - 1;
-            this.rteLoadedIdx = null;
+            this.rteLoadedKey = null;
             this.loadPreviewFont('Noto Sans Gujarati');
             this.syncToForm();
         },
@@ -465,29 +640,42 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             return overlay && (overlay.type === 'text' || overlay.type === 'rich_text');
         },
 
-        /** Put the selected block's HTML into the editable div, once. */
-        loadRte(idx) {
+        editingTitle(overlay) {
+            if (!overlay) return '';
+            if (overlay.type === 'rich_text') return 'Text block';
+            return this.labelFor(overlay.field_key) + (overlay.type === 'image' ? ' (photo)' : '');
+        },
+
+        labelFor(key) {
+            const labels = @js($varLabels);
+            return labels[key] || key;
+        },
+
+        /** Put the selected block's wording (in the current language) into the editable div, once. */
+        loadRte(idx, lang) {
             const overlay = this.overlays[idx];
-            if (!overlay || overlay.type !== 'rich_text') { this.rteLoadedIdx = null; return; }
-            if (this.rteLoadedIdx === idx) return;
+            if (!overlay || overlay.type !== 'rich_text') { this.rteLoadedKey = null; return; }
+            const key = idx + ':' + lang;
+            if (this.rteLoadedKey === key) return;
             const el = this.$refs.rte;
             if (!el) return;
-            el.innerHTML = overlay.html || '';
-            this.rteLoadedIdx = idx;
+            el.innerHTML = overlay[this.htmlKey(lang)] || '';
+            this.rteLoadedKey = key;
             this.loadPreviewFont(overlay.font_family);
         },
 
         onRteInput() {
             const overlay = this.overlays[this.selectedIdx];
             if (!overlay || overlay.type !== 'rich_text' || !this.$refs.rte) return;
-            overlay.html = this.$refs.rte.innerHTML;
+            if (this.rteLoadedKey !== this.selectedIdx + ':' + this.lang) return;
+            overlay[this.htmlKey(this.lang)] = this.$refs.rte.innerHTML;
             this.syncToForm();
         },
 
         /**
          * styleWithCSS makes execCommand emit <span style="…"> rather than
-         * the legacy <font> element — the renderer reads inline styles, so
-         * without it colours would be silently dropped on the card.
+         * the legacy <font>/<b> elements — the renderer reads both, but
+         * inline styles are what it sees most reliably.
          */
         fmt(command) {
             const el = this.$refs.rte;
@@ -512,6 +700,11 @@ function greetingCardEditor(initialOverlays, initialConfig) {
          * largest of those as a marker, then rewrite those elements to the
          * real px value. Crude, but it is the only cross-browser way to get
          * an exact size out of contenteditable, and the renderer needs px.
+         *
+         * Any font-size already inside the selection is stripped first:
+         * otherwise a second size applied over a first one nested a smaller
+         * span inside a bigger one, the inner won, and the size "did not
+         * change" (2026-09-12).
          */
         applyInlineSize(px) {
             if (!px) return;
@@ -520,16 +713,23 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             el.focus();
             try { document.execCommand('styleWithCSS', false, false); } catch (e) {}
             document.execCommand('fontSize', false, '7');
-            el.querySelectorAll('font[size="7"]').forEach((node) => {
+            const retag = (node) => {
                 const span = document.createElement('span');
                 span.style.fontSize = px + 'px';
                 span.innerHTML = node.innerHTML;
+                span.querySelectorAll('[style*="font-size"]').forEach((inner) => {
+                    inner.style.fontSize = '';
+                    if (!inner.getAttribute('style')) inner.removeAttribute('style');
+                    if (inner.tagName === 'SPAN' && !inner.attributes.length) {
+                        inner.replaceWith(...inner.childNodes);
+                    }
+                });
+                span.querySelectorAll('font[size]').forEach((inner) => inner.replaceWith(...inner.childNodes));
                 node.replaceWith(span);
-            });
+            };
+            el.querySelectorAll('font[size="7"]').forEach(retag);
             // Also catch the CSS-mode output some browsers produce.
-            el.querySelectorAll('span[style*="xxx-large"], span[style*="x-large"]').forEach((node) => {
-                node.style.fontSize = px + 'px';
-            });
+            el.querySelectorAll('span[style*="xxx-large"], span[style*="x-large"]').forEach(retag);
             this.onRteInput();
         },
 
@@ -558,30 +758,69 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             document.head.appendChild(link);
         },
 
-        /** Variables shown as their sample values, so line length is honest. */
+        /** Same tolerance as CardRichText::TOKEN_PATTERN — contenteditable turns spaces into &nbsp;. */
+        tokenPattern() {
+            return /\{\{(?:\s|&nbsp;| )*([A-Za-z0-9_\-]+)(?:\s|&nbsp;| )*\}\}/g;
+        },
+
+        /**
+         * Variables shown as their sample values, so line length is honest —
+         * and every inline px size scaled by the canvas scale, so a 48 px
+         * span looks 48 CARD pixels here rather than 48 screen pixels. The
+         * unscaled version made text look bigger on the canvas than on the
+         * card whenever the canvas was narrower than the image (2026-09-12).
+         */
         richPreviewHtml(overlay) {
-            return String(overlay.html || '').replace(
-                /\{\{\s*([A-Za-z0-9_\-]+)\s*\}\}/g,
-                (_, key) => this.getSampleText(key),
-            );
+            const html = this.htmlForLang(overlay, this.lang);
+            const scale = this.scale;
+            return String(html || '')
+                .replace(this.tokenPattern(), (_, key) => this.getSampleText(key))
+                .replace(/font-size\s*:\s*([0-9.]+)px/gi, (_, n) => 'font-size:' + (parseFloat(n) * scale) + 'px');
         },
 
         richPreviewStyle(overlay) {
-            const size = Math.max(8, (overlay.font_size || 32) * this.scale);
+            const size = Math.max(4, (overlay.font_size || 32) * this.scale);
             return 'width:' + ((overlay.width || 300) * this.scale) + 'px;'
                 + 'font-size:' + size + 'px;'
                 + 'font-family:' + JSON.stringify(overlay.font_family || 'Noto Sans Gujarati') + ', serif;'
                 + 'color:' + (overlay.color || '#333') + ';'
                 + 'font-weight:' + (overlay.bold ? '700' : '400') + ';'
                 + 'text-align:' + (overlay.align || 'center') + ';'
-                + 'line-height:1.35; white-space:normal; overflow-wrap:break-word;'
-                + 'text-shadow: 0 1px 3px rgba(0,0,0,0.25);';
+                // The font's own line height, which is what pango uses too.
+                + 'line-height:normal; white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word;';
+        },
+
+        /** Single-variable overlay: centred in its width box, in pango's family for the script. */
+        textPreviewStyle(overlay) {
+            const sample = this.getSampleText(overlay.field_key);
+            return 'width:' + ((overlay.width || 300) * this.scale) + 'px;'
+                + 'font-size:' + Math.max(4, (overlay.font_size || 24) * this.scale) + 'px;'
+                + 'font-family:' + this.familyForText(sample) + ';'
+                + 'color:' + (overlay.color || '#333') + ';'
+                + 'font-weight:' + (overlay.bold ? '700' : '400') + ';'
+                + 'text-align:center; line-height:normal; white-space:normal; overflow-wrap:break-word; word-break:break-word;';
+        },
+
+        /** Mirrors CardOverlayPainter::familyForText. */
+        familyForText(text) {
+            if (/[઀-૿]/.test(text)) return '"Noto Sans Gujarati", sans-serif';
+            if (/[ऀ-ॿ]/.test(text)) return '"Noto Sans Devanagari", sans-serif';
+            return '"DejaVu Sans", Verdana, sans-serif';
+        },
+
+        /** The contenteditable: real card pixels, real family, block colour and weight. */
+        rteStyle(overlay) {
+            if (!overlay) return '';
+            return 'font-family:' + JSON.stringify(overlay.font_family || 'Noto Sans Gujarati') + ', serif;'
+                + 'font-size:' + Math.max(12, overlay.font_size || 32) + 'px;'
+                + 'font-weight:' + (overlay.bold ? '700' : '400') + ';'
+                + 'text-align:' + (overlay.align || 'center') + ';';
         },
 
         removeOverlay(idx) {
             this.overlays.splice(idx, 1);
             this.selectedIdx = null;
-            this.rteLoadedIdx = null;
+            this.rteLoadedKey = null;
             this.syncToForm();
         },
 
@@ -657,21 +896,40 @@ function greetingCardEditor(initialOverlays, initialConfig) {
             return 'left:' + (overlay.x * this.scale) + 'px; top:' + (overlay.y * this.scale) + 'px; position:absolute;';
         },
 
+        /**
+         * Sample values in the selected language. These are the SAME strings
+         * CardPreviewService uses, so the canvas and the server preview agree
+         * — and they are long-ish Gujarati/Hindi names on purpose, because
+         * "does a real name still fit" is what the admin is checking.
+         */
         getSampleText(key) {
-            const samples = {
-                '_donor_name': 'Ramesh Patel',
-                '_amount': '₹5,100.00',
-                '_date': '09/04/2026',
-                '_temple_name': 'Shree Patadiya Hanumanji',
-                '_seva_name': 'Sundarkand Path',
-                '_booking_date': '15/08/2026',
-                '_slot': '07:00 AM',
+            const byLang = {
+                gu: { '_donor_name': 'રમેશભાઈ મગનભાઈ પટેલ', '_seva_name': 'સુંદરકાંડ પાઠ', '_campaign_title': 'મંદિર જીર્ણોદ્ધાર', '_sub_cause': 'અન્નદાન', '_caption': 'મંગળા આરતી દર્શન', '_slot': 'પૂર્ણ દિવસ' },
+                hi: { '_donor_name': 'रमेशभाई मगनभाई पटेल', '_seva_name': 'सुंदरकांड पाठ', '_campaign_title': 'मंदिर जीर्णोद्धार', '_sub_cause': 'अन्नदान', '_caption': 'मंगला आरती दर्शन', '_slot': 'पूरा दिन' },
+                en: { '_donor_name': 'Rameshbhai Maganbhai Patel', '_seva_name': 'Sundarkand Path', '_campaign_title': 'Temple Renovation', '_sub_cause': 'Annadaan', '_caption': 'Mangala Aarti Darshan', '_slot': 'Full Day' },
             };
-            return samples[key] || key;
+            const common = {
+                '_amount': '₹5,100.00',
+                '_date': @js(now()->setTimezone('Asia/Kolkata')->format('d/m/Y')),
+                '_booking_date': @js(now()->setTimezone('Asia/Kolkata')->addDays(7)->format('d/m/Y')),
+                '_temple_name': @js(\App\Models\SystemSetting::getLocalized('trust_name', 'gu', 'Shree Patadiya Hanumanji Seva Trust')),
+            };
+            const templeNames = {
+                gu: @js(\App\Models\SystemSetting::getLocalized('trust_name', 'gu', 'Shree Patadiya Hanumanji Seva Trust')),
+                hi: @js(\App\Models\SystemSetting::getLocalized('trust_name', 'hi', 'Shree Patadiya Hanumanji Seva Trust')),
+                en: @js(\App\Models\SystemSetting::getLocalized('trust_name', 'en', 'Shree Patadiya Hanumanji Seva Trust')),
+            };
+            if (key === '_temple_name') return templeNames[this.lang] || common._temple_name;
+            const local = byLang[this.lang] || byLang.gu;
+            if (local[key] !== undefined) return local[key];
+            if (common[key] !== undefined) return common[key];
+            // A custom extra field: show its label so the admin can tell
+            // which slot is which — the same thing the server preview does.
+            return this.labelFor(key);
         },
 
-        syncToForm() {
-            let config = {
+        currentConfig() {
+            return {
                 overlays: this.overlays.map(o => {
                     let c = { field_key: o.field_key, type: o.type, x: o.x, y: o.y };
                     // NOTE: this is a WHITELIST — a key not copied here is
@@ -684,6 +942,8 @@ function greetingCardEditor(initialOverlays, initialConfig) {
                     if (o.type === 'rich_text') {
                         delete c.field_key;
                         c.html = o.html || '';
+                        c.html_hi = o.html_hi || '';
+                        c.html_en = o.html_en || '';
                         c.width = o.width || 300;
                         c.font_size = o.font_size || 32;
                         c.font_family = o.font_family || 'Noto Sans Gujarati';
@@ -697,6 +957,42 @@ function greetingCardEditor(initialOverlays, initialConfig) {
                 send_via_whatsapp: this._sendConfig.send_via_whatsapp,
                 show_on_thankyou: this._sendConfig.show_on_thankyou,
             };
+        },
+
+        /**
+         * Server-side preview of the layout AS IT IS NOW (unsaved) in the
+         * selected language. A real <form target="_blank"> POST, so the PNG
+         * opens in a new tab like any image and nothing is written to R2 —
+         * see App\Http\Controllers\Admin\CardPreviewController.
+         */
+        openPreview() {
+            this.onRteInput();
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = @js(route('admin.card-preview'));
+            form.target = '_blank';
+            form.style.display = 'none';
+            const fields = {
+                _token: @js(csrf_token()),
+                owner: @js($previewOwner),
+                id: @js((string) $previewId),
+                locale: this.lang,
+                config: JSON.stringify(this.currentConfig()),
+            };
+            Object.entries(fields).forEach(([name, value]) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = value ?? '';
+                form.appendChild(input);
+            });
+            document.body.appendChild(form);
+            form.submit();
+            form.remove();
+        },
+
+        syncToForm() {
+            let config = this.currentConfig();
 
             // Push straight into THIS form component's state. $wire always
             // refers to the Livewire component this Alpine widget lives in

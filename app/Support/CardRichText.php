@@ -54,6 +54,18 @@ final class CardRichText
     private const BLOCK_TAGS = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'li'];
 
     /**
+     * A `{{ variable }}` token as it survives a contenteditable.
+     *
+     * Browsers turn the spaces inside and around a token into `&nbsp;` (or a
+     * literal U+00A0) as the admin edits around it, and the first version of
+     * this pattern only knew `\s` — so a token the admin had merely clicked
+     * next to stopped matching and the devotee's card read "{{ _donor_name }}"
+     * verbatim. Every whitespace form is accepted now; the JS preview in the
+     * editor uses the same tolerance.
+     */
+    public const TOKEN_PATTERN = '/\{\{(?:\s|&nbsp;|\x{00A0})*([A-Za-z0-9_\-]+)(?:\s|&nbsp;|\x{00A0})*\}\}/u';
+
+    /**
      * Substitute `{{ token }}` placeholders using the caller's resolver.
      *
      * Runs on the RAW HTML before conversion, and escapes whatever comes back,
@@ -64,7 +76,7 @@ final class CardRichText
     public static function substitute(string $html, callable $resolve): string
     {
         return (string) preg_replace_callback(
-            '/\{\{\s*([A-Za-z0-9_\-]+)\s*\}\}/',
+            self::TOKEN_PATTERN,
             function (array $m) use ($resolve): string {
                 $value = $resolve($m[1]);
 
@@ -181,6 +193,16 @@ final class CardRichText
         $style = strtolower((string) $node->getAttribute('style'));
         $attributes = '';
 
+        // Legacy <font color="…"> — what a browser emits when execCommand
+        // runs without styleWithCSS. The editor asks for CSS mode, but a
+        // pasted fragment or an older browser can still produce this form.
+        if ($node->hasAttribute('color') && ! str_contains($style, 'color')) {
+            $colour = self::normaliseColour(strtolower(trim($node->getAttribute('color'))));
+            if ($colour !== null) {
+                $attributes .= ' foreground="'.$colour.'"';
+            }
+        }
+
         if (preg_match('/(?:^|[;\s])color\s*:\s*([^;]+)/', $style, $m)) {
             $colour = self::normaliseColour(trim($m[1]));
             if ($colour !== null) {
@@ -198,12 +220,27 @@ final class CardRichText
             }
         }
 
-        if (str_contains($style, 'font-weight: bold') || str_contains($style, 'font-weight:bold') || str_contains($style, 'font-weight: 700')) {
+        if (preg_match('/font-weight\s*:\s*(bold|bolder|[6-9]00)\b/', $style)) {
             $attributes .= ' weight="bold"';
         }
 
-        if (str_contains($style, 'font-style: italic') || str_contains($style, 'font-style:italic')) {
+        // The editor never emits these, but a browser's removeFormat can
+        // leave an explicit "normal" behind a nested bold — honour it so the
+        // card matches what the admin sees.
+        if (preg_match('/font-weight\s*:\s*(normal|400)\b/', $style)) {
+            $attributes .= ' weight="normal"';
+        }
+
+        if (preg_match('/font-style\s*:\s*italic/', $style)) {
             $attributes .= ' style="italic"';
+        }
+
+        if (preg_match('/text-decoration(?:-line)?\s*:\s*[^;]*underline/', $style)) {
+            $attributes .= ' underline="single"';
+        }
+
+        if (preg_match('/text-decoration(?:-line)?\s*:\s*[^;]*line-through/', $style)) {
+            $attributes .= ' strikethrough="true"';
         }
 
         return $attributes;

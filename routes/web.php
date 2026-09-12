@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Admin\CardPreviewController;
 use App\Http\Controllers\Web\AuthWebController;
 use App\Http\Controllers\Web\ContactController;
 use App\Http\Controllers\Web\DashboardController;
@@ -303,6 +304,14 @@ Route::get('/projects/{slug}/donors', [ProjectController::class, 'donors'])->nam
 // public/storage any more. Nothing referenced route('admin.storage-repair')
 // anywhere in the repo, so deletion is safe. If a storage symlink is ever
 // needed again the VPS has SSH: `ssh temple-vps` then `php artisan storage:link`.
+
+// Admin card editor "Preview" — renders the UNSAVED layout with sample values
+// in one language and streams the PNG back inline; nothing is stored. Lives
+// outside the Filament panel, so the controller re-applies the panel gate
+// (admin guard + canAccessPanel + the record's update policy) itself.
+Route::post('/admin/card-preview', CardPreviewController::class)
+    ->middleware(['auth:admin', 'throttle:60,1'])
+    ->name('admin.card-preview');
 
 // Legal / store-compliance pages (required by App Store + Google Play).
 // Defined before the CMS catch-all so these fixed URLs always resolve.

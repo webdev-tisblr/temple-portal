@@ -79,7 +79,7 @@ class DarshanCardTemplateResource extends Resource
                 ]),
 
             Forms\Components\Section::make('Card Layout')
-                ->description('Drag the darshan photo slot, devotee name/photo and text variables onto the design. Save after uploading the background to enable the canvas.')
+                ->description('Drag the darshan photo slot, devotee name/photo and text variables onto the design, or write the wording in a text block (per language). Save after uploading the background to enable the canvas; Preview shows the real render.')
                 ->schema([
                     Forms\Components\Placeholder::make('card_editor_ui')
                         ->hiddenLabel()

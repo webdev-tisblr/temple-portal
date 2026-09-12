@@ -89,7 +89,10 @@ final class ShapedText
         }
         $png = $tmp.'.png';
 
-        $align = in_array($align, ['left', 'center', 'right'], true) ? $align : 'center';
+        // 'justify' is not a pango alignment — it is a separate flag on top of
+        // left alignment (the last line of a justified paragraph sits left).
+        $justify = $align === 'justify';
+        $align = in_array($align, ['left', 'center', 'right'], true) ? $align : ($justify ? 'left' : 'center');
 
         // LC_ALL is load-bearing — see the note in render().
         $env = 'LC_ALL=C.UTF-8';
@@ -101,12 +104,13 @@ final class ShapedText
             // --margin=0: a text block is composited at the exact x/y the
             // admin dragged it to, so pango-view's default 10px padding would
             // shift every block down and right of where the editor showed it.
-            '%s pango-view -q --dpi=72 --margin=0 -o %s --background=transparent --markup --font=%s %s --align=%s -t %s 2>&1',
+            '%s pango-view -q --dpi=72 --margin=0 -o %s --background=transparent --markup --font=%s %s --align=%s%s -t %s 2>&1',
             $env,
             escapeshellarg($png),
             escapeshellarg(trim($family.($bold ? ' Bold' : '')).' '.round($fontSizePx, 1)),
             $wrapWidthPx !== null && $wrapWidthPx > 0 ? '--width='.(int) $wrapWidthPx.' --wrap=word-char' : '',
             escapeshellarg($align),
+            $justify && $wrapWidthPx !== null && $wrapWidthPx > 0 ? ' --justify' : '',
             escapeshellarg($markup),
         );
 
@@ -149,9 +153,16 @@ final class ShapedText
      *                                   so callers can match their surface's typography;
      *                                   null keeps the script-detected sans default.
      * @param  bool  $bold  Render at weight bold (card overlays' bold toggle).
+     * @param  int  $margin  Padding pango-view adds around the text, in px.
+     *                       Its default is 10, which is fine for callers that
+     *                       centre on a POINT (the drawn darshan design) but
+     *                       wrong for overlays composited at a top-left CORNER
+     *                       the admin dragged to — those pass 0, or every
+     *                       shaped overlay lands 10px right and below where
+     *                       the editor showed it (fixed 2026-09-12).
      * @return \GdImage|null null on any failure — caller uses its GD fallback.
      */
-    public static function render(string $text, float $fontSizePx, string $hexColor, ?int $wrapWidthPx = null, ?string $fontFamily = null, bool $bold = false): ?\GdImage
+    public static function render(string $text, float $fontSizePx, string $hexColor, ?int $wrapWidthPx = null, ?string $fontFamily = null, bool $bold = false, int $margin = 10): ?\GdImage
     {
         if (! self::available() || trim($text) === '') {
             return null;
@@ -179,7 +190,8 @@ final class ShapedText
         // every web-triggered render silently fell back to unshaped GD
         // while CLI tests (UTF-8 ssh locale) looked fine (2026-07-27).
         $cmd = sprintf(
-            'LC_ALL=C.UTF-8 pango-view -q --dpi=72 -o %s --background=transparent --foreground=%s --font=%s %s --align=center -t %s 2>&1',
+            'LC_ALL=C.UTF-8 pango-view -q --dpi=72 --margin=%d -o %s --background=transparent --foreground=%s --font=%s %s --align=center -t %s 2>&1',
+            max(0, $margin),
             escapeshellarg($png),
             escapeshellarg('#'.ltrim($hexColor, '#')),
             escapeshellarg($family.$style.' '.round($fontSizePx, 1)),

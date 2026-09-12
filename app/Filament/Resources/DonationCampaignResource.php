@@ -125,7 +125,7 @@ class DonationCampaignResource extends Resource
 
             Forms\Components\Section::make('Greeting Card')
                 ->icon('heroicon-o-photo')
-                ->description('Optional: donors to this campaign receive a greeting card image, rendered in their preferred language. Upload a background per language, then drag & drop variables on the canvas. Nothing is sent until the "Donation — campaign greeting card" notification template is created and enabled.')
+                ->description('Optional: donors to this campaign receive a greeting card image, rendered in their preferred language. Upload a background per language, write the wording in a text block (one tab per language) and drag it into place; Preview shows the real render. Nothing is sent until the "Donation — campaign greeting card" notification template is created and enabled.')
                 ->collapsed()
                 ->schema([
                     CardTemplateUpload::make(

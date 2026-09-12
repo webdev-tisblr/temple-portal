@@ -228,7 +228,7 @@ class SevaResource extends Resource
 
             Forms\Components\Section::make('Greeting Card')
                 ->icon('heroicon-o-photo')
-                ->description('Optional: devotees receive a greeting card image after booking this seva, rendered in their preferred language. Upload a background per language, then drag & drop variables on the canvas. Delivery channels are controlled by the "Seva — greeting card" notification templates.')
+                ->description('Optional: devotees receive a greeting card image after booking this seva, rendered in their preferred language. Upload a background per language, write the wording in a text block (one tab per language) and drag it into place; Preview shows the real render. Delivery channels are controlled by the "Seva — greeting card" notification templates.')
                 ->collapsed()
                 ->schema([
                     CardTemplateUpload::make(

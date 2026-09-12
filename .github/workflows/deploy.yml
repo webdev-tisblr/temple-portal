@@ -121,9 +121,13 @@ jobs:
       - name: Sync code into the live directory
         # Same exclude list the remote rsync used: --delete never touches
         # .env, storage/app (R2-era leftovers), or runtime caches.
+        # storage/app/fonts/ is the on-demand Google-font store plus its
+        # fontconfig cache, written by www-data; --delete wiped the fonts on
+        # every deploy and then failed outright (exit 23) once fc-cache had
+        # created a non-group-writable .cache dir (2026-09-12).
         run: |
           rsync -rlc --checksum --delete \
-            --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='.env.production' --exclude='.env.deploy' --exclude='.env.server' --exclude='tests' --exclude='.github' --exclude='storage/app/public/' --exclude='storage/app/private/' --exclude='storage/app/mpdf/' --exclude='storage/logs/*.log' --exclude='storage/framework/cache/data/*' --exclude='storage/framework/sessions/*' --exclude='storage/framework/views/*' --exclude='database.sqlite' \
+            --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='.env.production' --exclude='.env.deploy' --exclude='.env.server' --exclude='tests' --exclude='.github' --exclude='storage/app/public/' --exclude='storage/app/private/' --exclude='storage/app/fonts/' --exclude='storage/app/mpdf/' --exclude='storage/logs/*.log' --exclude='storage/framework/cache/data/*' --exclude='storage/framework/sessions/*' --exclude='storage/framework/views/*' --exclude='database.sqlite' \
             ./ /var/www/temple-portal/
 
       - name: Post-deploy

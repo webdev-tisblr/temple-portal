@@ -170,7 +170,6 @@ class ListSevaBookings extends ListRecords
             'filters' => $this->activeFilterLabels(),
             'trustName' => SystemSetting::getValue('trust_name_en', 'Shree Patadiya Hanumanji Seva Trust'),
             'total' => (float) $bookings->sum('total_amount'),
-            'exportedBy' => auth('admin')->user()?->name ?? '—',
         ], ['format' => 'A4-L']);
 
         return response()->streamDownload(

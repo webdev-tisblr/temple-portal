@@ -109,7 +109,7 @@
     @endif
 
     <div class="footer">
-        Exported by {{ $exportedBy }} &nbsp;|&nbsp; {{ $trustName }}
+        {{ $trustName }}
     </div>
 </body>
 </html>

@@ -231,6 +231,17 @@ class AdminAuthorizationTest extends TestCase
         Livewire::test(ListDonations::class)->assertActionVisible('export');
     }
 
+    public function test_seva_booking_export_requires_export_seva_bookings(): void
+    {
+        // Same shape as the donations export: every devotee's name + phone
+        // for whatever the list is filtered to.
+        $this->actAs($this->adminWith(['view_any_seva::booking']));
+        Livewire::test(ListSevaBookings::class)->assertActionHidden('export');
+
+        $this->actAs($this->adminWith(['view_any_seva::booking', 'export_seva_bookings']));
+        Livewire::test(ListSevaBookings::class)->assertActionVisible('export');
+    }
+
     public function test_g10_generate_80g_receipt_requires_regenerate_80g_receipt(): void
     {
         // The donor needs a PAN: since the strict 80G rule landed

@@ -193,9 +193,12 @@ class RolePermissionSeeder extends Seeder
         // regenerate_80g_receipt → ViewDonation::generate_receipt (mints an
         //                        80G receipt number).
         // export_donations     → ListDonations::export (full donor CSV/PDF).
+        // export_seva_bookings → ListSevaBookings::export (the filtered
+        //                        list as CSV/PDF — devotee names + phones).
         'approve_refund',
         'regenerate_80g_receipt',
         'export_donations',
+        'export_seva_bookings',
 
         // Communication actions.
         // resend_notification  → NotificationLogResource::resend.
@@ -427,6 +430,7 @@ class RolePermissionSeeder extends Seeder
                     'approve_refund',
                     'regenerate_80g_receipt',
                     'export_donations',
+                    'export_seva_bookings',
                     'resend_notification',
                     'send_announcement',
                     // Trustee already holds page_SystemSettings, so they are
@@ -465,6 +469,7 @@ class RolePermissionSeeder extends Seeder
                     'approve_refund',
                     'regenerate_80g_receipt',
                     'export_donations',
+                    'export_seva_bookings',
                     // G9: export_orders deleted — no order export exists.
                 ],
             ),
@@ -503,7 +508,10 @@ class RolePermissionSeeder extends Seeder
                 // is not offered to them. The record-type switcher hides
                 // what the permission does not allow.
                 ['page_CounterEntryPage'],
-                ['resend_notification'],
+                // Front desk prints the day's seva sheet — they already see
+                // every name and phone on the list, so the export adds no
+                // new exposure.
+                ['resend_notification', 'export_seva_bookings'],
             ),
 
             // ---- Volunteer: light read-only. ---------------------------

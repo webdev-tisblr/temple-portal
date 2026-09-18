@@ -73,4 +73,20 @@ class RazorpayService
     {
         return $this->api->payment->fetch($paymentId);
     }
+
+    /**
+     * Every payment attempt Razorpay holds against one of our orders, as
+     * plain arrays (`id`, `status`, `amount` in paise, `method`,
+     * `created_at` unix). An order can carry several attempts — a failed
+     * UPI collect followed by a successful one — so callers pick the
+     * `captured` one rather than assuming the first.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function fetchOrderPayments(string $orderId): array
+    {
+        $collection = $this->api->order->fetch($orderId)->payments();
+
+        return array_values($collection->toArray()['items'] ?? []);
+    }
 }

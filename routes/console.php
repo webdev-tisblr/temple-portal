@@ -75,6 +75,25 @@ Schedule::command('bookings:clean-stale')
     ->everyFiveMinutes()
     ->withoutOverlapping(10);
 
+// Pull-based safety net for captures neither /payments/verify nor the webhook
+// reported (UPI donor never returns to the browser + webhook rejected). Asks
+// Razorpay about still-unpaid orders; a recovery logs at error level because
+// it means both primary paths missed. Two cadences keep the API chatter down:
+// fresh orders (where nearly every late capture lands) every 10 minutes, the
+// long tail out to 48h once an hour.
+Schedule::command('payments:reconcile --hours=2')
+    ->everyTenMinutes()
+    ->withoutOverlapping(10)
+    ->onFailure(function (): void {
+        Log::error('Scheduled task failed: payments:reconcile');
+    });
+Schedule::command('payments:reconcile --minutes=120 --hours=48')
+    ->hourlyAt(25)
+    ->withoutOverlapping(30)
+    ->onFailure(function (): void {
+        Log::error('Scheduled task failed: payments:reconcile (long tail)');
+    });
+
 // …then delete them once they are safely past any late capture. clean-stale
 // above only flips the status, which left the admin lists full of ghost rows
 // for money never taken. 7 days is a deliberate floor, not a guess: Razorpay
